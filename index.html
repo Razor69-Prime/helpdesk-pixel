@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Helpdesk Teknisi — Pixel Solusindo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── reset & base ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F6F3;
+  --surface:#FFFFFF;
+  --surface2:#F0EEE9;
+  --border:#E2DED6;
+  --text:#1A1916;
+  --muted:#7A7670;
+  --accent:#E07B39;
+  --accent-light:#FDF0E7;
+  --green:#3B6D11;
+  --green-bg:#EAF3DE;
+  --amber:#854F0B;
+  --amber-bg:#FAEEDA;
+  --blue:#185FA5;
+  --blue-bg:#E6F1FB;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 3px rgba(0,0,0,.07);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── layout ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-size:15px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.conn-status{font-size:12px;display:flex;align-items:center;gap:6px;color:var(--muted)}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:#ccc;transition:background .3s}
+.conn-dot.ok{background:#639922}
+.conn-dot.err{background:#E24B4A}
+.main{max-width:840px;margin:0 auto;padding:24px 16px}
+
+/* ── nav tabs ── */
+.nav{display:flex;gap:2px;margin-bottom:20px;background:var(--surface2);padding:4px;border-radius:var(--radius);border:1px solid var(--border)}
+.nav-btn{flex:1;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--muted);border-radius:var(--radius-sm);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.nav-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.nav-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── form ── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{margin-bottom:14px}
+.form-group:last-child{margin-bottom:0}
+label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px;letter-spacing:.02em;text-transform:uppercase}
+input,select,textarea{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;transition:border .15s;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+select{cursor:pointer}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--text);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--surface2);border-color:var(--text)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{opacity:.88}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.green{background:var(--green-bg);color:var(--green);border-color:#C0DD97}
+.btn.green:hover{background:#C0DD97}
+.btn.danger{color:#A32D2D;border-color:#F09595}
+.btn.danger:hover{background:#FCEBEB}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── badges ── */
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:99px;letter-spacing:.02em}
+.badge.done{background:var(--green-bg);color:var(--green)}
+.badge.pending{background:var(--amber-bg);color:var(--amber)}
+.badge.progress{background:var(--blue-bg);color:var(--blue)}
+
+/* ── stars ── */
+.stars{display:flex;gap:3px}
+.star{font-size:22px;cursor:pointer;color:#D3D1C7;transition:color .1s;line-height:1;user-select:none}
+.star.active{color:#BA7517}
+
+/* ── alert ── */
+.alert{border-radius:var(--radius-sm);padding:11px 14px;font-size:13px;margin-bottom:14px;display:none;align-items:center;gap:8px}
+.alert.show{display:flex}
+.alert.success{background:var(--green-bg);color:var(--green);border:1px solid #C0DD97}
+.alert.error{background:#FCEBEB;color:#A32D2D;border:1px solid #F09595}
+.alert svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* ── ticket list ── */
+.ticket-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;transition:box-shadow .15s}
+.ticket-item:hover{box-shadow:var(--shadow)}
+.ticket-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ticket-id{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);font-weight:500}
+.ticket-tech{font-size:14px;font-weight:600;margin-bottom:4px}
+.ticket-meta{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.ticket-desc{font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5}
+
+/* ── metrics ── */
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.metric{background:var(--surface2);border-radius:var(--radius);padding:16px}
+.metric-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.metric-value{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.metric-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── kpi bars ── */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.kpi-card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px}
+.tech-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.tech-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--accent);flex-shrink:0}
+.tech-name{font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-bg{flex:1;height:5px;background:var(--surface2);border-radius:99px;overflow:hidden;min-width:40px}
+.bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .4s}
+.tech-score{font-size:12px;font-weight:600;color:var(--muted);min-width:34px;text-align:right}
+
+/* ── filters ── */
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-row input,.filter-row select{flex:1;min-width:120px}
+.period-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.period-label{font-size:12px;color:var(--muted);font-weight:500}
+.period-btn{padding:5px 12px;border:1px solid var(--border);border-radius:99px;background:var(--surface);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--muted);transition:all .15s}
+.period-btn.active{background:var(--text);color:#fff;border-color:var(--text)}
+.export-row{display:flex;justify-content:flex-end;margin-bottom:12px}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:.4}
+
+/* ── loading skeleton ── */
+.skeleton{background:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);background-size:200% 100%;animation:skel 1.2s ease infinite;border-radius:var(--radius-sm);height:14px;margin-bottom:8px}
+@keyframes skel{0%{background-position:200%}100%{background-position:-200%}}
+
+/* ── config warning ── */
+.config-banner{background:#FAEEDA;border:1px solid #FAC775;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;font-size:13px;color:#854F0B;line-height:1.6}
+.config-banner code{font-family:'DM Mono',monospace;background:#FAC775;padding:1px 5px;border-radius:3px;font-size:12px}
+
+@media(max-width:600px){
+  .form-row{grid-template-columns:1fr}
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .kpi-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Helpdesk Teknisi
+  </div>
+  <div class="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-label">Menghubungkan...</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Config warning (hilang otomatis jika credentials diisi) -->
+  <div class="config-banner" id="config-banner">
+    ⚠️ Belum dikonfigurasi. Buka file <code>index.html</code>, cari bagian <code>SUPABASE_URL</code> dan <code>SUPABASE_KEY</code> di bawah, lalu isi dengan credentials dari dashboard Supabase Anda.
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="switchTab('report',this)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Input Laporan
+    </button>
+    <button class="nav-btn" onclick="switchTab('tickets',this)">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Daftar Tiket
+    </button>
+    <button class="nav-btn" onclick="switchTab('kpi',this)">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      KPI Teknisi
+    </button>
+  </div>
+
+  <!-- ── TAB: INPUT LAPORAN ── -->
+  <div id="tab-report" class="tab-content">
+    <div id="alert-success" class="alert success">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      Laporan berhasil disimpan!
+    </div>
+    <div id="alert-error" class="alert error">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="alert-error-msg">Gagal menyimpan. Cek koneksi Supabase.</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Form Laporan Pekerjaan
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nomor Tiket (dari POS)</label>
+          <input type="text" id="f-pos" placeholder="mis. POS-2024-00123" />
+        </div>
+        <div class="form-group">
+          <label>Nama Teknisi</label>
+          <select id="f-tech">
+            <option value="">Pilih teknisi...</option>
+            <option>Andi Pratama</option>
+            <option>Budi Santoso</option>
+            <option>Citra Dewi</option>
+            <option>Doni Kurniawan</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Tanggal & Waktu Pekerjaan</label>
+        <input type="datetime-local" id="f-time" />
+      </div>
+
+      <div class="form-group">
+        <label>Status Pekerjaan</label>
+        <select id="f-status">
+          <option value="done">Selesai</option>
+          <option value="progress">Dalam Proses</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Deskripsi Pekerjaan</label>
+        <textarea id="f-desc" placeholder="Jelaskan pekerjaan yang dilakukan..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Rating Kepuasan Pelanggan</label>
+        <div class="stars" id="stars">
+          <span class="star" onclick="setRating(1)">★</span>
+          <span class="star" onclick="setRating(2)">★</span>
+          <span class="star" onclick="setRating(3)">★</span>
+          <span class="star" onclick="setRating(4)">★</span>
+          <span class="star" onclick="setRating(5)">★</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Link Foto Dokumentasi</label>
+        <input type="url" id="f-photo" placeholder="https://drive.google.com/..." />
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">Upload foto ke Google Drive / Dropbox, lalu paste link-nya di sini.</p>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
+        <button class="btn" onclick="clearForm()">Bersihkan</button>
+        <button class="btn primary" id="btn-save" onclick="saveReport()">
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Simpan Laporan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: DAFTAR TIKET ── -->
+  <div id="tab-tickets" class="tab-content" style="display:none">
+    <div class="filter-row">
+      <input type="text" id="t-search" placeholder="Cari nomor tiket atau teknisi..." oninput="renderTickets()" />
+      <select id="t-status" onchange="renderTickets()" style="flex:0;min-width:150px;">
+        <option value="">Semua status</option>
+        <option value="done">Selesai</option>
+        <option value="progress">Dalam Proses</option>
+        <option value="pending">Pending</option>
+      </select>
+    </div>
+    <div class="period-row">
+      <span class="period-label">Periode:</span>
+      <button class="period-btn active" onclick="setPeriod('t','all',this)">Semua</button>
+      <button class="period-btn" onclick="setPeriod('t','today',this)">Hari ini</button>
+      <button class="period-btn" onclick="setPeriod('t','week',this)">7 hari</button>
+      <button class="period-btn" onclick="setPeriod('t','month',this)">Bulan ini</button>
+      <input type="date" id="t-from" onchange="renderTickets()" style="flex:0;width:130px;font-size:12px;" />
+      <span style="font-size:12px;color:var(--muted);">s/d</span>
+      <input type="date" id="t-to" onchange="renderTickets()" style="flex:0;width:130px;font-size:12px;" />
+    </div>
+    <div class="export-row">
+      <button class="btn green" onclick="exportExcel('tickets')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Export Excel
+      </button>
+    </div>
+    <div id="ticket-list"></div>
+  </div>
+
+  <!-- ── TAB: KPI ── -->
+  <div id="tab-kpi" class="tab-content" style="display:none">
+    <div class="period-row">
+      <span class="period-label">Periode:</span>
+      <button class="period-btn active" onclick="setPeriod('k','all',this)">Semua</button>
+      <button class="period-btn" onclick="setPeriod('k','today',this)">Hari ini</button>
+      <button class="period-btn" onclick="setPeriod('k','week',this)">7 hari</button>
+      <button class="period-btn" onclick="setPeriod('k','month',this)">Bulan ini</button>
+      <input type="date" id="k-from" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px;" />
+      <span style="font-size:12px;color:var(--muted);">s/d</span>
+      <input type="date" id="k-to" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px;" />
+    </div>
+    <div class="export-row">
+      <button class="btn green" onclick="exportExcel('kpi')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Export KPI Excel
+      </button>
+    </div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Total Tiket</div><div class="metric-value" id="k-total">—</div><div class="metric-sub">periode dipilih</div></div>
+      <div class="metric"><div class="metric-label">Selesai</div><div class="metric-value" id="k-done">—</div><div class="metric-sub" id="k-pct">—</div></div>
+      <div class="metric"><div class="metric-label">Avg Rating</div><div class="metric-value" id="k-rating">—</div><div class="metric-sub">kepuasan pelanggan</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-card-title">Tiket selesai per teknisi</div>
+        <div id="k-by-tech"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-title">Rating per teknisi</div>
+        <div id="k-by-rating"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- xlsx library -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+/* ══════════════════════════════════════════
+   ⚙️  KONFIGURASI SUPABASE
+   Isi dua baris di bawah ini dengan data
+   dari dashboard Supabase Anda:
+   Settings → API → Project URL & anon key
+   ══════════════════════════════════════════ */
+const SUPABASE_URL = "GANTI_DENGAN_PROJECT_URL";
+const SUPABASE_KEY = "GANTI_DENGAN_ANON_KEY";
+/* ══════════════════════════════════════════ */
+
+const TABLE = "tickets";
+const IS_CONFIGURED = !SUPABASE_URL.includes("GANTI") && !SUPABASE_KEY.includes("GANTI");
+
+let allTickets = [];
+let currentRating = 0;
+let periodState = { t: 'all', k: 'all' };
+
+/* ── init ── */
+window.addEventListener('DOMContentLoaded', () => {
+  if (!IS_CONFIGURED) {
+    setConn(false, 'Belum dikonfigurasi');
+    return;
+  }
+  document.getElementById('config-banner').style.display = 'none';
+  loadTickets();
+});
+
+/* ── connection indicator ── */
+function setConn(ok, label) {
+  document.getElementById('conn-dot').className = 'conn-dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('conn-label').textContent = label;
+}
+
+/* ── supabase helpers ── */
+const headers = () => ({
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+});
+
+async function sbGet(params = '') {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?order=worked_at.desc${params}`, { headers: headers() });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbInsert(data) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbDelete(id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
+    method: 'DELETE', headers: headers()
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+/* ── load all tickets ── */
+async function loadTickets() {
+  try {
+    allTickets = await sbGet();
+    setConn(true, 'Terhubung');
+    renderTickets();
+    renderKPI();
+  } catch(e) {
+    setConn(false, 'Gagal terhubung');
+    console.error(e);
+  }
+}
+
+/* ── tabs ── */
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).style.display = 'block';
+  btn.classList.add('active');
+  if (tab === 'tickets') renderTickets();
+  if (tab === 'kpi') renderKPI();
+}
+
+/* ── rating ── */
+function setRating(val) {
+  currentRating = val;
+  document.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('active', i < val));
+}
+
+/* ── save report ── */
+async function saveReport() {
+  if (!IS_CONFIGURED) { showAlert('error', 'Isi dulu SUPABASE_URL dan SUPABASE_KEY di file index.html.'); return; }
+  const pos = document.getElementById('f-pos').value.trim();
+  const tech = document.getElementById('f-tech').value;
+  const time = document.getElementById('f-time').value;
+  if (!pos || !tech || !time) { showAlert('error', 'Nomor tiket, teknisi, dan waktu wajib diisi.'); return; }
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try {
+    const row = {
+      pos_number:  pos,
+      technician:  tech,
+      status:      document.getElementById('f-status').value,
+      worked_at:   new Date(time).toISOString(),
+      description: document.getElementById('f-desc').value.trim(),
+      rating:      currentRating,
+      photo_link:  document.getElementById('f-photo').value.trim() || null
+    };
+    const [saved] = await sbInsert(row);
+    allTickets.unshift(saved);
+    showAlert('success', null);
+    clearForm();
+    renderTickets();
+    renderKPI();
+  } catch(e) {
+    showAlert('error', 'Gagal menyimpan: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Simpan Laporan`;
+  }
+}
+
+/* ── delete ── */
+async function deleteTicket(id) {
+  if (!confirm('Hapus tiket ini?')) return;
+  try {
+    await sbDelete(id);
+    allTickets = allTickets.filter(t => t.id !== id);
+    renderTickets();
+    renderKPI();
+  } catch(e) {
+    alert('Gagal hapus: ' + e.message);
+  }
+}
+
+/* ── clear form ── */
+function clearForm() {
+  ['f-pos','f-time','f-desc','f-photo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-tech').value = '';
+  document.getElementById('f-status').value = 'done';
+  currentRating = 0;
+  document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
+}
+
+/* ── alerts ── */
+function showAlert(type, msg) {
+  document.querySelectorAll('.alert').forEach(a => a.classList.remove('show'));
+  const el = document.getElementById('alert-' + type);
+  if (msg) document.getElementById('alert-error-msg').textContent = msg;
+  el.classList.add('show');
+  if (type === 'success') setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ── period filter ── */
+function setPeriod(ctx, val, btn) {
+  periodState[ctx] = val;
+  const prefix = ctx + '-';
+  document.querySelectorAll(`[onclick*="'${ctx},'"]`).forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`.period-btn`).forEach(b => { if(b.onclick?.toString().includes(`'${ctx},'`)) b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById(prefix + 'from').value = '';
+  document.getElementById(prefix + 'to').value = '';
+  if (ctx === 't') renderTickets();
+  else renderKPI();
+}
+
+function getRange(ctx) {
+  const from = document.getElementById(ctx + '-from').value;
+  const to   = document.getElementById(ctx + '-to').value;
+  if (from || to) return { from: from ? new Date(from) : null, to: to ? new Date(to + 'T23:59:59') : null };
+  const now = new Date(), p = periodState[ctx];
+  if (p === 'today') { const s = new Date(now); s.setHours(0,0,0,0); return { from: s, to: now }; }
+  if (p === 'week')  return { from: new Date(now - 7*86400000), to: now };
+  if (p === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now };
+  return { from: null, to: null };
+}
+
+function applyRange(list, ctx) {
+  const { from, to } = getRange(ctx);
+  if (!from && !to) return list;
+  return list.filter(t => {
+    const d = new Date(t.worked_at || t.created_at);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+}
+
+/* ── render tickets ── */
+function renderTickets() {
+  const search = document.getElementById('t-search').value.toLowerCase();
+  const status = document.getElementById('t-status').value;
+  let data = applyRange(allTickets, 't').filter(t =>
+    (!search || t.pos_number?.toLowerCase().includes(search) || t.technician?.toLowerCase().includes(search)) &&
+    (!status  || t.status === status)
+  );
+
+  const el = document.getElementById('ticket-list');
+  if (!data.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Belum ada tiket pada periode ini</div>`;
+    return;
+  }
+
+  const smap = { done:['Selesai','done'], progress:['Dalam Proses','progress'], pending:['Pending','pending'] };
+  el.innerHTML = data.map(t => {
+    const [label, cls] = smap[t.status] || ['?','pending'];
+    const stars = t.rating ? '★'.repeat(t.rating) + '☆'.repeat(5-t.rating) : null;
+    const dt = t.worked_at ? new Date(t.worked_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+    return `<div class="ticket-item">
+      <div class="ticket-header">
+        <span class="ticket-id">${t.pos_number}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${cls}">${label}</span>
+          <button class="btn danger" style="padding:4px 10px;font-size:11px;" onclick="deleteTicket('${t.id}')">Hapus</button>
+        </div>
+      </div>
+      <div class="ticket-tech">${t.technician}</div>
+      <div class="ticket-meta">
+        <span>🕐 ${dt}</span>
+        ${stars ? `<span>⭐ ${stars}</span>` : ''}
+        ${t.photo_link ? `<a href="${t.photo_link}" target="_blank">📷 Lihat foto</a>` : ''}
+      </div>
+      ${t.description ? `<div class="ticket-desc">${t.description}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── render kpi ── */
+function renderKPI() {
+  const data = applyRange(allTickets, 'k');
+  const done = data.filter(t => t.status === 'done');
+  document.getElementById('k-total').textContent = data.length;
+  document.getElementById('k-done').textContent  = done.length;
+  document.getElementById('k-pct').textContent   = data.length ? Math.round(done.length/data.length*100)+'% dari total' : '0%';
+
+  const ratings = data.map(t=>t.rating).filter(r=>r>0);
+  document.getElementById('k-rating').textContent = ratings.length
+    ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+' ★' : '—';
+
+  const techs = {};
+  data.forEach(t => {
+    if (!techs[t.technician]) techs[t.technician] = { done:0, total:0, ratings:[] };
+    techs[t.technician].total++;
+    if (t.status==='done') techs[t.technician].done++;
+    if (t.rating>0) techs[t.technician].ratings.push(t.rating);
+  });
+
+  const names = Object.keys(techs);
+  const maxDone = Math.max(1, ...names.map(n=>techs[n].done));
+  const av = n => `<div class="tech-avatar">${n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>`;
+
+  document.getElementById('k-by-tech').innerHTML = names.length
+    ? names.sort((a,b)=>techs[b].done-techs[a].done).map(n =>
+        `<div class="tech-row">${av(n)}<span class="tech-name">${n}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(techs[n].done/maxDone*100)}%"></div></div>
+        <span class="tech-score">${techs[n].done}</span></div>`).join('')
+    : '<p style="font-size:12px;color:var(--muted)">Belum ada data</p>';
+
+  const rated = names.filter(n=>techs[n].ratings.length);
+  document.getElementById('k-by-rating').innerHTML = rated.length
+    ? rated.sort((a,b)=>{
+        const ra=techs[a].ratings.reduce((x,y)=>x+y,0)/techs[a].ratings.length;
+        const rb=techs[b].ratings.reduce((x,y)=>x+y,0)/techs[b].ratings.length;
+        return rb-ra;
+      }).map(n=>{
+        const avg=techs[n].ratings.reduce((x,y)=>x+y,0)/techs[n].ratings.length;
+        return `<div class="tech-row">${av(n)}<span class="tech-name">${n}</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(avg/5*100)}%;background:#BA7517"></div></div>
+        <span class="tech-score">${avg.toFixed(1)}★</span></div>`;
+      }).join('')
+    : '<p style="font-size:12px;color:var(--muted)">Belum ada rating</p>';
+}
+
+/* ── export excel ── */
+function exportExcel(mode) {
+  const wb = XLSX.utils.book_new();
+  const slabel = { done:'Selesai', progress:'Dalam Proses', pending:'Pending' };
+
+  if (mode === 'tickets') {
+    const data = applyRange(allTickets, 't');
+    const rows = data.map(t => ({
+      'Nomor Tiket (POS)': t.pos_number,
+      'Teknisi': t.technician,
+      'Status': slabel[t.status]||t.status,
+      'Tanggal & Waktu': t.worked_at ? new Date(t.worked_at).toLocaleString('id-ID') : '-',
+      'Rating': t.rating||'-',
+      'Deskripsi': t.description||'',
+      'Link Foto': t.photo_link||''
+    }));
+    if (!rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [16,18,14,22,8,30,30].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan Tiket');
+    XLSX.writeFile(wb, 'laporan_helpdesk_'+today()+'.xlsx');
+  }
+
+  if (mode === 'kpi') {
+    const data = applyRange(allTickets, 'k');
+    const techs = {};
+    data.forEach(t => {
+      if (!techs[t.technician]) techs[t.technician] = { done:0, total:0, ratings:[] };
+      techs[t.technician].total++;
+      if (t.status==='done') techs[t.technician].done++;
+      if (t.rating>0) techs[t.technician].ratings.push(t.rating);
+    });
+    const rows = Object.entries(techs).map(([name,v])=>({
+      'Teknisi': name,
+      'Total Tiket': v.total,
+      'Tiket Selesai': v.done,
+      '% Selesai': Math.round(v.done/v.total*100)+'%',
+      'Avg Rating': v.ratings.length ? parseFloat((v.ratings.reduce((a,b)=>a+b,0)/v.ratings.length).toFixed(2)) : '-'
+    }));
+    if (!rows.length) { alert('Tidak ada data untuk diekspor.'); return; }
+    const ws1 = XLSX.utils.json_to_sheet(rows);
+    ws1['!cols'] = [20,12,14,12,12].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws1, 'KPI Teknisi');
+    const ws2 = XLSX.utils.json_to_sheet(data.map(t=>({
+      'Nomor Tiket': t.pos_number, 'Teknisi': t.technician,
+      'Status': slabel[t.status]||t.status,
+      'Tanggal': t.worked_at ? new Date(t.worked_at).toLocaleString('id-ID') : '-',
+      'Rating': t.rating||'-', 'Deskripsi': t.description||''
+    })));
+    XLSX.utils.book_append_sheet(wb, ws2, 'Detail');
+    XLSX.writeFile(wb, 'kpi_teknisi_'+today()+'.xlsx');
+  }
+}
+
+function today() { return new Date().toISOString().slice(0,10).replace(/-/g,''); }
+</script>
+</body>
+</html>

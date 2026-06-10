@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#E07B39"/>
+<title>Tracking Tiket — Pixel Solusindo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#F7F6F3;--surface:#FFF;--surface2:#F0EEE9;--border:#E2DED6;--text:#1A1916;--muted:#7A7670;--accent:#E07B39;--green:#3B6D11;--green-bg:#EAF3DE;--amber:#854F0B;--amber-bg:#FAEEDA;--blue:#185FA5;--blue-bg:#E6F1FB;--red:#A32D2D;--radius:10px;--radius-sm:6px;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.track-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px 10px}
+.main{max-width:580px;margin:0 auto;padding:24px 16px}
+.status-hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;margin-bottom:14px}
+.status-icon{font-size:52px;margin-bottom:12px;line-height:1}
+.status-label{font-size:22px;font-weight:600;margin-bottom:4px}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:4px 14px;border-radius:99px;margin-bottom:12px}
+.badge.done{background:var(--green-bg);color:var(--green)}
+.badge.pending{background:var(--amber-bg);color:var(--amber)}
+.badge.progress{background:var(--blue-bg);color:var(--blue)}
+.wo-number{font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.expiry-pill{display:inline-block;font-size:11px;background:var(--amber-bg);color:var(--amber);border-radius:99px;padding:3px 10px;margin-top:8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.info-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;gap:12px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:var(--muted);white-space:nowrap}
+.info-value{font-weight:500;text-align:right;word-break:break-word;max-width:65%}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:11px;top:24px;bottom:-4px;width:1px;background:var(--border)}
+.tl-dot{width:23px;height:23px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px;z-index:1}
+.tl-dot.done{border-color:#639922;background:var(--green-bg)}
+.tl-dot.progress{border-color:#378ADD;background:var(--blue-bg)}
+.tl-dot.pending{border-color:#EF9F27;background:var(--amber-bg)}
+.tl-body{padding-bottom:14px;flex:1}
+.tl-status{font-size:13px;font-weight:600}
+.tl-meta{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
+.invoice-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;text-decoration:none;color:var(--text);transition:background .15s}
+.invoice-item:hover{background:var(--border)}
+.inv-icon{font-size:28px;flex-shrink:0}
+.inv-body{flex:1;min-width:0}
+.inv-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--blue)}
+.inv-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.map-wrap{border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);margin-top:10px}
+.no-map{background:var(--surface2);height:120px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);border-radius:var(--radius-sm)}
+.loading{text-align:center;padding:60px 20px;color:var(--muted)}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.special-state{text-align:center;padding:60px 20px}
+.special-state h2{font-size:18px;margin-bottom:8px}
+.special-state p{font-size:13px;color:var(--muted);line-height:1.6}
+.refresh-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--muted);transition:all .15s;margin-bottom:12px}
+.refresh-btn:hover{background:var(--surface2)}
+.footer{text-align:center;font-size:12px;color:var(--muted);margin-top:20px;padding-bottom:32px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>Pixel Solusindo</div>
+  <span class="track-label">Tracking Tiket</span>
+</div>
+<div class="main">
+  <div id="loading" class="loading"><div class="spinner"></div>Memuat status tiket...</div>
+  <div id="content" style="display:none"></div>
+  <div id="expired" class="special-state" style="display:none">
+    <div style="font-size:52px;margin-bottom:16px">⏰</div>
+    <h2>Link Kedaluwarsa</h2>
+    <p>Link tracking ini sudah tidak aktif.<br>Masa aktif adalah <strong>14 hari</strong> sejak tiket dibuat.<br><br>Hubungi kami untuk informasi lebih lanjut.</p>
+    <div style="margin-top:20px"><a href="https://wa.me/6287734772999" style="display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:500;text-decoration:none">📲 Hubungi Kami</a></div>
+  </div>
+  <div id="error" class="special-state" style="display:none">
+    <div style="font-size:52px;margin-bottom:16px">🔍</div>
+    <h2>Tiket Tidak Ditemukan</h2>
+    <p>Link tracking tidak valid atau tiket sudah dihapus.</p>
+  </div>
+</div>
+<script>
+const token=location.pathname.split('/track/')[1];
+const STATUS={assigned:{label:'Assigned',icon:'👷',cls:'progress'},done:{label:'Selesai',icon:'✅',cls:'done'},travelling:{label:'Dalam Perjalanan',icon:'🚗',cls:'progress'},ongoing:{label:'Sedang Dikerjakan',icon:'🔧',cls:'done'},pending:{label:'Menunggu',icon:'⏳',cls:'pending'}};
+const fmt=iso=>iso?new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
+const fmtDate=iso=>iso?new Date(iso).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}):'-';
+const mapsLink=(lat,lng)=>`https://www.google.com/maps?q=${lat},${lng}`;
+function waLinkT(phone){
+  if(!phone) return '';
+  const clean=phone.replace(/[^0-9]/g,'').replace(/^0/,'62');
+  return ` <a href="https://wa.me/${clean}" target="_blank" style="color:#0F6E56;font-weight:600;font-size:12px;margin-left:4px">📲 WA</a>`;
+}
+function gpsLinkT(lat,lng){
+  return `<a href="${mapsLink(lat,lng)}" target="_blank" style="color:#185FA5;font-size:12px">📍 Lihat di Maps</a>`;
+}
+
+async function load(){
+  try{
+    const r=await fetch('/api/track/'+token);
+    if(r.status===410){document.getElementById('loading').style.display='none';document.getElementById('expired').style.display='block';return;}
+    if(!r.ok) throw new Error();
+    render(await r.json());
+  }catch(e){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';}
+}
+
+function render(t){
+  document.getElementById('loading').style.display='none';
+  const st=STATUS[t.status]||STATUS.pending;
+  const hasGPS=t.last_lat&&t.last_lng;
+  const expiry=new Date(t.expires_at);
+  const daysLeft=Math.max(0,Math.ceil((expiry-new Date())/864e5));
+
+  const histHTML=(t.status_history||[]).slice().reverse().map(h=>{
+    const s=STATUS[h.status]||STATUS.pending;
+    return`<div class="tl-item">
+      <div class="tl-dot ${s.cls}">${s.icon}</div>
+      <div class="tl-body">
+        <div class="tl-status">${s.label}</div>
+        <div class="tl-meta">${h.technician||''} &nbsp;·&nbsp; ${fmt(h.timestamp)}
+          ${h.lat&&h.lng?'<br>'+gpsLinkT(h.lat,h.lng):''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // job stages
+  const stageMap={berangkat:{icon:'🚗',label:'Teknisi Berangkat',cls:'progress'},tiba:{icon:'📍',label:'Teknisi Tiba di Lokasi',cls:'done'}};
+  const stagesHTML=(t.job_stages||[]).map(s=>{
+    const sm=stageMap[s.stage]||{icon:'🔹',label:s.stage,cls:'pending'};
+    return`<div class="tl-item">
+      <div class="tl-dot ${sm.cls}">${sm.icon}</div>
+      <div class="tl-body">
+        <div class="tl-status">${sm.label}</div>
+        <div class="tl-meta">${fmt(s.timestamp)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const invoices=t.invoices||[];
+  const invoiceHTML=invoices.length
+    ?invoices.map(inv=>{
+        const isPDF=inv.mime_type==='application/pdf'||inv.original_name?.endsWith('.pdf');
+        if(inv.file_deleted){
+          return`<div class="invoice-item" style="opacity:.5;cursor:default">
+            <div class="inv-icon">🗑️</div>
+            <div class="inv-body"><div class="inv-name">${inv.original_name}</div>
+            <div class="inv-meta" style="color:#A32D2D">File Sudah Melewati Batas 14 Hari, silahkan kontak Akunting untuk file yang Anda butuhkan</div></div>
+          </div>`;
+        }
+        return`<a class="invoice-item" href="${inv.file_url}" target="_blank">
+          <div class="inv-icon">${isPDF?'📑':'🖼️'}</div>
+          <div class="inv-body">
+            <div class="inv-name">${inv.original_name}</div>
+            <div class="inv-meta">${inv.note||'Invoice'} · ${fmt(inv.uploaded_at)}</div>
+          </div>
+          <div style="color:var(--muted);font-size:18px">›</div>
+        </a>`;
+      }).join('')
+    :'<div style="font-size:13px;color:var(--muted);padding:8px 0">Belum ada invoice tersedia.</div>';
+
+  const mapHTML=hasGPS
+    ?`<div class="map-wrap"><iframe width="100%" height="180" style="border:none" loading="lazy" src="https://maps.google.com/maps?q=${t.last_lat},${t.last_lng}&z=15&output=embed"></iframe></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Lokasi terakhir · ${fmt(t.last_gps_at)} &nbsp;·&nbsp; <a href="${mapsLink(t.last_lat,t.last_lng)}" target="_blank" style="color:var(--blue)">Buka Google Maps ›</a></p>`
+    :'<div class="no-map">📍 Lokasi belum tersedia</div>';
+
+  document.getElementById('content').innerHTML=`
+    <div class="status-hero">
+      <div class="status-icon">${st.icon}</div>
+      <span class="badge ${st.cls}">${st.label}</span>
+      <div class="status-label">Pekerjaan ${st.label}</div>
+      ${t.project_name?`<div style="font-size:13px;color:var(--muted);margin-top:6px">📁 ${t.project_name}</div>`:''}
+      <div class="wo-number">Nomor WO: ${t.wo_number}</div>
+      <div class="expiry-pill">⏳ Link aktif ${daysLeft} hari lagi · s/d ${fmtDate(t.expires_at)}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Informasi Pekerjaan</div>
+      ${t.customer_name?`<div class="info-row"><span class="info-label">Customer</span><span class="info-value">${t.customer_name}${t.customer_phone?waLinkT(t.customer_phone):''}</span></div>`:''}
+      ${t.project_name?`<div class="info-row"><span class="info-label">Project</span><span class="info-value">${t.project_name}</span></div>`:''}
+      <div class="info-row"><span class="info-label">Tim Teknisi</span><span class="info-value">${
+        Array.isArray(t.technicians)&&t.technicians.length>1
+          ? t.technicians.join(' & ')
+          : t.technician||'-'
+      }</span></div>
+      <div class="info-row"><span class="info-label">Waktu Pekerjaan</span><span class="info-value">${fmt(t.worked_at)}</span></div>
+      ${t.description?`<div class="info-row"><span class="info-label">Keterangan</span><span class="info-value">${t.description}</span></div>`:''}
+    </div>
+    <div class="card"><div class="card-title">📍 Lokasi Terakhir Teknisi</div>${mapHTML}</div>
+    <div class="card"><div class="card-title">📄 Invoice & Dokumen</div>${invoiceHTML}</div>
+    <div class="card"><div class="card-title">🕐 Riwayat Status</div><div>${histHTML||'<p style="font-size:13px;color:var(--muted)">Belum ada riwayat.</p>'}</div></div>
+    ${stagesHTML?`<div class="card"><div class="card-title">🗺️ Pergerakan Teknisi</div><div>${stagesHTML}</div></div>`:''}
+    <button class="refresh-btn" onclick="location.reload()">🔄 Perbarui status</button>
+    <div class="footer">Layanan oleh <strong style="color:var(--accent)">Pixel Solusindo</strong><br>
+      <a href="https://wa.me/6287734772999" style="color:var(--accent)">📲 0877-3477-2999</a>
+    </div>`;
+  document.getElementById('content').style.display='block';
+}
+load();
+setInterval(load,30000);
+</script>
+</body>
+</html>
