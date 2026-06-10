@@ -291,6 +291,40 @@ async function deleteSalesVisit(id) {
   writeVisits(visits);
 }
 
+
+// ─────────────────────────────────────────
+//  USERS (Supabase only)
+// ─────────────────────────────────────────
+async function getUsers() {
+  if (!USE_SUPABASE) return [];
+  const rows = await sbFetch('GET', '/users?order=created_at.asc');
+  return (rows || []).map(({ password: _, ...u }) => u);
+}
+
+async function getUsersWithPassword() {
+  if (!USE_SUPABASE) return [];
+  return await sbFetch('GET', '/users?order=created_at.asc') || [];
+}
+
+async function insertUser(data) {
+  if (!USE_SUPABASE) return null;
+  const rows = await sbFetch('POST', '/users', { ...data, id: require('crypto').randomUUID(), created_at: new Date().toISOString() });
+  const { password: _, ...safe } = rows?.[0] || {};
+  return safe;
+}
+
+async function updateUser(id, patch) {
+  if (!USE_SUPABASE) return null;
+  const rows = await sbFetch('PATCH', `/users?id=eq.${id}`, patch);
+  const { password: _, ...safe } = rows?.[0] || {};
+  return safe;
+}
+
+async function deleteUser(id) {
+  if (!USE_SUPABASE) return;
+  await sbFetch('DELETE', `/users?id=eq.${id}`);
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -299,5 +333,6 @@ module.exports = {
   getInvoicesByTicket, insertInvoice, deleteInvoice,
   getJobStages, insertJobStage,
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
-  computePipelineDates
+  computePipelineDates,
+  getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser
 };

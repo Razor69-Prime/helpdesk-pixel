@@ -101,3 +101,36 @@ do $$ begin
     execute 'create policy "anon_all_job_stages" on job_stages for all using (true) with check (true)';
   end if;
 end $$;
+
+-- ── Tabel users ──
+create table if not exists users (
+  id           text primary key default gen_random_uuid()::text,
+  username     text unique not null,
+  password     text not null,
+  name         text not null,
+  role         text not null default 'technician',
+  custom_menus jsonb default '[]',
+  created_at   timestamptz default now()
+);
+
+alter table users enable row level security;
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where tablename='users' and policyname='anon_all_users'
+  ) then
+    execute 'create policy "anon_all_users" on users for all using (true) with check (true)';
+  end if;
+end $$;
+
+-- Seed default users (jalankan sekali saja)
+insert into users (id, username, password, name, role, custom_menus) values
+  ('u1', 'andi',       'andi123',         'Andi Pratama',   'technician', '[]'),
+  ('u2', 'budi',       'budi123',         'Budi Santoso',   'technician', '[]'),
+  ('u3', 'citra',      'citra123',        'Citra Dewi',     'technician', '[]'),
+  ('u4', 'doni',       'doni123',         'Doni Kurniawan', 'technician', '[]'),
+  ('u5', 'admin',      'admin888',        'Admin',          'admin',      '[]'),
+  ('u6', 'akunting',   'akun2024',        'Akunting',       'accounting', '[]'),
+  ('u7', 'sales1',     'sales123',        'Budi Sales',     'sales',      '[]'),
+  ('u8', 'manager',    'mgr2024',         'Manager',        'manager',    '[]'),
+  ('u-super', 'superadmin', 'super@pixel2026', 'Super Admin', 'superadmin', '[]')
+on conflict (username) do nothing;

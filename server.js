@@ -13,21 +13,29 @@ const UPLOADS_DIR  = path.join(__dirname, 'data', 'uploads');
 const USERS_FILE   = path.join(__dirname, 'data', 'users.json');
 const TICKETS_FILE = path.join(__dirname, 'data', 'tickets.json');
 
-// ensure dirs & files
-[path.join(__dirname,'data'), UPLOADS_DIR].forEach(d => {
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-});
-if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, '[]');
-if (!fs.existsSync(USERS_FILE)) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify([
-    { id:'u1', username:'admin',    password:'admin888', name:'Admin',    role:'admin'      },
-    { id:'u2', username:'akunting', password:'akun2024', name:'Akunting', role:'accounting' }
-  ], null, 2));
+// ensure dirs & files — hanya di mode lokal
+if (!db.USE_SUPABASE) {
+  [path.join(__dirname,'data'), UPLOADS_DIR].forEach(d => {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  });
+  if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, '[]');
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([
+      { id:'u1', username:'admin',    password:'admin888', name:'Admin',    role:'admin'      },
+      { id:'u2', username:'akunting', password:'akun2024', name:'Akunting', role:'accounting' }
+    ], null, 2));
+  }
 }
 
 // ── User helpers ──
-function readUsers()      { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
-function writeUsers(data) { fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2)); }
+function readUsers() {
+  if (db.USE_SUPABASE) return []; // Supabase: gunakan async getUsers()
+  return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+}
+function writeUsers(data) {
+  if (db.USE_SUPABASE) return; // Supabase: gunakan async updateUser()
+  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+}
 
 // ── Multer ──
 const storage = multer.diskStorage({
@@ -75,106 +83,135 @@ function isExpired(t)   { return new Date() > trackExpiry(t); }
 // ══════════════════════════════════════════
 //  AUTH
 // ══════════════════════════════════════════
-app.post('/api/login', (req, res) => {
-  const users = readUsers();
-  const u = users.find(u => u.username === req.body.username && u.password === req.body.password);
-  if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
-  req.session.user = {
-    id:           u.id,
-    username:     u.username,
-    name:         u.name,
-    role:         u.role,
-    custom_menus: Array.isArray(u.custom_menus) ? u.custom_menus : []
-  };
-  res.json({ ok: true, user: req.session.user });
+app.post('/api/login', async (req, res) => {
+  try {
+    let u;
+    if (db.USE_SUPABASE) {
+      const users = await db.getUsersWithPassword();
+      u = users.find(u => u.username === req.body.username && u.password === req.body.password);
+    } else {
+      const users = readUsers();
+      u = users.find(u => u.username === req.body.username && u.password === req.body.password);
+    }
+    if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
+    req.session.user = {
+      id:           u.id,
+      username:     u.username,
+      name:         u.name,
+      role:         u.role,
+      custom_menus: Array.isArray(u.custom_menus) ? u.custom_menus : []
+    };
+    res.json({ ok: true, user: req.session.user });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ ok: true }); });
 app.get('/api/me',     (req, res) => res.json({ user: req.session.user || null }));
 
 // ══════════════════════════════════════════
-//  USER MANAGEMENT (admin only)
+//  USER MANAGEMENT
 // ══════════════════════════════════════════
 
-// GET semua user (tanpa password)
-app.get('/api/users', requireRole('admin'), (req, res) => {
-  const users = readUsers().map(({ password: _, ...u }) => u);
-  res.json(users);
+app.get('/api/users', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    if (db.USE_SUPABASE) return res.json(await db.getUsers());
+    res.json(readUsers().map(({ password: _, ...u }) => u));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST tambah user baru
-app.post('/api/users', requireRole('admin'), (req, res) => {
-  const { username, password, name, role } = req.body;
-  if (!username || !password || !name || !role) {
-    return res.status(400).json({ error: 'Semua field wajib diisi.' });
-  }
-  const users = readUsers();
-  if (users.find(u => u.username === username)) {
-    return res.status(409).json({ error: 'Username sudah digunakan.' });
-  }
-  const newUser = { id: crypto.randomUUID(), username, password, name, role };
-  users.push(newUser);
-  writeUsers(users);
-  const { password: _, ...safe } = newUser;
-  res.status(201).json(safe);
+app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    const { username, password, name, role, custom_menus } = req.body;
+    if (!username || !password || !name || !role)
+      return res.status(400).json({ error: 'Semua field wajib diisi.' });
+    if (db.USE_SUPABASE) {
+      const existing = await db.getUsersWithPassword();
+      if (existing.find(u => u.username === username))
+        return res.status(409).json({ error: 'Username sudah digunakan.' });
+      const saved = await db.insertUser({ username, password, name, role, custom_menus: custom_menus||[] });
+      return res.status(201).json(saved);
+    }
+    const users = readUsers();
+    if (users.find(u => u.username === username))
+      return res.status(409).json({ error: 'Username sudah digunakan.' });
+    const newUser = { id: crypto.randomUUID(), username, password, name, role, custom_menus: custom_menus||[] };
+    users.push(newUser);
+    writeUsers(users);
+    const { password: _, ...safe } = newUser;
+    res.status(201).json(safe);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// PATCH edit user (nama, password, role)
-app.patch('/api/users/:id', requireRole('admin','superadmin'), (req, res) => {
-  const users = readUsers();
-  const idx   = users.findIndex(u => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'User tidak ditemukan.' });
+app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    const callerRole = req.session.user.role;
+    let targetUser;
+    if (db.USE_SUPABASE) {
+      const all = await db.getUsersWithPassword();
+      targetUser = all.find(u => u.id === req.params.id);
+    } else {
+      targetUser = readUsers().find(u => u.id === req.params.id);
+    }
+    if (!targetUser) return res.status(404).json({ error: 'User tidak ditemukan.' });
+    if (targetUser.role === 'superadmin' && callerRole !== 'superadmin')
+      return res.status(403).json({ error: 'Hanya Super Admin yang bisa mengubah akun Super Admin.' });
+    if (req.body.role === 'superadmin' && callerRole !== 'superadmin')
+      return res.status(403).json({ error: 'Hanya Super Admin yang bisa assign role Super Admin.' });
+    if (req.session.user.id === req.params.id && req.body.role && req.body.role !== callerRole)
+      return res.status(400).json({ error: 'Tidak bisa mengubah role akun Anda sendiri.' });
 
-  const targetUser = users[idx];
-  const callerRole = req.session.user.role;
+    const { name, password, role, custom_menus } = req.body;
+    const patch = {};
+    if (name)                       patch.name         = name;
+    if (password)                   patch.password     = password;
+    if (role)                       patch.role         = role;
+    if (custom_menus !== undefined) patch.custom_menus = custom_menus;
 
-  // Proteksi: hanya superadmin yang bisa edit akun superadmin
-  if (targetUser.role === 'superadmin' && callerRole !== 'superadmin') {
-    return res.status(403).json({ error: 'Hanya Super Admin yang bisa mengubah akun Super Admin.' });
-  }
-  // Proteksi: admin biasa tidak bisa assign role superadmin
-  if (req.body.role === 'superadmin' && callerRole !== 'superadmin') {
-    return res.status(403).json({ error: 'Hanya Super Admin yang bisa assign role Super Admin.' });
-  }
-  // Proteksi: admin tidak bisa ubah role akun sendiri
-  if (req.session.user.id === req.params.id && req.body.role && req.body.role !== callerRole) {
-    return res.status(400).json({ error: 'Tidak bisa mengubah role akun Anda sendiri.' });
-  }
-
-  const { name, password, role, custom_menus } = req.body;
-  if (name)         users[idx].name         = name;
-  if (password)     users[idx].password     = password;
-  if (role)         users[idx].role         = role;
-  // custom_menus: [] = use role default, [...] = override
-  if (custom_menus !== undefined) users[idx].custom_menus = custom_menus;
-  writeUsers(users);
-
-  const { password: _, ...safe } = users[idx];
-  res.json(safe);
+    if (db.USE_SUPABASE) {
+      const updated = await db.updateUser(req.params.id, patch);
+      return res.json(updated);
+    }
+    const users = readUsers();
+    const idx = users.findIndex(u => u.id === req.params.id);
+    Object.assign(users[idx], patch);
+    writeUsers(users);
+    const { password: _, ...safe } = users[idx];
+    res.json(safe);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE hapus user
-app.delete('/api/users/:id', requireRole('admin','superadmin'), (req, res) => {
-  if (req.session.user.id === req.params.id) {
-    return res.status(400).json({ error: 'Tidak bisa menghapus akun Anda sendiri.' });
-  }
-  const users = readUsers();
-  const target = users.find(u => u.id === req.params.id);
-  if (!target) return res.status(404).json({ error: 'User tidak ditemukan.' });
-  // Hanya superadmin yang bisa hapus akun superadmin lain
-  if (target.role === 'superadmin' && req.session.user.role !== 'superadmin') {
-    return res.status(403).json({ error: 'Hanya Super Admin yang bisa menghapus akun Super Admin.' });
-  }
-  writeUsers(users.filter(u => u.id !== req.params.id));
-  res.json({ ok: true });
+app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    if (req.session.user.id === req.params.id)
+      return res.status(400).json({ error: 'Tidak bisa menghapus akun Anda sendiri.' });
+    let target;
+    if (db.USE_SUPABASE) {
+      const all = await db.getUsersWithPassword();
+      target = all.find(u => u.id === req.params.id);
+    } else {
+      target = readUsers().find(u => u.id === req.params.id);
+    }
+    if (!target) return res.status(404).json({ error: 'User tidak ditemukan.' });
+    if (target.role === 'superadmin' && req.session.user.role !== 'superadmin')
+      return res.status(403).json({ error: 'Hanya Super Admin yang bisa menghapus akun Super Admin.' });
+    if (db.USE_SUPABASE) {
+      await db.deleteUser(req.params.id);
+    } else {
+      writeUsers(readUsers().filter(u => u.id !== req.params.id));
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── GET daftar Sales PIC (untuk dropdown di form invoice) ──
-app.get('/api/sales-pics', requireAuth, (req, res) => {
-  const sales = readUsers()
-    .filter(u => u.role === 'sales')
-    .map(({ password: _, ...u }) => u);
-  res.json(sales);
+// ── GET daftar Sales PIC ──
+app.get('/api/sales-pics', requireAuth, async (req, res) => {
+  try {
+    let users;
+    if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
+    else users = readUsers();
+    const sales = users.filter(u => u.role === 'sales').map(({ password: _, ...u }) => u);
+    res.json(sales);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── GET dashboard data (manager + admin) ──
