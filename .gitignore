@@ -19,3 +19,5 @@ Thumbs.db
 # Environment (jika pakai .env)
 .env
 .env.local
+
+.vercel
