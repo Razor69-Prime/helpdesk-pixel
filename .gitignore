@@ -1,24 +1,12 @@
-# Dependencies
 node_modules/
-
-# Local data (jangan push ke GitHub — pakai Supabase di production)
+.env
+.env.local
+.vercel
 data/tickets.json
 data/users.json
 data/sales_targets.json
 data/sales_visits.json
 data/uploads/
-
-# Logs
 *.log
-npm-debug.log*
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Environment (jika pakai .env)
-.env
-.env.local
-
-.vercel
-.env*

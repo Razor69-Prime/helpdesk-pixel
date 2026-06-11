@@ -52,29 +52,38 @@ const upload = multer({
   }
 });
 
-const cookieSession = require('cookie-session');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = cfg.SESSION_SECRET;
 
-// ── Session ──
-// cookie-session: stateless, bekerja di Vercel serverless
-// Data user disimpan di cookie terenkripsi, tidak perlu server memory
+// ── JWT Session Middleware ──
+// Token dikirim via Authorization header dari frontend (localStorage)
+// Bekerja sempurna di Vercel serverless tanpa cookie issue
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieSession({
-  name:     'pixel_session',
-  secret:   cfg.SESSION_SECRET,
-  maxAge:   8*60*60*1000,
-  secure:   db.USE_SUPABASE,
-  sameSite: db.USE_SUPABASE ? 'none' : 'lax',
-  httpOnly: true
-}));
 
-// Compatibility shim — cookie-session tidak punya destroy()
 app.use((req, res, next) => {
-  if (!req.session.destroy) {
-    req.session.destroy = (cb) => {
-      req.session = null;
-      if (cb) cb();
-    };
+  req.session = { user: null };
+  req.session.destroy = (cb) => {
+    req.session.user = null;
+    if (cb) cb();
+  };
+  req.session._setUser = (user) => {
+    req.session.user = user;
+  };
+
+  // Baca token dari Authorization header atau query param
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : req.headers['x-auth-token'] || '';
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.session.user = decoded.user;
+    } catch(e) {
+      // token invalid/expired — biarkan null
+    }
   }
   next();
 });
@@ -113,14 +122,17 @@ app.post('/api/login', async (req, res) => {
       u = users.find(u => u.username === req.body.username && u.password === req.body.password);
     }
     if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
-    req.session.user = {
+    const userData = {
       id:           u.id,
       username:     u.username,
       name:         u.name,
       role:         u.role,
       custom_menus: Array.isArray(u.custom_menus) ? u.custom_menus : []
     };
-    res.json({ ok: true, user: req.session.user });
+    req.session._setUser(userData);
+    // Buat JWT token untuk dikirim ke frontend
+    const token = jwt.sign({ user: userData }, JWT_SECRET, { expiresIn: '8h' });
+    res.json({ ok: true, user: userData, token });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

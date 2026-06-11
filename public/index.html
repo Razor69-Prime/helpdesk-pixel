@@ -768,9 +768,13 @@ function startGPS(){
 window.addEventListener('DOMContentLoaded', checkSession);
 async function checkSession(){
   try{
-    const{user}=await(await fetch('/api/me')).json();
+    const token=localStorage.getItem('pixel_token')||'';
+    if(!token) return;
+    const r=await fetch('/api/me',{headers:token?{'Authorization':'Bearer '+token}:{}});
+    const{user}=await r.json();
     if(user){currentUser=user;showApp();}
-  }catch(e){}
+    else{ localStorage.removeItem('pixel_token'); }
+  }catch(e){ localStorage.removeItem('pixel_token'); }
 }
 
 /* ══ LOGIN/LOGOUT ════════════════════════ */
@@ -787,12 +791,16 @@ async function doLogin(){
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
     const data=await r.json();
     if(!r.ok){errEl.textContent=data.error;errEl.classList.add('show');return;}
+    // Simpan JWT token ke localStorage
+    if(data.token) localStorage.setItem('pixel_token', data.token);
     currentUser=data.user; showApp();
   }catch(e){errEl.textContent='Server tidak merespons.';errEl.classList.add('show');}
   finally{btn.disabled=false;btn.textContent='Masuk';}
 }
 async function doLogout(){
-  await fetch('/api/logout',{method:'POST'});
+  localStorage.removeItem('pixel_token');
+  const token=localStorage.getItem('pixel_token')||'';
+  await fetch('/api/logout',{method:'POST',headers:token?{'Authorization':'Bearer '+token}:{}});
   currentUser=null; clearInterval(pollTimer);
   document.getElementById('app').classList.remove('show');
   document.getElementById('login-screen').style.display='flex';
@@ -884,7 +892,14 @@ function switchTab(tab,btn){
 /* ══ API ═════════════════════════════════ */
 function setConn(ok){document.getElementById('conn-dot').className='conn-dot '+(ok?'ok':'err');}
 async function api(method,path,body){
-  const opts={method,headers:{'Content-Type':'application/json'},credentials:'same-origin'};
+  const token=localStorage.getItem('pixel_token')||'';
+  const opts={
+    method,
+    headers:{
+      'Content-Type':'application/json',
+      ...(token?{'Authorization':'Bearer '+token}:{})
+    }
+  };
   if(body) opts.body=JSON.stringify(body);
   let r;
   try{ r=await fetch('/api'+path,opts); }
@@ -1373,7 +1388,8 @@ async function uploadInvoice(){
     if(rawAmount) fd.append('total_amount',rawAmount);
     const salesPic=document.getElementById('inv-sales-pic').value;
     if(salesPic) fd.append('sales_pic',salesPic);
-    const r=await fetch('/api/tickets/'+ticketId+'/invoice',{method:'POST',body:fd,credentials:'same-origin'});
+    const token=localStorage.getItem('pixel_token')||'';
+    const r=await fetch('/api/tickets/'+ticketId+'/invoice',{method:'POST',body:fd,headers:token?{'Authorization':'Bearer '+token}:{}});
     if(r.status===401){doLogout();return;}
     if(!r.ok) throw new Error((await r.json()).error||'Error');
     const inv=await r.json();
