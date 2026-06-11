@@ -9,7 +9,10 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://chgcictuycjeqdxfrnej.supabase.co',
   SUPABASE_KEY: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoZ2NpY3R1eWNqZXFkeGZybmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzA4MDIsImV4cCI6MjA5NjY0NjgwMn0.3vdiX3Eya1l1CON47m3htPKl7GsYF4PmQ9eyQgBHE-Q',
 
-  // Session secret (ganti dengan string random panjang)
+  // Database URL untuk session store (Supabase → Settings → Database → URI)
+  DATABASE_URL: process.env.DATABASE_URL || null,
+
+  // Session secret
   SESSION_SECRET: process.env.SESSION_SECRET || 'pixel-helpdesk-2026-secret',
 
   // Port lokal

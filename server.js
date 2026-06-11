@@ -1,5 +1,4 @@
 const express  = require('express');
-const session  = require('express-session');
 const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
@@ -37,11 +36,13 @@ function writeUsers(data) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
 }
 
-// ── Multer ──
-const storage = multer.diskStorage({
-  destination: (_,__,cb) => cb(null, UPLOADS_DIR),
-  filename:    (_,file,cb) => cb(null, crypto.randomBytes(10).toString('hex') + path.extname(file.originalname).toLowerCase())
-});
+// ── Multer — memory storage untuk Supabase, disk untuk lokal ──
+const storage = db.USE_SUPABASE
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_,__,cb) => cb(null, UPLOADS_DIR),
+      filename:    (_,file,cb) => cb(null, crypto.randomBytes(10).toString('hex') + path.extname(file.originalname).toLowerCase())
+    });
 const upload = multer({
   storage,
   limits: { fileSize: 10*1024*1024 },
@@ -51,14 +52,32 @@ const upload = multer({
   }
 });
 
+const cookieSession = require('cookie-session');
+
+// ── Session ──
+// cookie-session: stateless, bekerja di Vercel serverless
+// Data user disimpan di cookie terenkripsi, tidak perlu server memory
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
-  secret: cfg.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 8*60*60*1000, secure: false }
+app.use(cookieSession({
+  name:     'pixel_session',
+  secret:   cfg.SESSION_SECRET,
+  maxAge:   8*60*60*1000,
+  secure:   db.USE_SUPABASE,
+  sameSite: db.USE_SUPABASE ? 'none' : 'lax',
+  httpOnly: true
 }));
+
+// Compatibility shim — cookie-session tidak punya destroy()
+app.use((req, res, next) => {
+  if (!req.session.destroy) {
+    req.session.destroy = (cb) => {
+      req.session = null;
+      if (cb) cb();
+    };
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
@@ -435,14 +454,48 @@ app.post('/api/tickets/:id/unarchive', requireRole('admin'), async (req, res) =>
 //  INVOICE
 // ══════════════════════════════════════════
 app.post('/api/tickets/:id/invoice',
-  requireRole('accounting','admin'),
+  requireRole('accounting','admin','superadmin'),
   upload.single('file'),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'File tidak ditemukan.' });
     try {
+      let file_url;
+
+      if (db.USE_SUPABASE) {
+        // Upload ke Supabase Storage
+        const ext      = path.extname(req.file.originalname).toLowerCase();
+        const filename = crypto.randomBytes(10).toString('hex') + ext;
+        const bucket   = 'invoices';
+
+        const uploadRes = await fetch(
+          `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
+          {
+            method:  'POST',
+            headers: {
+              'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
+              'Content-Type':  req.file.mimetype,
+              'x-upsert':      'true'
+            },
+            body: req.file.buffer
+          }
+        );
+        if (!uploadRes.ok) {
+          const err = await uploadRes.text();
+          throw new Error('Upload ke Supabase Storage gagal: ' + err);
+        }
+        file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
+      } else {
+        // Simpan ke disk lokal
+        const ext      = path.extname(req.file.originalname).toLowerCase();
+        const filename = crypto.randomBytes(10).toString('hex') + ext;
+        const filepath = path.join(UPLOADS_DIR, filename);
+        fs.writeFileSync(filepath, req.file.buffer || req.file.path);
+        file_url = '/uploads/' + filename;
+      }
+
       const inv = await db.insertInvoice({
         ticket_id:     req.params.id,
-        file_url:      '/uploads/' + req.file.filename,
+        file_url,
         original_name: req.file.originalname,
         mime_type:     req.file.mimetype,
         uploaded_by:   req.session.user.name,
@@ -451,7 +504,10 @@ app.post('/api/tickets/:id/invoice',
         sales_pic:     req.body.sales_pic    || null,
       });
       res.status(201).json(inv);
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch(e) {
+      console.error('Invoice upload error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
   }
 );
 
@@ -653,7 +709,15 @@ app.get('/api/track/:token', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/track/:token', (req, res) => res.sendFile(path.join(__dirname,'public','track.html')));
+app.get('/track/:token', (req, res) => {
+  const trackFile = path.join(__dirname, 'public', 'track.html');
+  if (fs.existsSync(trackFile)) {
+    res.sendFile(trackFile);
+  } else {
+    // Fallback: redirect ke root dengan token
+    res.redirect('/?track=' + req.params.token);
+  }
+});
 app.get('*',            (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ══════════════════════════════════════════
