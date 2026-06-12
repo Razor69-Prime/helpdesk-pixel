@@ -961,8 +961,7 @@ async function saveReport(){
   if(!wo){showAlert('error','Nomor WO wajib diisi.');return;}
   if(!time){showAlert('error','Tanggal & waktu wajib diisi.');return;}
 
-  const isAdmin=currentUser.role==='admin';
-  const tech1=document.getElementById('f-assign-tech')?.value.trim()||'';
+  const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
   if(isAdmin&&!tech1){showAlert('error','Admin wajib memilih minimal 1 teknisi.');return;}
   if(isAdmin&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
@@ -1003,10 +1002,13 @@ async function updateStatus(id,status){
 
 async function recordStage(ticketId, stage){
   try{
+    const token=localStorage.getItem('pixel_token')||'';
     const r=await fetch('/api/tickets/'+ticketId+'/stage',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      credentials:'same-origin',
+      headers:{
+        'Content-Type':'application/json',
+        ...(token?{'Authorization':'Bearer '+token}:{})
+      },
       body:JSON.stringify({stage,...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng})})
     });
     if(r.status===401){doLogout();return;}
@@ -1309,7 +1311,7 @@ function renderInvoiceTab(){
 }
 function renderInvoiceList(){
   const el=document.getElementById('invoice-list');
-  const isAdmin=currentUser.role==='admin';
+  const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const isManager=currentUser.role==='manager';
   const all=allTickets.flatMap(t=>(t.invoices||[]).map(inv=>({...inv,wo:t.wo_number,customer:t.customer_name,ticketId:t.id,ticketStatus:t.status,hasInvoice:true})));
   if(!all.length){el.innerHTML=`<div class="empty">📭 Belum ada invoice</div>`;return;}
@@ -1408,7 +1410,9 @@ async function uploadInvoice(){
 async function deleteInvoice(ticketId,invId){
   if(!confirm('Hapus invoice ini?')) return;
   try{
-    const r=await fetch('/api/tickets/'+ticketId+'/invoice/'+invId,{method:'DELETE',credentials:'same-origin'});
+    const token=localStorage.getItem('pixel_token')||'';
+    const r=await fetch('/api/tickets/'+ticketId+'/invoice/'+invId,{method:'DELETE',headers:token?{'Authorization':'Bearer '+token}:{}});
+    if(r.status===401){doLogout();return;}
     if(!r.ok) throw new Error();
     const t=allTickets.find(t=>t.id===ticketId);
     if(t) t.invoices=t.invoices.filter(i=>i.id!==invId);
@@ -1834,7 +1838,7 @@ function exportTicketPDF(ticketId, source){
   const PW=210, PH=297, ML=18, MR=18, CW=PW-ML-MR;
   const sl={assigned:'Assigned',done:'Selesai',travelling:'Dalam Perjalanan',ongoing:'Sedang Dikerjakan',pending:'Menunggu'};
   const statusColor={assigned:[60,52,137],done:[59,109,17],travelling:[24,95,165],ongoing:[15,110,86],pending:[133,79,11]};
-  const isAdmin=currentUser.role==='admin';
+  const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
   const fmtDT=iso=>iso?new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
 
@@ -2127,7 +2131,7 @@ function exportPDF(){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   const sl={assigned:'Assigned',done:'Selesai',travelling:'Dalam Perjalanan',ongoing:'Sedang Dikerjakan',pending:'Menunggu'};
-  const isAdmin=currentUser.role==='admin';
+  const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const isTech=currentUser.role==='technician';
   const data=applyRange(allTicketsForReport(),'t');
   const{from,to}=getRange('t');
@@ -2263,7 +2267,7 @@ function renderArchive(){
   if(!el) return;
   const search=(document.getElementById('arc-search')?.value||'').toLowerCase();
   const sort=document.getElementById('arc-sort')?.value||'newest';
-  const isAdmin=currentUser.role==='admin';
+  const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
 
   let data=[...archivedTickets].filter(t=>
     !search||

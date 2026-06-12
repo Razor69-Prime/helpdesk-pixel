@@ -326,15 +326,16 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/tickets', requireRole('technician','admin'), async (req, res) => {
+app.post('/api/tickets', requireRole('technician','admin','superadmin'), async (req, res) => {
   try {
     const now   = new Date().toISOString();
     const token = crypto.randomBytes(14).toString('hex');
+    const role  = req.session.user.role;
 
     // Build technicians array (max 2)
     let technicians = [];
-    if (req.session.user.role === 'admin') {
-      // admin assign: ambil dari assigned_to (bisa string atau array)
+    if (role === 'admin' || role === 'superadmin') {
+      // admin/superadmin assign: ambil dari assigned_to (bisa string atau array)
       const raw = req.body.assigned_to;
       if (Array.isArray(raw)) {
         technicians = raw.filter(Boolean).slice(0, 2);
