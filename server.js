@@ -267,42 +267,35 @@ app.get('/api/dashboard', requireRole('manager','admin'), async (req, res) => {
 // ══════════════════════════════════════════
 //  SALES TARGETS (admin only)
 // ══════════════════════════════════════════
-const TARGETS_FILE = path.join(__dirname, 'data', 'sales_targets.json');
-function readTargets()      { try { return JSON.parse(fs.readFileSync(TARGETS_FILE,'utf8')); } catch{ return []; } }
-function writeTargets(data) { fs.writeFileSync(TARGETS_FILE, JSON.stringify(data,null,2)); }
 
 // GET semua targets
-app.get('/api/sales-targets', requireRole('admin','manager'), (req, res) => {
-  res.json(readTargets());
+app.get('/api/sales-targets', requireRole('admin','manager','superadmin'), async (req, res) => {
+  try {
+    res.json(await db.getSalesTargets());
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST tambah/update target — { sales_pic, year_month (YYYY-MM), target_amount }
-app.post('/api/sales-targets', requireRole('admin'), (req, res) => {
-  const { sales_pic, year_month, target_amount } = req.body;
-  if (!sales_pic || !year_month || target_amount == null) {
-    return res.status(400).json({ error: 'sales_pic, year_month, dan target_amount wajib diisi.' });
-  }
-  const targets = readTargets();
-  const idx = targets.findIndex(t => t.sales_pic === sales_pic && t.year_month === year_month);
-  const entry = {
-    id:            idx >= 0 ? targets[idx].id : crypto.randomUUID(),
-    sales_pic,
-    year_month,
-    target_amount: Number(target_amount),
-    updated_at:    new Date().toISOString(),
-    updated_by:    req.session.user.name
-  };
-  if (idx >= 0) targets[idx] = entry;
-  else targets.push(entry);
-  writeTargets(targets);
-  res.status(201).json(entry);
+app.post('/api/sales-targets', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    const { sales_pic, year_month, target_amount } = req.body;
+    if (!sales_pic || !year_month || target_amount == null) {
+      return res.status(400).json({ error: 'sales_pic, year_month, dan target_amount wajib diisi.' });
+    }
+    const entry = await db.upsertSalesTarget({
+      sales_pic, year_month, target_amount,
+      updated_by: req.session.user.name
+    });
+    res.status(201).json(entry);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // DELETE target
-app.delete('/api/sales-targets/:id', requireRole('admin'), (req, res) => {
-  const targets = readTargets().filter(t => t.id !== req.params.id);
-  writeTargets(targets);
-  res.json({ ok: true });
+app.delete('/api/sales-targets/:id', requireRole('admin','superadmin'), async (req, res) => {
+  try {
+    await db.deleteSalesTarget(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════

@@ -40,8 +40,8 @@ const sbHdrs = () => ({
   'Prefer':        'return=representation'
 });
 
-async function sbFetch(method, path, body) {
-  const opts = { method, headers: sbHdrs() };
+async function sbFetch(method, path, body, extraHeaders) {
+  const opts = { method, headers: { ...sbHdrs(), ...(extraHeaders||{}) } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(sbBase() + path, opts);
   if (!r.ok) throw new Error(await r.text());
@@ -325,6 +325,52 @@ async function deleteUser(id) {
   await sbFetch('DELETE', `/users?id=eq.${id}`);
 }
 
+
+// ─────────────────────────────────────────
+//  SALES TARGETS
+// ─────────────────────────────────────────
+const TARGETS_FILE = require('path').join(__dirname, 'data', 'sales_targets.json');
+function readTargetsLocal()      { try { return JSON.parse(require('fs').readFileSync(TARGETS_FILE,'utf8')); } catch{ return []; } }
+function writeTargetsLocal(data) { require('fs').writeFileSync(TARGETS_FILE, JSON.stringify(data,null,2)); }
+
+async function getSalesTargets() {
+  if (!USE_SUPABASE) return readTargetsLocal();
+  return await sbFetch('GET', '/sales_targets?order=year_month.desc') || [];
+}
+
+async function upsertSalesTarget({ sales_pic, year_month, target_amount, updated_by }) {
+  if (!USE_SUPABASE) {
+    const targets = readTargetsLocal();
+    const idx = targets.findIndex(t => t.sales_pic === sales_pic && t.year_month === year_month);
+    const entry = {
+      id:            idx >= 0 ? targets[idx].id : require('crypto').randomUUID(),
+      sales_pic, year_month,
+      target_amount: Number(target_amount),
+      updated_at:    new Date().toISOString(),
+      updated_by
+    };
+    if (idx >= 0) targets[idx] = entry; else targets.push(entry);
+    writeTargetsLocal(targets);
+    return entry;
+  }
+  // Supabase upsert via on_conflict
+  const rows = await sbFetch('POST', '/sales_targets?on_conflict=sales_pic,year_month', {
+    sales_pic, year_month,
+    target_amount: Number(target_amount),
+    updated_at: new Date().toISOString(),
+    updated_by
+  }, { Prefer: 'resolution=merge-duplicates,return=representation' });
+  return rows?.[0] || null;
+}
+
+async function deleteSalesTarget(id) {
+  if (!USE_SUPABASE) {
+    writeTargetsLocal(readTargetsLocal().filter(t => t.id !== id));
+    return;
+  }
+  await sbFetch('DELETE', `/sales_targets?id=eq.${id}`);
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -334,5 +380,6 @@ module.exports = {
   getJobStages, insertJobStage,
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
   computePipelineDates,
-  getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser
+  getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser,
+  getSalesTargets, upsertSalesTarget, deleteSalesTarget
 };
