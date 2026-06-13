@@ -269,6 +269,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div class="form-group" style="margin-top:14px"><label>Username</label><input type="text" id="l-user" placeholder="mis. andi" autocomplete="username"/></div>
     <div class="form-group"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"/></div>
     <button class="btn primary btn-full" id="btn-login" onclick="doLogin()" style="margin-top:8px">Masuk</button>
+    <button class="btn btn-full" id="btn-install-pwa" onclick="installPWA()" style="margin-top:10px;display:none">📲 Install Aplikasi</button>
   </div>
 </div>
 
@@ -277,6 +278,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   <div class="topbar">
     <div class="logo"><div class="logo-dot"></div>Helpdesk Pixel</div>
     <div class="topbar-right">
+      <button class="btn sm" id="btn-install-pwa-app" onclick="installPWA()" style="display:none">📲 Install</button>
       <div class="conn-dot" id="conn-dot"></div>
       <span class="user-pill" id="user-pill">—</span>
       <button class="logout-btn" onclick="doLogout()">Keluar</button>
@@ -840,6 +842,63 @@ let gpsCache=null;
 
 /* ══ PWA + GPS ══════════════════════════ */
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+/* ══ PWA INSTALL ══════════════════════════ */
+let deferredInstallPrompt=null;
+
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  // tampilkan tombol install
+  const btnLogin=document.getElementById('btn-install-pwa');
+  const btnApp=document.getElementById('btn-install-pwa-app');
+  if(btnLogin) btnLogin.style.display='block';
+  if(btnApp) btnApp.style.display='inline-flex';
+});
+
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt=null;
+  const btnLogin=document.getElementById('btn-install-pwa');
+  const btnApp=document.getElementById('btn-install-pwa-app');
+  if(btnLogin) btnLogin.style.display='none';
+  if(btnApp) btnApp.style.display='none';
+});
+
+async function installPWA(){
+  if(!deferredInstallPrompt){
+    // Fallback: beri instruksi manual jika prompt tidak tersedia
+    const ua=navigator.userAgent;
+    let msg='Untuk install aplikasi ini:\n\n';
+    if(/iPhone|iPad|iPod/.test(ua)){
+      msg+='1. Tap tombol Share (kotak dengan panah ke atas)\n2. Pilih "Add to Home Screen"\n3. Tap "Add"';
+    }else if(/Android/.test(ua)){
+      msg+='1. Tap menu (⋮) di pojok kanan atas browser\n2. Pilih "Install app" atau "Add to Home screen"';
+    }else{
+      msg+='1. Klik ikon install (⊕) di address bar browser\n2. Atau buka menu browser → "Install Helpdesk Pixel..."';
+    }
+    alert(msg);
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  const{outcome}=await deferredInstallPrompt.userChoice;
+  if(outcome==='accepted'){
+    const btnLogin=document.getElementById('btn-install-pwa');
+    const btnApp=document.getElementById('btn-install-pwa-app');
+    if(btnLogin) btnLogin.style.display='none';
+    if(btnApp) btnApp.style.display='none';
+  }
+  deferredInstallPrompt=null;
+}
+
+// Jika sudah berjalan sebagai standalone (sudah terinstall), sembunyikan tombol
+if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const btnLogin=document.getElementById('btn-install-pwa');
+    const btnApp=document.getElementById('btn-install-pwa-app');
+    if(btnLogin) btnLogin.style.display='none';
+    if(btnApp) btnApp.style.display='none';
+  });
+}
 function startGPS(){
   if(!navigator.geolocation) return;
   navigator.geolocation.watchPosition(
