@@ -741,6 +741,12 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  // Fallback jika jsdelivr diblokir — coba unpkg
+  if(typeof QRCode==='undefined'){
+    document.write('<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"><\/script>');
+  }
+</script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -1257,7 +1263,19 @@ function openTrackModal(btn){
   const days=Math.max(0,Math.ceil((expiry-new Date())/864e5));
   document.getElementById('track-expiry-note').textContent=
     `⏳ Link aktif ${days} hari lagi · s/d ${expiry.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}`;
-  QRCode.toCanvas(document.getElementById('qr-canvas'),trackUrl,{width:180,margin:2},()=>{});
+  if(typeof QRCode!=='undefined'){
+    QRCode.toCanvas(document.getElementById('qr-canvas'),trackUrl,{width:180,margin:2},()=>{});
+  }else{
+    console.warn('QRCode library belum termuat — QR code tidak ditampilkan.');
+    const canvas=document.getElementById('qr-canvas');
+    if(canvas){
+      const ctx=canvas.getContext('2d');
+      canvas.width=180; canvas.height=180;
+      ctx.fillStyle='#f5f0ea'; ctx.fillRect(0,0,180,180);
+      ctx.fillStyle='#7a7670'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('QR tidak tersedia',90,90);
+    }
+  }
   document.getElementById('track-modal').classList.add('show');
 }
 function closeTrackModal(){document.getElementById('track-modal').classList.remove('show');}
