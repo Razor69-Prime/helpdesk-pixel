@@ -732,7 +732,6 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <button class="btn blue sm" style="flex:1;justify-content:center" onclick="openTrackLink()">🌐 Buka</button>
       <button class="btn sm" style="flex:1;justify-content:center" onclick="printQR()">🖨️ Print</button>
     </div>
-    <div class="qr-wrap"><canvas id="qr-canvas"></canvas></div>
     <p style="font-size:11px;color:var(--muted);text-align:center">Scan QR atau klik link untuk tracking real-time</p>
   </div>
 </div>
@@ -740,13 +739,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 <div class="print-area" id="print-area" style="display:none"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script>
-  // Fallback jika jsdelivr diblokir — coba unpkg
-  if(typeof QRCode==='undefined'){
-    document.write('<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"><\/script>');
-  }
-</script>
+
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -822,12 +815,13 @@ function showApp(){
   pill.className='user-pill '+currentUser.role;
   // hide rating & gps for non-admin
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
+  const canAssign=isAdmin||currentUser.role==='manager';
   document.getElementById('rating-group').style.display     =isAdmin?'block':'none';
   document.getElementById('gps-status-group').style.display =isAdmin?'block':'none';
   // admin: tampilkan dropdown assign teknisi
   const assignGroup=document.getElementById('f-assign-group');
-  if(assignGroup) assignGroup.style.display=isAdmin?'block':'none';
-  if(isAdmin) loadTechnicianDropdown();
+  if(assignGroup) assignGroup.style.display=canAssign?'block':'none';
+  if(canAssign) loadTechnicianDropdown();
   buildNav();
   if(currentUser.role!=='accounting'&&currentUser.role!=='manager') startGPS();
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
@@ -850,7 +844,7 @@ function buildNav(){
   const isSuperAdmin=role==='superadmin';
   const ALL_TAB_DEFS=[
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
-    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isSuperAdmin},
+    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin},
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin},
@@ -969,8 +963,8 @@ async function saveReport(){
 
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
-  if(isAdmin&&!tech1){showAlert('error','Admin wajib memilih minimal 1 teknisi.');return;}
-  if(isAdmin&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
+  if(canAssign&&!tech1){showAlert('error','Wajib memilih minimal 1 teknisi.');return;}
+  if(canAssign&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
 
   const btn=document.getElementById('btn-save');
   btn.disabled=true; btn.textContent='Mengirim...';
@@ -1156,8 +1150,8 @@ function renderTickets(){
         </select>`
       :``;
 
-    // Tracking btn: admin saja
-    const trackBtn=(isAdmin&&!expired)
+    // Tracking btn: semua role kecuali teknisi
+    const trackBtn=(!isTech&&!expired)
       ?`<button class="btn blue sm" data-token="${t.tracking_token}" data-wo="${t.wo_number}" data-created="${t.created_at}" onclick="openTrackModal(this)">🔗</button>`:'';
 
     // Hapus btn: hanya admin
@@ -1263,19 +1257,7 @@ function openTrackModal(btn){
   const days=Math.max(0,Math.ceil((expiry-new Date())/864e5));
   document.getElementById('track-expiry-note').textContent=
     `⏳ Link aktif ${days} hari lagi · s/d ${expiry.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}`;
-  if(typeof QRCode!=='undefined'){
-    QRCode.toCanvas(document.getElementById('qr-canvas'),trackUrl,{width:180,margin:2},()=>{});
-  }else{
-    console.warn('QRCode library belum termuat — QR code tidak ditampilkan.');
-    const canvas=document.getElementById('qr-canvas');
-    if(canvas){
-      const ctx=canvas.getContext('2d');
-      canvas.width=180; canvas.height=180;
-      ctx.fillStyle='#f5f0ea'; ctx.fillRect(0,0,180,180);
-      ctx.fillStyle='#7a7670'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-      ctx.fillText('QR tidak tersedia',90,90);
-    }
-  }
+
   document.getElementById('track-modal').classList.add('show');
 }
 function closeTrackModal(){document.getElementById('track-modal').classList.remove('show');}
@@ -1284,7 +1266,6 @@ function copyTrackLink(){navigator.clipboard.writeText(trackUrl).then(()=>alert(
 function shareWA(){window.open('https://wa.me/?text='+encodeURIComponent('Cek status pekerjaan Anda:\n'+trackUrl),'_blank');}
 function openTrackLink(){window.open(trackUrl,'_blank');}
 function printQR(){
-  const canvas=document.getElementById('qr-canvas');
   const wo=document.getElementById('track-modal-wo').textContent;
   document.getElementById('print-area').innerHTML=`
     <div style="text-align:center;font-family:sans-serif">
