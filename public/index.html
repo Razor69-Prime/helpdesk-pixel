@@ -457,24 +457,57 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
     <!-- TAB: KPI -->
     <div id="tab-kpi" class="tab-content">
-      <div class="period-row">
-        <span class="period-label">Periode:</span>
-        <button class="period-btn active" onclick="setPeriod('k','all',this)">Semua</button>
-        <button class="period-btn" onclick="setPeriod('k','today',this)">Hari ini</button>
-        <button class="period-btn" onclick="setPeriod('k','week',this)">7 hari</button>
-        <button class="period-btn" onclick="setPeriod('k','month',this)">Bulan ini</button>
-        <input type="date" id="k-from" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px"/>
-        <span style="font-size:12px;color:var(--muted)">s/d</span>
-        <input type="date" id="k-to" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px"/>
+      <!-- Sub tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);padding:4px;border-radius:var(--radius);border:1px solid var(--border);width:fit-content">
+        <button class="nav-btn active" id="kpi-sub-general" onclick="switchKpiSub('general',this)">📊 Umum</button>
+        <button class="nav-btn" id="kpi-sub-teknisi" onclick="switchKpiSub('teknisi',this)">👷 KPI Teknisi</button>
       </div>
-      <div class="metric-grid">
-        <div class="metric"><div class="metric-label">Total Tiket</div><div class="metric-value" id="k-total">—</div><div class="metric-sub">periode dipilih</div></div>
-        <div class="metric"><div class="metric-label">Selesai</div><div class="metric-value" id="k-done">—</div><div class="metric-sub" id="k-pct">—</div></div>
-        <div class="metric"><div class="metric-label">Avg Rating</div><div class="metric-value" id="k-rating">—</div><div class="metric-sub">kepuasan</div></div>
+
+      <!-- SUB: UMUM -->
+      <div id="kpi-panel-general">
+        <div class="period-row">
+          <span class="period-label">Periode:</span>
+          <button class="period-btn active" onclick="setPeriod('k','all',this)">Semua</button>
+          <button class="period-btn" onclick="setPeriod('k','today',this)">Hari ini</button>
+          <button class="period-btn" onclick="setPeriod('k','week',this)">7 hari</button>
+          <button class="period-btn" onclick="setPeriod('k','month',this)">Bulan ini</button>
+          <input type="date" id="k-from" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px"/>
+          <span style="font-size:12px;color:var(--muted)">s/d</span>
+          <input type="date" id="k-to" onchange="renderKPI()" style="flex:0;width:130px;font-size:12px"/>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><div class="metric-label">Total Tiket</div><div class="metric-value" id="k-total">—</div><div class="metric-sub">periode dipilih</div></div>
+          <div class="metric"><div class="metric-label">Selesai</div><div class="metric-value" id="k-done">—</div><div class="metric-sub" id="k-pct">—</div></div>
+          <div class="metric"><div class="metric-label">Avg Rating</div><div class="metric-value" id="k-rating">—</div><div class="metric-sub">kepuasan</div></div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-card-title">Tiket selesai per teknisi</div><div id="k-by-tech"></div></div>
+          <div class="kpi-card"><div class="kpi-card-title">Rating per teknisi</div><div id="k-by-rating"></div></div>
+        </div>
       </div>
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-card-title">Tiket selesai per teknisi</div><div id="k-by-tech"></div></div>
-        <div class="kpi-card"><div class="kpi-card-title">Rating per teknisi</div><div id="k-by-rating"></div></div>
+
+      <!-- SUB: KPI TEKNISI -->
+      <div id="kpi-panel-teknisi" style="display:none">
+        <!-- Period selector -->
+        <div class="period-row" style="margin-bottom:16px">
+          <span class="period-label">Periode:</span>
+          <button class="period-btn active" onclick="setKpiTechPeriod('month',this)">Bulan Ini</button>
+          <button class="period-btn" onclick="setKpiTechPeriod('last_month',this)">Bulan Lalu</button>
+          <button class="period-btn" onclick="setKpiTechPeriod('week',this)">Minggu Ini</button>
+          <button class="period-btn" onclick="setKpiTechPeriod('all',this)">Semua</button>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="kpi-tech-leaderboard" style="margin-bottom:20px"></div>
+
+        <!-- Drill-down detail per teknisi -->
+        <div id="kpi-tech-detail" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <button class="btn sm" onclick="closeKpiDetail()">← Kembali</button>
+            <div style="font-size:15px;font-weight:600" id="kpi-detail-title"></div>
+          </div>
+          <div id="kpi-detail-content"></div>
+        </div>
       </div>
     </div>
 
@@ -2632,6 +2665,270 @@ async function deleteTarget(id){
     renderTargetList();
     renderSalesDashboard();
   }catch(e){alert('Gagal: '+e.message);}
+}
+
+/* ══ KPI TEKNISI ══════════════════════════ */
+let kpiTechPeriod='month';
+
+function switchKpiSub(sub, btn){
+  document.querySelectorAll('#tab-kpi .nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('kpi-panel-general').style.display = sub==='general'?'':'none';
+  document.getElementById('kpi-panel-teknisi').style.display = sub==='teknisi'?'':'none';
+  if(sub==='teknisi') renderKpiTech();
+}
+
+function setKpiTechPeriod(period, btn){
+  kpiTechPeriod=period;
+  document.querySelectorAll('#kpi-panel-teknisi .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderKpiTech();
+}
+
+function getKpiTechRange(){
+  const now=new Date();
+  const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+  const dow=now.getDay(); const mo=dow===0?-6:1-dow;
+  switch(kpiTechPeriod){
+    case 'week':      return{from:new Date(y,m,d+mo), to:new Date(y,m,d+mo+6,23,59,59)};
+    case 'month':     return{from:new Date(y,m,1), to:new Date(y,m+1,0,23,59,59)};
+    case 'last_month':return{from:new Date(y,m-1,1), to:new Date(y,m,0,23,59,59)};
+    default:          return{from:null, to:null};
+  }
+}
+
+function calcStageTime(stages, fromStage, toStage){
+  const from=stages.find(s=>s.stage===fromStage);
+  const to=stages.find(s=>s.stage===toStage);
+  if(!from||!to) return null;
+  const ms=new Date(to.timestamp)-new Date(from.timestamp);
+  return ms>0?ms:null;
+}
+
+function fmtDuration(ms){
+  if(!ms) return '—';
+  const h=Math.floor(ms/36e5), mn=Math.floor((ms%36e5)/6e4);
+  return h>0?`${h}j ${mn}m`:`${mn}m`;
+}
+
+function renderKpiTech(){
+  const lb=document.getElementById('kpi-tech-leaderboard');
+  if(!lb) return;
+  const {from,to}=getKpiTechRange();
+  const all=allTicketsForReport();
+
+  // Filter by period
+  const data=all.filter(t=>{
+    if(!from) return true;
+    const d=new Date(t.worked_at||t.created_at);
+    return d>=from&&d<=to;
+  });
+
+  // Build per-technician stats
+  const techMap={};
+  data.forEach(t=>{
+    const techs=Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean);
+    techs.forEach(name=>{
+      if(!name) return;
+      if(!techMap[name]) techMap[name]={
+        name, total:0, done:0, ongoing:0, assigned:0,
+        ratings:[], stages:[], responseTimes:[], completionTimes:[],
+        tickets:[]
+      };
+      const tm=techMap[name];
+      tm.total++;
+      tm.tickets.push(t);
+      if(t.status==='done') tm.done++;
+      else if(['ongoing','travelling'].includes(t.status)) tm.ongoing++;
+      else tm.assigned++;
+      if(t.rating&&t.rating>0) tm.ratings.push(t.rating);
+
+      // Stage times dari job_stages
+      const st=t.job_stages||[];
+      const respMs=calcStageTime(st,'berangkat','tiba') || calcStageTime([
+        {stage:'assigned',timestamp:t.created_at},
+        ...(st.find(s=>s.stage==='berangkat')?[st.find(s=>s.stage==='berangkat')]:[])
+      ],'assigned','berangkat');
+      const compMs=calcStageTime(st,'berangkat','selesai');
+      if(respMs) tm.responseTimes.push(respMs);
+      if(compMs) tm.completionTimes.push(compMs);
+    });
+  });
+
+  const techs=Object.values(techMap).sort((a,b)=>b.done-a.done||b.total-a.total);
+  if(!techs.length){lb.innerHTML='<div class="empty">📭 Belum ada data tiket</div>';return;}
+
+  const maxDone=Math.max(1,...techs.map(t=>t.done));
+
+  lb.innerHTML=`
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">🏆 Leaderboard Teknisi</div>
+    ${techs.map((tm,i)=>{
+      const avgRating=tm.ratings.length?(tm.ratings.reduce((a,b)=>a+b,0)/tm.ratings.length).toFixed(1):null;
+      const avgResp=tm.responseTimes.length?fmtDuration(tm.responseTimes.reduce((a,b)=>a+b,0)/tm.responseTimes.length):null;
+      const avgComp=tm.completionTimes.length?fmtDuration(tm.completionTimes.reduce((a,b)=>a+b,0)/tm.completionTimes.length):null;
+      const pct=tm.total>0?Math.round(tm.done/tm.total*100):0;
+      const barW=Math.round(tm.done/maxDone*100);
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`;
+      const ratingColor=avgRating>=4?'var(--green)':avgRating>=3?'var(--amber)':'var(--red)';
+      return`<div class="ticket-item" style="margin-bottom:10px;cursor:pointer" onclick="openKpiDetail('${tm.name}')">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="font-size:20px;flex-shrink:0">${medal}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">👷 ${tm.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Klik untuk detail lengkap →</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:18px;font-weight:700;color:var(--teal)">${tm.done}<span style="font-size:11px;color:var(--muted);font-weight:400">/${tm.total}</span></div>
+            <div style="font-size:10px;color:var(--muted)">selesai</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+          <div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:var(--blue)">${tm.total}</div>
+            <div style="font-size:10px;color:var(--muted)">Total</div>
+          </div>
+          <div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:var(--green)">${tm.done}</div>
+            <div style="font-size:10px;color:var(--muted)">Selesai</div>
+          </div>
+          <div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:var(--amber)">${tm.ongoing}</div>
+            <div style="font-size:10px;color:var(--muted)">Berjalan</div>
+          </div>
+          <div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:${ratingColor}">${avgRating?'⭐'+avgRating:'—'}</div>
+            <div style="font-size:10px;color:var(--muted)">Avg Rating</div>
+          </div>
+          ${avgResp?`<div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:var(--purple)">${avgResp}</div>
+            <div style="font-size:10px;color:var(--muted)">Avg Resp</div>
+          </div>`:''}
+          ${avgComp?`<div style="text-align:center;min-width:60px">
+            <div style="font-size:13px;font-weight:600;color:var(--accent)">${avgComp}</div>
+            <div style="font-size:10px;color:var(--muted)">Avg Selesai</div>
+          </div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="bar-bg" style="height:8px;flex:1"><div class="bar-fill" style="width:${barW}%;background:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'};height:8px"></div></div>
+          <span style="font-size:11px;font-weight:600;min-width:32px">${pct}%</span>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function openKpiDetail(techName){
+  const {from,to}=getKpiTechRange();
+  const all=allTicketsForReport().filter(t=>{
+    const techs=Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean);
+    if(!techs.includes(techName)) return false;
+    if(!from) return true;
+    const d=new Date(t.worked_at||t.created_at);
+    return d>=from&&d<=to;
+  });
+
+  document.getElementById('kpi-tech-leaderboard').style.display='none';
+  document.getElementById('kpi-tech-detail').style.display='';
+  document.getElementById('kpi-detail-title').textContent=`👷 Detail KPI — ${techName}`;
+
+  const done=all.filter(t=>t.status==='done');
+  const ongoing=all.filter(t=>['ongoing','travelling'].includes(t.status));
+  const ratings=all.map(t=>t.rating).filter(r=>r>0);
+  const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):null;
+  const pct=all.length>0?Math.round(done.length/all.length*100):0;
+
+  // SLA — tiket assigned >4 jam belum berangkat
+  const slaBreached=all.filter(t=>{
+    if(t.status==='done') return false;
+    const stages=t.job_stages||[];
+    if(stages.find(s=>s.stage==='berangkat')) return false;
+    const ageH=(new Date()-new Date(t.created_at))/36e5;
+    return ageH>4;
+  });
+
+  // Response & completion times
+  const respTimes=[], compTimes=[];
+  all.forEach(t=>{
+    const st=t.job_stages||[];
+    const r=calcStageTime(st,'berangkat','tiba');
+    const c=calcStageTime(st,'berangkat','selesai');
+    if(r) respTimes.push(r);
+    if(c) compTimes.push(c);
+  });
+  const avgResp=respTimes.length?fmtDuration(respTimes.reduce((a,b)=>a+b,0)/respTimes.length):null;
+  const avgComp=compTimes.length?fmtDuration(compTimes.reduce((a,b)=>a+b,0)/compTimes.length):null;
+
+  // Rating distribution
+  const ratingDist=[5,4,3,2,1].map(r=>({r,count:ratings.filter(x=>x===r).length}));
+
+  document.getElementById('kpi-detail-content').innerHTML=`
+    <!-- Summary cards -->
+    <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+      <div class="dash-metric teal"><div class="dash-metric-icon">📋</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value">${all.length}</div></div>
+      <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Selesai</div><div class="dash-metric-value">${done.length} <span style="font-size:13px">(${pct}%)</span></div></div>
+      <div class="dash-metric amber"><div class="dash-metric-icon">⚡</div><div class="dash-metric-label">Berjalan</div><div class="dash-metric-value">${ongoing.length}</div></div>
+      <div class="dash-metric ${slaBreached.length?'red':'green'}"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">SLA Breach</div><div class="dash-metric-value">${slaBreached.length}</div><div class="dash-metric-sub">>4 jam belum berangkat</div></div>
+    </div>
+
+    <!-- Speed & Rating -->
+    <div class="dash-grid-2" style="margin-bottom:16px">
+      <div class="dash-chart-card">
+        <div class="dash-chart-title">⚡ Kecepatan Response</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:12px">
+          <div style="text-align:center;flex:1">
+            <div style="font-size:22px;font-weight:700;color:var(--purple)">${avgResp||'—'}</div>
+            <div style="font-size:11px;color:var(--muted)">Avg Berangkat → Tiba</div>
+          </div>
+          <div style="text-align:center;flex:1">
+            <div style="font-size:22px;font-weight:700;color:var(--accent)">${avgComp||'—'}</div>
+            <div style="font-size:11px;color:var(--muted)">Avg Berangkat → Selesai</div>
+          </div>
+          <div style="text-align:center;flex:1">
+            <div style="font-size:22px;font-weight:700;color:var(--teal)">${respTimes.length}</div>
+            <div style="font-size:11px;color:var(--muted)">Tiket dengan data waktu</div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-chart-card">
+        <div class="dash-chart-title">⭐ Distribusi Rating</div>
+        <div style="margin-top:12px">
+          ${ratingDist.map(({r,count})=>{
+            const pctR=ratings.length?Math.round(count/ratings.length*100):0;
+            return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:12px;width:20px;text-align:right;font-weight:600">${r}⭐</span>
+              <div class="bar-bg" style="height:6px;flex:1"><div class="bar-fill" style="width:${pctR}%;background:var(--amber)"></div></div>
+              <span style="font-size:11px;color:var(--muted);min-width:40px">${count} (${pctR}%)</span>
+            </div>`;
+          }).join('')}
+          <div style="margin-top:8px;font-size:13px;font-weight:600">Rating Rata-rata: ${avgRating?'⭐'+avgRating:'—'}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daftar tiket -->
+    <div class="dash-chart-card">
+      <div class="dash-chart-title" style="margin-bottom:12px">📄 Daftar Tiket (${all.length})</div>
+      <div style="max-height:300px;overflow-y:auto">
+        ${all.length?all.sort((a,b)=>new Date(b.worked_at||b.created_at)-new Date(a.worked_at||a.created_at)).map(t=>{
+          const dt=t.worked_at?new Date(t.worked_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+          const statusMap={done:'✅',ongoing:'🔧',travelling:'🚗',assigned:'📋',pending:'⏳'};
+          const st=t.job_stages||[];
+          const compMs=calcStageTime(st,'berangkat','selesai');
+          return`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
+            <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;min-width:80px">${t.wo_number}</div>
+            <div style="flex:1;font-size:12px">${t.customer_name||t.project_name||'—'}</div>
+            <div style="font-size:11px;color:var(--muted)">${dt}</div>
+            <div>${statusMap[t.status]||'—'}</div>
+            ${t.rating?`<div style="font-size:11px">⭐${t.rating}</div>`:'<div style="font-size:11px;color:var(--muted)">—</div>'}
+            ${compMs?`<div style="font-size:11px;color:var(--purple)">${fmtDuration(compMs)}</div>`:''}
+          </div>`;
+        }).join(''):'<div class="empty">📭 Belum ada tiket</div>'}
+      </div>
+    </div>`;
+}
+
+function closeKpiDetail(){
+  document.getElementById('kpi-tech-leaderboard').style.display='';
+  document.getElementById('kpi-tech-detail').style.display='none';
 }
 
 /* ══ ACTIVITY LOG ════════════════════════ */
