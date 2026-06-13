@@ -130,13 +130,18 @@ app.post('/api/login', async (req, res) => {
       custom_menus: Array.isArray(u.custom_menus) ? u.custom_menus : []
     };
     req.session._setUser(userData);
+    logActivity(req, 'auth', 'LOGIN', `${userData.name} (${userData.role}) login berhasil`);
     // Buat JWT token untuk dikirim ke frontend
     const token = jwt.sign({ user: userData }, JWT_SECRET, { expiresIn: '8h' });
     res.json({ ok: true, user: userData, token });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/logout', (req, res) => { req.session.destroy(); res.json({ ok: true }); });
+app.post('/api/logout', (req, res) => {
+  logActivity(req, 'auth', 'LOGOUT', req.session?.user?.name ? `${req.session.user.name} logout` : '');
+  req.session.destroy();
+  res.json({ ok: true });
+});
 app.get('/api/me',     (req, res) => res.json({ user: req.session.user || null }));
 
 // ══════════════════════════════════════════
@@ -169,6 +174,7 @@ app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
     users.push(newUser);
     writeUsers(users);
     const { password: _, ...safe } = newUser;
+    logActivity(req, 'users', 'TAMBAH USER', `Username: ${username} · Role: ${role}`);
     res.status(201).json(safe);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -230,6 +236,7 @@ app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res)
     } else {
       writeUsers(readUsers().filter(u => u.id !== req.params.id));
     }
+    logActivity(req, 'users', 'HAPUS USER', `User ID: ${req.params.id} · Nama: ${target.name}`);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -366,6 +373,7 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       technician: req.session.user.name,
       lat: req.body.lat || null, lng: req.body.lng || null
     });
+    logActivity(req, 'ticket', 'BUAT TIKET', `WO: ${ticket.wo_number} → Teknisi: ${technicians.join(', ')}`);
     res.status(201).json({
       ...ticket,
       invoices:       [],
@@ -439,6 +447,7 @@ app.post('/api/tickets/:id/archive', requireRole('admin'), async (req, res) => {
       archived_at: new Date().toISOString(),
       archived_by: req.session.user.name
     });
+    logActivity(req, 'archive', 'ARSIPKAN TIKET', `Ticket ID: ${req.params.id}`);
     res.json(updated);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -451,6 +460,7 @@ app.post('/api/tickets/:id/unarchive', requireRole('admin'), async (req, res) =>
       archived_at: null,
       archived_by: null
     });
+    logActivity(req, 'archive', 'RESTORE TIKET', `Ticket ID: ${req.params.id}`);
     res.json(updated);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -508,6 +518,7 @@ app.post('/api/tickets/:id/invoice',
         total_amount:  req.body.total_amount ? Number(req.body.total_amount) : null,
         sales_pic:     req.body.sales_pic    || null,
       });
+      logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${req.file.originalname}`);
       res.status(201).json(inv);
     } catch(e) {
       console.error('Invoice upload error:', e.message);
@@ -522,7 +533,27 @@ app.delete('/api/tickets/:id/invoice/:invId', requireRole('accounting','admin'),
 });
 
 // ══════════════════════════════════════════
-//  SALES VISITS (API siap, UI belum aktif)
+//  ACTIVITY LOG (superadmin only)
+// ══════════════════════════════════════════
+
+// Helper — log aktivitas (fire and forget)
+function logActivity(req, category, action, detail='') {
+  const user = req.session?.user?.name || 'anonymous';
+  const ip   = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
+  db.insertLog({ category, action, user, detail, ip }).catch(()=>{});
+}
+
+// GET logs — superadmin only
+app.get('/api/activity-logs', requireRole('superadmin'), async (req, res) => {
+  try { res.json(await db.getLogs(1000)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE semua logs — superadmin only
+app.delete('/api/activity-logs', requireRole('superadmin'), async (req, res) => {
+  try { await db.clearLogs(); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 // ══════════════════════════════════════════
 
 // GET semua visit (superadmin/admin lihat semua, sales lihat milik sendiri)
@@ -678,6 +709,7 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
       });
     }
 
+    logActivity(req, 'stage', `STAGE: ${stage.toUpperCase()}`, `Ticket: ${req.params.id}`);
     res.status(201).json(entry || { ok: true, stage, status: newStatus });
   } catch(e) {
     console.error(e);
@@ -698,6 +730,7 @@ app.get('/api/track/:token', async (req, res) => {
       db.getStatusHistory(ticket.id),
       db.getJobStages(ticket.id)
     ]);
+    logActivity(req, 'tracking', 'LIHAT TRACKING', `WO: ${ticket.wo_number} · Customer: ${ticket.customer_name||'-'}`);
     res.json({
       wo_number: ticket.wo_number, project_name: ticket.project_name,
       customer_name: ticket.customer_name,

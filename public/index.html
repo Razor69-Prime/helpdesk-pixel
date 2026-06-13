@@ -264,7 +264,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     </div>
     <div style="font-size:20px;font-weight:600;margin-bottom:4px">Masuk</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Gunakan username yang diberikan supervisor.</div>
-    <div class="gps-notice">📍 Izin lokasi dibutuhkan sekali untuk fitur GPS.</div>
+    <div class="gps-notice" style="display:none">📍 Izin lokasi dibutuhkan sekali untuk fitur GPS.</div>
     <div class="login-error" id="login-error"></div>
     <div class="form-group" style="margin-top:14px"><label>Username</label><input type="text" id="l-user" placeholder="mis. andi" autocomplete="username"/></div>
     <div class="form-group"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"/></div>
@@ -476,6 +476,46 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <div class="kpi-card"><div class="kpi-card-title">Tiket selesai per teknisi</div><div id="k-by-tech"></div></div>
         <div class="kpi-card"><div class="kpi-card-title">Rating per teknisi</div><div id="k-by-rating"></div></div>
       </div>
+    </div>
+
+    <!-- TAB: ACTIVITY LOG (superadmin only) -->
+    <div id="tab-actlog" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:600">📋 Activity Log</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Semua aktivitas user dan pelanggan untuk keperluan audit</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" onclick="exportActivityLog()">⬇️ Export CSV</button>
+          <button class="btn sm" style="background:var(--red-bg);color:var(--red);border-color:#F5C0C0" onclick="if(confirm('Hapus semua log?')) clearActivityLog()">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="filter-row" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <select id="log-filter-category" onchange="renderActivityLog()" style="flex:0;min-width:150px">
+          <option value="">Semua Kategori</option>
+          <option value="auth">🔐 Auth</option>
+          <option value="ticket">📄 Tiket</option>
+          <option value="invoice">🧾 Invoice</option>
+          <option value="stage">🚗 Stage Teknisi</option>
+          <option value="archive">📦 Arsip</option>
+          <option value="users">👥 Akun</option>
+          <option value="tracking">🔗 Tracking</option>
+          <option value="target">🎯 Sales Target</option>
+        </select>
+        <select id="log-filter-user" onchange="renderActivityLog()" style="flex:0;min-width:160px">
+          <option value="">Semua User</option>
+        </select>
+        <input type="text" id="log-search" placeholder="Cari aktivitas..." oninput="renderActivityLog()"/>
+        <select id="log-filter-date" onchange="renderActivityLog()" style="flex:0;min-width:130px">
+          <option value="">Semua Waktu</option>
+          <option value="today">Hari Ini</option>
+          <option value="yesterday">Kemarin</option>
+          <option value="week">7 Hari Terakhir</option>
+          <option value="month">30 Hari Terakhir</option>
+        </select>
+      </div>
+      <div id="log-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+      <div id="activity-log-list" style="max-height:600px;overflow-y:auto"></div>
     </div>
 
     <!-- TAB: MANAJEMEN AKUN (admin only) -->
@@ -851,6 +891,7 @@ function buildNav(){
     {id:'sales',     label:'💰 Sales',          show: role==='admin'||isSuperAdmin},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
+    {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
   ];
 
   let tabs;
@@ -887,6 +928,7 @@ function switchTab(tab,btn){
   if(tab==='archive')   loadArchive();
   if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
+  if(tab==='actlog')    loadActivityLog();
 }
 
 /* ══ API ═════════════════════════════════ */
@@ -1517,6 +1559,7 @@ const ALL_MENUS=[
   {id:'archive', label:'📦 Arsip'},
   {id:'dashboard',label:'📊 Dashboard Manager'},
   {id:'users',   label:'👥 Manajemen Akun'},
+  {id:'actlog',  label:'📋 Activity Log'},
 ];
 
 // Default menu per role
@@ -2588,6 +2631,98 @@ async function deleteTarget(id){
     salesTargets=salesTargets.filter(t=>t.id!==id);
     renderTargetList();
     renderSalesDashboard();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
+/* ══ ACTIVITY LOG ════════════════════════ */
+let activityLogs=[];
+
+async function loadActivityLog(){
+  try{
+    activityLogs=await api('GET','/activity-logs');
+    // populate user filter
+    const users=[...new Set(activityLogs.map(l=>l.user||l.actor).filter(Boolean))];
+    const sel=document.getElementById('log-filter-user');
+    if(sel){
+      sel.innerHTML='<option value="">Semua User</option>'+users.map(u=>`<option value="${u}">${u}</option>`).join('');
+    }
+    renderActivityLog();
+  }catch(e){console.error('Activity log error:',e);}
+}
+
+function renderActivityLog(){
+  const el=document.getElementById('activity-log-list');
+  const sumEl=document.getElementById('log-summary');
+  if(!el) return;
+
+  const cat=document.getElementById('log-filter-category')?.value||'';
+  const usr=document.getElementById('log-filter-user')?.value||'';
+  const search=(document.getElementById('log-search')?.value||'').toLowerCase();
+  const dateF=document.getElementById('log-filter-date')?.value||'';
+
+  const now=new Date();
+  let data=[...activityLogs].filter(l=>{
+    if(cat&&l.category!==cat) return false;
+    if(usr&&(l.user||l.actor)!==usr) return false;
+    if(search&&!JSON.stringify(l).toLowerCase().includes(search)) return false;
+    if(dateF){
+      const d=new Date(l.timestamp);
+      const diffDays=(now-d)/(864e5);
+      if(dateF==='today'&&diffDays>1) return false;
+      if(dateF==='yesterday'&&(diffDays<1||diffDays>2)) return false;
+      if(dateF==='week'&&diffDays>7) return false;
+      if(dateF==='month'&&diffDays>30) return false;
+    }
+    return true;
+  }).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+
+  if(sumEl) sumEl.textContent=`Menampilkan ${data.length} dari ${activityLogs.length} log`;
+
+  const catIcon={auth:'🔐',ticket:'📄',invoice:'🧾',stage:'🚗',archive:'📦',users:'👥',tracking:'🔗',target:'🎯'};
+  const catColor={auth:'var(--purple)',ticket:'var(--blue)',invoice:'var(--teal)',stage:'var(--green)',archive:'var(--accent)',users:'var(--amber)',tracking:'var(--blue)',target:'var(--green)'};
+
+  if(!data.length){el.innerHTML='<div class="empty">📭 Tidak ada log</div>';return;}
+
+  el.innerHTML=data.map(l=>{
+    const dt=new Date(l.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const icon=catIcon[l.category]||'📌';
+    const color=catColor[l.category]||'var(--muted)';
+    const actor=l.user||l.actor||'System';
+    const ipInfo=l.ip?`<span style="font-size:10px;color:var(--muted);margin-left:8px">IP: ${l.ip}</span>`:'';
+    const detailStr=l.detail?`<div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace">${l.detail}</div>`:'';
+    return`<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <div style="font-size:18px;flex-shrink:0;margin-top:2px">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;background:${color}20;color:${color};border-radius:99px;padding:1px 8px;font-weight:600">${l.category||'system'}</span>
+          <span style="font-size:13px;font-weight:600">${l.action}</span>
+          ${ipInfo}
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">👤 ${actor} · 🕐 ${dt}</div>
+        ${detailStr}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportActivityLog(){
+  const rows=[['Timestamp','Category','Action','User','Detail','IP']];
+  activityLogs.forEach(l=>rows.push([
+    l.timestamp, l.category||'', l.action||'', l.user||l.actor||'', l.detail||'', l.ip||''
+  ]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`activity-log-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+async function clearActivityLog(){
+  try{
+    await api('DELETE','/activity-logs');
+    activityLogs=[];
+    renderActivityLog();
+    alert('✅ Log berhasil dihapus.');
   }catch(e){alert('Gagal: '+e.message);}
 }
 

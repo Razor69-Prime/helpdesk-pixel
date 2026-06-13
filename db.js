@@ -371,6 +371,45 @@ async function deleteSalesTarget(id) {
   await sbFetch('DELETE', `/sales_targets?id=eq.${id}`);
 }
 
+
+// ─────────────────────────────────────────
+//  ACTIVITY LOG
+// ─────────────────────────────────────────
+const LOG_FILE = require('path').join(__dirname, 'data', 'activity_log.json');
+function readLogLocal()      { try { return JSON.parse(require('fs').readFileSync(LOG_FILE,'utf8')); } catch{ return []; } }
+function writeLogLocal(data) { try { require('fs').writeFileSync(LOG_FILE, JSON.stringify(data,null,2)); } catch{} }
+
+async function insertLog(entry) {
+  const log = {
+    id:        require('crypto').randomUUID(),
+    timestamp: new Date().toISOString(),
+    ...entry
+  };
+  if (!USE_SUPABASE) {
+    const logs = readLogLocal();
+    logs.unshift(log);
+    // Simpan max 5000 log
+    writeLogLocal(logs.slice(0, 5000));
+    return log;
+  }
+  try {
+    await sbFetch('POST', '/activity_logs', log);
+  } catch(e) { console.error('Log insert error:', e.message); }
+  return log;
+}
+
+async function getLogs(limit=500) {
+  if (!USE_SUPABASE) {
+    return readLogLocal().slice(0, limit);
+  }
+  return await sbFetch('GET', `/activity_logs?order=timestamp.desc&limit=${limit}`) || [];
+}
+
+async function clearLogs() {
+  if (!USE_SUPABASE) { writeLogLocal([]); return; }
+  await sbFetch('DELETE', '/activity_logs?id=neq.00000000-0000-0000-0000-000000000000');
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -381,5 +420,6 @@ module.exports = {
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
   computePipelineDates,
   getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser,
-  getSalesTargets, upsertSalesTarget, deleteSalesTarget
+  getSalesTargets, upsertSalesTarget, deleteSalesTarget,
+  insertLog, getLogs, clearLogs
 };
