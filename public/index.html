@@ -1127,6 +1127,8 @@ async function saveReport(){
   if(!time){showAlert('error','Tanggal & waktu wajib diisi.');return;}
 
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
+  const canAssign=isAdmin||currentUser.role==='manager';
+  const tech1=document.getElementById('f-assign-tech')?.value.trim()||'';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
   if(canAssign&&!tech1){showAlert('error','Wajib memilih minimal 1 teknisi.');return;}
   if(canAssign&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
