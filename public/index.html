@@ -734,6 +734,11 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
         <div class="dash-metric blue"><div class="dash-metric-icon">⭐</div><div class="dash-metric-label">Avg Rating</div><div class="dash-metric-value" id="dm-rating">—</div><div class="dash-metric-sub">kepuasan</div></div>
       </div>
+      <div class="dash-metric-grid" style="margin-top:12px">
+        <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target (Semua Sales)</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
+        <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
+        <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
+      </div>
       <div class="dash-grid-3">
         <div class="dash-chart-card">
           <div class="dash-chart-title">📈 Tren Tiket Harian</div>
@@ -756,6 +761,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div class="dash-chart-title">💼 Invoice per Sales PIC</div>
           <div class="dash-chart-sub">Total nominal invoice</div>
           <div id="dash-sales-chart"></div>
+        </div>
+      </div>
+      <div class="dash-grid-2">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">🎯 Target vs Realisasi per Sales PIC</div>
+          <div class="dash-chart-sub">Pencapaian target periode dipilih</div>
+          <div id="dash-target-chart"></div>
         </div>
       </div>
     </div>
@@ -1804,6 +1816,10 @@ async function loadDashboard(){
     // reuse allTickets already fetched (manager sees all via /api/tickets)
     dashData=allTickets.length?allTickets:await api('GET','/tickets');
     if(!allTickets.length) allTickets=dashData;
+    // preload sales targets untuk metrik pencapaian
+    if(!salesTargets.length){
+      try{ salesTargets=await api('GET','/sales-targets'); }catch{}
+    }
     renderDashboard();
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
@@ -1841,11 +1857,11 @@ function filterDash(list){
 function renderDashboard(){
   const data=filterDash(dashData);
   if(!data.length){
-    ['dash-line-chart','dash-donut-chart','dash-tech-chart','dash-sales-chart'].forEach(id=>{
+    ['dash-line-chart','dash-donut-chart','dash-tech-chart','dash-sales-chart','dash-target-chart'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.innerHTML='<div class="no-data">📭 Belum ada data</div>';
     });
-    ['dm-total','dm-done','dm-done-pct','dm-invoice-total','dm-invoice-count','dm-rating'].forEach(id=>{
+    ['dm-total','dm-done','dm-done-pct','dm-invoice-total','dm-invoice-count','dm-rating','dm-target-total','dm-realisasi-total','dm-achievement'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.textContent='—';
     });
@@ -1915,38 +1931,133 @@ function renderDashboard(){
           <div class="dash-bar-val" style="font-size:11px">${salesMap[n].total?fmtM(salesMap[n].total):'—'}</div>
         </div>`).join('')}</div>`
     :'<div class="no-data">📭 Belum ada invoice dengan Sales PIC</div>';
+
+  // ── Total Target & Pencapaian (menggunakan periode dashboard yang sama) ──
+  renderDashTargetMetrics(data, salesMap);
 }
 
-// ── Line chart: tren harian ──
+// ── Target & Pencapaian metrics + chart ──
+function renderDashTargetMetrics(data, salesMap){
+  const{from,to}=getDashRange();
+  // Tentukan range efektif untuk overlap target bulanan
+  let effFrom=from, effTo=to;
+  if(!effFrom||!effTo){
+    // "Semua" → pakai range tanggal data yang ada
+    const dates=data.map(t=>new Date(t.worked_at||t.created_at)).filter(d=>!isNaN(d));
+    if(dates.length){
+      effFrom=effFrom||new Date(Math.min(...dates));
+      effTo=effTo||new Date(Math.max(...dates));
+    }
+  }
+
+  // Hitung total target dengan pro-rata terhadap overlap periode
+  let totalTarget=0;
+  const targetPerPic={};
+  (salesTargets||[]).forEach(t=>{
+    const [ty,tm]=t.year_month.split('-').map(Number);
+    const tFrom=new Date(ty,tm-1,1);
+    const tTo=new Date(ty,tm,0,23,59,59);
+    if(!effFrom||!effTo){
+      totalTarget+=Number(t.target_amount);
+      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+Number(t.target_amount);
+      return;
+    }
+    if(tFrom<=effTo&&tTo>=effFrom){
+      const overlapDays=Math.max(0,(Math.min(effTo,tTo)-Math.max(effFrom,tFrom))/864e5+1);
+      const totalDays=(tTo-tFrom)/864e5+1;
+      const ratio=Math.min(1,overlapDays/totalDays);
+      const proRated=Number(t.target_amount)*ratio;
+      totalTarget+=proRated;
+      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+proRated;
+    }
+  });
+
+  const totalRealisasi=Object.values(salesMap).reduce((s,v)=>s+v.total,0);
+  const achievement=totalTarget>0?Math.round(totalRealisasi/totalTarget*100):null;
+
+  document.getElementById('dm-target-total').textContent=totalTarget?fmtM(totalTarget):'Rp 0';
+  document.getElementById('dm-realisasi-total').textContent=totalRealisasi?fmtM(totalRealisasi):'Rp 0';
+  const achEl=document.getElementById('dm-achievement');
+  const achSubEl=document.getElementById('dm-achievement-sub');
+  if(achievement!==null){
+    achEl.textContent=achievement+'%';
+    achEl.style.color=achievement>=100?'var(--green)':achievement>=70?'var(--amber)':'var(--red)';
+    achSubEl.textContent=achievement>=100?'🎉 Target tercapai':`${fmtM(totalTarget-totalRealisasi)} lagi`;
+  }else{
+    achEl.textContent='—';
+    achSubEl.textContent='Target belum diset';
+  }
+
+  // ── Chart: Target vs Realisasi per Sales PIC ──
+  const allPics=[...new Set([...Object.keys(salesMap).filter(p=>p!=='(Tidak ada)'),...Object.keys(targetPerPic)])];
+  const chartEl=document.getElementById('dash-target-chart');
+  if(!allPics.length){
+    chartEl.innerHTML='<div class="no-data">📭 Belum ada target atau realisasi</div>';
+    return;
+  }
+  const maxVal=Math.max(1,...allPics.map(p=>Math.max(salesMap[p]?.total||0, targetPerPic[p]||0)));
+  chartEl.innerHTML=`<div class="dash-bar-list" style="gap:14px">${allPics.sort((a,b)=>(salesMap[b]?.total||0)-(salesMap[a]?.total||0)).map(pic=>{
+    const real=salesMap[pic]?.total||0;
+    const target=targetPerPic[pic]||0;
+    const realPct=Math.round(real/maxVal*100);
+    const targetPct=Math.round(target/maxVal*100);
+    const pct=target>0?Math.round(real/target*100):null;
+    const pctColor=pct===null?'var(--muted)':pct>=100?'var(--green)':pct>=70?'var(--amber)':'var(--red)';
+    return`<div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="font-weight:600">👤 ${pic}</span>
+        <span style="color:${pctColor};font-weight:600">${pct!==null?pct+'%':'—'}</span>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
+        <span style="font-size:10px;color:var(--teal);width:56px">Realisasi</span>
+        <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${realPct}%;background:var(--teal)"></div></div>
+        <span style="font-size:10px;font-weight:600;min-width:70px;text-align:right">${fmtM(real)}</span>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="font-size:10px;color:var(--accent);width:56px">Target</span>
+        <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${targetPct}%;background:var(--accent)"></div></div>
+        <span style="font-size:10px;font-weight:600;min-width:70px;text-align:right">${target?fmtM(target):'—'}</span>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Line chart: tren harian + persentase selesai ──
 function renderLineChart(data){
   const el=document.getElementById('dash-line-chart');
   if(!data.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
-  // group by date
+  // group by date — total & done
   const byDate={};
   data.forEach(t=>{
     const d=t.worked_at||t.created_at;
     if(!d) return;
     const key=new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short'});
-    byDate[key]=(byDate[key]||0)+1;
+    if(!byDate[key]) byDate[key]={total:0,done:0};
+    byDate[key].total++;
+    if(t.status==='done') byDate[key].done++;
   });
   const keys=Object.keys(byDate).slice(-14); // max 14 hari
-  const vals=keys.map(k=>byDate[k]);
+  const vals=keys.map(k=>byDate[k].total);
+  const pcts=keys.map(k=>byDate[k].total?Math.round(byDate[k].done/byDate[k].total*100):0);
   const maxV=Math.max(1,...vals);
-  const W=400,H=120,PAD=30,BAR_W=Math.max(6,Math.floor((W-PAD*2)/Math.max(keys.length,1))-4);
+  const W=400,H=130,PAD=30,BAR_W=Math.max(6,Math.floor((W-PAD*2)/Math.max(keys.length,1))-4);
 
   const bars=keys.map((k,i)=>{
-    const h=Math.round((vals[i]/maxV)*(H-PAD));
+    const h=Math.round((vals[i]/maxV)*(H-PAD-14));
     const x=PAD+i*(BAR_W+4);
     const y=H-PAD-h;
+    const pctColor=pcts[i]>=80?'#639922':pcts[i]>=50?'#EF9F27':'#C84B4B';
     return`<rect x="${x}" y="${y}" width="${BAR_W}" height="${h}" rx="3" fill="var(--accent)" opacity=".85"/>
            <text x="${x+BAR_W/2}" y="${H-PAD+12}" font-size="9" fill="var(--muted)" text-anchor="middle">${k}</text>
-           ${vals[i]>0?`<text x="${x+BAR_W/2}" y="${y-4}" font-size="10" fill="var(--text)" text-anchor="middle">${vals[i]}</text>`:''}`;
+           ${vals[i]>0?`<text x="${x+BAR_W/2}" y="${y-4}" font-size="10" fill="var(--text)" text-anchor="middle">${vals[i]}</text>`:''}
+           <text x="${x+BAR_W/2}" y="${H-PAD+24}" font-size="8" fill="${pctColor}" text-anchor="middle" font-weight="600">${pcts[i]}%</text>`;
   }).join('');
 
-  el.innerHTML=`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H+10}" style="width:100%;min-width:280px">
+  el.innerHTML=`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H+14}" style="width:100%;min-width:280px">
     <line x1="${PAD}" y1="${H-PAD}" x2="${W-10}" y2="${H-PAD}" stroke="var(--border)" stroke-width="1"/>
     ${bars}
-  </svg></div>`;
+  </svg></div>
+  <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:center">Angka atas = jumlah tiket · Persentase bawah = tiket selesai vs total per hari</div>`;
 }
 
 // ── Donut chart (SVG pure) ──
