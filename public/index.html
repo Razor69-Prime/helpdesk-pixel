@@ -1238,6 +1238,10 @@ function showApp(){
   // Preload arsip agar data arsip masuk ke laporan sejak awal
   const canArchive=['admin','manager','accounting'].includes(currentUser.role);
   if(canArchive) api('GET','/archive').then(d=>{archivedTickets=d||[];}).catch(()=>{});
+
+  // Preload kunjungan sales untuk dashboard & KPI
+  const canSeeVisits=['admin','manager','superadmin','sales'].includes(currentUser.role);
+  if(canSeeVisits) api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{});
 }
 
 function buildNav(){
@@ -2069,6 +2073,7 @@ async function loadDashboard(){
       try{ salesTargets=await api('GET','/sales-targets'); }catch{}
       // Preload kunjungan data untuk KPI dashboard
       try{ if(!kunjunganData||!kunjunganData.length) kunjunganData=await api('GET','/sales-visits'); }catch{}
+      // Preload sales targets
     }
     renderDashboard();
   }catch(e){console.error(e);}
