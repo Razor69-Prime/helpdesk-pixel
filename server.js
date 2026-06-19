@@ -296,7 +296,7 @@ app.get('/api/sales-targets', requireRole('admin','manager','superadmin'), async
 });
 
 // POST tambah/update target — { sales_pic, year_month (YYYY-MM), target_amount }
-app.post('/api/sales-targets', requireRole('admin','superadmin'), async (req, res) => {
+app.post('/api/sales-targets', requireRole('admin','superadmin','manager'), async (req, res) => {
   try {
     const { sales_pic, year_month, target_amount } = req.body;
     if (!sales_pic || !year_month || target_amount == null) {
@@ -311,7 +311,7 @@ app.post('/api/sales-targets', requireRole('admin','superadmin'), async (req, re
 });
 
 // DELETE target
-app.delete('/api/sales-targets/:id', requireRole('admin','superadmin'), async (req, res) => {
+app.delete('/api/sales-targets/:id', requireRole('admin','superadmin','manager'), async (req, res) => {
   try {
     await db.deleteSalesTarget(req.params.id);
     res.json({ ok: true });

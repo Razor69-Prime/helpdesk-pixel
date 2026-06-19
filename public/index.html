@@ -1042,7 +1042,7 @@ function buildNav(){
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
-    {id:'sales',     label:'💰 Sales',          show: role==='admin'||isSuperAdmin},
+    {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
@@ -2733,6 +2733,12 @@ async function loadSalesDashboard(){
     const now=new Date();
     const monthEl=document.getElementById('st-month');
     if(monthEl) monthEl.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+    // Sembunyikan form input target jika bukan manager/superadmin
+    const canSetTarget=['manager','superadmin'].includes(currentUser.role);
+    const inputCard=document.querySelector('#tab-sales .dash-grid-2 .dash-chart-card:first-child');
+    if(inputCard) inputCard.style.display=canSetTarget?'':'none';
+
     renderSalesDashboard();
     renderTargetList();
   }catch(e){console.error('Sales dashboard error:',e);}
