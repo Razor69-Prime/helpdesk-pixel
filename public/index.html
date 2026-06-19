@@ -4577,20 +4577,22 @@ function exportDashboardPDF(){
   doc.setFont('helvetica','bold');
   doc.setFontSize(13);
   doc.setTextColor(255,255,255);
-  doc.text('PIXEL SOLUSINDO — LAPORAN DASHBOARD',ML,11);
+  doc.text('PIXEL SOLUSINDO - LAPORAN DASHBOARD',ML,11);
   doc.setFontSize(8);
   doc.setFont('helvetica','normal');
   doc.text(`Dicetak: ${today}  |  ${periodeLabel}`,PW-ML,11,{align:'right'});
   y=26;
 
   // ── Helper: section label ──
-  const sectionLabel=(label)=>{
+  const sectionLabel=(label, color=[224,123,57])=>{
+    doc.setFillColor(...color);
+    doc.rect(ML,y,3,7,'F');
     doc.setFillColor(245,241,237);
-    doc.rect(ML,y,CW,7,'F');
+    doc.rect(ML+3,y,CW-3,7,'F');
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
-    doc.setTextColor(122,118,112);
-    doc.text(label,ML+3,y+5);
+    doc.setTextColor(26,25,22);
+    doc.text(label,ML+6,y+5);
     y+=10;
   };
 
@@ -4639,7 +4641,7 @@ function exportDashboardPDF(){
   };
 
   // ── SEKSI 1: OPERASIONAL TIKET ──
-  sectionLabel('📋 OPERASIONAL TIKET');
+  sectionLabel('OPERASIONAL TIKET', [42,122,111]);
   metricRow([
     ['Total Tiket',   document.getElementById('dm-total')?.textContent||'—', periodeLabel],
     ['Tiket Selesai', document.getElementById('dm-done')?.textContent||'—',  document.getElementById('dm-done-pct')?.textContent||''],
@@ -4680,7 +4682,7 @@ function exportDashboardPDF(){
         doc.text(name.split(' ').slice(0,2).join(' '),ML,y+9);
         doc.setFont('helvetica','bold');
         doc.text(`${v.done} selesai`,ML+70,y+9);
-        doc.text(`⭐${avgR}`,ML+100,y+9);
+        doc.text('Rating: '+avgR,ML+100,y+9);
         y+=13;
       });
       y+=4;
@@ -4689,7 +4691,7 @@ function exportDashboardPDF(){
 
   // ── SEKSI 2: OMZET & TARGET SALES ──
   if(y>220){doc.addPage();y=14;}
-  sectionLabel('💰 OMZET & TARGET SALES');
+  sectionLabel('OMZET & TARGET SALES', [224,123,57]);
   metricRow([
     ['Total Target',      document.getElementById('dm-target-total')?.textContent||'—',     periodeLabel],
     ['Total Realisasi',   document.getElementById('dm-realisasi-total')?.textContent||'—',  'dari invoice'],
@@ -4730,7 +4732,7 @@ function exportDashboardPDF(){
 
   // ── SEKSI 3: KUNJUNGAN SALES ──
   if(y>220){doc.addPage();y=14;}
-  sectionLabel('🗺️ KUNJUNGAN SALES');
+  sectionLabel('KUNJUNGAN SALES', [24,95,165]);
   metricRow([
     ['Total Kunjungan',   document.getElementById('dm-visit-total')?.textContent||'—',    periodeLabel],
     ['Closed Won',        document.getElementById('dm-visit-won')?.textContent||'—',      document.getElementById('dm-visit-won-pct')?.textContent||''],
@@ -4763,7 +4765,7 @@ function exportDashboardPDF(){
       doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
       doc.text(pic.split(' ').slice(0,3).join(' '),ML,y+9);
       doc.setFont('helvetica','bold');
-      doc.text(`${v.total} kunjungan  |  ${v.won} won  |  ${wr}% win rate`,PW-ML,y+9,{align:'right'});
+      doc.text(v.total+' kunjungan | '+v.won+' won | '+wr+'% win rate',PW-ML,y+9,{align:'right'});
       y+=13;
     });
   }
