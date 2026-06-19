@@ -400,7 +400,7 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
 app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
   try {
     const role = req.session.user.role;
-    const { status, lat, lng } = req.body;
+    const { status, lat, lng, technicians, technician } = req.body;
     const now = new Date().toISOString();
 
     // Validasi kepemilikan untuk teknisi
@@ -409,14 +409,22 @@ app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
       const t = tickets.find(t => t.id === req.params.id);
       if (!t) return res.status(403).json({ error: 'Akses ditolak.' });
       // Teknisi hanya boleh update status
-      if (Object.keys(req.body).some(k => k !== 'status' && k !== 'lat' && k !== 'lng')) {
+      if (Object.keys(req.body).some(k => !['status','lat','lng'].includes(k))) {
         return res.status(403).json({ error: 'Teknisi hanya bisa update status.' });
       }
     }
 
     const patch = {};
-    if (status)    patch.status     = status;
+    if (status) patch.status = status;
     if (lat && lng){ patch.last_lat = lat; patch.last_lng = lng; patch.last_gps_at = now; }
+
+    // Manager ke atas bisa update teknisi
+    const canAssign = ['admin','superadmin','manager'].includes(role);
+    if (canAssign && technicians && Array.isArray(technicians) && technicians.length) {
+      patch.technicians = technicians;
+      patch.technician  = technicians[0];
+      logActivity(req, 'ticket', 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${technicians.join(', ')}`);
+    }
 
     const updated = await db.updateTicket(req.params.id, patch);
     if (status) {

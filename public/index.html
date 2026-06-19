@@ -824,6 +824,30 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
 </div>
 
+<!-- ASSIGN TEKNISI MODAL -->
+<div class="modal-overlay" id="assign-modal" onclick="if(event.target===this)closeAssignModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAssignModal()">✕</button>
+    <div class="modal-title">👷 Assign / Ganti Teknisi</div>
+    <div class="modal-sub" id="assign-modal-sub">Pilih teknisi untuk tiket ini</div>
+    <input type="hidden" id="assign-ticket-id"/>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>Teknisi 1 <span style="color:var(--red)">*</span></label>
+      <select id="assign-tech1"><option value="">Pilih Teknisi 1...</option></select>
+    </div>
+    <div class="form-group">
+      <label>Teknisi 2 <span style="color:var(--muted);font-weight:400">(opsional)</span></label>
+      <select id="assign-tech2"><option value="">Tidak ada</option></select>
+    </div>
+    <div id="assign-error" class="form-error" style="display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn" onclick="closeAssignModal()">Batal</button>
+      <button class="btn primary" onclick="saveAssign()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
 <!-- TRACKING MODAL -->
 <div class="modal-overlay" id="track-modal" onclick="if(event.target===this)closeTrackModal()">
   <div class="modal">
@@ -1338,6 +1362,11 @@ function renderTickets(){
     // Hapus btn: hanya admin
     const delBtn=isAdmin?`<button class="btn danger" onclick="deleteTicket('${t.id}')">Hapus</button>`:'';
 
+    // Assign Teknisi btn: manager ke atas
+    const canAssignTicket=isAdmin||currentUser.role==='manager';
+    const assignBtn=canAssignTicket
+      ?`<button class="btn sm" style="background:var(--purple-bg);color:var(--purple);border-color:#AFA9EC;font-size:12px;padding:4px 10px" onclick="openAssignModal('${t.id}','${(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean)).join('|')}')">👷 Assign</button>`
+      :'';
     // PDF report: teknisi & admin (bukan akunting, bukan manager)
     const pdfBtn=(!isAccounting&&!isReadOnly)
       ?`<button class="btn sm" style="padding:4px 8px;font-size:11px" title="Export Laporan PDF" onclick="exportTicketPDF('${t.id}')">📄</button>`:'';
@@ -1406,6 +1435,7 @@ function renderTickets(){
         <div class="ticket-actions">
           ${statusSel}
           ${stageBtns}
+          ${assignBtn}
           ${pdfBtn}
           ${trackBtn}
           ${delBtn}
@@ -3528,6 +3558,62 @@ async function clearActivityLog(){
     renderActivityLog();
     alert('✅ Log berhasil dihapus.');
   }catch(e){alert('Gagal: '+e.message);}
+}
+
+/* ══ ASSIGN TEKNISI ══════════════════════ */
+async function openAssignModal(ticketId, currentTechs){
+  document.getElementById('assign-ticket-id').value=ticketId;
+  const ticket=allTickets.find(t=>t.id===ticketId);
+  if(ticket) document.getElementById('assign-modal-sub').textContent=`WO: ${ticket.wo_number}`;
+
+  // Load teknisi list
+  try{
+    const users=await api('GET','/users');
+    const techs=users.filter(u=>u.role==='technician');
+    const opts='<option value="">Tidak ada</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+    const opts1='<option value="">Pilih Teknisi 1...</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+    document.getElementById('assign-tech1').innerHTML=opts1;
+    document.getElementById('assign-tech2').innerHTML=opts;
+
+    // Set current values
+    const current=currentTechs?currentTechs.split('|').filter(Boolean):[];
+    if(current[0]) document.getElementById('assign-tech1').value=current[0];
+    if(current[1]) document.getElementById('assign-tech2').value=current[1];
+  }catch(e){ console.error(e); }
+
+  document.getElementById('assign-error').style.display='none';
+  document.getElementById('assign-modal').classList.add('show');
+}
+
+function closeAssignModal(){
+  document.getElementById('assign-modal').classList.remove('show');
+}
+
+async function saveAssign(){
+  const ticketId=document.getElementById('assign-ticket-id').value;
+  const tech1=document.getElementById('assign-tech1').value.trim();
+  const tech2=document.getElementById('assign-tech2').value.trim();
+  const errEl=document.getElementById('assign-error');
+  errEl.style.display='none';
+
+  if(!tech1){errEl.textContent='Teknisi 1 wajib dipilih.';errEl.style.display='block';return;}
+  if(tech2&&tech1===tech2){errEl.textContent='Teknisi 1 dan 2 tidak boleh sama.';errEl.style.display='block';return;}
+
+  try{
+    const technicians=[tech1,...(tech2?[tech2]:[])];
+    const updated=await api('PATCH','/tickets/'+ticketId,{
+      technicians,
+      technician: tech1,
+      assigned_to: tech1,
+      assigned_to2: tech2||null
+    });
+    // Update local state
+    const idx=allTickets.findIndex(t=>t.id===ticketId);
+    if(idx!==-1) allTickets[idx]={...allTickets[idx],...updated, technicians};
+    closeAssignModal();
+    renderTickets();
+    showAlert('success','Teknisi berhasil di-assign!');
+  }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
 }
 
 /* ══ EXPORT EXCEL ════════════════════════ */
