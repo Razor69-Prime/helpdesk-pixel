@@ -592,9 +592,11 @@ app.get('/api/sales-visits', requireAuth, async (req, res) => {
 app.post('/api/sales-visits', requireAuth, async (req, res) => {
   try {
     const { customer_name, customer_phone, address,
-            lat, lng, location_manual, location_label,
+            pic_name, kabupaten, customer_type,
+            visit_status, cust_status,
+            lat, lng, location_manual,
             estimasi_omzet, realisasi_omzet,
-            prospect_date, notes } = req.body;
+            prospect_date, next_follow_up, notes } = req.body;
     if (!customer_name || !prospect_date) {
       return res.status(400).json({ error: 'customer_name dan prospect_date wajib diisi.' });
     }
@@ -602,18 +604,24 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
       sales_pic:       req.session.user.name,
       sales_user_id:   req.session.user.id,
       customer_name,
-      customer_phone:  customer_phone  || null,
-      address:         address         || null,
-      lat:             lat             || null,
-      lng:             lng             || null,
-      location_manual: location_manual || false,
-      location_label:  location_label  || null,
+      pic_name:        pic_name       || null,
+      customer_phone:  customer_phone || null,
+      address:         address        || null,
+      kabupaten:       kabupaten      || null,
+      customer_type:   customer_type  || null,
+      visit_status:    visit_status   || 'Visited',
+      cust_status:     cust_status    || 'Canvasing',
+      lat:             lat            || null,
+      lng:             lng            || null,
+      location_manual: location_manual|| false,
       estimasi_omzet:  estimasi_omzet  ? Number(estimasi_omzet)  : null,
       realisasi_omzet: realisasi_omzet ? Number(realisasi_omzet) : null,
       prospect_date,
-      notes:           notes           || null,
-      status:          'prospect',
+      next_follow_up:  next_follow_up || null,
+      notes:           notes          || null,
+      status:          cust_status    || 'prospect',
     });
+    logActivity(req, 'ticket', 'KUNJUNGAN SALES', `Customer: ${customer_name} · Status: ${visit_status||'Visited'}`);
     res.status(201).json(visit);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -637,7 +645,7 @@ app.patch('/api/sales-visits/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE visit (admin/superadmin only)
-app.delete('/api/sales-visits/:id', requireRole('admin','superadmin'), async (req, res) => {
+app.delete('/api/sales-visits/:id', requireRole('admin','superadmin','manager'), async (req, res) => {
   try { await db.deleteSalesVisit(req.params.id); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });

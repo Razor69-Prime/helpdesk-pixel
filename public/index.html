@@ -647,6 +647,187 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <div id="archive-list"></div>
     </div>
 
+    <!-- TAB: KUNJUNGAN SALES -->
+    <div id="tab-kunjungan" class="tab-content">
+
+      <!-- Sub tabs: Form Input & Riwayat -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);padding:4px;border-radius:var(--radius);border:1px solid var(--border);width:fit-content">
+        <button class="nav-btn active" id="kun-sub-form" onclick="switchKunSub('form',this)">📝 Input Kunjungan</button>
+        <button class="nav-btn" id="kun-sub-list" onclick="switchKunSub('list',this)">📋 Riwayat Kunjungan</button>
+      </div>
+
+      <!-- PANEL: FORM INPUT -->
+      <div id="kun-panel-form">
+        <div style="font-size:14px;font-weight:700;color:var(--orange,#E07B39);letter-spacing:.05em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--accent)">
+          📋 LAPORAN KUNJUNGAN SALES DAN MARKETING
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Prospect Date <span style="color:var(--red)">*</span></label>
+            <input type="date" id="kv-prospect-date"/>
+          </div>
+          <div class="form-group">
+            <label>Sales PIC</label>
+            <input type="text" id="kv-sales-pic" readonly style="background:var(--surface2);color:var(--muted)"/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nama Customer / Toko <span style="color:var(--red)">*</span></label>
+            <input type="text" id="kv-customer-name" placeholder="mis. Toko Elektronik Maju"/>
+          </div>
+          <div class="form-group">
+            <label>PIC / Kontak Person</label>
+            <input type="text" id="kv-pic-name" placeholder="mis. Bapak Budi (Owner)"/>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Alamat</label>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <textarea id="kv-address" placeholder="Isi alamat lengkap atau klik tombol GPS..." rows="2" style="flex:1;resize:vertical"></textarea>
+            <button class="btn sm" onclick="getKunjunganGPS()" style="flex-shrink:0;margin-top:0" title="Ambil lokasi GPS">📍 GPS</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px" id="kv-gps-status"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Kabupaten</label>
+            <select id="kv-kabupaten">
+              <option value="">Pilih Kabupaten...</option>
+              <option value="Badung">Badung</option>
+              <option value="Bangli">Bangli</option>
+              <option value="Buleleng">Buleleng</option>
+              <option value="Gianyar">Gianyar</option>
+              <option value="Jembrana">Jembrana</option>
+              <option value="Karangasem">Karangasem</option>
+              <option value="Klungkung">Klungkung</option>
+              <option value="Tabanan">Tabanan</option>
+              <option value="Denpasar">Kota Denpasar</option>
+              <option value="Lainnya">Lainnya (Manual)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Customer Type</label>
+            <select id="kv-customer-type">
+              <option value="B2C">B2C (End User)</option>
+              <option value="B2B">B2B (Bisnis)</option>
+              <option value="B2G">B2G (Pemerintah)</option>
+              <option value="Retail">Retail</option>
+              <option value="Grosir">Grosir</option>
+              <option value="Kontraktor">Kontraktor</option>
+              <option value="Project">Project</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Est. Omzet (Rp)</label>
+            <input type="text" id="kv-est-omzet" placeholder="mis. 9000000" oninput="formatAmountInput(this)" inputmode="numeric"/>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px" id="kv-est-preview"></div>
+          </div>
+          <div class="form-group">
+            <label>Realisasi (Rp)</label>
+            <input type="text" id="kv-realisasi" placeholder="mis. 1000000" oninput="formatAmountInput(this)" inputmode="numeric"/>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px" id="kv-real-preview"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status Kunjungan</label>
+            <select id="kv-status">
+              <option value="Visited">✅ Visited</option>
+              <option value="Not In">❌ Not In</option>
+              <option value="Reschedule">🔄 Reschedule</option>
+              <option value="Follow Up">📞 Follow Up</option>
+              <option value="Demo">🎯 Demo</option>
+              <option value="Proposal">📄 Proposal</option>
+              <option value="Closing">🏆 Closing</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cust Status</label>
+            <select id="kv-cust-status">
+              <option value="Canvasing">Canvasing</option>
+              <option value="Prospect">Prospect</option>
+              <option value="Follow Up 1">Follow Up 1</option>
+              <option value="Follow Up 2">Follow Up 2</option>
+              <option value="Last Follow">Last Follow</option>
+              <option value="Negotiation">Negotiation</option>
+              <option value="Closed Won">Closed Won</option>
+              <option value="Closed Lost">Closed Lost</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Kontak / No. WA <span style="color:var(--red)">*</span></label>
+          <input type="tel" id="kv-phone" placeholder="mis. 081234567890" inputmode="numeric"/>
+        </div>
+
+        <div class="form-group">
+          <label>Hasil Kunjungan</label>
+          <textarea id="kv-notes" placeholder="Deskripsikan hasil kunjungan hari ini..." rows="4" style="resize:vertical"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Next Follow Up</label>
+            <input type="date" id="kv-next-follow"/>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">Default 3 hari dari Prospect Date</div>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end">
+            <div id="kv-followup-label" style="font-size:12px;color:var(--blue);padding:8px 0"></div>
+          </div>
+        </div>
+
+        <!-- GPS Info saat submit -->
+        <div style="background:var(--blue-bg);border:1px solid #B5D4F4;border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--blue);margin-bottom:16px" id="kv-gps-info">
+          📍 Lokasi GPS akan otomatis tercatat saat Submit
+        </div>
+
+        <div id="kv-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn" onclick="resetKunjunganForm()">🔄 Reset</button>
+          <button class="btn primary" id="kv-submit-btn" onclick="submitKunjungan()">📤 Submit Kunjungan</button>
+        </div>
+      </div>
+
+      <!-- PANEL: RIWAYAT -->
+      <div id="kun-panel-list" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:600">Riwayat Kunjungan</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select id="kun-filter-pic" onchange="renderKunjunganList()" style="font-size:12px">
+              <option value="">Semua Sales PIC</option>
+            </select>
+            <select id="kun-filter-status" onchange="renderKunjunganList()" style="font-size:12px">
+              <option value="">Semua Status</option>
+              <option value="Visited">Visited</option>
+              <option value="Not In">Not In</option>
+              <option value="Reschedule">Reschedule</option>
+              <option value="Follow Up">Follow Up</option>
+              <option value="Closing">Closing</option>
+            </select>
+            <select id="kun-filter-date" onchange="renderKunjunganList()" style="font-size:12px">
+              <option value="today">Hari Ini</option>
+              <option value="week">7 Hari</option>
+              <option value="month">Bulan Ini</option>
+              <option value="">Semua</option>
+            </select>
+            <input type="text" id="kun-search" placeholder="Cari..." oninput="renderKunjunganList()" style="font-size:12px;min-width:120px"/>
+          </div>
+        </div>
+        <div id="kun-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <div id="kunjungan-list"></div>
+      </div>
+    </div>
+
     <!-- TAB: SALES DASHBOARD (admin only) -->
     <div id="tab-sales" class="tab-content">
 
@@ -1043,6 +1224,7 @@ function buildNav(){
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
     {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
+    {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
@@ -1086,6 +1268,7 @@ function switchTab(tab,btn){
     }
   }
   if(tab==='sales')     loadSalesDashboard();
+  if(tab==='kunjungan') loadKunjungan();
   if(tab==='archive')   loadArchive();
   if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
@@ -1725,6 +1908,7 @@ const ALL_MENUS=[
   {id:'invoice', label:'🧾 Invoice'},
   {id:'kpi',     label:'📊 KPI'},
   {id:'sales',   label:'💰 Sales Dashboard'},
+  {id:'kunjungan',label:'🗺️ Kunjungan Sales'},
   {id:'archive', label:'📦 Arsip'},
   {id:'dashboard',label:'📊 Dashboard Manager'},
   {id:'users',   label:'👥 Manajemen Akun'},
@@ -2905,6 +3089,252 @@ async function deleteTarget(id){
     salesTargets=salesTargets.filter(t=>t.id!==id);
     renderTargetList();
     renderSalesDashboard();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
+/* ══ KUNJUNGAN SALES ══════════════════════ */
+let kunjunganData=[];
+let kunjunganGPS={lat:null,lng:null};
+
+function switchKunSub(sub,btn){
+  document.querySelectorAll('#tab-kunjungan .nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('kun-panel-form').style.display=sub==='form'?'':'none';
+  document.getElementById('kun-panel-list').style.display=sub==='list'?'':'none';
+  if(sub==='list') renderKunjunganList();
+}
+
+async function loadKunjungan(){
+  // Set default values
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('kv-prospect-date').value=today;
+  document.getElementById('kv-sales-pic').value=currentUser.name;
+
+  // Set next follow up default +3 hari
+  const nfu=new Date(); nfu.setDate(nfu.getDate()+3);
+  document.getElementById('kv-next-follow').value=nfu.toISOString().slice(0,10);
+  updateFollowUpLabel();
+
+  // Prospect date change → auto update next follow up
+  document.getElementById('kv-prospect-date').onchange=function(){
+    const d=new Date(this.value); d.setDate(d.getDate()+3);
+    document.getElementById('kv-next-follow').value=d.toISOString().slice(0,10);
+    updateFollowUpLabel();
+  };
+  document.getElementById('kv-next-follow').onchange=updateFollowUpLabel;
+
+  // Load kunjungan data
+  try{
+    kunjunganData=await api('GET','/sales-visits');
+    // Populate PIC filter
+    const pics=[...new Set(kunjunganData.map(v=>v.sales_pic).filter(Boolean))];
+    const sel=document.getElementById('kun-filter-pic');
+    if(sel) sel.innerHTML='<option value="">Semua Sales PIC</option>'+pics.map(p=>`<option value="${p}">${p}</option>`).join('');
+  }catch(e){ kunjunganData=[]; }
+
+  // Try get GPS
+  getKunjunganGPS(false);
+}
+
+function updateFollowUpLabel(){
+  const d=document.getElementById('kv-next-follow').value;
+  if(!d) return;
+  const el=document.getElementById('kv-followup-label');
+  if(el) el.textContent='📅 '+new Date(d).toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+}
+
+function getKunjunganGPS(showAlert=true){
+  const statusEl=document.getElementById('kv-gps-status');
+  const infoEl=document.getElementById('kv-gps-info');
+  if(!navigator.geolocation){
+    if(statusEl) statusEl.textContent='GPS tidak tersedia di perangkat ini';
+    return;
+  }
+  if(statusEl) statusEl.textContent='⏳ Mengambil lokasi GPS...';
+  navigator.geolocation.getCurrentPosition(
+    async(pos)=>{
+      kunjunganGPS={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      const coordStr=`${kunjunganGPS.lat.toFixed(6)}, ${kunjunganGPS.lng.toFixed(6)}`;
+      if(statusEl) statusEl.innerHTML=`✅ GPS: <a href="https://maps.google.com/?q=${kunjunganGPS.lat},${kunjunganGPS.lng}" target="_blank" style="color:var(--blue)">${coordStr}</a>`;
+      if(infoEl) infoEl.innerHTML=`📍 GPS tercatat: <a href="https://maps.google.com/?q=${kunjunganGPS.lat},${kunjunganGPS.lng}" target="_blank" style="color:var(--blue)">${coordStr}</a>`;
+
+      // Auto-fill address via reverse geocoding (jika kosong)
+      const addrEl=document.getElementById('kv-address');
+      if(addrEl&&!addrEl.value.trim()){
+        try{
+          const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${kunjunganGPS.lat}&lon=${kunjunganGPS.lng}&format=json`);
+          const data=await r.json();
+          if(data.display_name) addrEl.value=data.display_name;
+        }catch{}
+      }
+    },
+    (err)=>{
+      if(statusEl) statusEl.textContent='⚠️ GPS tidak bisa diambil — isi alamat manual';
+      if(showAlert) alert('Tidak bisa akses GPS. Pastikan izin lokasi sudah diberikan.');
+    },
+    {enableHighAccuracy:true,timeout:10000}
+  );
+}
+
+function resetKunjunganForm(){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('kv-prospect-date').value=today;
+  document.getElementById('kv-customer-name').value='';
+  document.getElementById('kv-pic-name').value='';
+  document.getElementById('kv-address').value='';
+  document.getElementById('kv-kabupaten').value='';
+  document.getElementById('kv-customer-type').value='B2C';
+  document.getElementById('kv-est-omzet').value='';
+  document.getElementById('kv-realisasi').value='';
+  document.getElementById('kv-status').value='Visited';
+  document.getElementById('kv-cust-status').value='Canvasing';
+  document.getElementById('kv-phone').value='';
+  document.getElementById('kv-notes').value='';
+  const nfu=new Date(); nfu.setDate(nfu.getDate()+3);
+  document.getElementById('kv-next-follow').value=nfu.toISOString().slice(0,10);
+  updateFollowUpLabel();
+  document.getElementById('kv-error').style.display='none';
+  document.getElementById('kv-est-preview').textContent='';
+  document.getElementById('kv-real-preview').textContent='';
+}
+
+async function submitKunjungan(){
+  const errEl=document.getElementById('kv-error');
+  errEl.style.display='none';
+  const customerName=document.getElementById('kv-customer-name').value.trim();
+  const phone=document.getElementById('kv-phone').value.trim();
+  const prospectDate=document.getElementById('kv-prospect-date').value;
+  if(!customerName){errEl.textContent='Nama Customer wajib diisi.';errEl.style.display='block';return;}
+  if(!phone){errEl.textContent='Kontak/WA wajib diisi.';errEl.style.display='block';return;}
+  if(!prospectDate){errEl.textContent='Prospect Date wajib diisi.';errEl.style.display='block';return;}
+
+  const btn=document.getElementById('kv-submit-btn');
+  btn.disabled=true; btn.textContent='⏳ Menyimpan...';
+
+  const estRaw=document.getElementById('kv-est-omzet').value.replace(/\D/g,'');
+  const realRaw=document.getElementById('kv-realisasi').value.replace(/\D/g,'');
+
+  try{
+    const payload={
+      customer_name:   customerName,
+      pic_name:        document.getElementById('kv-pic-name').value.trim()||null,
+      customer_phone:  phone,
+      address:         document.getElementById('kv-address').value.trim()||null,
+      kabupaten:       document.getElementById('kv-kabupaten').value||null,
+      customer_type:   document.getElementById('kv-customer-type').value,
+      estimasi_omzet:  estRaw?Number(estRaw):null,
+      realisasi_omzet: realRaw?Number(realRaw):null,
+      visit_status:    document.getElementById('kv-status').value,
+      cust_status:     document.getElementById('kv-cust-status').value,
+      notes:           document.getElementById('kv-notes').value.trim()||null,
+      prospect_date:   prospectDate,
+      next_follow_up:  document.getElementById('kv-next-follow').value||null,
+      lat:             kunjunganGPS.lat,
+      lng:             kunjunganGPS.lng,
+      location_manual: !kunjunganGPS.lat,
+    };
+    const saved=await api('POST','/sales-visits',payload);
+    kunjunganData.unshift(saved);
+    resetKunjunganForm();
+    showAlert('success','✅ Laporan kunjungan berhasil disimpan!');
+    // Switch ke riwayat
+    const listBtn=document.getElementById('kun-sub-list');
+    if(listBtn) switchKunSub('list',listBtn);
+  }catch(e){
+    errEl.textContent='Gagal: '+e.message;
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='📤 Submit Kunjungan';
+  }
+}
+
+function renderKunjunganList(){
+  const el=document.getElementById('kunjungan-list');
+  const sumEl=document.getElementById('kun-summary');
+  if(!el) return;
+
+  const pic=document.getElementById('kun-filter-pic')?.value||'';
+  const status=document.getElementById('kun-filter-status')?.value||'';
+  const dateF=document.getElementById('kun-filter-date')?.value||'';
+  const search=(document.getElementById('kun-search')?.value||'').toLowerCase();
+  const role=currentUser.role;
+  const isSalesOnly=role==='sales';
+
+  const now=new Date();
+  let data=[...kunjunganData].filter(v=>{
+    // Sales hanya lihat miliknya sendiri
+    if(isSalesOnly&&v.sales_pic!==currentUser.name) return false;
+    if(pic&&v.sales_pic!==pic) return false;
+    if(status&&v.visit_status!==status) return false;
+    if(search&&!JSON.stringify(v).toLowerCase().includes(search)) return false;
+    if(dateF){
+      const d=new Date(v.prospect_date||v.created_at);
+      const diff=(now-d)/(864e5);
+      if(dateF==='today'&&diff>1) return false;
+      if(dateF==='week'&&diff>7) return false;
+      if(dateF==='month'&&(d.getMonth()!==now.getMonth()||d.getFullYear()!==now.getFullYear())) return false;
+    }
+    return true;
+  }).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  if(sumEl) sumEl.textContent=`${data.length} kunjungan`;
+
+  if(!data.length){el.innerHTML='<div class="empty">📭 Belum ada data kunjungan</div>';return;}
+
+  const statusColor={
+    'Visited':'var(--green)','Not In':'var(--red)','Reschedule':'var(--amber)',
+    'Follow Up':'var(--blue)','Demo':'var(--purple)','Proposal':'var(--teal)','Closing':'var(--orange,#E07B39)'
+  };
+
+  el.innerHTML=data.map(v=>{
+    const dt=new Date(v.prospect_date||v.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    const nfu=v.next_follow_up?new Date(v.next_follow_up).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
+    const sColor=statusColor[v.visit_status]||'var(--muted)';
+    const gpsLink=v.lat&&v.lng?`<a href="https://maps.google.com/?q=${v.lat},${v.lng}" target="_blank" style="color:var(--blue);font-size:11px">📍 Maps</a>`:'';
+    const waBtn=v.customer_phone?`${waLink(v.customer_phone,'📲 WA')}`:'' ;
+    const today=new Date(); today.setHours(0,0,0,0);
+    const nfuDate=v.next_follow_up?new Date(v.next_follow_up):null;
+    const isOverdue=nfuDate&&nfuDate<today&&!['Closed Won','Closed Lost'].includes(v.cust_status);
+
+    return`<div class="ticket-item" style="margin-bottom:10px${isOverdue?';border-left:3px solid var(--red)':''}">
+      <div style="display:flex;align-items:flex-start;gap:10px;justify-content:space-between;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-weight:700;font-size:14px">${v.customer_name}</span>
+            <span style="font-size:11px;font-weight:600;color:${sColor};background:${sColor}18;border-radius:99px;padding:1px 8px">${v.visit_status||'—'}</span>
+            <span style="font-size:11px;color:var(--muted);background:var(--surface2);border-radius:99px;padding:1px 8px">${v.cust_status||'—'}</span>
+            ${isOverdue?'<span style="font-size:11px;color:var(--red);font-weight:600">⏰ Overdue</span>':''}
+          </div>
+          ${v.pic_name?`<div style="font-size:12px;color:var(--muted)">👤 ${v.pic_name}</div>`:''}
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            👷 ${v.sales_pic} · 📅 ${dt}
+            ${v.kabupaten?` · 📍 ${v.kabupaten}`:''}
+            ${v.customer_type?` · ${v.customer_type}`:''}
+          </div>
+          ${v.address?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🏠 ${v.address}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${v.estimasi_omzet?`<div style="font-size:12px;font-weight:600;color:var(--teal)">${fmtM(v.estimasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Est. Omzet</div>`:''}
+          ${v.realisasi_omzet?`<div style="font-size:12px;font-weight:600;color:var(--green)">${fmtM(v.realisasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Realisasi</div>`:''}
+        </div>
+      </div>
+      ${v.notes?`<div style="font-size:12px;color:var(--dark,#1A1916);margin-top:8px;padding:8px;background:var(--surface2);border-radius:var(--radius-sm);white-space:pre-wrap">${v.notes}</div>`:''}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);align-items:center">
+        ${v.customer_phone?`<span style="font-size:12px">📞 ${v.customer_phone} ${waBtn}</span>`:''}
+        ${nfu?`<span style="font-size:11px;color:${isOverdue?'var(--red)':'var(--blue)'}">📅 Follow Up: ${nfu}</span>`:''}
+        ${gpsLink}
+        ${(currentUser.role==='admin'||currentUser.role==='superadmin'||currentUser.role==='manager')?`<button class="btn danger" style="padding:2px 8px;font-size:11px;margin-left:auto" onclick="deleteKunjungan('${v.id}')">Hapus</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteKunjungan(id){
+  if(!confirm('Hapus data kunjungan ini?')) return;
+  try{
+    await api('DELETE','/sales-visits/'+id);
+    kunjunganData=kunjunganData.filter(v=>v.id!==id);
+    renderKunjunganList();
   }catch(e){alert('Gagal: '+e.message);}
 }
 
