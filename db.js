@@ -235,7 +235,7 @@ async function insertJobStage(data) {
 // ─────────────────────────────────────────
 const VISITS_FILE = require('path').join(__dirname, 'data', 'sales_visits.json');
 function readVisits()       { try { return JSON.parse(require('fs').readFileSync(VISITS_FILE,'utf8')); } catch{ return []; } }
-function writeVisits(data)  { require('fs').writeFileSync(VISITS_FILE, JSON.stringify(data,null,2)); }
+function writeVisits(data)  { try { require('fs').writeFileSync(VISITS_FILE, JSON.stringify(data,null,2)); } catch{} }
 
 function addDays(dateStr, days) {
   const d = new Date(dateStr);
@@ -251,32 +251,49 @@ function computePipelineDates(prospectDate) {
 }
 
 async function getSalesVisits(filterUserId=null) {
+  if (USE_SUPABASE) {
+    let path = '/sales_visits?order=created_at.desc';
+    if (filterUserId) path += `&sales_user_id=eq.${filterUserId}`;
+    return await sbFetch('GET', path) || [];
+  }
   let rows = readVisits().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if (filterUserId) rows = rows.filter(v => v.sales_user_id === filterUserId);
   return rows;
 }
 
 async function insertSalesVisit(data) {
-  const visits = readVisits();
   const pipeline = computePipelineDates(data.prospect_date);
   const visit = {
-    id:            require('crypto').randomUUID(),
-    created_at:    new Date().toISOString(),
-    updated_at:    new Date().toISOString(),
+    id:         require('crypto').randomUUID(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     ...pipeline,
     ...data,
     status: data.status || 'prospect',
   };
+  if (USE_SUPABASE) {
+    const rows = await sbFetch('POST', '/sales_visits', visit);
+    return rows?.[0] || visit;
+  }
+  const visits = readVisits();
   visits.push(visit);
   writeVisits(visits);
   return visit;
 }
 
 async function updateSalesVisit(id, patch) {
+  if (USE_SUPABASE) {
+    if (patch.prospect_date) {
+      const pipeline = computePipelineDates(patch.prospect_date);
+      Object.assign(patch, pipeline);
+    }
+    patch.updated_at = new Date().toISOString();
+    const rows = await sbFetch('PATCH', `/sales_visits?id=eq.${id}`, patch);
+    return rows?.[0] || null;
+  }
   const visits = readVisits();
   const idx = visits.findIndex(v => v.id === id);
   if (idx === -1) throw new Error('Visit tidak ditemukan');
-  // Jika prospect_date berubah, recompute pipeline dates
   if (patch.prospect_date && patch.prospect_date !== visits[idx].prospect_date) {
     const pipeline = computePipelineDates(patch.prospect_date);
     Object.assign(patch, pipeline);
@@ -287,6 +304,10 @@ async function updateSalesVisit(id, patch) {
 }
 
 async function deleteSalesVisit(id) {
+  if (USE_SUPABASE) {
+    await sbFetch('DELETE', `/sales_visits?id=eq.${id}`);
+    return;
+  }
   const visits = readVisits().filter(v => v.id !== id);
   writeVisits(visits);
 }
