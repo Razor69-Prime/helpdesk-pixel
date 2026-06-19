@@ -655,7 +655,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div style="font-size:16px;font-weight:600">📦 Arsip Tiket</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">Tiket yang sudah diarsipkan — semua data tersimpan</div>
         </div>
-        <div style="font-size:12px;color:var(--muted)" id="archive-count"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:12px;color:var(--muted)" id="archive-count"></div>
+          <button class="btn green sm" onclick="exportArsipExcel()">📥 Export Excel</button>
+        </div>
       </div>
       <div class="filter-row" style="margin-bottom:12px">
         <input type="text" id="arc-search" placeholder="Cari WO, project, customer, teknisi..." oninput="renderArchive()"/>
@@ -824,6 +827,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="font-size:13px;font-weight:600">Riwayat Kunjungan</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn green sm" onclick="exportKunjunganExcel()">📥 Export Excel</button>
             <select id="kun-filter-pic" onchange="renderKunjunganList()" style="font-size:12px">
               <option value="">Semua Sales PIC</option>
             </select>
@@ -932,6 +936,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <input type="date" class="dash-date-input" id="dash-to" onchange="renderDashboard()"/>
         </span>
         <button class="dash-period-btn" style="margin-left:auto" onclick="loadDashboard()">🔄</button>
+        <button class="btn blue sm" onclick="exportDashboardPDF()" style="margin-left:4px">📄 Export PDF</button>
       </div>
 
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
@@ -4430,6 +4435,349 @@ async function saveAssign(){
     renderTickets();
     showAlert('success','Teknisi berhasil di-assign!');
   }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
+}
+
+/* ══ EXPORT KUNJUNGAN EXCEL ══════════════ */
+function exportKunjunganExcel(){
+  if(!kunjunganData||!kunjunganData.length){alert('Belum ada data kunjungan.');return;}
+  const wb=XLSX.utils.book_new();
+  const fname=`laporan_kunjungan_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
+
+  // Sheet 1: Semua data kunjungan
+  const rows=kunjunganData.map(v=>({
+    'Prospect Date':    v.prospect_date||'',
+    'Sales PIC':        v.sales_pic||'',
+    'Nama Customer':    v.customer_name||'',
+    'PIC Customer':     v.pic_name||'',
+    'Kabupaten':        v.kabupaten||'',
+    'Customer Type':    v.customer_type||'',
+    'Alamat':           v.address||'',
+    'No. WA/HP':        v.customer_phone||'',
+    'Status Kunjungan': v.visit_status||'',
+    'Cust Status':      v.cust_status||'',
+    'Est. Omzet':       v.estimasi_omzet||0,
+    'Realisasi Omzet':  v.realisasi_omzet||0,
+    'Next Follow Up':   v.next_follow_up||'',
+    'Hasil Kunjungan':  v.notes||'',
+    'Lat':              v.lat||'',
+    'Lng':              v.lng||'',
+    'Tanggal Input':    v.created_at?new Date(v.created_at).toLocaleString('id-ID'):'',
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+
+  // Lebar kolom
+  ws['!cols']=[
+    {wch:14},{wch:18},{wch:22},{wch:20},{wch:12},{wch:14},
+    {wch:35},{wch:16},{wch:18},{wch:14},{wch:16},{wch:16},
+    {wch:14},{wch:50},{wch:12},{wch:12},{wch:20}
+  ];
+  XLSX.utils.book_append_sheet(wb,ws,'Data Kunjungan');
+
+  // Sheet 2: Summary per Sales PIC
+  const picMap={};
+  kunjunganData.forEach(v=>{
+    const p=v.sales_pic||'(Tanpa PIC)';
+    if(!picMap[p]) picMap[p]={pic:p,total:0,visited:0,won:0,lost:0,active:0,est:0,real:0};
+    picMap[p].total++;
+    if(v.visit_status==='Visited'||v.visit_status==='Closing') picMap[p].visited++;
+    if(v.cust_status==='Closed Won') picMap[p].won++;
+    else if(v.cust_status==='Closed Lost') picMap[p].lost++;
+    else picMap[p].active++;
+    picMap[p].est+=Number(v.estimasi_omzet)||0;
+    picMap[p].real+=Number(v.realisasi_omzet)||0;
+  });
+  const sumRows=Object.values(picMap).map(p=>({
+    'Sales PIC':         p.pic,
+    'Total Kunjungan':   p.total,
+    'Visited':           p.visited,
+    'Closed Won':        p.won,
+    'Closed Lost':       p.lost,
+    'Aktif':             p.active,
+    'Win Rate (%)':      p.won+p.lost>0?Math.round(p.won/(p.won+p.lost)*100):0,
+    'Est. Omzet':        p.est,
+    'Realisasi Omzet':   p.real,
+  }));
+  const ws2=XLSX.utils.json_to_sheet(sumRows);
+  ws2['!cols']=[{wch:20},{wch:16},{wch:10},{wch:12},{wch:12},{wch:10},{wch:12},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Summary per Sales PIC');
+
+  XLSX.writeFile(wb,fname);
+}
+
+/* ══ EXPORT ARSIP EXCEL ══════════════════ */
+function exportArsipExcel(){
+  if(!archivedTickets||!archivedTickets.length){alert('Belum ada data arsip.');return;}
+  const wb=XLSX.utils.book_new();
+  const fname=`laporan_arsip_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
+  const sl={assigned:'Assigned',travelling:'Dalam Perjalanan',ongoing:'Sedang Dikerjakan',done:'Selesai',pending:'Menunggu'};
+
+  // Sheet 1: Data Arsip
+  const rows=archivedTickets.map(t=>{
+    const invs=t.invoices||[];
+    const totalInv=invs.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+    const salesPics=[...new Set(invs.map(i=>i.sales_pic).filter(Boolean))].join(', ');
+    return{
+      'Nomor WO':        t.wo_number||'',
+      'Nama Project':    t.project_name||'',
+      'Customer':        t.customer_name||'',
+      'No. WA Customer': t.customer_phone||'',
+      'Teknisi':         Array.isArray(t.technicians)&&t.technicians.length?t.technicians.join(' & '):(t.technician||''),
+      'Status Akhir':    sl[t.status]||t.status||'',
+      'Tanggal Kerja':   t.worked_at?new Date(t.worked_at).toLocaleString('id-ID'):'',
+      'Deskripsi':       t.description||'',
+      'Rating':          t.rating||'',
+      'Jumlah Invoice':  invs.length,
+      'Total Invoice':   totalInv,
+      'Sales PIC':       salesPics,
+      'Diarsip Oleh':    t.archived_by||'',
+      'Tanggal Arsip':   t.archived_at?new Date(t.archived_at).toLocaleString('id-ID'):'',
+      'Dibuat':          t.created_at?new Date(t.created_at).toLocaleString('id-ID'):'',
+    };
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[
+    {wch:16},{wch:22},{wch:22},{wch:16},{wch:24},{wch:18},{wch:20},
+    {wch:40},{wch:8},{wch:14},{wch:16},{wch:20},{wch:18},{wch:20},{wch:20}
+  ];
+  XLSX.utils.book_append_sheet(wb,ws,'Data Arsip');
+
+  // Sheet 2: Summary Invoice Arsip
+  const inv2=archivedTickets.flatMap(t=>(t.invoices||[]).map(inv=>({
+    'Nomor WO':       t.wo_number,
+    'Customer':       t.customer_name||'',
+    'Sales PIC':      inv.sales_pic||'',
+    'Nama File':      inv.original_name||'',
+    'Total Invoice':  inv.total_amount||0,
+    'Tanggal Upload': inv.uploaded_at?new Date(inv.uploaded_at).toLocaleString('id-ID'):'',
+    'Upload Oleh':    inv.uploaded_by||'',
+    'File Expired':   inv.file_deleted?'Ya':'Tidak',
+    'Catatan':        inv.note||'',
+  })));
+  if(inv2.length){
+    const ws2=XLSX.utils.json_to_sheet(inv2);
+    ws2['!cols']=[{wch:16},{wch:22},{wch:20},{wch:25},{wch:16},{wch:20},{wch:16},{wch:12},{wch:30}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Invoice Arsip');
+  }
+  XLSX.writeFile(wb,fname);
+}
+
+/* ══ EXPORT DASHBOARD PDF ════════════════ */
+function exportDashboardPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210, ML=14, CW=PW-ML*2;
+  const now=new Date();
+  const today=now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  const periodeLabel=document.getElementById('dm-target-sub')?.textContent||'periode dipilih';
+  let y=14;
+
+  // ── Header ──
+  doc.setFillColor(224,123,57);
+  doc.rect(0,0,PW,18,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255,255,255);
+  doc.text('PIXEL SOLUSINDO — LAPORAN DASHBOARD',ML,11);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.text(`Dicetak: ${today}  |  ${periodeLabel}`,PW-ML,11,{align:'right'});
+  y=26;
+
+  // ── Helper: section label ──
+  const sectionLabel=(label)=>{
+    doc.setFillColor(245,241,237);
+    doc.rect(ML,y,CW,7,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(122,118,112);
+    doc.text(label,ML+3,y+5);
+    y+=10;
+  };
+
+  // ── Helper: metric row ──
+  const metricRow=(items)=>{
+    const w=CW/items.length;
+    items.forEach(([label,value,sub],i)=>{
+      const x=ML+i*w;
+      doc.setDrawColor(226,222,214);
+      doc.setFillColor(250,249,247);
+      doc.roundedRect(x,y,w-2,16,2,2,'FD');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(122,118,112);
+      doc.text(label.toUpperCase(),x+3,y+5);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(11);
+      doc.setTextColor(26,25,22);
+      doc.text(String(value),x+3,y+11);
+      if(sub){
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(122,118,112);
+        doc.text(String(sub),x+3,y+15);
+      }
+    });
+    y+=19;
+  };
+
+  // ── Helper: bar chart ──
+  const barChart=(rows,maxVal,colors)=>{
+    rows.forEach(([label,val,sub],i)=>{
+      const barW=maxVal>0?Math.round((val/maxVal)*(CW-60)):0;
+      const color=colors?colors[i%colors.length]:[42,122,111];
+      doc.setFillColor(...color);
+      doc.roundedRect(ML,y,Math.max(barW,2),5,1,1,'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(26,25,22);
+      doc.text(label,ML,y+10);
+      doc.setFont('helvetica','bold');
+      doc.text(String(val),PW-ML,y+10,{align:'right'});
+      if(sub){doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(122,118,112);doc.text(String(sub),PW-ML-25,y+10,{align:'right'});}
+      y+=13;
+    });
+  };
+
+  // ── SEKSI 1: OPERASIONAL TIKET ──
+  sectionLabel('📋 OPERASIONAL TIKET');
+  metricRow([
+    ['Total Tiket',   document.getElementById('dm-total')?.textContent||'—', periodeLabel],
+    ['Tiket Selesai', document.getElementById('dm-done')?.textContent||'—',  document.getElementById('dm-done-pct')?.textContent||''],
+    ['Total Invoice', document.getElementById('dm-invoice-total')?.textContent||'—', document.getElementById('dm-invoice-count')?.textContent||''],
+    ['Avg Rating',    document.getElementById('dm-rating')?.textContent||'—', 'kepuasan customer'],
+  ]);
+
+  // Performa Teknisi dari DOM
+  const techChartEl=document.getElementById('dash-tech-chart');
+  if(techChartEl){
+    const techRows=[];
+    techChartEl.querySelectorAll('[data-tech]').forEach(el=>{
+      techRows.push([el.dataset.tech,el.dataset.done,el.dataset.rating]);
+    });
+    // fallback: ambil dari dashData
+    const data=filterDash(dashData);
+    const techMap={};
+    data.forEach(t=>{
+      const techs=Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean);
+      techs.forEach(n=>{
+        if(!techMap[n]) techMap[n]={done:0,total:0,ratings:[]};
+        techMap[n].total++;
+        if(t.status==='done') techMap[n].done++;
+        if(t.rating) techMap[n].ratings.push(t.rating);
+      });
+    });
+    const techEntries=Object.entries(techMap).sort((a,b)=>b[1].done-a[1].done);
+    if(techEntries.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+      doc.text('Performa Teknisi',ML,y);y+=5;
+      const maxDone=Math.max(1,...techEntries.map(([,v])=>v.done));
+      techEntries.slice(0,8).forEach(([name,v])=>{
+        const barW=Math.round(v.done/maxDone*(CW-70));
+        const avgR=v.ratings.length?(v.ratings.reduce((a,b)=>a+b,0)/v.ratings.length).toFixed(1):'—';
+        doc.setFillColor(42,122,111);
+        doc.roundedRect(ML,y,Math.max(barW,2),4,1,1,'F');
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+        doc.text(name.split(' ').slice(0,2).join(' '),ML,y+9);
+        doc.setFont('helvetica','bold');
+        doc.text(`${v.done} selesai`,ML+70,y+9);
+        doc.text(`⭐${avgR}`,ML+100,y+9);
+        y+=13;
+      });
+      y+=4;
+    }
+  }
+
+  // ── SEKSI 2: OMZET & TARGET SALES ──
+  if(y>220){doc.addPage();y=14;}
+  sectionLabel('💰 OMZET & TARGET SALES');
+  metricRow([
+    ['Total Target',      document.getElementById('dm-target-total')?.textContent||'—',     periodeLabel],
+    ['Total Realisasi',   document.getElementById('dm-realisasi-total')?.textContent||'—',  'dari invoice'],
+    ['Pencapaian Target', document.getElementById('dm-achievement')?.textContent||'—',       document.getElementById('dm-achievement-sub')?.textContent||''],
+  ]);
+
+  // Target vs Realisasi per PIC dari dashData
+  const invFlat=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({...inv,ticket_date:t.worked_at||t.created_at})));
+  const {from:dfrom,to:dto}=getDashRange();
+  const filteredInv=invFlat.filter(inv=>{
+    if(!dfrom) return true;
+    const d=new Date(inv.uploaded_at||inv.ticket_date);
+    return d>=dfrom&&d<=dto;
+  });
+  const salesMap2={};
+  filteredInv.forEach(inv=>{
+    const p=inv.sales_pic||'(Tanpa PIC)';
+    if(!salesMap2[p]) salesMap2[p]=0;
+    salesMap2[p]+=Number(inv.total_amount)||0;
+  });
+  const salesEntries=Object.entries(salesMap2).sort((a,b)=>b[1]-a[1]);
+  if(salesEntries.length){
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+    doc.text('Invoice per Sales PIC',ML,y);y+=5;
+    const maxSales=Math.max(1,...salesEntries.map(([,v])=>v));
+    salesEntries.slice(0,8).forEach(([pic,val])=>{
+      const barW=Math.round(val/maxSales*(CW-80));
+      doc.setFillColor(42,122,111);
+      doc.roundedRect(ML,y,Math.max(barW,2),4,1,1,'F');
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+      doc.text(pic.split(' ').slice(0,3).join(' '),ML,y+9);
+      doc.setFont('helvetica','bold');
+      doc.text(fmtM(val),PW-ML,y+9,{align:'right'});
+      y+=13;
+    });
+    y+=4;
+  }
+
+  // ── SEKSI 3: KUNJUNGAN SALES ──
+  if(y>220){doc.addPage();y=14;}
+  sectionLabel('🗺️ KUNJUNGAN SALES');
+  metricRow([
+    ['Total Kunjungan',   document.getElementById('dm-visit-total')?.textContent||'—',    periodeLabel],
+    ['Closed Won',        document.getElementById('dm-visit-won')?.textContent||'—',      document.getElementById('dm-visit-won-pct')?.textContent||''],
+    ['Follow Up Overdue', document.getElementById('dm-visit-overdue')?.textContent||'—',  'perlu tindak lanjut'],
+    ['Est. Pipeline',     document.getElementById('dm-visit-estimasi')?.textContent||'—', 'aktif'],
+  ]);
+
+  // Kunjungan per PIC
+  const visitPicMap={};
+  (kunjunganData||[]).filter(v=>{
+    if(!dfrom) return true;
+    const d=new Date(v.prospect_date||v.created_at);
+    return d>=dfrom&&d<=dto;
+  }).forEach(v=>{
+    const p=v.sales_pic||'(Tanpa PIC)';
+    if(!visitPicMap[p]) visitPicMap[p]={total:0,won:0};
+    visitPicMap[p].total++;
+    if(v.cust_status==='Closed Won') visitPicMap[p].won++;
+  });
+  const visitEntries=Object.entries(visitPicMap).sort((a,b)=>b[1].total-a[1].total);
+  if(visitEntries.length){
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+    doc.text('Kunjungan per Sales PIC',ML,y);y+=5;
+    const maxVis=Math.max(1,...visitEntries.map(([,v])=>v.total));
+    visitEntries.slice(0,8).forEach(([pic,v])=>{
+      const barW=Math.round(v.total/maxVis*(CW-80));
+      const wr=v.total>0?Math.round(v.won/v.total*100):0;
+      doc.setFillColor(24,95,165);
+      doc.roundedRect(ML,y,Math.max(barW,2),4,1,1,'F');
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+      doc.text(pic.split(' ').slice(0,3).join(' '),ML,y+9);
+      doc.setFont('helvetica','bold');
+      doc.text(`${v.total} kunjungan  |  ${v.won} won  |  ${wr}% win rate`,PW-ML,y+9,{align:'right'});
+      y+=13;
+    });
+  }
+
+  // ── Footer ──
+  const pageCount=doc.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,176,170);
+    doc.text(`Pixel Solusindo  |  ${today}  |  Halaman ${i} dari ${pageCount}`,PW/2,290,{align:'center'});
+    doc.line(ML,287,PW-ML,287);
+  }
+
+  doc.save(`dashboard_${now.toISOString().slice(0,10).replace(/-/g,'')}.pdf`);
 }
 
 /* ══ EXPORT EXCEL ════════════════════════ */
