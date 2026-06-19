@@ -96,6 +96,13 @@ app.get('/manifest.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
+// Pastikan icon PNG di-serve dengan Content-Type yang benar
+app.get('/icons/:file', (req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(__dirname, 'public', 'icons', req.params.file));
+});
+
 // ── Auth middleware ──
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
