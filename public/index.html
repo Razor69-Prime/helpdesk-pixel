@@ -215,6 +215,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .dash-metric.green{border-left:3px solid #639922}
 .dash-metric.blue{border-left:3px solid var(--blue)}
 .dash-metric.teal{border-left:3px solid var(--teal)}
+.dash-grid-1{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:16px}
 .dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .dash-grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
 .dash-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
@@ -917,6 +918,8 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
     <!-- TAB: DASHBOARD (manager) -->
     <div id="tab-dashboard" class="tab-content">
+
+      <!-- Period Selector -->
       <div class="dash-period-bar">
         <span class="dash-period-label">Periode:</span>
         <button class="dash-period-btn active" onclick="setDashPeriod('all',this)">Semua</button>
@@ -930,61 +933,87 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         </span>
         <button class="dash-period-btn" style="margin-left:auto" onclick="loadDashboard()">🔄</button>
       </div>
+
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
+
+      <!-- ════ SEKSI 1: OPERASIONAL TIKET ════ -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+        📋 Operasional Tiket
+      </div>
       <div class="dash-metric-grid">
         <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dm-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
-        <div class="dash-metric blue"><div class="dash-metric-icon">⭐</div><div class="dash-metric-label">Avg Rating</div><div class="dash-metric-value" id="dm-rating">—</div><div class="dash-metric-sub">kepuasan</div></div>
+        <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Tiket Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
+        <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
+        <div class="dash-metric blue"><div class="dash-metric-icon">⭐</div><div class="dash-metric-label">Avg Rating</div><div class="dash-metric-value" id="dm-rating">—</div><div class="dash-metric-sub">kepuasan customer</div></div>
       </div>
-      <div class="dash-metric-grid" style="margin-top:12px">
-        <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target (Semua Sales)</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
-      </div>
-      <!-- KPI Kunjungan Sales -->
-      <div class="dash-metric-grid" style="margin-top:12px">
-        <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
-        <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Omzet Pipeline</div><div class="dash-metric-value" id="dm-visit-estimasi">—</div><div class="dash-metric-sub">aktif</div></div>
-      </div>
-      <div class="dash-grid-3">
+
+      <!-- Chart Tiket -->
+      <div class="dash-grid-2" style="margin-top:12px">
         <div class="dash-chart-card">
           <div class="dash-chart-title">📈 Tren Tiket Harian</div>
-          <div class="dash-chart-sub">Jumlah tiket masuk per hari</div>
+          <div class="dash-chart-sub">Jumlah tiket masuk per hari + % selesai</div>
           <div id="dash-line-chart"></div>
         </div>
         <div class="dash-chart-card">
-          <div class="dash-chart-title">🍩 Distribusi Status</div>
-          <div class="dash-chart-sub">Komposisi status tiket</div>
+          <div class="dash-chart-title">🍩 Distribusi Status Tiket</div>
+          <div class="dash-chart-sub">Komposisi status tiket aktif</div>
           <div id="dash-donut-chart"></div>
         </div>
       </div>
-      <div class="dash-grid-2">
+
+      <!-- Chart Teknisi -->
+      <div class="dash-grid-1" style="margin-top:12px">
         <div class="dash-chart-card">
           <div class="dash-chart-title">👷 Performa Teknisi</div>
-          <div class="dash-chart-sub">Tiket selesai & avg rating per teknisi</div>
+          <div class="dash-chart-sub">Tiket selesai & avg rating per teknisi periode dipilih</div>
           <div id="dash-tech-chart"></div>
         </div>
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">💼 Invoice per Sales PIC</div>
-          <div class="dash-chart-sub">Total nominal invoice</div>
-          <div id="dash-sales-chart"></div>
-        </div>
       </div>
-      <div class="dash-grid-2">
+
+      <!-- ════ SEKSI 2: OMZET & TARGET SALES ════ -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+        💰 Omzet & Target Sales
+      </div>
+      <div class="dash-metric-grid">
+        <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target Semua Sales</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
+        <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
+        <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
+      </div>
+
+      <!-- Chart Sales -->
+      <div class="dash-grid-2" style="margin-top:12px">
         <div class="dash-chart-card">
           <div class="dash-chart-title">🎯 Target vs Realisasi per Sales PIC</div>
-          <div class="dash-chart-sub">Pencapaian target periode dipilih</div>
+          <div class="dash-chart-sub">Pencapaian target omzet periode dipilih</div>
           <div id="dash-target-chart"></div>
         </div>
         <div class="dash-chart-card">
+          <div class="dash-chart-title">💼 Invoice per Sales PIC</div>
+          <div class="dash-chart-sub">Total nominal invoice yang diterbitkan</div>
+          <div id="dash-sales-chart"></div>
+        </div>
+      </div>
+
+      <!-- ════ SEKSI 3: KUNJUNGAN SALES ════ -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+        🗺️ Kunjungan Sales
+      </div>
+      <div class="dash-metric-grid">
+        <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+        <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
+        <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
+        <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Omzet Pipeline</div><div class="dash-metric-value" id="dm-visit-estimasi">—</div><div class="dash-metric-sub">pipeline aktif</div></div>
+      </div>
+
+      <!-- Chart Kunjungan -->
+      <div class="dash-grid-1" style="margin-top:12px">
+        <div class="dash-chart-card">
           <div class="dash-chart-title">🗺️ Kunjungan per Sales PIC</div>
-          <div class="dash-chart-sub">Total kunjungan & status periode dipilih</div>
+          <div class="dash-chart-sub">Total kunjungan, Closed Won, dan Follow Up Overdue per Sales PIC</div>
           <div id="dash-visit-chart"></div>
         </div>
       </div>
+
     </div>
 
   </div>
