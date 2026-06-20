@@ -242,12 +242,145 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .no-data{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
 .dash-loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 
+@media(max-width:700px){
+  .sidebar{width:52px;padding:8px 4px}
+  .sidebar .nav-btn span.nav-label{display:none}
+  .sidebar .nav-btn{justify-content:center;padding:10px}
+  .app-content{padding:16px 12px}
+}
 @media(max-width:600px){
+  /* ── Layout ── */
   .form-row{grid-template-columns:1fr}
   .metric-grid{grid-template-columns:1fr 1fr}
   .kpi-grid{grid-template-columns:1fr}
   .login-card{padding:28px 20px}
   .user-table th:nth-child(3),.user-table td:nth-child(3){display:none}
+
+  /* ── Global font & spacing ── */
+  body{font-size:12px}
+  .app-content{padding:10px 8px!important}
+  h1,h2,h3{font-size:14px}
+  label{font-size:10px}
+  input,select,textarea{font-size:12px;padding:7px 9px}
+  .btn{font-size:11px;padding:5px 10px}
+  .btn.primary{font-size:12px;padding:7px 14px}
+  .btn.sm{font-size:10px;padding:3px 7px}
+
+  /* ── Sidebar collapse to bottom nav on mobile ── */
+  .app-layout{flex-direction:column-reverse}
+  .sidebar{
+    width:100%!important;
+    flex-direction:row;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:4px 6px!important;
+    border-right:none;
+    border-top:1px solid var(--border);
+    gap:2px;
+    flex-shrink:0;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    max-height:52px;
+  }
+  .sidebar::-webkit-scrollbar{display:none}
+  .sidebar .nav-btn{
+    flex-shrink:0;
+    width:auto;
+    min-width:44px;
+    padding:6px 10px!important;
+    font-size:10px;
+    gap:3px;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    white-space:nowrap;
+  }
+  .sidebar .nav-btn span.nav-label{display:block!important;font-size:9px}
+  .sidebar .nav-sep{display:none}
+
+  /* ── Topbar ── */
+  .topbar{padding:8px 10px}
+  .topbar-brand{font-size:13px}
+  .topbar-right{gap:6px}
+  .topbar-right .btn{font-size:10px;padding:3px 7px}
+
+  /* ── Ticket cards ── */
+  .ticket-item{padding:10px 10px!important}
+  .ticket-header{font-size:12px}
+  .ticket-wo{font-size:10px}
+  .ticket-actions{gap:3px;flex-wrap:wrap;justify-content:flex-start!important;margin-top:6px}
+  .ticket-actions .btn{font-size:10px;padding:3px 7px}
+  .ticket-actions select{font-size:10px;padding:3px 6px}
+
+  /* ── Cards & sections ── */
+  .card{padding:12px 10px}
+  .card-title{font-size:12px}
+  .form-group{margin-bottom:10px}
+
+  /* ── Dashboard ── */
+  .dash-metric-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .dash-metric{padding:10px 8px}
+  .dash-metric-value{font-size:18px!important}
+  .dash-metric-label{font-size:10px}
+  .dash-metric-sub{font-size:9px}
+  .dash-grid-2,.dash-grid-3,.dash-grid-1{grid-template-columns:1fr!important;gap:10px}
+  .dash-chart-card{padding:10px 8px}
+  .dash-chart-title{font-size:12px}
+  .dash-chart-sub{font-size:10px}
+  .dash-period-bar{flex-wrap:wrap;gap:4px;padding:6px 0}
+  .dash-period-btn{font-size:10px;padding:3px 8px}
+  .dash-date-input{font-size:10px;width:110px}
+  #dash-loading{font-size:11px}
+
+  /* ── KPI / Metric ── */
+  .metric{padding:10px 8px}
+  .metric-value{font-size:20px}
+  .metric-label{font-size:10px}
+  .metric-sub{font-size:9px}
+  .kpi-card{padding:10px 8px}
+  .kpi-card-title{font-size:11px}
+  .period-row{flex-wrap:wrap;gap:4px}
+  .period-btn{font-size:10px;padding:3px 8px}
+
+  /* ── Sub-tabs (KPI/Kunjungan) ── */
+  #tab-kpi .nav-btn, #tab-kunjungan .nav-btn{font-size:10px;padding:4px 8px}
+
+  /* ── Filter rows ── */
+  .filter-row{flex-wrap:wrap;gap:6px}
+  .filter-row input,.filter-row select{font-size:11px;padding:5px 7px}
+
+  /* ── Modal ── */
+  .modal{padding:18px 14px;border-radius:12px}
+  .modal-title{font-size:14px}
+  .modal-sub{font-size:11px}
+
+  /* ── Table ── */
+  .user-table{font-size:11px}
+  .user-table th,.user-table td{padding:6px 8px}
+
+  /* ── Invoice ── */
+  .invoice-summary{gap:8px}
+  .invoice-summary-item{font-size:11px}
+
+  /* ── Form submit buttons ── */
+  #btn-save,.btn.btn-full{font-size:12px;padding:9px 14px}
+
+  /* ── Activity log ── */
+  #activity-log-list{font-size:11px}
+
+  /* ── Sales dashboard ── */
+  .dash-bar-list{gap:8px!important}
+
+  /* ── Archive & Kunjungan ── */
+  #kunjungan-list .ticket-item,
+  #archive-list .ticket-item{padding:8px!important}
+
+  /* ── Section labels in dashboard ── */
+  .dash-section-label{font-size:10px;padding:4px 6px}
+
+  /* ── Bar charts ── */
+  .bar-bg{height:6px!important}
+  .bar-fill{height:6px!important}
 }
 @media print{
   body *{visibility:hidden}
@@ -352,16 +485,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <textarea id="f-desc" placeholder="Jelaskan pekerjaan yang dilakukan..."></textarea>
         </div>
         <!-- Rating: hanya admin -->
-        <div class="form-group" id="rating-group">
-          <label>Rating Kepuasan Pelanggan</label>
-          <div class="stars">
-            <span class="star" onclick="setRating(1)">★</span>
-            <span class="star" onclick="setRating(2)">★</span>
-            <span class="star" onclick="setRating(3)">★</span>
-            <span class="star" onclick="setRating(4)">★</span>
-            <span class="star" onclick="setRating(5)">★</span>
-          </div>
-        </div>
+</div>
         <!-- GPS info: hanya admin -->
         <div id="gps-status-group" style="margin-bottom:12px">
           <div id="gps-status" style="font-size:12px;color:var(--muted)"></div>
@@ -1250,7 +1374,6 @@ function showApp(){
   // hide rating & gps for non-admin
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const canAssign=isAdmin||currentUser.role==='manager';
-  document.getElementById('rating-group').style.display     =isAdmin?'block':'none';
   document.getElementById('gps-status-group').style.display =isAdmin?'block':'none';
   // admin: tampilkan dropdown assign teknisi
   const assignGroup=document.getElementById('f-assign-group');
@@ -1569,8 +1692,7 @@ function renderTickets(){
 
   el.innerHTML=data.map(t=>{
     const[,cls]=smap[t.status]||['?','pending'];
-    const stars=t.rating?'★'.repeat(t.rating)+'☆'.repeat(5-t.rating):null;
-    const dt=t.worked_at?new Date(t.worked_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+        const dt=t.worked_at?new Date(t.worked_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
     const hasGPS=t.last_lat&&t.last_lng;
     const invCount=(t.invoices||[]).length;
     const expiry=new Date(new Date(t.created_at).getTime()+14*864e5);
@@ -1894,7 +2016,7 @@ function renderKPI(){
   document.getElementById('k-rating').textContent=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+' ★':'—';
   const techs={};
   data.forEach(t=>{
-    if(!techs[t.technician])techs[t.technician]={done:0,total:0,ratings:[]};
+    if(!techs[t.technician])techs[t.technician]={done:0,total:0,};
     techs[t.technician].total++;
     if(t.status==='done')techs[t.technician].done++;
     if(t.rating>0)techs[t.technician].ratings.push(t.rating);
@@ -2187,7 +2309,7 @@ function renderDashboard(){
   // ── Bar chart: teknisi ──
   const techs={};
   data.forEach(t=>{
-    if(!techs[t.technician]) techs[t.technician]={done:0,total:0,ratings:[]};
+    if(!techs[t.technician]) techs[t.technician]={done:0,total:0,};
     techs[t.technician].total++;
     if(t.status==='done') techs[t.technician].done++;
     if(t.rating>0) techs[t.technician].ratings.push(t.rating);
@@ -3552,7 +3674,7 @@ function renderKpiTech(){
       if(!name) return;
       if(!techMap[name]) techMap[name]={
         name, total:0, done:0, ongoing:0, assigned:0,
-        ratings:[], stages:[], responseTimes:[], completionTimes:[],
+         stages:[], responseTimes:[], completionTimes:[],
         tickets:[]
       };
       const tm=techMap[name];
@@ -3561,8 +3683,7 @@ function renderKpiTech(){
       if(t.status==='done') tm.done++;
       else if(['ongoing','travelling'].includes(t.status)) tm.ongoing++;
       else tm.assigned++;
-      if(t.rating&&t.rating>0) tm.ratings.push(t.rating);
-
+      
       // Stage times dari job_stages
       const st=t.job_stages||[];
       const respMs=calcStageTime(st,'berangkat','tiba') || calcStageTime([
@@ -3583,8 +3704,7 @@ function renderKpiTech(){
   lb.innerHTML=`
     <div style="font-size:13px;font-weight:600;margin-bottom:12px">🏆 Leaderboard Teknisi</div>
     ${techs.map((tm,i)=>{
-      const avgRating=tm.ratings.length?(tm.ratings.reduce((a,b)=>a+b,0)/tm.ratings.length).toFixed(1):null;
-      const avgResp=tm.responseTimes.length?fmtDuration(tm.responseTimes.reduce((a,b)=>a+b,0)/tm.responseTimes.length):null;
+            const avgResp=tm.responseTimes.length?fmtDuration(tm.responseTimes.reduce((a,b)=>a+b,0)/tm.responseTimes.length):null;
       const avgComp=tm.completionTimes.length?fmtDuration(tm.completionTimes.reduce((a,b)=>a+b,0)/tm.completionTimes.length):null;
       const pct=tm.total>0?Math.round(tm.done/tm.total*100):0;
       const barW=Math.round(tm.done/maxDone*100);
@@ -4525,8 +4645,7 @@ function exportArsipExcel(){
       'Status Akhir':    sl[t.status]||t.status||'',
       'Tanggal Kerja':   t.worked_at?new Date(t.worked_at).toLocaleString('id-ID'):'',
       'Deskripsi':       t.description||'',
-      'Rating':          t.rating||'',
-      'Jumlah Invoice':  invs.length,
+            'Jumlah Invoice':  invs.length,
       'Total Invoice':   totalInv,
       'Sales PIC':       salesPics,
       'Diarsip Oleh':    t.archived_by||'',
@@ -4662,7 +4781,7 @@ function exportDashboardPDF(){
     data.forEach(t=>{
       const techs=Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean);
       techs.forEach(n=>{
-        if(!techMap[n]) techMap[n]={done:0,total:0,ratings:[]};
+        if(!techMap[n]) techMap[n]={done:0,total:0,};
         techMap[n].total++;
         if(t.status==='done') techMap[n].done++;
         if(t.rating) techMap[n].ratings.push(t.rating);
