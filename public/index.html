@@ -1072,7 +1072,6 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dm-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
         <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Tiket Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
         <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
-        <div class="dash-metric blue"><div class="dash-metric-icon">⭐</div><div class="dash-metric-label">Avg Rating</div><div class="dash-metric-value" id="dm-rating">—</div><div class="dash-metric-sub">kepuasan customer</div></div>
       </div>
 
       <!-- Chart Tiket -->
@@ -1790,8 +1789,7 @@ function renderTickets(){
       }).join('<span style="color:var(--border)"> · </span>')}
     </div>` : '';
 
-    // Rating & GPS: admin lihat rating+GPS, manager lihat rating saja
-    const ratingMeta=(isAdmin||isManager)&&stars?`<span>⭐ ${stars}</span>`:'';
+    // GPS: admin lihat GPS
     const gpsMeta=isAdmin&&hasGPS?gpsLink(t.last_lat,t.last_lng):'';
 
     return`<div class="ticket-item">
@@ -1818,7 +1816,6 @@ function renderTickets(){
       <div class="ticket-meta">
         <span class="badge ${cls}">${smap[t.status]?.[0]||'?'}</span>
         <span>🕐 ${dt}</span>
-        ${ratingMeta}
         ${gpsMeta}
         ${(showInvoice&&invCount)?`<span style="color:var(--green)">📄 ${invCount} invoice</span>`:''}
         <span style="font-size:11px;color:${daysLeft<=3?'var(--amber)':'var(--muted)'}">⏳ ${expired?'Expired':`${daysLeft}h`}</span>
@@ -2011,14 +2008,11 @@ function renderKPI(){
   document.getElementById('k-total').textContent=data.length;
   document.getElementById('k-done').textContent=done.length;
   document.getElementById('k-pct').textContent=data.length?Math.round(done.length/data.length*100)+'% selesai':'0%';
-  const ratings=data.map(t=>t.rating).filter(r=>r>0);
-  document.getElementById('k-rating').textContent=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+' ★':'—';
   const techs={};
   data.forEach(t=>{
-    if(!techs[t.technician])techs[t.technician]={done:0,total:0,};
+    if(!techs[t.technician])techs[t.technician]={done:0,total:0};
     techs[t.technician].total++;
     if(t.status==='done')techs[t.technician].done++;
-    if(t.rating>0)techs[t.technician].ratings.push(t.rating);
   });
   const names=Object.keys(techs);
   const maxDone=Math.max(1,...names.map(n=>techs[n].done));
@@ -2029,19 +2023,6 @@ function renderKPI(){
       <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(techs[n].done/maxDone*100)}%"></div></div>
       <span class="tech-score">${techs[n].done}</span></div>`).join('')
     :'<p style="font-size:12px;color:var(--muted)">Belum ada data</p>';
-  const rated=names.filter(n=>techs[n].ratings.length);
-  document.getElementById('k-by-rating').innerHTML=rated.length
-    ?rated.sort((a,b)=>{
-        const ra=techs[a].ratings.reduce((x,y)=>x+y,0)/techs[a].ratings.length;
-        const rb=techs[b].ratings.reduce((x,y)=>x+y,0)/techs[b].ratings.length;
-        return rb-ra;
-      }).map(n=>{
-        const avg=techs[n].ratings.reduce((x,y)=>x+y,0)/techs[n].ratings.length;
-        return`<div class="tech-row">${av(n)}<span class="tech-name">${n}</span>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(avg/5*100)}%;background:#BA7517"></div></div>
-        <span class="tech-score">${avg.toFixed(1)}★</span></div>`;
-      }).join('')
-    :'<p style="font-size:12px;color:var(--muted)">Belum ada rating</p>';
 }
 
 /* ══ USER MANAGEMENT ═════════════════════ */
@@ -2271,7 +2252,7 @@ function renderDashboard(){
       const el=document.getElementById(id);
       if(el) el.innerHTML='<div class="no-data">📭 Belum ada data</div>';
     });
-    ['dm-total','dm-done','dm-done-pct','dm-invoice-total','dm-invoice-count','dm-rating',
+    ['dm-total','dm-done','dm-done-pct','dm-invoice-total','dm-invoice-count',
      'dm-target-total','dm-realisasi-total','dm-achievement',
      'dm-visit-total','dm-visit-won','dm-visit-won-pct','dm-visit-overdue','dm-visit-estimasi'].forEach(id=>{
       const el=document.getElementById(id);
@@ -2285,13 +2266,11 @@ function renderDashboard(){
   const pending=data.filter(t=>t.status==='pending');
   const allInv=data.flatMap(t=>t.invoices||[]);
   const totalAmount=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
-  const ratings=data.map(t=>t.rating).filter(r=>r>0);
   document.getElementById('dm-total').textContent=data.length;
   document.getElementById('dm-done').textContent=done.length;
   document.getElementById('dm-done-pct').textContent=Math.round(done.length/data.length*100)+'% dari total';
   document.getElementById('dm-invoice-total').textContent=totalAmount?fmtM(totalAmount):'Rp 0';
   document.getElementById('dm-invoice-count').textContent=allInv.length+' invoice';
-  document.getElementById('dm-rating').textContent=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+' ★':'—';
 
   // ── Line chart: tren tiket harian ──
   renderLineChart(data);
@@ -2308,20 +2287,18 @@ function renderDashboard(){
   // ── Bar chart: teknisi ──
   const techs={};
   data.forEach(t=>{
-    if(!techs[t.technician]) techs[t.technician]={done:0,total:0,};
+    if(!techs[t.technician]) techs[t.technician]={done:0,total:0};
     techs[t.technician].total++;
     if(t.status==='done') techs[t.technician].done++;
-    if(t.rating>0) techs[t.technician].ratings.push(t.rating);
   });
   const techNames=Object.keys(techs).sort((a,b)=>techs[b].done-techs[a].done);
   const maxDone=Math.max(1,...techNames.map(n=>techs[n].done));
   document.getElementById('dash-tech-chart').innerHTML=techNames.length
     ?`<div class="dash-bar-list">${techNames.map(n=>{
-        const avgR=techs[n].ratings.length?(techs[n].ratings.reduce((a,b)=>a+b,0)/techs[n].ratings.length).toFixed(1):'—';
         return`<div class="dash-bar-row">
           <div class="dash-bar-label" title="${n}">${n}</div>
           <div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(techs[n].done/maxDone*100)}%;background:var(--accent)"></div></div>
-          <div class="dash-bar-val">${techs[n].done} <span style="color:var(--amber);font-size:10px">${avgR!=='—'?'★'+avgR:''}</span></div>
+          <div class="dash-bar-val">${techs[n].done}</div>
         </div>`;}).join('')}</div>`
     :'<div class="no-data">📭 Belum ada data</div>';
 
@@ -2824,27 +2801,6 @@ function exportTicketPDF(ticketId, source){
     y=doc.lastAutoTable.finalY+8;
   }
 
-  // ── Rating (admin only) ──
-  if(isAdmin&&t.rating>0){
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
-    doc.setTextColor(26,25,22);
-    doc.text('RATING KEPUASAN PELANGGAN',ML,y);
-    y+=4;
-    doc.setDrawColor(224,123,57);
-    doc.setLineWidth(0.5);
-    doc.line(ML,y,ML+CW,y);
-    y+=6;
-    doc.setFontSize(18);
-    doc.setTextColor(186,117,23);
-    doc.text('★'.repeat(t.rating)+'☆'.repeat(5-t.rating),ML,y+2);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(9);
-    doc.setTextColor(122,118,112);
-    doc.text(`${t.rating} dari 5`,ML+50,y+1);
-    y+=14;
-  }
-
   // ── TTD section ──
   const ttdY=Math.max(y+10, PH-70);
   doc.setFont('helvetica','normal');
@@ -2918,14 +2874,11 @@ function exportPDF(){
   const done=data.filter(t=>t.status==='done').length;
   const progress=data.filter(t=>t.status==='progress').length;
   const pending=data.filter(t=>t.status==='pending').length;
-  const ratings=data.map(t=>t.rating).filter(r=>r>0);
-  const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):'—';
 
   const pills=[
     {label:'Selesai',val:done,color:[59,109,17]},
     {label:'Proses', val:progress,color:[24,95,165]},
     {label:'Pending',val:pending,color:[133,79,11]},
-    {label:'Avg Rating',val:avgRating+' ★',color:[186,117,23]},
   ];
   let px=14;
   pills.forEach(p=>{
@@ -2942,7 +2895,6 @@ function exportPDF(){
 
   // ── Table columns based on role ──
   const head=[['No','Nomor WO','Project','Customer','Teknisi','Status','Tanggal','Deskripsi']];
-  if(isAdmin) head[0].push('Rating');
   if(!isTech) head[0].push('Invoice','Total Invoice','Sales PIC');
 
   const body=data.map((t,i)=>{
@@ -2957,7 +2909,7 @@ function exportPDF(){
       dt,
       t.description||''
     ];
-    if(isAdmin) row.push(t.rating>0?t.rating+'★':'—');
+    // rating removed from export
     if(!isTech){
       const invs=t.invoices||[];
       const totalAmt=invs.reduce((s,inv)=>s+(Number(inv.total_amount)||0),0);
@@ -3771,8 +3723,6 @@ function openKpiDetail(techName){
 
   const done=all.filter(t=>t.status==='done');
   const ongoing=all.filter(t=>['ongoing','travelling'].includes(t.status));
-  const ratings=all.map(t=>t.rating).filter(r=>r>0);
-  const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):null;
   const pct=all.length>0?Math.round(done.length/all.length*100):0;
 
   // SLA — tiket assigned >4 jam belum berangkat
@@ -3796,8 +3746,14 @@ function openKpiDetail(techName){
   const avgResp=respTimes.length?fmtDuration(respTimes.reduce((a,b)=>a+b,0)/respTimes.length):null;
   const avgComp=compTimes.length?fmtDuration(compTimes.reduce((a,b)=>a+b,0)/compTimes.length):null;
 
-  // Rating distribution
-  const ratingDist=[5,4,3,2,1].map(r=>({r,count:ratings.filter(x=>x===r).length}));
+  // Status breakdown
+  const statusCounts={
+    assigned: all.filter(t=>t.status==='assigned').length,
+    travelling: all.filter(t=>t.status==='travelling').length,
+    ongoing: all.filter(t=>t.status==='ongoing').length,
+    done: done.length,
+    pending: all.filter(t=>t.status==='pending').length,
+  };
 
   document.getElementById('kpi-detail-content').innerHTML=`
     <!-- Summary cards -->
@@ -3808,7 +3764,7 @@ function openKpiDetail(techName){
       <div class="dash-metric ${slaBreached.length?'red':'green'}"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">SLA Breach</div><div class="dash-metric-value">${slaBreached.length}</div><div class="dash-metric-sub">>4 jam belum berangkat</div></div>
     </div>
 
-    <!-- Speed & Rating -->
+    <!-- Speed & Status Breakdown -->
     <div class="dash-grid-2" style="margin-bottom:16px">
       <div class="dash-chart-card">
         <div class="dash-chart-title">⚡ Kecepatan Response</div>
@@ -3828,17 +3784,18 @@ function openKpiDetail(techName){
         </div>
       </div>
       <div class="dash-chart-card">
-        <div class="dash-chart-title">⭐ Distribusi Rating</div>
+        <div class="dash-chart-title">📊 Breakdown Status</div>
         <div style="margin-top:12px">
-          ${ratingDist.map(({r,count})=>{
-            const pctR=ratings.length?Math.round(count/ratings.length*100):0;
+          ${Object.entries({assigned:'Assigned',travelling:'Dalam Perjalanan',ongoing:'Dikerjakan',done:'Selesai',pending:'Menunggu'}).map(([k,label])=>{
+            const count=statusCounts[k];
+            const pctS=all.length?Math.round(count/all.length*100):0;
+            const col={assigned:'var(--purple)',travelling:'var(--blue)',ongoing:'var(--teal)',done:'var(--green)',pending:'var(--amber)'}[k];
             return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="font-size:12px;width:20px;text-align:right;font-weight:600">${r}⭐</span>
-              <div class="bar-bg" style="height:6px;flex:1"><div class="bar-fill" style="width:${pctR}%;background:var(--amber)"></div></div>
-              <span style="font-size:11px;color:var(--muted);min-width:40px">${count} (${pctR}%)</span>
+              <span style="font-size:11px;width:90px">${label}</span>
+              <div class="bar-bg" style="height:6px;flex:1"><div class="bar-fill" style="width:${pctS}%;background:${col}"></div></div>
+              <span style="font-size:11px;color:var(--muted);min-width:40px">${count} (${pctS}%)</span>
             </div>`;
           }).join('')}
-          <div style="margin-top:8px;font-size:13px;font-weight:600">Rating Rata-rata: ${avgRating?'⭐'+avgRating:'—'}</div>
         </div>
       </div>
     </div>
@@ -3857,7 +3814,7 @@ function openKpiDetail(techName){
             <div style="flex:1;font-size:12px">${t.customer_name||t.project_name||'—'}</div>
             <div style="font-size:11px;color:var(--muted)">${dt}</div>
             <div>${statusMap[t.status]||'—'}</div>
-            ${t.rating?`<div style="font-size:11px">⭐${t.rating}</div>`:'<div style="font-size:11px;color:var(--muted)">—</div>'}
+            
             ${compMs?`<div style="font-size:11px;color:var(--purple)">${fmtDuration(compMs)}</div>`:''}
           </div>`;
         }).join(''):'<div class="empty">📭 Belum ada tiket</div>'}
@@ -4764,7 +4721,6 @@ function exportDashboardPDF(){
     ['Total Tiket',   document.getElementById('dm-total')?.textContent||'—', periodeLabel],
     ['Tiket Selesai', document.getElementById('dm-done')?.textContent||'—',  document.getElementById('dm-done-pct')?.textContent||''],
     ['Total Invoice', document.getElementById('dm-invoice-total')?.textContent||'—', document.getElementById('dm-invoice-count')?.textContent||''],
-    ['Avg Rating',    document.getElementById('dm-rating')?.textContent||'—', 'kepuasan customer'],
   ]);
 
   // Performa Teknisi dari DOM
@@ -4774,16 +4730,14 @@ function exportDashboardPDF(){
     techChartEl.querySelectorAll('[data-tech]').forEach(el=>{
       techRows.push([el.dataset.tech,el.dataset.done,el.dataset.rating]);
     });
-    // fallback: ambil dari dashData
     const data=filterDash(dashData);
     const techMap={};
     data.forEach(t=>{
       const techs=Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean);
       techs.forEach(n=>{
-        if(!techMap[n]) techMap[n]={done:0,total:0,};
+        if(!techMap[n]) techMap[n]={done:0,total:0};
         techMap[n].total++;
         if(t.status==='done') techMap[n].done++;
-        if(t.rating) techMap[n].ratings.push(t.rating);
       });
     });
     const techEntries=Object.entries(techMap).sort((a,b)=>b[1].done-a[1].done);
@@ -4793,14 +4747,12 @@ function exportDashboardPDF(){
       const maxDone=Math.max(1,...techEntries.map(([,v])=>v.done));
       techEntries.slice(0,8).forEach(([name,v])=>{
         const barW=Math.round(v.done/maxDone*(CW-70));
-        const avgR=v.ratings.length?(v.ratings.reduce((a,b)=>a+b,0)/v.ratings.length).toFixed(1):'—';
         doc.setFillColor(42,122,111);
         doc.roundedRect(ML,y,Math.max(barW,2),4,1,1,'F');
         doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
         doc.text(name.split(' ').slice(0,2).join(' '),ML,y+9);
         doc.setFont('helvetica','bold');
         doc.text(`${v.done} selesai`,ML+70,y+9);
-        doc.text('Rating: '+avgR,ML+100,y+9);
         y+=13;
       });
       y+=4;
@@ -4909,7 +4861,7 @@ function exportExcel(){
     'Teknisi':Array.isArray(t.technicians)&&t.technicians.length?t.technicians.join(' & '):(t.technician||''),
     'Status':sl[t.status]||t.status,
     'Tanggal':t.worked_at?new Date(t.worked_at).toLocaleString('id-ID'):'-',
-    'Rating':t.rating||'-','Deskripsi':t.description||'',
+    'Deskripsi':t.description||'',
     'Jumlah Invoice':(t.invoices||[]).length,
     'Total Invoice':t.invoices?t.invoices.reduce((s,i)=>s+(Number(i.total_amount)||0),0):'',
     'Arsip':t.archived?'Ya':'Tidak'
