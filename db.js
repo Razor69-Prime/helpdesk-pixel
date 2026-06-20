@@ -71,7 +71,12 @@ async function getTickets(filterTech, includeArchived=false) {
   }
   let p = '/tickets?order=worked_at.desc';
   if (!includeArchived) p += '&archived=is.false';
-  if (filterTech) p += `&technicians=cs.["${encodeURIComponent(filterTech)}"]`;
+  if (filterTech) {
+    // PostgREST cs. filter butuh JSON array literal yang di-encode sebagai whole query param,
+    // bukan encode tiap karakter di dalam nama (spasi dsb merusak pencocokan JSON).
+    const jsonArr = JSON.stringify([filterTech]);
+    p += `&technicians=cs.${encodeURIComponent(jsonArr)}`;
+  }
   return sbFetch('GET', p);
 }
 
