@@ -22,7 +22,7 @@
   --purple:#3C3489;--purple-bg:#EEEDFE;--teal:#0F6E56;--teal-bg:#E0F4EF;
   --radius:10px;--radius-sm:6px;--shadow:0 1px 3px rgba(0,0,0,.08);
 }
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;overflow-x:hidden}
 
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
@@ -55,11 +55,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .nav{display:none} /* nav horizontal dihapus, diganti sidebar */
 
 /* ── SIDEBAR ── */
-#app-body{display:flex;flex:1;min-height:0}
+#app-body{display:flex;flex:1;min-height:0;overflow-x:hidden}
 .sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
 .sidebar-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:8px 8px 4px;margin-top:4px}
 .sidebar-section:first-child{margin-top:0}
-.app-content{flex:1;min-width:0;padding:20px 28px;overflow-y:auto}
+.app-content{flex:1;min-width:0;width:0;padding:20px 28px;overflow-y:auto;overflow-x:hidden}
 @media(max-width:700px) and (min-width:601px){
   .sidebar{width:52px;padding:8px 4px}
   .sidebar .nav-btn span.nav-label{display:none}
