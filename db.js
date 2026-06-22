@@ -436,6 +436,62 @@ async function clearLogs() {
   await sbFetch('DELETE', '/activity_logs?id=neq.00000000-0000-0000-0000-000000000000');
 }
 
+// ─────────────────────────────────────────
+//  PURCHASE REQUESTS
+// ─────────────────────────────────────────
+async function getPurchaseRequests(){
+  if(!USE_SUPABASE) return [];
+  return await sbFetch('GET','/purchase_requests?order=created_at.desc')||[];
+}
+async function insertPurchaseRequest(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/purchase_requests',entry);
+  return rows?.[0]||entry;
+}
+async function updatePurchaseRequest(id,data){
+  if(!USE_SUPABASE) return {id,...data};
+  const rows=await sbFetch('PATCH',`/purchase_requests?id=eq.${id}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function deletePurchaseRequest(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/purchase_requests?id=eq.${id}`);
+}
+
+// ─────────────────────────────────────────
+//  MATERIAL REQUESTS
+// ─────────────────────────────────────────
+const MATERIALS_FILE = require('path').join(__dirname, 'data', 'material_requests.json');
+function readMaterialsLocal()      { try { return JSON.parse(require('fs').readFileSync(MATERIALS_FILE,'utf8')); } catch{ return []; } }
+function writeMaterialsLocal(data) { try { require('fs').writeFileSync(MATERIALS_FILE, JSON.stringify(data,null,2)); } catch{} }
+
+async function insertMaterialRequest({ ticket_id, wo_number, technician, materials, jasa, notes }) {
+  const entry = {
+    id:         require('crypto').randomUUID(),
+    ticket_id,
+    wo_number:  wo_number || null,
+    technician: technician || null,
+    materials:  materials || [],
+    jasa:       jasa || [],
+    notes:      notes || null,
+    created_at: new Date().toISOString(),
+  };
+  if (!USE_SUPABASE) {
+    const all = readMaterialsLocal();
+    all.unshift(entry);
+    writeMaterialsLocal(all);
+    return entry;
+  }
+  const rows = await sbFetch('POST', '/material_requests', entry);
+  return rows?.[0] || entry;
+}
+
+async function getMaterialRequests() {
+  if (!USE_SUPABASE) return readMaterialsLocal();
+  return await sbFetch('GET', '/material_requests?order=created_at.desc') || [];
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -447,5 +503,7 @@ module.exports = {
   computePipelineDates,
   getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser,
   getSalesTargets, upsertSalesTarget, deleteSalesTarget,
-  insertLog, getLogs, clearLogs
+  insertLog, getLogs, clearLogs,
+  insertMaterialRequest, getMaterialRequests,
+  getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest
 };

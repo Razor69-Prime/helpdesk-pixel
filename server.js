@@ -136,11 +136,12 @@ app.post('/api/login', async (req, res) => {
     }
     if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
     const userData = {
-      id:           u.id,
-      username:     u.username,
-      name:         u.name,
-      role:         u.role,
-      custom_menus: Array.isArray(u.custom_menus) ? u.custom_menus : []
+      id:            u.id,
+      username:      u.username,
+      name:          u.name,
+      role:          u.role,
+      custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
+      signature_url: u.signature_url || null,
     };
     req.session._setUser(userData);
     logActivity(req, 'auth', 'LOGIN', `${userData.name} (${userData.role}) login berhasil`);
@@ -210,12 +211,13 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (req.session.user.id === req.params.id && req.body.role && req.body.role !== callerRole)
       return res.status(400).json({ error: 'Tidak bisa mengubah role akun Anda sendiri.' });
 
-    const { name, password, role, custom_menus } = req.body;
+    const { name, password, role, custom_menus, signature_url } = req.body;
     const patch = {};
-    if (name)                       patch.name         = name;
-    if (password)                   patch.password     = password;
-    if (role)                       patch.role         = role;
-    if (custom_menus !== undefined) patch.custom_menus = custom_menus;
+    if (name)                         patch.name          = name;
+    if (password)                     patch.password      = password;
+    if (role)                         patch.role          = role;
+    if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
+    if (signature_url !== undefined)  patch.signature_url = signature_url;
 
     if (db.USE_SUPABASE) {
       const updated = await db.updateUser(req.params.id, patch);
@@ -550,6 +552,91 @@ app.post('/api/tickets/:id/invoice',
 
 app.delete('/api/tickets/:id/invoice/:invId', requireRole('accounting','admin'), async (req, res) => {
   try { await db.deleteInvoice(req.params.invId, req.params.id); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════
+//  PURCHASE REQUEST
+// ══════════════════════════════════════════
+const PR_ROLES = ['superadmin','manager','accounting','admin'];
+
+app.get('/api/purchase-requests', requireRole(...PR_ROLES), async (req,res)=>{
+  try{ res.json(await db.getPurchaseRequests()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/purchase-requests', requireRole(...PR_ROLES), async (req,res)=>{
+  try{
+    const {pr_number,pr_date,outlet,requester,requester_title,department,reason,items,status}=req.body;
+    if(!pr_number||!outlet||!items?.length) return res.status(400).json({error:'Field wajib kurang.'});
+    const entry=await db.insertPurchaseRequest({pr_number,pr_date,outlet,requester,requester_title,department,reason,items,status:'pending'});
+    logActivity(req,'pr','BUAT PR',`${pr_number} - ${outlet}`);
+    res.status(201).json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/purchase-requests/:id', requireRole(...PR_ROLES), async (req,res)=>{
+  try{
+    const entry=await db.updatePurchaseRequest(req.params.id, req.body);
+    if(req.body.status==='approved') logActivity(req,'pr','APPROVE PR',req.params.id);
+    if(req.body.status==='rejected') logActivity(req,'pr','REJECT PR',req.params.id);
+    res.json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/purchase-requests/:id', requireRole('superadmin'), async (req,res)=>{
+  try{
+    await db.deletePurchaseRequest(req.params.id);
+    logActivity(req,'pr','HAPUS PR',req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ══════════════════════════════════════════
+//  MATERIAL REQUEST (akses: superadmin, akunting, manager)
+// ══════════════════════════════════════════
+
+// POST — teknisi submit material saat selesaikan tiket
+app.post('/api/material-requests', requireAuth, async (req, res) => {
+  try {
+    const { ticket_id, materials, jasa, notes } = req.body;
+    const matArr  = Array.isArray(materials) ? materials : [];
+    const jasaArr = Array.isArray(jasa) ? jasa : [];
+    if (!ticket_id || (!matArr.length && !jasaArr.length)) {
+      return res.status(400).json({ error: 'ticket_id wajib diisi dan minimal 1 material atau 1 jasa.' });
+    }
+    // Validasi tiap material
+    for (const m of matArr) {
+      if (!m.name || !m.qty || Number(m.qty) <= 0) {
+        return res.status(400).json({ error: 'Setiap material wajib punya nama dan jumlah > 0.' });
+      }
+    }
+    // Validasi tiap jasa
+    for (const j of jasaArr) {
+      if (!j.name || !j.qty || Number(j.qty) <= 0) {
+        return res.status(400).json({ error: 'Setiap jasa wajib punya nama dan jumlah > 0.' });
+      }
+    }
+    // Ambil wo_number untuk referensi cepat
+    const tickets = await db.getTickets(null, true);
+    const ticket = tickets.find(t => t.id === ticket_id);
+
+    const entry = await db.insertMaterialRequest({
+      ticket_id,
+      wo_number:  ticket?.wo_number || null,
+      technician: req.session.user.name,
+      materials:  matArr,
+      jasa:       jasaArr,
+      notes
+    });
+    logActivity(req, 'ticket', 'REQUEST MATERIAL/JASA', `WO: ${ticket?.wo_number||ticket_id} · ${matArr.length} material, ${jasaArr.length} jasa`);
+    res.status(201).json(entry);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET — hanya superadmin, akunting, manager (data mentah)
+app.get('/api/material-requests', requireRole('superadmin','accounting','manager'), async (req, res) => {
+  try { res.json(await db.getMaterialRequests()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
