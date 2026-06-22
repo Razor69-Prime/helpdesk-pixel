@@ -4739,12 +4739,14 @@ function renderPRList(){
   if(sumEl) sumEl.textContent=`${data.length} PR ditemukan`;
   if(!data.length){el.innerHTML='<div class="empty">📭 Belum ada Purchase Request</div>';return;}
 
+  const _isSuperAdmin=currentUser.role==='superadmin';
+  const _isManager=currentUser.role==='manager';
   el.innerHTML=data.map(p=>{
     const dt=new Date(p.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
     const total=fmtM((p.items||[]).reduce((s,i)=>s+(Number(i.qty||0)*Number(i.price||0)),0));
     const pStatus=p.status||'pending';
-    const canApprove=(isSuperAdmin||isManager)&&pStatus==='pending';
-    const canReject=(isSuperAdmin||isManager)&&pStatus==='pending';
+    const canApprove=(_isSuperAdmin||_isManager)&&pStatus==='pending';
+    const canReject=(_isSuperAdmin||_isManager)&&pStatus==='pending';
     const isOwn=p.requester===currentUser.name;
     const sColor=statusColor[pStatus]||'var(--muted)';
     const sLabel=statusLabel[pStatus]||pStatus;
@@ -4760,8 +4762,8 @@ function renderPRList(){
           <button class="btn sm" onclick="exportPRPDF('${p.id}')">📄 PDF</button>
           ${canApprove?`<button class="btn sm" style="background:var(--green)18;color:var(--green);border-color:var(--green)" onclick="approvePR('${p.id}')">✅ Approve</button>`:''}
           ${canReject?`<button class="btn sm" style="background:var(--red)18;color:var(--red);border-color:var(--red)" onclick="rejectPR('${p.id}')">❌ Tolak</button>`:''}
-          ${(isOwn||isSuperAdmin)&&pStatus==='draft'?`<button class="btn sm" onclick="editPR('${p.id}')">✏️</button>`:''}
-          ${isSuperAdmin?`<button class="btn sm danger" onclick="deletePR('${p.id}')">🗑️</button>`:''}
+          ${(isOwn||_isSuperAdmin)&&pStatus==='draft'?`<button class="btn sm" onclick="editPR('${p.id}')">✏️</button>`:''}
+          ${_isSuperAdmin?`<button class="btn sm danger" onclick="deletePR('${p.id}')">🗑️</button>`:''}
         </div>
       </div>
       ${p.approved_at?`<div style="font-size:11px;color:var(--green)">✅ Approved oleh ${p.approved_by} pada ${new Date(p.approved_at).toLocaleString('id-ID')}</div>`:''}
