@@ -4969,163 +4969,234 @@ function exportPRPDF(id){
   const p=prData.find(x=>x.id===id);
   if(!p){alert('PR tidak ditemukan.');return;}
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const PW=297,PH=210,ML=14,MR=14,CW=PW-ML-MR;
-  const apv=PR_APPROVERS[p.outlet]||PR_APPROVERS['Pixel Buduk'];
+
+  // ── Portrait A4 ──
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210, PH=297, ML=14, MR=14, CW=PW-ML-MR;
   let y=14;
 
   // ── Header ──
   doc.setFillColor(224,123,57);
-  doc.rect(0,0,PW,16,'F');
+  doc.rect(0,0,PW,18,'F');
   doc.setFont('helvetica','bold');
   doc.setFontSize(14);
   doc.setTextColor(255,255,255);
-  doc.text('PURCHASE REQUEST',ML,10);
+  doc.text('PURCHASE REQUEST',ML,11);
   doc.setFontSize(9);
-  doc.text(p.outlet.toUpperCase(),PW-MR,10,{align:'right'});
-  y=22;
+  doc.setFont('helvetica','normal');
+  doc.text(p.outlet||'Pixel Solusindo',PW-MR,11,{align:'right'});
+  y=26;
 
-  // ── Info header ──
-  const infoY=y;
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(26,25,22);
-  const fields=[
-    ['No. PR',p.pr_number],
-    ['Tanggal',p.pr_date?new Date(p.pr_date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-'],
-    ['Departemen',p.department||'Pixel'],
-    ['Nama Pemohon',p.requester],
+  // ── Info grid ──
+  const prDateStr=p.pr_date?new Date(p.pr_date).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}):'-';
+  const infoRows=[
+    ['No. PR', p.pr_number||'-',    'Departemen', p.department||'Pixel'],
+    ['Tanggal', prDateStr,           'Nama Pemohon', p.requester||'-'],
   ];
-  fields.forEach(([lbl,val],i)=>{
-    const x=ML+(i%2)*(CW/2);
-    const fy=infoY+Math.floor(i/2)*7;
-    doc.setFont('helvetica','bold');doc.text(lbl+':',x,fy);
-    doc.setFont('helvetica','normal');doc.text(val||'-',x+35,fy);
+  infoRows.forEach(([l1,v1,l2,v2])=>{
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(122,118,112);
+    doc.text(l1,ML,y);
+    doc.text(l2,ML+CW/2,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(26,25,22);
+    doc.text(v1,ML+28,y);
+    doc.text(v2,ML+CW/2+28,y);
+    y+=6;
   });
   if(p.reason){
-    y=infoY+16;
-    doc.setFont('helvetica','bold');doc.text('Alasan Permintaan:',ML,y);
-    doc.setFont('helvetica','normal');
-    const lines=doc.splitTextToSize(p.reason,CW-40);
-    doc.text(lines,ML+40,y);
-    y+=lines.length*5+4;
-  } else { y=infoY+18; }
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(122,118,112);
+    doc.text('Alasan Permintaan',ML,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(26,25,22);
+    const lines=doc.splitTextToSize(p.reason,CW-30);
+    doc.text(lines,ML+30,y);
+    y+=lines.length*5.5+2;
+  }
+  y+=4;
 
-  // ── Table header ──
-  const colW=[10,90,18,22,32,32,22,40]; // No,Desc,Qty,Sat,Harga,Total,Stock,Ket
+  // ── Divider ──
+  doc.setDrawColor(226,222,214);
+  doc.setLineWidth(0.5);
+  doc.line(ML,y,PW-MR,y);
+  y+=5;
+
+  // ── Table ── Portrait: narrower, adjust colW
+  // No | Deskripsi | Qty | Satuan | Harga/Unit | Total | Stock | Ket
+  const colW=[8, 60, 12, 18, 26, 26, 14, 18];
   const colX=[ML];
   colW.forEach((w,i)=>{ if(i>0) colX.push(colX[i-1]+colW[i-1]); });
-  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total Harga','Stock','Ket/Tgl Dibutuhkan'];
+  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Ket/Tgl'];
   const TH=7;
 
-  doc.setFillColor(245,241,237);
+  doc.setFillColor(224,123,57);
   doc.rect(ML,y,CW,TH,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
   heads.forEach((h,i)=>{
-    doc.text(h,colX[i]+1,y+5,{maxWidth:colW[i]-2});
+    const align=i>=4&&i<=5?'right':'left';
+    const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
+    doc.text(h,tx,y+5,{align});
   });
-  doc.rect(ML,y,CW,TH,'S');
   y+=TH;
 
-  // ── Table rows ──
+  // Rows
   let grand=0;
   (p.items||[]).forEach((item,idx)=>{
-    const total=(item.qty||0)*(item.price||0);
+    const total=Number(item.qty||0)*Number(item.price||0);
     grand+=total;
-    const ROW_H=8;
-    if(y+ROW_H>PH-55){doc.addPage();y=14;}
+    const ROW_H=7;
+    // New page check — leave 80mm for TTD section
+    if(y+ROW_H>PH-85){
+      doc.addPage();y=14;
+      // Repeat header on new page
+      doc.setFillColor(224,123,57);doc.rect(ML,y,CW,TH,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
+      heads.forEach((h,i)=>{
+        const align=i>=4&&i<=5?'right':'left';
+        const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
+        doc.text(h,tx,y+5,{align});
+      });
+      y+=TH;
+    }
     const bg=idx%2===0?[255,255,255]:[250,249,247];
     doc.setFillColor(...bg);
     doc.rect(ML,y,CW,ROW_H,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(26,25,22);
-    doc.text(String(idx+1),colX[0]+colW[0]/2,y+5.5,{align:'center'});
-    doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,y+5.5);
-    doc.text(String(item.qty||0),colX[2]+colW[2]/2,y+5.5,{align:'center'});
-    doc.text(item.unit||'Pcs',colX[3]+1,y+5.5);
-    doc.text(item.price>0?fmtM(item.price):'-',colX[4]+colW[4]-1,y+5.5,{align:'right'});
-    doc.text(total>0?fmtM(total):'-',colX[5]+colW[5]-1,y+5.5,{align:'right'});
-    doc.text(item.stock||'-',colX[6]+1,y+5.5);
-    doc.text(doc.splitTextToSize(item.ket||'-',colW[7]-2)[0],colX[7]+1,y+5.5);
-    doc.setDrawColor(226,222,214);
-    doc.rect(ML,y,CW,ROW_H,'S');
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    doc.text(String(idx+1),colX[0]+colW[0]/2,y+5,{align:'center'});
+    doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,y+5);
+    doc.text(String(item.qty||0),colX[2]+colW[2]/2,y+5,{align:'center'});
+    doc.text(item.unit||'Pcs',colX[3]+1,y+5);
+    doc.text(item.price>0?fmtM(item.price):'-',colX[4]+colW[4]-1,y+5,{align:'right'});
+    doc.text(total>0?fmtM(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
+    doc.text(item.stock||'-',colX[6]+1,y+5);
+    doc.text(doc.splitTextToSize(item.ket||'-',colW[7]-2)[0],colX[7]+1,y+5);
+    doc.setDrawColor(226,222,214);doc.rect(ML,y,CW,ROW_H,'S');
     y+=ROW_H;
   });
 
-  // Grand total row
+  // Grand total
   doc.setFillColor(245,241,237);
-  doc.rect(ML,y,CW,8,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(9);
-  doc.text('TOTAL',colX[4],y+5.5,{align:'left'});
-  doc.text(fmtM(grand),colX[5]+colW[5]-1,y+5.5,{align:'right'});
-  doc.rect(ML,y,CW,8,'S');
-  y+=12;
+  doc.rect(ML,y,CW,7,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+  doc.text('TOTAL KESELURUHAN',colX[4],y+5);
+  doc.text(fmtM(grand),colX[5]+colW[5]-1,y+5,{align:'right'});
+  doc.rect(ML,y,CW,7,'S');
+  y+=11;
 
-  // ── Signature section ──
-  const sigY=Math.max(y+6, PH-52);
-  const sigCols=4;
-  const sigW=CW/sigCols;
-  const sigLabels=['Requested by','Purchasing & Accounting','Store Manager','Managing Director'];
-  const sigNames=[p.requester, apv.fa, apv.manager, apv.director];
-  const sigTitles=['',apv.faTitle, apv.managerTitle, apv.directorTitle];
+  // ── Alasan ──
+  if(y<PH-85) y=Math.max(y, PH-82);
 
-  // Signature images: index 0 = requester, 1-3 = approver (same image for all approver slots if approved)
-  const sigImages=[
-    p.requester_signature||null,
-    p.approved_by&&p.status==='approved'?p.approver_signature||null:null,
-    p.approved_by&&p.status==='approved'?p.approver_signature||null:null,
-    p.approved_by&&p.status==='approved'?p.approver_signature||null:null,
-  ];
-  const sigApprovedAt=[
-    p.created_at,
-    p.approved_at, p.approved_at, p.approved_at,
-  ];
+  // ── Signature section — 5 kolom, 2 baris (3 atas + 2 bawah) ──
+  // Row 1: Requested by | Purchasing & Akunting | Store Manager
+  // Row 2: Chief Financial Officer | Managing Director | Chief of Marketing
+  const isApproved=p.status==='approved';
+  const approvedAt=p.approved_at?new Date(p.approved_at).toLocaleDateString('id-ID'):'';
+  const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
 
-  sigLabels.forEach((lbl,i)=>{
-    const sx=ML+i*sigW;
-    // Label header
-    doc.setFillColor(245,241,237);
-    doc.rect(sx,sigY,sigW,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
-    doc.text(lbl,sx+sigW/2,sigY+4.5,{align:'center'});
+  // Approver data
+  const outlet=p.outlet||'Pixel Buduk';
+  const apvData={
+    purchasingName: 'I Putu Eka Hendrayana',
+    purchasingTitle:'Purchasing & Akunting',
+    storeManagerName:'I Putu Gede Arsa Pradnyana',
+    storeManagerTitle:'Store Manager',
+    cfoName:'I Putu Eka Hendrayana',
+    cfoTitle:'Chief Financial Officer',
+    mdName:'I Putu Gede Arsa Pradnyana',
+    mdTitle:'Managing Director',
+    comName:'Ida Bagus Jara Amara',
+    comTitle:'Chief of Marketing',
+  };
 
-    // Signature box
-    doc.setDrawColor(200,196,190);
-    doc.setFillColor(255,255,255);
-    doc.rect(sx,sigY+7,sigW,25,'FD');
+  const sigBoxH=32; // height of signature box
+  const sigFootH=12; // name+title height
+  const sigTotalH=8+sigBoxH+sigFootH; // label + box + name
 
-    // Embed signature image if available
-    if(sigImages[i]){
+  // ── Row 1: 3 cols ──
+  const row1Labels=['Requested by','Approved by\nPurchasing & Akunting','Approved by\nStore Manager'];
+  const row1Names=[p.requester||'-', apvData.purchasingName, apvData.storeManagerName];
+  const row1Titles=['', apvData.purchasingTitle, apvData.storeManagerTitle];
+  const row1Images=[p.requester_signature||null, isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null];
+  const row1Dates=[createdAt, isApproved?approvedAt:'', isApproved?approvedAt:''];
+  const col3W=CW/3;
+
+  const sigY1=y;
+  row1Labels.forEach((lbl,i)=>{
+    const sx=ML+i*col3W;
+    // Label
+    doc.setFillColor(245,241,237);doc.rect(sx,sigY1,col3W,8,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    const lblLines=lbl.split('\n');
+    lblLines.forEach((ln,li)=>doc.text(ln,sx+col3W/2,sigY1+4.5+li*4,{align:'center'}));
+
+    // Box
+    doc.setDrawColor(200,196,190);doc.setFillColor(255,255,255);
+    const boxY=sigY1+(lblLines.length>1?12:8);
+    doc.rect(sx,boxY,col3W,sigBoxH,'FD');
+
+    // TTD image
+    if(row1Images[i]){
       try{
-        // Determine image format from data URL
-        const fmt=sigImages[i].startsWith('data:image/png')?'PNG':'JPEG';
-        // Center image in box with padding
-        const imgMaxW=sigW-8;
-        const imgMaxH=20;
-        doc.addImage(sigImages[i],fmt,sx+4,sigY+9,imgMaxW,imgMaxH,'','FAST');
-      }catch(e){
-        // Fallback text if image fails
-        doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(122,118,112);
-        doc.text('(ttd)',sx+sigW/2,sigY+20,{align:'center'});
-      }
-      // Show date below image
-      if(sigApprovedAt[i]){
+        const fmt=row1Images[i].startsWith('data:image/png')?'PNG':'JPEG';
+        doc.addImage(row1Images[i],fmt,sx+4,boxY+3,col3W-8,sigBoxH-10,'','FAST');
+      }catch(e){}
+      if(row1Dates[i]){
         doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-        doc.text(new Date(sigApprovedAt[i]).toLocaleDateString('id-ID'),sx+sigW/2,sigY+30,{align:'center'});
+        doc.text(row1Dates[i],sx+col3W/2,boxY+sigBoxH-4,{align:'center'});
       }
     }
 
     // Name & title
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
-    doc.text(sigNames[i]||'-',sx+sigW/2,sigY+36,{align:'center'});
-    if(sigTitles[i]){
+    const nameY=boxY+sigBoxH+5;
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    doc.text(row1Names[i],sx+col3W/2,nameY,{align:'center',maxWidth:col3W-4});
+    if(row1Titles[i]){
       doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-      doc.text(sigTitles[i],sx+sigW/2,sigY+40,{align:'center'});
+      doc.text(row1Titles[i],sx+col3W/2,nameY+5,{align:'center'});
     }
   });
 
-  // Footer
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,176,170);
-  doc.text(`${p.pr_number} | ${p.outlet} | Dicetak: ${new Date().toLocaleString('id-ID')}`,PW/2,PH-4,{align:'center'});
+  // ── Row 2: 3 cols (CFO | MD | CoM) ──
+  const sigY2=sigY1+sigTotalH+6;
+  const row2Labels=['Approved by\nChief Financial Officer','Approved by\nManaging Director','Approved by\nChief of Marketing'];
+  const row2Names=[apvData.cfoName, apvData.mdName, apvData.comName];
+  const row2Titles=[apvData.cfoTitle, apvData.mdTitle, apvData.comTitle];
+  const row2Images=[isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null];
 
-  doc.save(`PR_${p.pr_number.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+  row2Labels.forEach((lbl,i)=>{
+    const sx=ML+i*col3W;
+    doc.setFillColor(245,241,237);doc.rect(sx,sigY2,col3W,12,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    lbl.split('\n').forEach((ln,li)=>doc.text(ln,sx+col3W/2,sigY2+4.5+li*4.5,{align:'center'}));
+
+    doc.setDrawColor(200,196,190);doc.setFillColor(255,255,255);
+    doc.rect(sx,sigY2+12,col3W,sigBoxH,'FD');
+
+    if(row2Images[i]){
+      try{
+        const fmt=row2Images[i].startsWith('data:image/png')?'PNG':'JPEG';
+        doc.addImage(row2Images[i],fmt,sx+4,sigY2+15,col3W-8,sigBoxH-10,'','FAST');
+      }catch(e){}
+      if(isApproved&&approvedAt){
+        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
+        doc.text(approvedAt,sx+col3W/2,sigY2+12+sigBoxH-4,{align:'center'});
+      }
+    }
+
+    const nameY2=sigY2+12+sigBoxH+5;
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    doc.text(row2Names[i],sx+col3W/2,nameY2,{align:'center',maxWidth:col3W-4});
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
+    doc.text(row2Titles[i],sx+col3W/2,nameY2+5,{align:'center'});
+  });
+
+  // ── Footer ──
+  const totalPages=doc.getNumberOfPages();
+  for(let pg=1;pg<=totalPages;pg++){
+    doc.setPage(pg);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,176,170);
+    doc.line(ML,PH-8,PW-MR,PH-8);
+    doc.text(`${p.pr_number} | ${p.outlet} | Dicetak: ${new Date().toLocaleString('id-ID')} | Hal ${pg}/${totalPages}`,PW/2,PH-4,{align:'center'});
+  }
+
+  doc.save(`PR_${(p.pr_number||'draft').replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
 }
 
 /* ══ END PURCHASE REQUEST ════════════════ */
