@@ -5116,11 +5116,12 @@ function exportPRPDF(id){
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
   const col3W=CW/3;
 
-  // Ambil TTD dari allUsers (tidak disimpan di PR untuk hemat ukuran)
+  // Ambil TTD dari API (signature tidak disimpan di JWT/allUsers untuk hemat ukuran)
   const _reqUser=allUsers.find(u=>u.name===p.requester)||currentUser;
   const _apvUser=allUsers.find(u=>u.name===p.approved_by)||null;
-  const reqSig=_reqUser?.signature_url||null;
-  const apvSig=isApproved&&_apvUser?(_apvUser.signature_url||null):null;
+  // Coba ambil dari currentUser jika match, fallback ke null
+  const reqSig=(_reqUser?.id===currentUser.id)?currentUser.signature_url||null:null;
+  const apvSig=isApproved&&(_apvUser?.id===currentUser.id)?currentUser.signature_url||null:null;
 
   // Nama approver yang benar (fixed)
   const approvers=[

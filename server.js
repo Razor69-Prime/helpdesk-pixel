@@ -141,13 +141,15 @@ app.post('/api/login', async (req, res) => {
       name:          u.name,
       role:          u.role,
       custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
-      signature_url: u.signature_url || null,
+      // signature_url TIDAK disimpan di JWT (terlalu besar → HTTP 494)
+      // Diambil terpisah lewat /api/me atau allUsers saat dibutuhkan
     };
     req.session._setUser(userData);
     logActivity(req, 'auth', 'LOGIN', `${userData.name} (${userData.role}) login berhasil`);
-    // Buat JWT token untuk dikirim ke frontend
+    // Buat JWT token untuk dikirim ke frontend (tanpa signature_url)
     const token = jwt.sign({ user: userData }, JWT_SECRET, { expiresIn: '8h' });
-    res.json({ ok: true, user: userData, token });
+    // Kirim signature_url terpisah di response (tidak masuk JWT)
+    res.json({ ok: true, user: { ...userData, signature_url: u.signature_url||null }, token });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -164,8 +166,21 @@ app.get('/api/me',     (req, res) => res.json({ user: req.session.user || null }
 
 app.get('/api/users', requireRole('admin','superadmin'), async (req, res) => {
   try {
-    if (db.USE_SUPABASE) return res.json(await db.getUsers());
+    if (db.USE_SUPABASE) {
+      const users = await db.getUsers();
+      // Exclude signature_url dari list (besar, tidak perlu di list)
+      return res.json(users.map(({ signature_url: _, ...u }) => u));
+    }
     res.json(readUsers().map(({ password: _, ...u }) => u));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Endpoint khusus ambil signature satu user (untuk PDF export)
+app.get('/api/users/:id/signature', requireAuth, async (req, res) => {
+  try {
+    const users = await db.getUsers();
+    const u = users.find(u => u.id === req.params.id || u.name === req.params.id);
+    res.json({ signature_url: u?.signature_url || null });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
