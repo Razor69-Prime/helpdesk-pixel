@@ -4975,17 +4975,30 @@ function exportPRPDF(id){
   const PW=210, PH=297, ML=14, MR=14, CW=PW-ML-MR;
   let y=14;
 
-  // ── Header ──
-  doc.setFillColor(224,123,57);
-  doc.rect(0,0,PW,18,'F');
+  // ── Header: hitam putih ──
+  // Border luar
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.5);
+  doc.rect(ML,y,CW,22,'S');
+
+  // Nama perusahaan (kiri, bold besar)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(0,0,0);
+  doc.text('PIXEL SOLUSINDO',ML+4,y+9);
+
+  // Nama outlet (kiri, lebih kecil)
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(60,60,60);
+  doc.text(p.outlet||'',ML+4,y+16);
+
+  // Judul dokumen (kanan, bold)
   doc.setFont('helvetica','bold');
   doc.setFontSize(14);
-  doc.setTextColor(255,255,255);
-  doc.text('PURCHASE REQUEST',ML,11);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.text(p.outlet||'Pixel Solusindo',PW-MR,11,{align:'right'});
-  y=26;
+  doc.setTextColor(0,0,0);
+  doc.text('PURCHASE REQUEST',PW-MR,y+9,{align:'right'});
+
+  y+=28;
 
   // ── Info grid ──
   const prDateStr=p.pr_date?new Date(p.pr_date).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}):'-';
@@ -4994,7 +5007,7 @@ function exportPRPDF(id){
     ['Tanggal', prDateStr,           'Nama Pemohon', p.requester||'-'],
   ];
   infoRows.forEach(([l1,v1,l2,v2])=>{
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(122,118,112);
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
     doc.text(l1,ML,y);
     doc.text(l2,ML+CW/2,y);
     doc.setFont('helvetica','normal');doc.setTextColor(26,25,22);
@@ -5003,7 +5016,7 @@ function exportPRPDF(id){
     y+=6;
   });
   if(p.reason){
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(122,118,112);
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
     doc.text('Alasan Permintaan',ML,y);
     doc.setFont('helvetica','normal');doc.setTextColor(26,25,22);
     const lines=doc.splitTextToSize(p.reason,CW-30);
@@ -5013,7 +5026,7 @@ function exportPRPDF(id){
   y+=4;
 
   // ── Divider ──
-  doc.setDrawColor(226,222,214);
+  doc.setDrawColor(0,0,0);
   doc.setLineWidth(0.5);
   doc.line(ML,y,PW-MR,y);
   y+=5;
@@ -5026,7 +5039,7 @@ function exportPRPDF(id){
   const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Ket/Tgl'];
   const TH=7;
 
-  doc.setFillColor(224,123,57);
+  doc.setFillColor(0,0,0);
   doc.rect(ML,y,CW,TH,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
   heads.forEach((h,i)=>{
@@ -5046,7 +5059,7 @@ function exportPRPDF(id){
     if(y+ROW_H>PH-85){
       doc.addPage();y=14;
       // Repeat header on new page
-      doc.setFillColor(224,123,57);doc.rect(ML,y,CW,TH,'F');
+      doc.setFillColor(0,0,0);doc.rect(ML,y,CW,TH,'F');
       doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
       heads.forEach((h,i)=>{
         const align=i>=4&&i<=5?'right':'left';
@@ -5055,7 +5068,7 @@ function exportPRPDF(id){
       });
       y+=TH;
     }
-    const bg=idx%2===0?[255,255,255]:[250,249,247];
+    const bg=idx%2===0?[255,255,255]:[245,245,245];
     doc.setFillColor(...bg);
     doc.rect(ML,y,CW,ROW_H,'F');
     doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
@@ -5067,12 +5080,12 @@ function exportPRPDF(id){
     doc.text(total>0?fmtM(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
     doc.text(item.stock||'-',colX[6]+1,y+5);
     doc.text(doc.splitTextToSize(item.ket||'-',colW[7]-2)[0],colX[7]+1,y+5);
-    doc.setDrawColor(226,222,214);doc.rect(ML,y,CW,ROW_H,'S');
+    doc.setDrawColor(0,0,0);doc.rect(ML,y,CW,ROW_H,'S');
     y+=ROW_H;
   });
 
   // Grand total
-  doc.setFillColor(245,241,237);
+  doc.setFillColor(220,220,220);
   doc.rect(ML,y,CW,7,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
   doc.text('TOTAL KESELURUHAN',colX[4],y+5);
@@ -5083,115 +5096,89 @@ function exportPRPDF(id){
   // ── Alasan ──
   if(y<PH-85) y=Math.max(y, PH-82);
 
-  // ── Signature section — 5 kolom, 2 baris (3 atas + 2 bawah) ──
-  // Row 1: Requested by | Purchasing & Akunting | Store Manager
-  // Row 2: Chief Financial Officer | Managing Director | Chief of Marketing
+  // ── Signature section — tanpa kotak, 2 baris x 3 kolom ──
   const isApproved=p.status==='approved';
   const approvedAt=p.approved_at?new Date(p.approved_at).toLocaleDateString('id-ID'):'';
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
-
-  // Approver data
-  const outlet=p.outlet||'Pixel Buduk';
-  const apvData={
-    purchasingName: 'I Putu Eka Hendrayana',
-    purchasingTitle:'Purchasing & Akunting',
-    storeManagerName:'I Putu Gede Arsa Pradnyana',
-    storeManagerTitle:'Store Manager',
-    cfoName:'I Putu Eka Hendrayana',
-    cfoTitle:'Chief Financial Officer',
-    mdName:'I Putu Gede Arsa Pradnyana',
-    mdTitle:'Managing Director',
-    comName:'Ida Bagus Jara Amara',
-    comTitle:'Chief of Marketing',
-  };
-
-  const sigBoxH=32; // height of signature box
-  const sigFootH=12; // name+title height
-  const sigTotalH=8+sigBoxH+sigFootH; // label + box + name
-
-  // ── Row 1: 3 cols ──
-  const row1Labels=['Requested by','Approved by\nPurchasing & Akunting','Approved by\nStore Manager'];
-  const row1Names=[p.requester||'-', apvData.purchasingName, apvData.storeManagerName];
-  const row1Titles=['', apvData.purchasingTitle, apvData.storeManagerTitle];
-  const row1Images=[p.requester_signature||null, isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null];
-  const row1Dates=[createdAt, isApproved?approvedAt:'', isApproved?approvedAt:''];
   const col3W=CW/3;
 
-  const sigY1=y;
-  row1Labels.forEach((lbl,i)=>{
-    const sx=ML+i*col3W;
-    // Label
-    doc.setFillColor(245,241,237);doc.rect(sx,sigY1,col3W,8,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
-    const lblLines=lbl.split('\n');
-    lblLines.forEach((ln,li)=>doc.text(ln,sx+col3W/2,sigY1+4.5+li*4,{align:'center'}));
+  // Nama approver yang benar (fixed)
+  const approvers=[
+    // Baris 1 — hanya 2 kolom
+    {label:'Requested by',          name:p.requester||'-',  title:'', img:p.requester_signature||null, date:createdAt},
+    {label:'Purchasing & Akunting', name:'',                title:'', img:null, date:''},
+  ];
 
-    // Box
-    doc.setDrawColor(200,196,190);doc.setFillColor(255,255,255);
-    const boxY=sigY1+(lblLines.length>1?12:8);
-    doc.rect(sx,boxY,col3W,sigBoxH,'FD');
+  const approvers2=[
+    // Baris 2 — 3 kolom
+    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
+    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
+    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
+  ];
 
-    // TTD image
-    if(row1Images[i]){
-      try{
-        const fmt=row1Images[i].startsWith('data:image/png')?'PNG':'JPEG';
-        doc.addImage(row1Images[i],fmt,sx+4,boxY+3,col3W-8,sigBoxH-10,'','FAST');
-      }catch(e){}
-      if(row1Dates[i]){
-        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-        doc.text(row1Dates[i],sx+col3W/2,boxY+sigBoxH-4,{align:'center'});
+  // Posisi baris TTD
+  let sigY=y+6;
+  const sigRowH=52;
+  if(sigY+sigRowH*2>PH-12){doc.addPage();sigY=18;}
+
+  // ── Helper render satu baris TTD ──
+  function renderSigRow(apvArr, colW, rowY){
+    apvArr.forEach((apv,i)=>{
+      const cx=ML+i*colW+colW/2;
+
+      // Label
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0,0,0);
+      const lblLines=apv.label.split('\n');
+      lblLines.forEach((ln,li)=>doc.text(ln,cx,rowY+5+li*5,{align:'center'}));
+
+      // TTD image (di area antara label dan garis)
+      const lineY=rowY+18;
+      const lineW=colW-12;
+      const lx=cx-lineW/2;
+      if(apv.img){
+        try{
+          const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
+          doc.addImage(apv.img,fmt,lx,rowY+14,lineW,18,'','FAST');
+        }catch(e){}
+        if(apv.date){
+          doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(150,150,150);
+          doc.text(apv.date,cx,lineY-1,{align:'center'});
+        }
       }
-    }
 
-    // Name & title
-    const nameY=boxY+sigBoxH+5;
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
-    doc.text(row1Names[i],sx+col3W/2,nameY,{align:'center',maxWidth:col3W-4});
-    if(row1Titles[i]){
-      doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-      doc.text(row1Titles[i],sx+col3W/2,nameY+5,{align:'center'});
-    }
-  });
+      // Garis bawah TTD
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
+      doc.line(lx,lineY+16,cx+lineW/2,lineY+16);
 
-  // ── Row 2: 3 cols (CFO | MD | CoM) ──
-  const sigY2=sigY1+sigTotalH+6;
-  const row2Labels=['Approved by\nChief Financial Officer','Approved by\nManaging Director','Approved by\nChief of Marketing'];
-  const row2Names=[apvData.cfoName, apvData.mdName, apvData.comName];
-  const row2Titles=[apvData.cfoTitle, apvData.mdTitle, apvData.comTitle];
-  const row2Images=[isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null, isApproved?p.approver_signature||null:null];
-
-  row2Labels.forEach((lbl,i)=>{
-    const sx=ML+i*col3W;
-    doc.setFillColor(245,241,237);doc.rect(sx,sigY2,col3W,12,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
-    lbl.split('\n').forEach((ln,li)=>doc.text(ln,sx+col3W/2,sigY2+4.5+li*4.5,{align:'center'}));
-
-    doc.setDrawColor(200,196,190);doc.setFillColor(255,255,255);
-    doc.rect(sx,sigY2+12,col3W,sigBoxH,'FD');
-
-    if(row2Images[i]){
-      try{
-        const fmt=row2Images[i].startsWith('data:image/png')?'PNG':'JPEG';
-        doc.addImage(row2Images[i],fmt,sx+4,sigY2+15,col3W-8,sigBoxH-10,'','FAST');
-      }catch(e){}
-      if(isApproved&&approvedAt){
-        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-        doc.text(approvedAt,sx+col3W/2,sigY2+12+sigBoxH-4,{align:'center'});
+      // Nama
+      if(apv.name){
+        doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
+        doc.text(apv.name,cx,lineY+22,{align:'center',maxWidth:colW-6});
       }
-    }
+      // Jabatan
+      if(apv.title){
+        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(60,60,60);
+        apv.title.split('\n').forEach((tl,ti)=>doc.text(tl,cx,lineY+28+ti*5,{align:'center'}));
+      }
+    });
+  }
 
-    const nameY2=sigY2+12+sigBoxH+5;
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
-    doc.text(row2Names[i],sx+col3W/2,nameY2,{align:'center',maxWidth:col3W-4});
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(122,118,112);
-    doc.text(row2Titles[i],sx+col3W/2,nameY2+5,{align:'center'});
-  });
+  // Baris 1: 2 kolom — lebar lebih besar
+  const col2W=CW/2;
+  renderSigRow(approvers, col2W, sigY);
+
+  // Baris 2: 3 kolom
+  const col3W2=CW/3;
+  const sigY2=sigY+sigRowH+8;
+  renderSigRow(approvers2, col3W2, sigY2);
 
   // ── Footer ──
   const totalPages=doc.getNumberOfPages();
   for(let pg=1;pg<=totalPages;pg++){
     doc.setPage(pg);
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,176,170);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100,100,100);
     doc.line(ML,PH-8,PW-MR,PH-8);
     doc.text(`${p.pr_number} | ${p.outlet} | Dicetak: ${new Date().toLocaleString('id-ID')} | Hal ${pg}/${totalPages}`,PW/2,PH-4,{align:'center'});
   }
