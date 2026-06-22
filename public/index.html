@@ -5154,14 +5154,28 @@ function exportPRPDF(id){
       const lblLines=apv.label.split('\n');
       lblLines.forEach((ln,li)=>doc.text(ln,cx,rowY+5+li*5,{align:'center'}));
 
-      // TTD image (di area antara label dan garis)
+      // TTD image — proporsional, tidak melewati batas kolom
       const lineY=rowY+18;
-      const lineW=colW-12;
+      const lineW=colW-16; // batas lebar maksimal (ada margin kiri-kanan)
+      const maxH=16;       // tinggi maksimal
       const lx=cx-lineW/2;
       if(apv.img){
         try{
           const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
-          doc.addImage(apv.img,fmt,lx,rowY+14,lineW,18,'','FAST');
+          // Hitung ukuran proporsional dari image asli
+          const tmpImg=new Image();
+          tmpImg.src=apv.img;
+          const nW=tmpImg.naturalWidth||200;
+          const nH=tmpImg.naturalHeight||80;
+          const ratio=nW/nH;
+          // Batasi dalam kotak lineW x maxH
+          let drawW=lineW, drawH=lineW/ratio;
+          if(drawH>maxH){ drawH=maxH; drawW=maxH*ratio; }
+          if(drawW>lineW){ drawW=lineW; drawH=lineW/ratio; }
+          // Center horizontal
+          const imgX=cx-drawW/2;
+          const imgY=rowY+12+(maxH-drawH)/2;
+          doc.addImage(apv.img,fmt,imgX,imgY,drawW,drawH,'','FAST');
         }catch(e){}
         if(apv.date){
           doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(150,150,150);
@@ -5171,7 +5185,7 @@ function exportPRPDF(id){
 
       // Garis bawah TTD
       doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
-      doc.line(lx,lineY+16,cx+lineW/2,lineY+16);
+      doc.line(cx-lineW/2,lineY+16,cx+lineW/2,lineY+16);
 
       // Nama
       if(apv.name){
