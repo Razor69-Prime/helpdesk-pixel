@@ -5116,12 +5116,9 @@ function exportPRPDF(id){
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
   const col3W=CW/3;
 
-  // Ambil TTD dari API (signature tidak disimpan di JWT/allUsers untuk hemat ukuran)
-  const _reqUser=allUsers.find(u=>u.name===p.requester)||currentUser;
-  const _apvUser=allUsers.find(u=>u.name===p.approved_by)||null;
-  // Coba ambil dari currentUser jika match, fallback ke null
-  const reqSig=(_reqUser?.id===currentUser.id)?currentUser.signature_url||null:null;
-  const apvSig=isApproved&&(_apvUser?.id===currentUser.id)?currentUser.signature_url||null:null;
+  // TTD: reqSig hanya untuk requester, apvSig hanya jika benar-benar sudah approved
+  const reqSig=(p.requester===currentUser.name)?currentUser.signature_url||null:null;
+  const apvSig=(isApproved&&p.approved_by)?currentUser.signature_url||null:null;
 
   // Nama approver yang benar (fixed)
   const approvers=[
@@ -5154,38 +5151,34 @@ function exportPRPDF(id){
       const lblLines=apv.label.split('\n');
       lblLines.forEach((ln,li)=>doc.text(ln,cx,rowY+5+li*5,{align:'center'}));
 
-      // TTD image — proporsional, tidak melewati batas kolom
+      // Garis TTD
       const lineY=rowY+18;
-      const lineW=colW-16; // batas lebar maksimal (ada margin kiri-kanan)
-      const maxH=16;       // tinggi maksimal
-      const lx=cx-lineW/2;
+      const lineW=colW-16;
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
+      doc.line(cx-lineW/2,lineY,cx+lineW/2,lineY);
+
+      // TTD image — di BAWAH garis, proporsional, tidak melewati kolom
       if(apv.img){
         try{
           const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
-          // Hitung ukuran proporsional dari image asli
           const tmpImg=new Image();
           tmpImg.src=apv.img;
           const nW=tmpImg.naturalWidth||200;
           const nH=tmpImg.naturalHeight||80;
           const ratio=nW/nH;
-          // Batasi dalam kotak lineW x maxH
-          let drawW=lineW, drawH=lineW/ratio;
-          if(drawH>maxH){ drawH=maxH; drawW=maxH*ratio; }
-          if(drawW>lineW){ drawW=lineW; drawH=lineW/ratio; }
-          // Center horizontal
+          const maxW=lineW*0.7; // maks 70% lebar kolom
+          const maxH=14;
+          let drawW=maxW, drawH=maxW/ratio;
+          if(drawH>maxH){drawH=maxH;drawW=maxH*ratio;}
+          if(drawW>maxW){drawW=maxW;drawH=maxW/ratio;}
           const imgX=cx-drawW/2;
-          const imgY=rowY+12+(maxH-drawH)/2;
-          doc.addImage(apv.img,fmt,imgX,imgY,drawW,drawH,'','FAST');
+          doc.addImage(apv.img,fmt,imgX,lineY+2,drawW,drawH,'','FAST');
         }catch(e){}
         if(apv.date){
           doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(150,150,150);
-          doc.text(apv.date,cx,lineY-1,{align:'center'});
+          doc.text(apv.date,cx,lineY+18,{align:'center'});
         }
       }
-
-      // Garis bawah TTD
-      doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
-      doc.line(cx-lineW/2,lineY+16,cx+lineW/2,lineY+16);
 
       // Nama
       if(apv.name){
