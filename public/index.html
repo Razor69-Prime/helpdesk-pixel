@@ -4766,7 +4766,7 @@ function renderPRList(){
           <button class="btn sm" onclick="exportPRPDF('${p.id}')">📄 PDF</button>
           ${canApprove?`<button class="btn sm" style="background:var(--green)18;color:var(--green);border-color:var(--green)" onclick="approvePR('${p.id}')">✅ Approve</button>`:''}
           ${canReject?`<button class="btn sm" style="background:var(--red)18;color:var(--red);border-color:var(--red)" onclick="rejectPR('${p.id}')">❌ Tolak</button>`:''}
-          ${(isOwn||_isSuperAdmin)&&pStatus==='draft'?`<button class="btn sm" onclick="editPR('${p.id}')">✏️</button>`:''}
+          ${(isOwn||_isSuperAdmin)&&(pStatus==='draft'||pStatus==='approved'||pStatus==='pending')?`<button class="btn sm" onclick="editPR('${p.id}')">✏️ Edit</button>`:''}
           ${_isSuperAdmin?`<button class="btn sm danger" onclick="deletePR('${p.id}')">🗑️</button>`:''}
         </div>
       </div>
@@ -5133,9 +5133,9 @@ function exportPRPDF(id){
 
   const approvers2=[
     // Baris 2 — 3 kolom
-    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:apvSig, date:isApproved?approvedAt:''},
-    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:apvSig, date:isApproved?approvedAt:''},
-    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:apvSig, date:isApproved?approvedAt:''},
+    {label:'Approved by', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:null, date:''},
+    {label:'Approved by', name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:null, date:''},
+    {label:'Approved by', name:'I Putu Eka Hendrayana',      title:'Chief of Marketing & Store Manager',  img:null, date:''},
   ];
 
   // Posisi baris TTD
