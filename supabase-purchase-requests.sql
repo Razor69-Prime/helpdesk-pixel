@@ -42,3 +42,6 @@ alter table users add column if not exists signature_url text;
 -- Tambah kolom signature jika tabel sudah ada
 alter table purchase_requests add column if not exists requester_signature text;
 alter table purchase_requests add column if not exists approver_signature text;
+
+-- Tambah kolom remarks jika belum ada
+alter table purchase_requests add column if not exists remarks text;

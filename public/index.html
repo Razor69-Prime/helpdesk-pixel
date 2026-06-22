@@ -811,6 +811,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <label>Alasan Permintaan / Nama Project</label>
             <textarea id="pr-reason" rows="2" placeholder="mis. Project Desa Cemagi Pengadaan 8 Site CCTV..."></textarea>
           </div>
+          <div class="form-group">
+            <label>Remarks <span style="font-weight:400;color:var(--muted);text-transform:none">(opsional)</span></label>
+            <textarea id="pr-remarks" rows="2" placeholder="Catatan tambahan..."></textarea>
+          </div>
 
           <!-- Tabel Item PR -->
           <div style="font-size:12px;font-weight:700;margin:16px 0 8px">DAFTAR ITEM</div>
@@ -4795,12 +4799,14 @@ function showPRForm(id=null){
     document.getElementById('pr-requester').value=p.requester;
     document.getElementById('pr-dept').value=p.department||'Pixel';
     document.getElementById('pr-reason').value=p.reason||'';
+    document.getElementById('pr-remarks').value=p.remarks||'';
     (p.items||[]).forEach(item=>addPRItem(item));
   } else {
     // New PR — auto nomor
     const nextNum=(prData.length+1).toString().padStart(3,'0');
     document.getElementById('pr-no').value=`PR-${nextNum}`;
     document.getElementById('pr-reason').value='';
+    document.getElementById('pr-remarks').value='';
     addPRItem(); // 1 baris default
   }
 
@@ -4900,6 +4906,7 @@ async function submitPR(){
     requester_title: currentUser.role==='manager'?'Manager':currentUser.role==='admin'?'Admin':'Staff',
     department: dept||'Pixel',
     reason,
+    remarks: document.getElementById('pr-remarks').value.trim()||null,
     items,
     status: 'pending',
     requester_signature: currentUser.signature_url||null,
@@ -5039,9 +5046,9 @@ function exportPRPDF(id){
   const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Ket/Tgl'];
   const TH=7;
 
-  doc.setFillColor(0,0,0);
+  doc.setFillColor(230,230,230);
   doc.rect(ML,y,CW,TH,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
   heads.forEach((h,i)=>{
     const align=i>=4&&i<=5?'right':'left';
     const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
@@ -5059,8 +5066,8 @@ function exportPRPDF(id){
     if(y+ROW_H>PH-85){
       doc.addPage();y=14;
       // Repeat header on new page
-      doc.setFillColor(0,0,0);doc.rect(ML,y,CW,TH,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(255,255,255);
+      doc.setFillColor(230,230,230);doc.rect(ML,y,CW,TH,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
       heads.forEach((h,i)=>{
         const align=i>=4&&i<=5?'right':'left';
         const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
@@ -5093,8 +5100,17 @@ function exportPRPDF(id){
   doc.rect(ML,y,CW,7,'S');
   y+=11;
 
-  // ── Alasan ──
-  if(y<PH-85) y=Math.max(y, PH-82);
+  // Remarks field
+  if(p.remarks){
+    y+=4;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,0,0);
+    doc.text('Remarks:',ML,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+    const rmLines=doc.splitTextToSize(p.remarks,CW-20);
+    doc.text(rmLines,ML+20,y);
+    y+=rmLines.length*5+4;
+  }
+  y+=6; // jarak kecil sebelum TTD
 
   // ── Signature section — tanpa kotak, 2 baris x 3 kolom ──
   const isApproved=p.status==='approved';
