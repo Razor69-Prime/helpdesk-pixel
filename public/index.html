@@ -4931,11 +4931,14 @@ async function submitPR(){
 async function approvePR(id){
   if(!confirm('Approve Purchase Request ini?')) return;
   try{
-    const result=await api('PATCH','/purchase-requests/'+id,{
+    const patch={
       status:'approved',
       approved_by: currentUser.name,
       approved_at: new Date().toISOString(),
-    });
+    };
+    // Simpan TTD approver jika tersedia (base64, tapi sudah tidak masuk JWT jadi aman)
+    if(currentUser.signature_url) patch.approver_signature=currentUser.signature_url;
+    const result=await api('PATCH','/purchase-requests/'+id, patch);
     prData=prData.map(p=>p.id===id?{...p,...result}:p);
     renderPRList();
   }catch(e){alert('Gagal approve: '+e.message);}
@@ -5117,8 +5120,9 @@ function exportPRPDF(id){
   const col3W=CW/3;
 
   // TTD hanya untuk requester (dari currentUser yang sedang login)
-  // Baris 2 (approver) tidak ada TTD otomatis — ditandatangani manual setelah cetak
+  // Baris 2: dari approver_signature yang tersimpan saat approve
   const reqSig=(p.requester===currentUser.name)?currentUser.signature_url||null:null;
+  const apvSig=isApproved?(p.approver_signature||null):null;
 
   // Nama approver yang benar (fixed)
   const approvers=[
@@ -5129,14 +5133,14 @@ function exportPRPDF(id){
 
   const approvers2=[
     // Baris 2 — 3 kolom
-    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:null, date:''},
-    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:null, date:''},
-    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:null, date:''},
+    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:apvSig, date:isApproved?approvedAt:''},
+    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:apvSig, date:isApproved?approvedAt:''},
+    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:apvSig, date:isApproved?approvedAt:''},
   ];
 
   // Posisi baris TTD
   let sigY=y+6;
-  const sigRowH=52;
+  const sigRowH=62;
   if(sigY+sigRowH*2>PH-12){doc.addPage();sigY=18;}
 
   // ── Helper render satu baris TTD ──
@@ -5152,10 +5156,36 @@ function exportPRPDF(id){
       lblLines.forEach((ln,li)=>doc.text(ln,cx,rowY+5+li*5,{align:'center'}));
 
       // Garis TTD
-      const lineY=rowY+22;
-      const lineW=colW-16;
+      const lineY=rowY+34;
+      const lineW=colW-10;
+      const lx=cx-lineW/2;
+
+      // TTD image — di atas garis, lebih lebar
+      if(apv.img){
+        try{
+          const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
+          const tmpImg=new Image();
+          tmpImg.src=apv.img;
+          const nW=tmpImg.naturalWidth||200;
+          const nH=tmpImg.naturalHeight||80;
+          const ratio=nW/nH;
+          const maxW=lineW; // full lebar kolom
+          const maxH=20;    // tinggi maksimal
+          let drawW=maxW, drawH=maxW/ratio;
+          if(drawH>maxH){drawH=maxH;drawW=maxH*ratio;}
+          if(drawW>maxW){drawW=maxW;drawH=maxW/ratio;}
+          const imgX=cx-drawW/2;
+          const imgY=lineY-drawH-2;
+          doc.addImage(apv.img,fmt,imgX,imgY,drawW,drawH,'','FAST');
+        }catch(e){}
+        if(apv.date){
+          doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(150,150,150);
+          doc.text(apv.date,cx,lineY-1,{align:'center'});
+        }
+      }
+
       doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
-      doc.line(cx-lineW/2,lineY,cx+lineW/2,lineY);
+      doc.line(lx,lineY,lx+lineW,lineY);
 
       // Nama
       if(apv.name){
