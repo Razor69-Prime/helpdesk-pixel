@@ -4909,7 +4909,6 @@ async function submitPR(){
     remarks: document.getElementById('pr-remarks').value.trim()||null,
     items,
     status: 'pending',
-    requester_signature: currentUser.signature_url||null,
   };
 
   try{
@@ -4936,7 +4935,6 @@ async function approvePR(id){
       status:'approved',
       approved_by: currentUser.name,
       approved_at: new Date().toISOString(),
-      approver_signature: currentUser.signature_url||null,
     });
     prData=prData.map(p=>p.id===id?{...p,...result}:p);
     renderPRList();
@@ -5118,18 +5116,24 @@ function exportPRPDF(id){
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
   const col3W=CW/3;
 
+  // Ambil TTD dari allUsers (tidak disimpan di PR untuk hemat ukuran)
+  const _reqUser=allUsers.find(u=>u.name===p.requester)||currentUser;
+  const _apvUser=allUsers.find(u=>u.name===p.approved_by)||null;
+  const reqSig=_reqUser?.signature_url||null;
+  const apvSig=isApproved&&_apvUser?(_apvUser.signature_url||null):null;
+
   // Nama approver yang benar (fixed)
   const approvers=[
     // Baris 1 — hanya 2 kolom
-    {label:'Requested by',          name:p.requester||'-',  title:'', img:p.requester_signature||null, date:createdAt},
+    {label:'Requested by',          name:p.requester||'-',  title:'', img:reqSig, date:createdAt},
     {label:'Purchasing & Akunting', name:'',                title:'', img:null, date:''},
   ];
 
   const approvers2=[
     // Baris 2 — 3 kolom
-    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
-    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
-    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:isApproved?p.approver_signature||null:null, date:isApproved?approvedAt:''},
+    {label:'Approved by\nChief Financial Officer', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:apvSig, date:isApproved?approvedAt:''},
+    {label:'Approved by\nManaging Director',       name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:apvSig, date:isApproved?approvedAt:''},
+    {label:'Approved by\nChief of Marketing &\nStore Manager', name:'I Putu Eka Hendrayana', title:'Chief of Marketing & Store Manager', img:apvSig, date:isApproved?approvedAt:''},
   ];
 
   // Posisi baris TTD
