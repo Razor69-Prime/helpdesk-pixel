@@ -5413,28 +5413,34 @@ function exportPRPDF(id){
   const apvSig=p.approver_signature||p.approver1_signature||null;
 
   // Nama approver yang benar (fixed)
+  // reqSig = TTD maker (dari submit PR) atau approval1 (dari approve1)
+  const sig1=p.approver1_signature||reqSig||null; // TTD untuk Requested by
+  const sig2=p.approver_signature||null;           // TTD untuk Approval 2 (I Putu Eka)
+
   const approvers=[
     // Baris 1 — hanya 2 kolom
-    {label:'Requested by',          name:p.requester||'-',  title:'', img:reqSig, date:createdAt},
-    {label:'Purchasing & Accounting', name:'',                title:'', img:null, date:''},
+    {label:'Requested by',           name:p.requester||'-', title:'', img:sig1, date:p.approved1_at?new Date(p.approved1_at).toLocaleDateString('id-ID'):createdAt},
+    {label:'Purchasing & Accounting', name:'',               title:'', img:null, date:''},
   ];
 
   const approvers2=[
     // Baris 2 — 3 kolom
-    {label:'Approved by', name:'I Putu Gede Arsa Pradnyana',       title:'Managing Director',             img:null, date:''},
-    {label:'Approved by', name:'Ida Bagus Jara Amara', title:'Chief Financial Officer',                   img:null, date:''},
-    {label:'Approved by', name:'I Putu Eka Hendrayana',      title:'Chief of Marketing & Store Manager',  img:null, date:''},
+    {label:'Approved by', name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',             img:null,  date:''},
+    {label:'Approved by', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',       img:null,  date:''},
+    {label:'Approved by', name:'I Putu Eka Hendrayana',      title:'Chief of Marketing & Store Manager', img:sig2, date:p.approved_at?new Date(p.approved_at).toLocaleDateString('id-ID'):''},
   ];
 
   // Posisi baris TTD
   let sigY=y+6;
-  const sigRowH=62;
+  const sigRowH=65;
   if(sigY+sigRowH*2>PH-12){doc.addPage();sigY=18;}
 
   // ── Helper render satu baris TTD ──
   function renderSigRow(apvArr, colW, rowY){
     apvArr.forEach((apv,i)=>{
       const cx=ML+i*colW+colW/2;
+      const lineW=colW-10;
+      const lx=cx-lineW/2;
 
       // Label
       doc.setFont('helvetica','bold');
@@ -5443,10 +5449,37 @@ function exportPRPDF(id){
       const lblLines=apv.label.split('\n');
       lblLines.forEach((ln,li)=>doc.text(ln,cx,rowY+5+li*5,{align:'center'}));
 
-      // Garis TTD — area lebih lebar dan leluasa (TTD manual)
-      const lineY=rowY+42;
-      const lineW=colW-10;
-      const lx=cx-lineW/2;
+      // TTD image — di antara label dan garis
+      const imgAreaY=rowY+12;   // mulai area gambar
+      const imgAreaH=26;        // tinggi area
+      const lineY=rowY+42;      // posisi garis
+
+      if(apv.img){
+        try{
+          const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
+          // Buat canvas sementara untuk cek dimensi
+          const tmpImg=new Image();
+          tmpImg.src=apv.img;
+          const nW=tmpImg.naturalWidth||300;
+          const nH=tmpImg.naturalHeight||100;
+          const ratio=nW/nH;
+          const maxW=lineW-4;
+          const maxH=imgAreaH;
+          let dW=maxW, dH=maxW/ratio;
+          if(dH>maxH){dH=maxH;dW=maxH*ratio;}
+          if(dW>maxW){dW=maxW;dH=maxW/ratio;}
+          const imgX=cx-dW/2;
+          const imgY=imgAreaY+(imgAreaH-dH)/2;
+          doc.addImage(apv.img,fmt,imgX,imgY,dW,dH,'','FAST');
+        }catch(e){}
+        // Tanggal kecil
+        if(apv.date){
+          doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(130,130,130);
+          doc.text(apv.date,cx,lineY-1,{align:'center'});
+        }
+      }
+
+      // Garis TTD
       doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);
       doc.line(lx,lineY,lx+lineW,lineY);
 
