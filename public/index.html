@@ -4693,24 +4693,24 @@ let prEditId=null;
 // Approver names per outlet (fixed sesuai jabatan)
 const PR_APPROVERS={
   'Pixel Buduk':{
-    manager:'I Putu Gede Arsa Pradnyana',
+    manager:'Ida Bagus Jara Amara',
     managerTitle:'Store Manager',
-    cmo:'Ida Bagus Jara Amara',
+    cmo:'I Putu Gede Arsa Pradnyana',
     cmoTitle:'Chief of Marketing',
     director:'I Putu Eka Hendrayana',
-    directorTitle:'Managing Director',
+    directorTitle:'Financial Officer',
     fa:'I Putu Eka Hendrayana',
-    faTitle:'Finance Accounting Manager',
+    faTitle:'Managin Director',
   },
   'Pixel Lukluk':{
-    manager:'I Putu Gede Arsa Pradnyana',
+    manager:'Ida Bagus Jara Amara',
     managerTitle:'Store Manager',
-    cmo:'Ida Bagus Jara Amara',
+    cmo:'I Putu Gede Arsa Pradnyana',
     cmoTitle:'Chief of Marketing',
     director:'I Putu Eka Hendrayana',
-    directorTitle:'Managing Director',
+    directorTitle:'Financial Officer',
     fa:'I Putu Eka Hendrayana',
-    faTitle:'Finance Accounting Manager',
+    faTitle:'Managin Director',
   }
 };
 
@@ -5128,13 +5128,13 @@ function exportPRPDF(id){
   const approvers=[
     // Baris 1 — hanya 2 kolom
     {label:'Requested by',          name:p.requester||'-',  title:'', img:reqSig, date:createdAt},
-    {label:'Purchasing & Akunting', name:'',                title:'', img:null, date:''},
+    {label:'Purchasing & Accounting', name:'',                title:'', img:null, date:''},
   ];
 
   const approvers2=[
     // Baris 2 — 3 kolom
-    {label:'Approved by', name:'Ida Bagus Jara Amara',       title:'Chief Financial Officer',             img:null, date:''},
-    {label:'Approved by', name:'I Putu Gede Arsa Pradnyana', title:'Managing Director',                   img:null, date:''},
+    {label:'Approved by', name:'I Putu Gede Arsa Pradnyana',       title:'Managing Director',             img:null, date:''},
+    {label:'Approved by', name:'Ida Bagus Jara Amara', title:'Chief Financial Officer',                   img:null, date:''},
     {label:'Approved by', name:'I Putu Eka Hendrayana',      title:'Chief of Marketing & Store Manager',  img:null, date:''},
   ];
 
