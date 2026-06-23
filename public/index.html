@@ -762,8 +762,9 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <select id="pr-filter-status" onchange="renderPRList()" style="flex:0;min-width:130px">
             <option value="">Semua Status</option>
             <option value="draft">Draft</option>
-            <option value="pending">Menunggu Approval</option>
-            <option value="approved">Approved</option>
+            <option value="pending">Menunggu Approval 1</option>
+            <option value="approved1">Approved 1</option>
+            <option value="approved">Fully Approved</option>
             <option value="rejected">Ditolak</option>
           </select>
         </div>
@@ -1324,6 +1325,25 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>Akses Purchase Request</label>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Pilih role PR untuk akun ini (bisa lebih dari satu)</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;text-transform:none;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="pr-role-maker" style="width:14px;height:14px"/>
+          <span><strong>Maker PR</strong> — bisa membuat Purchase Request</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;text-transform:none;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="pr-role-approval1" style="width:14px;height:14px"/>
+          <span><strong>Approval PR 1</strong> — approval pertama (wajib sebelum PDF)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;text-transform:none;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="pr-role-approval2" style="width:14px;height:14px"/>
+          <span><strong>Approval PR 2</strong> — approval kedua (opsional)</span>
+        </label>
+      </div>
+    </div>
     <hr class="divider"/>
     <div class="form-group">
       <label>Tanda Tangan <span style="color:var(--muted);font-weight:400;text-transform:none">(PNG/JPG, background transparan/putih)</span></label>
@@ -2354,6 +2374,11 @@ function openEditModal(userId){
     prevEl.style.display='none';
     imgEl.src='';
   }
+  // load PR roles
+  const prRoles=Array.isArray(u.pr_roles)?u.pr_roles:[];
+  document.getElementById('pr-role-maker').checked=prRoles.includes('maker_pr');
+  document.getElementById('pr-role-approval1').checked=prRoles.includes('approval_pr1');
+  document.getElementById('pr-role-approval2').checked=prRoles.includes('approval_pr2');
   document.getElementById('edit-user-modal').classList.add('show');
 }
 function closeEditModal(){document.getElementById('edit-user-modal').classList.remove('show');}
@@ -2391,12 +2416,19 @@ async function saveEditUser(){
     const checkedMenus=getCheckedMenus();
     const defaultMenus=getDefaultMenus(role);
     // Simpan custom_menus hanya jika berbeda dari default role
+    // Collect PR roles
+    const prRoles=[];
+    if(document.getElementById('pr-role-maker').checked) prRoles.push('maker_pr');
+    if(document.getElementById('pr-role-approval1').checked) prRoles.push('approval_pr1');
+    if(document.getElementById('pr-role-approval2').checked) prRoles.push('approval_pr2');
+
     const isSameAsDefault=checkedMenus.length===defaultMenus.length&&
       checkedMenus.every(m=>defaultMenus.includes(m));
     const patch={
       name, role,
       custom_menus: isSameAsDefault ? [] : checkedMenus,
       signature_url: document.getElementById('edit-signature-url').value||null,
+      pr_roles: prRoles,
     };
     if(password) patch.password=password;
     const updated=await api('PATCH','/users/'+id,patch);
@@ -4737,23 +4769,40 @@ function renderPRList(){
     return true;
   }).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
-  const statusLabel={draft:'Draft',pending:'Menunggu Approval',approved:'Approved',rejected:'Ditolak'};
-  const statusColor={draft:'var(--muted)',pending:'var(--amber)',approved:'var(--green)',rejected:'var(--red)'};
+  const statusLabel={draft:'Draft',pending:'Menunggu Approval 1',approved1:'Approved 1',approved:'Fully Approved',rejected:'Ditolak'};
+  const statusColor={draft:'var(--muted)',pending:'var(--amber)',approved1:'var(--teal)',approved:'var(--green)',rejected:'var(--red)'};
 
   if(sumEl) sumEl.textContent=`${data.length} PR ditemukan`;
   if(!data.length){el.innerHTML='<div class="empty">📭 Belum ada Purchase Request</div>';return;}
 
   const _isSuperAdmin=currentUser.role==='superadmin';
   const _isManager=currentUser.role==='manager';
+  const myPrRoles=Array.isArray(currentUser.pr_roles)?currentUser.pr_roles:[];
+  const canMakePR=_isSuperAdmin||myPrRoles.includes('maker_pr')||myPrRoles.includes('approval_pr1');
+  const isApproval1=_isSuperAdmin||_isManager||myPrRoles.includes('approval_pr1');
+  const isApproval2=_isSuperAdmin||_isManager||myPrRoles.includes('approval_pr2');
+
   el.innerHTML=data.map(p=>{
     const dt=new Date(p.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
     const total=fmtM((p.items||[]).reduce((s,i)=>s+(Number(i.qty||0)*Number(i.price||0)),0));
     const pStatus=p.status||'pending';
-    const canApprove=(_isSuperAdmin||_isManager)&&pStatus==='pending';
-    const canReject=(_isSuperAdmin||_isManager)&&pStatus==='pending';
     const isOwn=p.requester===currentUser.name;
     const sColor=statusColor[pStatus]||'var(--muted)';
     const sLabel=statusLabel[pStatus]||pStatus;
+
+    // Approval buttons based on status & PR roles
+    const canApprove1=isApproval1&&pStatus==='pending';
+    const canApprove2=isApproval2&&pStatus==='approved1';
+    const canReject=(isApproval1&&pStatus==='pending')||(isApproval2&&pStatus==='approved1');
+    // PDF hanya bisa setelah Approval 1
+    const canPDF=pStatus==='approved1'||pStatus==='approved';
+
+    // Timestamps
+    let timestamps='';
+    if(p.approved1_at) timestamps+=`<div style="font-size:11px;color:var(--teal)">✅ Approval 1: ${p.approved1_by} · ${new Date(p.approved1_at).toLocaleString('id-ID')}</div>`;
+    if(p.approved_at)  timestamps+=`<div style="font-size:11px;color:var(--green)">✅ Approval 2: ${p.approved_by} · ${new Date(p.approved_at).toLocaleString('id-ID')}</div>`;
+    if(p.rejected_at)  timestamps+=`<div style="font-size:11px;color:var(--red)">❌ Ditolak: ${p.rejected_by} · ${new Date(p.rejected_at).toLocaleString('id-ID')}${p.reject_reason?' — '+p.reject_reason:''}</div>`;
+
     return`<div class="ticket-item" style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;flex-wrap:wrap">
         <div style="min-width:0">
@@ -4763,15 +4812,15 @@ function renderPRList(){
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap">
           <span style="font-size:11px;padding:2px 10px;border-radius:99px;background:${sColor}18;color:${sColor};font-weight:600">${sLabel}</span>
-          <button class="btn sm" onclick="exportPRPDF('${p.id}')">📄 PDF</button>
-          ${canApprove?`<button class="btn sm" style="background:var(--green)18;color:var(--green);border-color:var(--green)" onclick="approvePR('${p.id}')">✅ Approve</button>`:''}
+          ${canPDF?`<button class="btn sm" onclick="exportPRPDF('${p.id}')">📄 PDF</button>`:`<button class="btn sm" disabled title="PDF tersedia setelah Approval 1" style="opacity:.4;cursor:not-allowed">📄 PDF</button>`}
+          ${canApprove1?`<button class="btn sm" style="background:var(--teal)18;color:var(--teal);border-color:var(--teal)" onclick="approvePR1('${p.id}')">✅ Approve 1</button>`:''}
+          ${canApprove2?`<button class="btn sm" style="background:var(--green)18;color:var(--green);border-color:var(--green)" onclick="approvePR2('${p.id}')">✅ Approve 2</button>`:''}
           ${canReject?`<button class="btn sm" style="background:var(--red)18;color:var(--red);border-color:var(--red)" onclick="rejectPR('${p.id}')">❌ Tolak</button>`:''}
-          ${(isOwn||_isSuperAdmin)&&(pStatus==='draft'||pStatus==='approved'||pStatus==='pending')?`<button class="btn sm" onclick="editPR('${p.id}')">✏️ Edit</button>`:''}
+          ${(isOwn||_isSuperAdmin)&&['draft','pending','approved1','approved'].includes(pStatus)?`<button class="btn sm" onclick="editPR('${p.id}')">✏️ Edit</button>`:''}
           ${_isSuperAdmin?`<button class="btn sm danger" onclick="deletePR('${p.id}')">🗑️</button>`:''}
         </div>
       </div>
-      ${p.approved_at?`<div style="font-size:11px;color:var(--green)">✅ Approved oleh ${p.approved_by} pada ${new Date(p.approved_at).toLocaleString('id-ID')}</div>`:''}
-      ${p.rejected_at?`<div style="font-size:11px;color:var(--red)">❌ Ditolak oleh ${p.rejected_by}: ${p.reject_reason||''}</div>`:''}
+      ${timestamps}
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${(p.items||[]).length} item</div>
     </div>`;
   }).join('');
@@ -4928,15 +4977,29 @@ async function submitPR(){
   }
 }
 
-async function approvePR(id){
-  if(!confirm('Approve Purchase Request ini?')) return;
+async function approvePR1(id){
+  if(!confirm('Approve PR ini sebagai Approval 1?')) return;
+  try{
+    const patch={
+      status:'approved1',
+      approved1_by: currentUser.name,
+      approved1_at: new Date().toISOString(),
+    };
+    if(currentUser.signature_url) patch.approver_signature=currentUser.signature_url;
+    const result=await api('PATCH','/purchase-requests/'+id, patch);
+    prData=prData.map(p=>p.id===id?{...p,...result}:p);
+    renderPRList();
+  }catch(e){alert('Gagal approve: '+e.message);}
+}
+
+async function approvePR2(id){
+  if(!confirm('Approve PR ini sebagai Approval 2 (Final)?')) return;
   try{
     const patch={
       status:'approved',
       approved_by: currentUser.name,
       approved_at: new Date().toISOString(),
     };
-    // Simpan TTD approver jika tersedia (base64, tapi sudah tidak masuk JWT jadi aman)
     if(currentUser.signature_url) patch.approver_signature=currentUser.signature_url;
     const result=await api('PATCH','/purchase-requests/'+id, patch);
     prData=prData.map(p=>p.id===id?{...p,...result}:p);
@@ -5114,8 +5177,9 @@ function exportPRPDF(id){
   y+=6; // jarak kecil sebelum TTD
 
   // ── Signature section — tanpa kotak, 2 baris x 3 kolom ──
-  const isApproved=p.status==='approved';
-  const approvedAt=p.approved_at?new Date(p.approved_at).toLocaleDateString('id-ID'):'';
+  const isApproved=p.status==='approved'||p.status==='approved1';
+  const approvedAt=p.approved_at?new Date(p.approved_at).toLocaleDateString('id-ID'):
+    (p.approved1_at?new Date(p.approved1_at).toLocaleDateString('id-ID'):'');
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
   const col3W=CW/3;
 
