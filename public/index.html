@@ -1426,12 +1426,12 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <!-- Canvas draw TTD -->
     <div id="pr-approve-draw" style="display:none">
       <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Gambar tanda tangan Anda di kotak di bawah:</div>
-      <div style="border:2px solid var(--border);border-radius:8px;background:#fff;cursor:crosshair;touch-action:none">
-        <canvas id="pr-sig-canvas" width="420" height="140" style="width:100%;height:140px;display:block;border-radius:8px"></canvas>
+      <div style="border:2px solid var(--border);border-radius:8px;background:#fafafa;cursor:crosshair;touch-action:none;min-height:140px">
+        <canvas id="pr-sig-canvas" width="420" height="140" style="width:100%;height:140px;display:block;border-radius:8px;background:transparent"></canvas>
       </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
         <button class="btn sm" onclick="clearSigCanvas()">🗑️ Hapus</button>
-        <span style="font-size:11px;color:var(--muted);align-self:center">Gunakan mouse atau jari di layar sentuh</span>
+        <span style="font-size:11px;color:var(--muted)">Gunakan mouse atau jari di layar sentuh</span>
       </div>
     </div>
 
@@ -5050,8 +5050,11 @@ function openPRApproveModal(id, level){
   document.getElementById('pr-approve-title').textContent=`✅ Approval ${level} — ${p?.pr_number||''}`;
   document.getElementById('pr-approve-sub').textContent=`${p?.outlet||''} · ${p?.requester||''}`;
 
+  // Tampilkan modal dulu
+  document.getElementById('pr-approve-modal').classList.add('show');
+
   // Cek apakah ada TTD di profil
-  const hasSig=currentUser.signature_url&&currentUser.signature_url.length>10;
+  const hasSig=currentUser.signature_url&&currentUser.signature_url.length>10&&currentUser.signature_url!=='null';
   if(hasSig){
     document.getElementById('pr-approve-existing-img').src=currentUser.signature_url;
     document.getElementById('pr-approve-existing').style.display='block';
@@ -5061,11 +5064,10 @@ function openPRApproveModal(id, level){
     // Tidak ada TTD → langsung ke canvas draw
     document.getElementById('pr-approve-existing').style.display='none';
     document.getElementById('pr-approve-upload').style.display='none';
-    switchToDrawMode();
+    document.getElementById('pr-approve-draw').style.display='block';
   }
-  document.getElementById('pr-approve-modal').classList.add('show');
-  // Init canvas setelah modal visible
-  setTimeout(()=>initSigCanvas(), 100);
+  // Init canvas setelah modal & elemen benar-benar visible di DOM
+  setTimeout(()=>initSigCanvas(), 200);
 }
 
 function closePRApproveModal(){
@@ -5075,7 +5077,7 @@ function closePRApproveModal(){
 function switchToDrawMode(){
   document.getElementById('pr-approve-draw').style.display='block';
   document.getElementById('pr-approve-upload').style.display='none';
-  setTimeout(()=>initSigCanvas(),50);
+  setTimeout(()=>initSigCanvas(), 150);
 }
 
 function switchToUploadMode(){
