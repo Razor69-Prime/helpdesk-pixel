@@ -5088,39 +5088,66 @@ function switchToUploadMode(){
 function initSigCanvas(){
   const canvas=document.getElementById('pr-sig-canvas');
   if(!canvas) return;
-  // Set actual pixel dimensions
+  _sigCanvas=canvas;
+  _sigHasData=false;
+
+  // Set dimensions hanya sekali (reset = hapus gambar, jadi jangan dipanggil ulang)
   const rect=canvas.getBoundingClientRect();
-  canvas.width=rect.width*window.devicePixelRatio||420;
-  canvas.height=140*window.devicePixelRatio||140;
+  const W=rect.width||420;
+  const H=140;
+  const dpr=window.devicePixelRatio||1;
+
+  // Hanya resize jika belum diinit atau ukuran berubah
+  if(canvas.width!==Math.floor(W*dpr)||canvas.height!==Math.floor(H*dpr)){
+    canvas.width=Math.floor(W*dpr);
+    canvas.height=Math.floor(H*dpr);
+    canvas.style.width=W+'px';
+    canvas.style.height=H+'px';
+  }
+
   const ctx=canvas.getContext('2d');
-  ctx.scale(window.devicePixelRatio||1, window.devicePixelRatio||1);
-  ctx.strokeStyle='#1a1916';
-  ctx.lineWidth=2.5;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.strokeStyle='#000';
+  ctx.lineWidth=2;
   ctx.lineCap='round';
   ctx.lineJoin='round';
-  _sigCanvas=canvas; _sigCtx=ctx; _sigHasData=false;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  _sigCtx=ctx;
 
-  // Mouse events
-  canvas.onmousedown=e=>{_sigDrawing=true;const p=getSigPos(e);_sigCtx.beginPath();_sigCtx.moveTo(p.x,p.y);};
-  canvas.onmousemove=e=>{if(!_sigDrawing)return;const p=getSigPos(e);_sigCtx.lineTo(p.x,p.y);_sigCtx.stroke();_sigHasData=true;};
+  // Rebind events (safe to rebind)
+  canvas.onmousedown=e=>{_sigDrawing=true;const p=getSigPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);};
+  canvas.onmousemove=e=>{
+    if(!_sigDrawing)return;
+    const p=getSigPos(e);
+    ctx.lineTo(p.x,p.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x,p.y); // prevent line gap
+    _sigHasData=true;
+  };
   canvas.onmouseup=()=>{_sigDrawing=false;};
   canvas.onmouseleave=()=>{_sigDrawing=false;};
 
-  // Touch events
-  canvas.ontouchstart=e=>{e.preventDefault();_sigDrawing=true;const p=getSigPos(e.touches[0]);_sigCtx.beginPath();_sigCtx.moveTo(p.x,p.y);};
-  canvas.ontouchmove=e=>{e.preventDefault();if(!_sigDrawing)return;const p=getSigPos(e.touches[0]);_sigCtx.lineTo(p.x,p.y);_sigCtx.stroke();_sigHasData=true;};
+  canvas.ontouchstart=e=>{
+    e.preventDefault();_sigDrawing=true;
+    const p=getSigPos(e.touches[0]);ctx.beginPath();ctx.moveTo(p.x,p.y);
+  };
+  canvas.ontouchmove=e=>{
+    e.preventDefault();if(!_sigDrawing)return;
+    const p=getSigPos(e.touches[0]);
+    ctx.lineTo(p.x,p.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    _sigHasData=true;
+  };
   canvas.ontouchend=()=>{_sigDrawing=false;};
 }
 
 function getSigPos(e){
   const r=_sigCanvas.getBoundingClientRect();
-  return{x:e.clientX-r.left, y:e.clientY-r.top};
+  return{x:(e.clientX-r.left), y:(e.clientY-r.top)};
 }
 
 function clearSigCanvas(){
   if(!_sigCtx||!_sigCanvas) return;
-  _sigCtx.clearRect(0,0,_sigCanvas.width,_sigCanvas.height);
+  const dpr=window.devicePixelRatio||1;
+  _sigCtx.clearRect(0,0,_sigCanvas.width/dpr,_sigCanvas.height/dpr);
   _sigHasData=false;
 }
 
@@ -5139,16 +5166,26 @@ function getApprovalSignature(){
   // Priority: upload file → canvas draw → existing profile TTD
   const uploadImg=document.getElementById('pr-approve-upload-img');
   const uploadVisible=document.getElementById('pr-approve-upload').style.display!=='none';
-  if(uploadVisible && uploadImg.src && uploadImg.src.startsWith('data:')){
+  if(uploadVisible&&uploadImg.src&&uploadImg.src.startsWith('data:')){
     return uploadImg.src;
   }
   const drawVisible=document.getElementById('pr-approve-draw').style.display!=='none';
-  if(drawVisible && _sigHasData && _sigCanvas){
-    // Export canvas as PNG
-    return _sigCanvas.toDataURL('image/png');
+  if(drawVisible&&_sigHasData&&_sigCanvas){
+    // Export ke canvas bersih tanpa DPR scaling supaya jsPDF bisa embed
+    const dpr=window.devicePixelRatio||1;
+    const W=_sigCanvas.width/dpr;
+    const H=_sigCanvas.height/dpr;
+    const exportCanvas=document.createElement('canvas');
+    exportCanvas.width=Math.max(W,200);
+    exportCanvas.height=Math.max(H,80);
+    const ectx=exportCanvas.getContext('2d');
+    ectx.fillStyle='#ffffff';
+    ectx.fillRect(0,0,exportCanvas.width,exportCanvas.height);
+    ectx.drawImage(_sigCanvas,0,0,_sigCanvas.width,_sigCanvas.height,0,0,exportCanvas.width,exportCanvas.height);
+    return exportCanvas.toDataURL('image/png');
   }
   // Fallback: existing profile TTD
-  if(currentUser.signature_url) return currentUser.signature_url;
+  if(currentUser.signature_url&&currentUser.signature_url.startsWith('data:')) return currentUser.signature_url;
   return null;
 }
 
