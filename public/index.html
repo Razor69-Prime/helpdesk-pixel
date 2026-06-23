@@ -1605,6 +1605,15 @@ function showApp(){
   // Preload kunjungan sales untuk dashboard & KPI
   const canSeeVisits=['admin','manager','superadmin','sales'].includes(currentUser.role);
   if(canSeeVisits) api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{});
+
+  // Preload pr_roles dari allUsers jika belum ada di currentUser
+  if(!Array.isArray(currentUser.pr_roles)){
+    api('GET','/users').then(users=>{
+      allUsers=users||[];
+      const me=allUsers.find(u=>u.id===currentUser.id);
+      if(me) currentUser.pr_roles=me.pr_roles||[];
+    }).catch(()=>{});
+  }
 }
 
 function buildNav(){
@@ -4779,8 +4788,8 @@ function renderPRList(){
   const _isManager=currentUser.role==='manager';
   const myPrRoles=Array.isArray(currentUser.pr_roles)?currentUser.pr_roles:[];
   const canMakePR=_isSuperAdmin||myPrRoles.includes('maker_pr')||myPrRoles.includes('approval_pr1');
-  const isApproval1=_isSuperAdmin||_isManager||myPrRoles.includes('approval_pr1');
-  const isApproval2=_isSuperAdmin||_isManager||myPrRoles.includes('approval_pr2');
+  const isApproval1=_isSuperAdmin||myPrRoles.includes('approval_pr1');
+  const isApproval2=_isSuperAdmin||myPrRoles.includes('approval_pr2');
 
   el.innerHTML=data.map(p=>{
     const dt=new Date(p.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
