@@ -5454,25 +5454,23 @@ function exportPRPDF(id){
       const imgAreaH=26;        // tinggi area
       const lineY=rowY+42;      // posisi garis
 
-      if(apv.img){
+      if(apv.img&&apv.img.startsWith('data:')){
         try{
-          const fmt=apv.img.startsWith('data:image/png')?'PNG':'JPEG';
-          // Buat canvas sementara untuk cek dimensi
-          const tmpImg=new Image();
-          tmpImg.src=apv.img;
-          const nW=tmpImg.naturalWidth||300;
-          const nH=tmpImg.naturalHeight||100;
-          const ratio=nW/nH;
+          const fmt=apv.img.includes('image/png')?'PNG':
+                    apv.img.includes('image/jpeg')||apv.img.includes('image/jpg')?'JPEG':'PNG';
           const maxW=lineW-4;
-          const maxH=imgAreaH;
-          let dW=maxW, dH=maxW/ratio;
-          if(dH>maxH){dH=maxH;dW=maxH*ratio;}
-          if(dW>maxW){dW=maxW;dH=maxW/ratio;}
+          const maxH=imgAreaH-2;
+          // Gunakan dimensi proporsional default (naturalWidth tidak reliable di jsPDF context)
+          const dW=maxW;
+          const dH=Math.min(maxH, maxW*0.35); // rasio landscape TTD
           const imgX=cx-dW/2;
           const imgY=imgAreaY+(imgAreaH-dH)/2;
-          doc.addImage(apv.img,fmt,imgX,imgY,dW,dH,'','FAST');
-        }catch(e){}
-        // Tanggal kecil
+          // jsPDF bisa terima full data URL langsung
+          doc.addImage(apv.img, fmt, imgX, imgY, dW, dH);
+        }catch(e){
+          doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(100,100,100);
+          doc.text('(ttd)',cx,imgAreaY+imgAreaH/2,{align:'center'});
+        }
         if(apv.date){
           doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(130,130,130);
           doc.text(apv.date,cx,lineY-1,{align:'center'});
