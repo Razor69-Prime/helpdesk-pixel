@@ -1401,6 +1401,57 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
 </div>
 
+<!-- PR APPROVAL SIGNATURE MODAL -->
+<div class="modal-overlay" id="pr-approve-modal" onclick="if(event.target===this)closePRApproveModal()">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closePRApproveModal()">✕</button>
+    <div class="modal-title" id="pr-approve-title">✅ Approval PR</div>
+    <div class="modal-sub" id="pr-approve-sub"></div>
+    <input type="hidden" id="pr-approve-id"/>
+    <input type="hidden" id="pr-approve-level"/>
+    <hr class="divider"/>
+
+    <!-- Jika sudah ada TTD di profil -->
+    <div id="pr-approve-existing" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Tanda tangan dari profil akun Anda:</div>
+      <div style="border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff;text-align:center;margin-bottom:12px">
+        <img id="pr-approve-existing-img" style="max-height:80px;max-width:100%"/>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button class="btn sm" onclick="switchToDrawMode()" style="font-size:11px">✏️ Gambar TTD baru</button>
+        <button class="btn sm" onclick="switchToUploadMode()" style="font-size:11px">📷 Upload TTD lain</button>
+      </div>
+    </div>
+
+    <!-- Canvas draw TTD -->
+    <div id="pr-approve-draw" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Gambar tanda tangan Anda di kotak di bawah:</div>
+      <div style="border:2px solid var(--border);border-radius:8px;background:#fff;cursor:crosshair;touch-action:none">
+        <canvas id="pr-sig-canvas" width="420" height="140" style="width:100%;height:140px;display:block;border-radius:8px"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn sm" onclick="clearSigCanvas()">🗑️ Hapus</button>
+        <span style="font-size:11px;color:var(--muted);align-self:center">Gunakan mouse atau jari di layar sentuh</span>
+      </div>
+    </div>
+
+    <!-- Upload TTD -->
+    <div id="pr-approve-upload" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Upload gambar tanda tangan (PNG/JPG):</div>
+      <input type="file" id="pr-approve-upload-file" accept="image/png,image/jpeg" onchange="previewApproveUpload(this)"/>
+      <div id="pr-approve-upload-preview" style="margin-top:8px;display:none">
+        <img id="pr-approve-upload-img" style="max-height:80px;border:1px solid var(--border);border-radius:6px;padding:4px;background:#fff"/>
+      </div>
+    </div>
+
+    <div id="pr-approve-error" style="font-size:12px;color:var(--red);margin-top:8px;display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn" onclick="closePRApproveModal()">Batal</button>
+      <button class="btn primary" onclick="submitPRApproval()">✅ Konfirmasi Approval</button>
+    </div>
+  </div>
+</div>
+
 <!-- ASSIGN TEKNISI MODAL -->
 <div class="modal-overlay" id="assign-modal" onclick="if(event.target===this)closeAssignModal()">
   <div class="modal">
@@ -4967,6 +5018,7 @@ async function submitPR(){
     remarks: document.getElementById('pr-remarks').value.trim()||null,
     items,
     status: 'pending',
+    requester_signature: currentUser.signature_url||null,
   };
 
   try{
@@ -4986,34 +5038,159 @@ async function submitPR(){
   }
 }
 
-async function approvePR1(id){
-  if(!confirm('Approve PR ini sebagai Approval 1?')) return;
+/* ══ PR APPROVAL WITH SIGNATURE (Opsi 4) ══ */
+let _sigCanvas=null, _sigCtx=null, _sigDrawing=false, _sigHasData=false;
+
+function openPRApproveModal(id, level){
+  document.getElementById('pr-approve-id').value=id;
+  document.getElementById('pr-approve-level').value=level;
+  document.getElementById('pr-approve-error').style.display='none';
+
+  const p=prData.find(x=>x.id===id);
+  document.getElementById('pr-approve-title').textContent=`✅ Approval ${level} — ${p?.pr_number||''}`;
+  document.getElementById('pr-approve-sub').textContent=`${p?.outlet||''} · ${p?.requester||''}`;
+
+  // Cek apakah ada TTD di profil
+  const hasSig=currentUser.signature_url&&currentUser.signature_url.length>10;
+  if(hasSig){
+    document.getElementById('pr-approve-existing-img').src=currentUser.signature_url;
+    document.getElementById('pr-approve-existing').style.display='block';
+    document.getElementById('pr-approve-draw').style.display='none';
+    document.getElementById('pr-approve-upload').style.display='none';
+  } else {
+    // Tidak ada TTD → langsung ke canvas draw
+    document.getElementById('pr-approve-existing').style.display='none';
+    document.getElementById('pr-approve-upload').style.display='none';
+    switchToDrawMode();
+  }
+  document.getElementById('pr-approve-modal').classList.add('show');
+  // Init canvas setelah modal visible
+  setTimeout(()=>initSigCanvas(), 100);
+}
+
+function closePRApproveModal(){
+  document.getElementById('pr-approve-modal').classList.remove('show');
+}
+
+function switchToDrawMode(){
+  document.getElementById('pr-approve-draw').style.display='block';
+  document.getElementById('pr-approve-upload').style.display='none';
+  setTimeout(()=>initSigCanvas(),50);
+}
+
+function switchToUploadMode(){
+  document.getElementById('pr-approve-draw').style.display='none';
+  document.getElementById('pr-approve-upload').style.display='block';
+}
+
+function initSigCanvas(){
+  const canvas=document.getElementById('pr-sig-canvas');
+  if(!canvas) return;
+  // Set actual pixel dimensions
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width*window.devicePixelRatio||420;
+  canvas.height=140*window.devicePixelRatio||140;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio||1, window.devicePixelRatio||1);
+  ctx.strokeStyle='#1a1916';
+  ctx.lineWidth=2.5;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  _sigCanvas=canvas; _sigCtx=ctx; _sigHasData=false;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Mouse events
+  canvas.onmousedown=e=>{_sigDrawing=true;const p=getSigPos(e);_sigCtx.beginPath();_sigCtx.moveTo(p.x,p.y);};
+  canvas.onmousemove=e=>{if(!_sigDrawing)return;const p=getSigPos(e);_sigCtx.lineTo(p.x,p.y);_sigCtx.stroke();_sigHasData=true;};
+  canvas.onmouseup=()=>{_sigDrawing=false;};
+  canvas.onmouseleave=()=>{_sigDrawing=false;};
+
+  // Touch events
+  canvas.ontouchstart=e=>{e.preventDefault();_sigDrawing=true;const p=getSigPos(e.touches[0]);_sigCtx.beginPath();_sigCtx.moveTo(p.x,p.y);};
+  canvas.ontouchmove=e=>{e.preventDefault();if(!_sigDrawing)return;const p=getSigPos(e.touches[0]);_sigCtx.lineTo(p.x,p.y);_sigCtx.stroke();_sigHasData=true;};
+  canvas.ontouchend=()=>{_sigDrawing=false;};
+}
+
+function getSigPos(e){
+  const r=_sigCanvas.getBoundingClientRect();
+  return{x:e.clientX-r.left, y:e.clientY-r.top};
+}
+
+function clearSigCanvas(){
+  if(!_sigCtx||!_sigCanvas) return;
+  _sigCtx.clearRect(0,0,_sigCanvas.width,_sigCanvas.height);
+  _sigHasData=false;
+}
+
+function previewApproveUpload(input){
+  const file=input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('pr-approve-upload-img').src=e.target.result;
+    document.getElementById('pr-approve-upload-preview').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function getApprovalSignature(){
+  // Priority: upload file → canvas draw → existing profile TTD
+  const uploadImg=document.getElementById('pr-approve-upload-img');
+  const uploadVisible=document.getElementById('pr-approve-upload').style.display!=='none';
+  if(uploadVisible && uploadImg.src && uploadImg.src.startsWith('data:')){
+    return uploadImg.src;
+  }
+  const drawVisible=document.getElementById('pr-approve-draw').style.display!=='none';
+  if(drawVisible && _sigHasData && _sigCanvas){
+    // Export canvas as PNG
+    return _sigCanvas.toDataURL('image/png');
+  }
+  // Fallback: existing profile TTD
+  if(currentUser.signature_url) return currentUser.signature_url;
+  return null;
+}
+
+async function submitPRApproval(){
+  const id=document.getElementById('pr-approve-id').value;
+  const level=document.getElementById('pr-approve-level').value;
+  const errEl=document.getElementById('pr-approve-error');
+  errEl.style.display='none';
+
+  const sig=getApprovalSignature();
+  if(!sig){
+    errEl.textContent='Tanda tangan wajib diisi — gambar atau upload TTD terlebih dahulu.';
+    errEl.style.display='block';
+    return;
+  }
+
+  const btn=document.querySelector('#pr-approve-modal .btn.primary');
+  btn.disabled=true; btn.textContent='⏳ Menyimpan...';
+
   try{
-    const patch={
-      status:'approved1',
-      approved1_by: currentUser.name,
-      approved1_at: new Date().toISOString(),
-    };
-    if(currentUser.signature_url) patch.approver_signature=currentUser.signature_url;
+    let patch={};
+    if(level==='1'){
+      patch={status:'approved1', approved1_by:currentUser.name, approved1_at:new Date().toISOString(), approver1_signature:sig};
+    } else {
+      patch={status:'approved', approved_by:currentUser.name, approved_at:new Date().toISOString(), approver_signature:sig};
+    }
     const result=await api('PATCH','/purchase-requests/'+id, patch);
     prData=prData.map(p=>p.id===id?{...p,...result}:p);
+    closePRApproveModal();
     renderPRList();
-  }catch(e){alert('Gagal approve: '+e.message);}
+  }catch(e){
+    errEl.textContent='Gagal: '+e.message;
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='✅ Konfirmasi Approval';
+  }
+}
+
+async function approvePR1(id){
+  openPRApproveModal(id,'1');
 }
 
 async function approvePR2(id){
-  if(!confirm('Approve PR ini sebagai Approval 2 (Final)?')) return;
-  try{
-    const patch={
-      status:'approved',
-      approved_by: currentUser.name,
-      approved_at: new Date().toISOString(),
-    };
-    if(currentUser.signature_url) patch.approver_signature=currentUser.signature_url;
-    const result=await api('PATCH','/purchase-requests/'+id, patch);
-    prData=prData.map(p=>p.id===id?{...p,...result}:p);
-    renderPRList();
-  }catch(e){alert('Gagal approve: '+e.message);}
+  openPRApproveModal(id,'2');
 }
 
 async function rejectPR(id){
@@ -5192,10 +5369,9 @@ function exportPRPDF(id){
   const createdAt=p.created_at?new Date(p.created_at).toLocaleDateString('id-ID'):'';
   const col3W=CW/3;
 
-  // TTD hanya untuk requester (dari currentUser yang sedang login)
-  // Baris 2: dari approver_signature yang tersimpan saat approve
-  const reqSig=(p.requester===currentUser.name)?currentUser.signature_url||null:null;
-  const apvSig=isApproved?(p.approver_signature||null):null;
+  // TTD: dari DB jika tersimpan, fallback ke currentUser jika login sebagai requester/approver
+  const reqSig=p.requester_signature||(p.requester===currentUser.name?currentUser.signature_url||null:null);
+  const apvSig=p.approver_signature||p.approver1_signature||null;
 
   // Nama approver yang benar (fixed)
   const approvers=[
