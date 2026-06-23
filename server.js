@@ -141,12 +141,11 @@ app.post('/api/login', async (req, res) => {
       name:          u.name,
       role:          u.role,
       custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
+      pr_roles:      Array.isArray(u.pr_roles) ? u.pr_roles : [],
       // signature_url TIDAK disimpan di JWT (terlalu besar → HTTP 494)
-      // Diambil terpisah lewat /api/me atau allUsers saat dibutuhkan
     };
     req.session._setUser(userData);
     logActivity(req, 'auth', 'LOGIN', `${userData.name} (${userData.role}) login berhasil`);
-    // Buat JWT token untuk dikirim ke frontend (tanpa signature_url)
     const token = jwt.sign({ user: userData }, JWT_SECRET, { expiresIn: '8h' });
     // Kirim signature_url terpisah di response (tidak masuk JWT)
     res.json({ ok: true, user: { ...userData, signature_url: u.signature_url||null }, token });
@@ -226,13 +225,14 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (req.session.user.id === req.params.id && req.body.role && req.body.role !== callerRole)
       return res.status(400).json({ error: 'Tidak bisa mengubah role akun Anda sendiri.' });
 
-    const { name, password, role, custom_menus, signature_url } = req.body;
+    const { name, password, role, custom_menus, signature_url, pr_roles } = req.body;
     const patch = {};
     if (name)                         patch.name          = name;
     if (password)                     patch.password      = password;
     if (role)                         patch.role          = role;
     if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
     if (signature_url !== undefined)  patch.signature_url = signature_url;
+    if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
 
     if (db.USE_SUPABASE) {
       const updated = await db.updateUser(req.params.id, patch);
