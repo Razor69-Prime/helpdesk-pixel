@@ -779,7 +779,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           </div>
 
           <!-- Tabel Material -->
-          <div style="font-size:12px;font-weight:700;margin:16px 0 8px">DAFTAR MATERIAL</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
+            <div style="font-size:12px;font-weight:700">DAFTAR MATERIAL</div>
+            <div id="mr-status-badge" style="display:none;font-size:11px;padding:2px 10px;border-radius:99px"></div>
+          </div>
+          <div id="mr-use-ret-notice" style="font-size:11px;color:var(--amber);margin-bottom:8px;display:none">
+            ⚠️ Kolom Pemakaian &amp; Pengembalian terkunci — tersedia setelah pengambilan disubmit
+          </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px" id="mr-items-table">
               <thead>
@@ -800,7 +806,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div id="mr-form-error" style="font-size:12px;color:var(--red);margin-top:10px;display:none"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
             <button class="btn" onclick="cancelMRForm()">Batal</button>
-            <button class="btn primary" onclick="submitMR()">💾 Simpan</button>
+            <button class="btn primary" id="mr-submit-btn" onclick="submitMR()">💾 Simpan Pengambilan</button>
           </div>
         </div>
       </div>
@@ -5699,13 +5705,12 @@ function showMRForm(editId=null){
   document.getElementById('mr-items-body').innerHTML='';
   document.getElementById('mr-form-error').style.display='none';
 
-  // Isi tanggal otomatis
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('mr-date-out').value=today;
   document.getElementById('mr-date-return').value='';
   document.getElementById('mr-technician').value=currentUser.name||'';
 
-  // Populate WO dropdown dari allTickets
+  // Populate WO dropdown
   const woSel=document.getElementById('mr-wo');
   woSel.innerHTML='<option value="">-- Pilih WO --</option>';
   const tickets=[...allTickets].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -5719,21 +5724,49 @@ function showMRForm(editId=null){
     woSel.appendChild(opt);
   });
 
-  if(editId){
-    const mr=mrData.find(x=>x.id===editId);
-    if(mr){
-      woSel.value=mr.ticket_id||'';
-      document.getElementById('mr-project').value=mr.project_name||'';
-      document.getElementById('mr-technician').value=mr.technician||'';
-      document.getElementById('mr-date-out').value=mr.date_out||today;
-      document.getElementById('mr-date-return').value=mr.date_return||'';
-      (mr.items||[]).forEach(item=>addMRItemRow(item));
-      // Load existing material dari tiket jika belum ada
-      if(!(mr.items||[]).length) loadMRItemsFromTicket(mr.ticket_id);
-    }
+  // Determine mode: new or edit
+  const isEdit=!!editId;
+  const mr=isEdit?mrData.find(x=>x.id===editId):null;
+  const mrStatus=mr?.status||'draft'; // draft=baru, taken=sudah diambil
+  const isLocked=!isEdit||(mrStatus==='draft');       // pemakaian/pengembalian terkunci jika baru
+  const isUpdateMode=isEdit&&mrStatus==='taken';       // mode update pemakaian/pengembalian
+
+  // Status badge
+  const badge=document.getElementById('mr-status-badge');
+  const notice=document.getElementById('mr-use-ret-notice');
+  const submitBtn=document.getElementById('mr-submit-btn');
+  if(!isEdit){
+    badge.style.display='none';
+    notice.style.display='block';
+    notice.textContent='⚠️ Kolom Pemakaian & Pengembalian terkunci — tersedia setelah pengambilan disubmit';
+    submitBtn.textContent='💾 Simpan Pengambilan';
+  } else if(isUpdateMode){
+    badge.style.display='block';
+    badge.style.background='var(--teal)18';badge.style.color='var(--teal)';
+    badge.textContent='✅ Sudah Diambil — Update Pemakaian & Pengembalian';
+    notice.style.display='none';
+    submitBtn.textContent='💾 Update Pemakaian & Pengembalian';
   } else {
-    addMRItemRow(); // 1 baris default
+    badge.style.display='none';
+    notice.style.display='block';
+    submitBtn.textContent='💾 Simpan Pengambilan';
   }
+
+  if(mr){
+    woSel.value=mr.ticket_id||'';
+    document.getElementById('mr-project').value=mr.project_name||'';
+    document.getElementById('mr-technician').value=mr.technician||'';
+    document.getElementById('mr-date-out').value=mr.date_out||today;
+    document.getElementById('mr-date-return').value=mr.date_return||'';
+    (mr.items||[]).forEach(item=>addMRItemRow(item, isLocked));
+    if(!(mr.items||[]).length) loadMRItemsFromTicket(mr.ticket_id, isLocked);
+  } else {
+    addMRItemRow(null, true); // baru → pemakaian & pengembalian terkunci
+  }
+
+  // Lock/unlock WO & date-out jika sudah submit
+  woSel.disabled=isUpdateMode;
+  document.getElementById('mr-date-out').readOnly=isUpdateMode;
 
   document.getElementById('mr-list-section').style.display='none';
   document.getElementById('mr-form-section').style.display='block';
@@ -5751,28 +5784,27 @@ function onMRWOChange(){
   if(!opt||!opt.value) return;
   document.getElementById('mr-project').value=opt.dataset.project||'';
   document.getElementById('mr-technician').value=opt.dataset.tech||currentUser.name||'';
-  // Load material dari tiket tersebut
-  loadMRItemsFromTicket(opt.value);
+  // New form → lock pemakaian & pengembalian
+  loadMRItemsFromTicket(opt.value, !mrEditId);
 }
 
-async function loadMRItemsFromTicket(ticketId){
+async function loadMRItemsFromTicket(ticketId, locked=false){
   if(!ticketId) return;
   try{
-    // Cari di materialRequestsData (material yang sudah diinput saat selesaikan tiket)
     const existing=materialRequestsData.filter(m=>m.ticket_id===ticketId);
     if(existing.length){
       document.getElementById('mr-items-body').innerHTML='';
       mrItemCount=0;
       existing.forEach(m=>{
-        (m.materials||[]).forEach(mat=>addMRItemRow({name:mat.name, qty_out:mat.qty, unit:mat.unit}));
-        (m.jasa||[]).forEach(j=>addMRItemRow({name:j.name+' (jasa)', qty_out:j.qty, unit:j.unit}));
+        (m.materials||[]).forEach(mat=>addMRItemRow({name:mat.name, qty_out:mat.qty, unit:mat.unit}, locked));
+        (m.jasa||[]).forEach(j=>addMRItemRow({name:j.name+' (jasa)', qty_out:j.qty, unit:j.unit}, locked));
       });
-      if(!document.querySelectorAll('#mr-items-body tr').length) addMRItemRow();
+      if(!document.querySelectorAll('#mr-items-body tr').length) addMRItemRow(null, locked);
     }
   }catch(e){}
 }
 
-function addMRItemRow(item=null){
+function addMRItemRow(item=null, locked=false){
   mrItemCount++;
   const n=mrItemCount;
   const tr=document.createElement('tr');
@@ -5781,12 +5813,15 @@ function addMRItemRow(item=null){
   const qout=item?.qty_out||item?.qty||'';
   const quse=item?.qty_use||'';
   const qret=item?.qty_return||'';
+  const lockedStyle=locked
+    ?'width:100%;font-size:12px;text-align:center;border:none;background:var(--surface2);color:var(--muted);cursor:not-allowed'
+    :'width:100%;font-size:12px;text-align:center;border:none;background:transparent';
   tr.innerHTML=`
     <td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:12px">${n}</td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="mr-name" value="${name}" placeholder="Nama material..." style="width:100%;font-size:12px;border:none;background:transparent"/></td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qout" value="${qout}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
-    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-quse" value="${quse}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
-    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qret" value="${qret}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border);background:${locked?'var(--surface2)':''}"><input type="number" class="mr-quse" value="${quse}" min="0" placeholder="${locked?'-':'0'}" ${locked?'readonly disabled':''} style="${lockedStyle}"/></td>
+    <td style="padding:4px;border:1px solid var(--border);background:${locked?'var(--surface2)':''}"><input type="number" class="mr-qret" value="${qret}" min="0" placeholder="${locked?'-':'0'}" ${locked?'readonly disabled':''} style="${lockedStyle}"/></td>
     <td style="padding:4px;border:1px solid var(--border);text-align:center"><button class="btn danger sm" onclick="removeMRItemRow(${n})">✕</button></td>
   `;
   document.getElementById('mr-items-body').appendChild(tr);
@@ -5827,6 +5862,10 @@ async function submitMR(){
   const items=getMRItems();
   if(!items.length){errEl.textContent='Minimal 1 item harus diisi.';errEl.style.display='block';return;}
 
+  // Determine status
+  const isUpdateMode=mrEditId&&(mrData.find(x=>x.id===mrEditId)?.status==='taken');
+  const newStatus=isUpdateMode?'returned':'taken';
+
   const payload={
     ticket_id:    ticketId,
     wo_number:    opt?.dataset.wo||'',
@@ -5836,6 +5875,7 @@ async function submitMR(){
     date_out:     document.getElementById('mr-date-out').value,
     date_return:  document.getElementById('mr-date-return').value||null,
     items,
+    status:       newStatus,
   };
 
   try{
@@ -5892,109 +5932,154 @@ function renderMRList(){
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--teal)18;color:var(--teal)">${itemCount} item</span>
-          ${isMRForm?`<button class="btn sm" onclick="exportMRPDF('${m.id}')">📄 PDF</button>
-          <button class="btn sm" onclick="showMRForm('${m.id}')">✏️ Edit</button>`:''}
+          ${isMRForm?`<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${m.status==='taken'?'var(--amber)':m.status==='returned'?'var(--green)':'var(--muted)'}18;color:${m.status==='taken'?'var(--amber)':m.status==='returned'?'var(--green)':'var(--muted)'}">${m.status==='taken'?'📦 Diambil':m.status==='returned'?'✅ Dikembalikan':'Draft'}</span>`:''}
+          ${isMRForm?`
+          <button class="btn sm" onclick="exportMRPDF('${m.id}')">📄 PDF</button>
+          ${m.status==='taken'
+            ?`<button class="btn sm" style="background:var(--teal)18;color:var(--teal);border-color:var(--teal)" onclick="showMRForm('${m.id}')">✏️ Update Pengembalian</button>`
+            :`<button class="btn sm" onclick="showMRForm('${m.id}')">✏️ Edit</button>`
+          }`:''}
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-/* ── Export MR PDF ── */
 function exportMRPDF(id){
   const mr=mrData.find(x=>x.id===id);
   if(!mr){alert('Data tidak ditemukan.');return;}
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const PW=210,PH=297,ML=14,MR2=14,CW=PW-ML-MR2;
-  let y=14;
 
-  // ── Border luar ──
-  doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
-  doc.rect(ML,y,CW,PH-28,'S');
+  // A5 Landscape: 210mm x 148mm
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a5'});
+  const PW=210, PH=148, ML=8, MR2=8, CW=PW-ML-MR2;
+  let y=6;
 
-  // ── Header box ──
-  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(0,0,0);
-  doc.text('MATERIAL REQUEST',PW/2,y+8,{align:'center'});
-  doc.setLineWidth(0.3);doc.line(ML,y+11,ML+CW,y+11);
-  y+=14;
+  // ── Judul ──
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(0,0,0);
+  doc.text('FORM MATERIAL REQUEST',PW/2,y+5,{align:'center'});
+  doc.setLineWidth(0.3);doc.setDrawColor(0,0,0);
+  doc.line(ML,y+7,PW-MR2,y+7);
+  y+=10;
 
-  // ── Info rows ──
-  const infoRows=[
+  // ── Info header (2 kolom) ──
+  const halfW=CW/2;
+  const infoLeft=[
     ['No. WO', mr.wo_number||'-'],
     ['Pekerjaan', mr.project_name||'-'],
-    ['Teknisi Yang Mengerjakan', mr.technician||'-'],
-    ['Tanggal Membawa Material', mr.date_out||'-'],
-    ['Tanggal Pengembalian Material', mr.date_return||'-'],
   ];
-  infoRows.forEach(([lbl,val])=>{
-    doc.setFont('helvetica','bold');doc.setFontSize(9);
-    doc.text(lbl+' :',ML+2,y+5);
-    doc.setFont('helvetica','normal');
-    doc.text(val,ML+70,y+5);
-    doc.line(ML,y+8,ML+CW,y+8);
-    y+=8;
-  });
-  y+=2;
+  const infoRight=[
+    ['Teknisi', mr.technician||'-'],
+    ['Tgl Membawa', mr.date_out||'-'],
+    ['Tgl Kembali', mr.date_return||'-'],
+  ];
 
-  // ── Table header ──
-  const colW=[12,90,24,24,24];
+  const infoRowH=6;
+  infoLeft.forEach(([lbl,val],i)=>{
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text(lbl+':',ML,y+4+i*infoRowH);
+    doc.setFont('helvetica','normal');
+    // Truncate long values
+    const truncated=doc.splitTextToSize(val,halfW-24)[0];
+    doc.text(truncated,ML+24,y+4+i*infoRowH);
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);
+    doc.line(ML,y+5.5+i*infoRowH,ML+halfW-2,y+5.5+i*infoRowH);
+  });
+  infoRight.forEach(([lbl,val],i)=>{
+    const rx=ML+halfW+2;
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text(lbl+':',rx,y+4+i*infoRowH);
+    doc.setFont('helvetica','normal');
+    doc.text(val,rx+22,y+4+i*infoRowH);
+    doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);
+    doc.line(rx,y+5.5+i*infoRowH,PW-MR2,y+5.5+i*infoRowH);
+  });
+  y+=Math.max(infoLeft.length, infoRight.length)*infoRowH+4;
+
+  // ── Table ──
+  const colW=[8, 85, 24, 24, 24]; // No, Item, Pengambilan, Pemakaian, Pengembalian
   const colX=[ML];
   colW.forEach((w,i)=>{if(i>0)colX.push(colX[i-1]+colW[i-1]);});
-  const heads=['NO','ITEM',         'PENGAMBILAN','PEMAKAIAN','PENGEMBALIAN'];
-  const TH=8;
-  doc.setFillColor(200,200,200);doc.rect(ML,y,CW,TH,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
-  heads.forEach((h,i)=>doc.text(h,colX[i]+colW[i]/2,y+5.5,{align:'center'}));
-  doc.rect(ML,y,CW,TH,'S');
+  const heads=['NO','ITEM','PENGAMBILAN','PEMAKAIAN','PENGEMBALIAN'];
+  const TH=6;
+
+  // Header
+  doc.setFillColor(180,180,180);doc.rect(ML,y,CW,TH,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,0,0);
+  heads.forEach((h,i)=>doc.text(h,colX[i]+colW[i]/2,y+4.2,{align:'center'}));
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.rect(ML,y,CW,TH,'S');
   y+=TH;
 
-  // ── Table rows (min 20 baris) ──
-  const ROW_H=7.5;
-  const minRows=20;
+  // Data rows — min 10, auto expand
   const items=mr.items||[];
-  for(let i=0;i<Math.max(items.length,minRows);i++){
+  const minRows=10;
+  const totalRows=Math.max(items.length, minRows);
+  const ROW_H=5.5;
+
+  // Check if we need extra pages
+  const availH=PH-y-28; // 28mm reserved for footer
+  const rowsPerPage=Math.floor(availH/ROW_H);
+
+  for(let i=0;i<totalRows;i++){
+    // New page check
+    if(i>0&&i%rowsPerPage===0){
+      // Footer on current page
+      doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(130,130,130);
+      doc.text(`${mr.wo_number||''} | Hal ${doc.getNumberOfPages()}`,PW/2,PH-4,{align:'center'});
+      doc.addPage();
+      y=8;
+      // Repeat header
+      doc.setFillColor(180,180,180);doc.rect(ML,y,CW,TH,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,0,0);
+      heads.forEach((h,ci)=>doc.text(h,colX[ci]+colW[ci]/2,y+4.2,{align:'center'}));
+      doc.rect(ML,y,CW,TH,'S');
+      y+=TH;
+    }
+
     const item=items[i]||null;
     const bg=i%2===0?[255,255,255]:[248,248,248];
     doc.setFillColor(...bg);doc.rect(ML,y,CW,ROW_H,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
-    doc.text(String(i+1),colX[0]+colW[0]/2,y+5,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(0,0,0);
+    doc.text(String(i+1),colX[0]+colW[0]/2,y+ROW_H-1.5,{align:'center'});
     if(item){
-      doc.text(item.name||'',colX[1]+2,y+5);
-      if(item.qty_out) doc.text(String(item.qty_out),colX[2]+colW[2]/2,y+5,{align:'center'});
-      if(item.qty_use) doc.text(String(item.qty_use),colX[3]+colW[3]/2,y+5,{align:'center'});
-      if(item.qty_return) doc.text(String(item.qty_return),colX[4]+colW[4]/2,y+5,{align:'center'});
+      const nameLines=doc.splitTextToSize(item.name||'',colW[1]-2);
+      doc.text(nameLines[0],colX[1]+1.5,y+ROW_H-1.5);
+      if(item.qty_out)   doc.text(String(item.qty_out),  colX[2]+colW[2]/2,y+ROW_H-1.5,{align:'center'});
+      if(item.qty_use)   doc.text(String(item.qty_use),  colX[3]+colW[3]/2,y+ROW_H-1.5,{align:'center'});
+      if(item.qty_return)doc.text(String(item.qty_return),colX[4]+colW[4]/2,y+ROW_H-1.5,{align:'center'});
     }
-    // Border baris
+    // Cell borders
     colX.forEach((cx,ci)=>{
-      doc.setDrawColor(160,160,160);doc.setLineWidth(0.2);
+      doc.setDrawColor(160,160,160);doc.setLineWidth(0.15);
       doc.rect(cx,y,colW[ci],ROW_H,'S');
     });
     y+=ROW_H;
   }
-  y+=6;
+  y+=4;
 
   // ── Footer TTD ──
   const sigW=CW/3;
   const sigLabels=['PIC MATERIAL REQUEST','MATERIAL PREPARED','TEKNISI'];
-  const sigNames=[mr.created_by||currentUser.name||'-','',mr.technician||'-'];
-  const sigY=Math.max(y+6, PH-48);
+  const sigNames=[mr.created_by||'-','',mr.technician||'-'];
+  const sigY=Math.max(y, PH-30);
 
   sigLabels.forEach((lbl,i)=>{
     const sx=ML+i*sigW;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,0,0);
     doc.text(lbl,sx+sigW/2,sigY,{align:'center'});
-    // Garis TTD
     doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
-    doc.line(sx+4,sigY+18,sx+sigW-4,sigY+18);
-    // Titik-titik
-    doc.setFont('helvetica','normal');doc.setFontSize(8);
-    doc.text(sigNames[i]||'',sx+sigW/2,sigY+24,{align:'center'});
+    doc.line(sx+4,sigY+14,sx+sigW-4,sigY+14);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);
+    doc.text(sigNames[i]||'',sx+sigW/2,sigY+19,{align:'center'});
   });
 
-  // ── Footer tanggal ──
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(130,130,130);
-  doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')} | ${mr.wo_number||''}`,PW/2,PH-6,{align:'center'});
+  // ── Footer info ──
+  const totalPages=doc.getNumberOfPages();
+  for(let pg=1;pg<=totalPages;pg++){
+    doc.setPage(pg);
+    doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(130,130,130);
+    doc.text(`${mr.wo_number||''} | ${mr.technician||''} | Dicetak: ${new Date().toLocaleString('id-ID')} | Hal ${pg}/${totalPages}`,PW/2,PH-2,{align:'center'});
+  }
 
   doc.save(`MR_${(mr.wo_number||mr.id.slice(0,8)).replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
 }
