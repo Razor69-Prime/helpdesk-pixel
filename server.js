@@ -656,6 +656,36 @@ app.get('/api/material-requests', requireRole('superadmin','accounting','manager
 });
 
 // ══════════════════════════════════════════
+//  MATERIAL REQUEST FORM (akses semua role)
+// ══════════════════════════════════════════
+app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
+  try{ res.json(await db.getMRForms()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
+  try{
+    const entry=await db.insertMRForm({...req.body, created_by:req.session.user.name});
+    logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number}`);
+    res.status(201).json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
+  try{
+    const entry=await db.updateMRForm(req.params.id, req.body);
+    res.json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
+  try{
+    await db.deleteMRForm(req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ══════════════════════════════════════════
 //  ACTIVITY LOG (superadmin only)
 // ══════════════════════════════════════════
 

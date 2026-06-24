@@ -717,26 +717,94 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
     <!-- TAB: REQUEST MATERIAL (superadmin, akunting, manager) -->
     <div id="tab-materials" class="tab-content">
+
+      <!-- Header & tombol -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-size:16px;font-weight:600">📦 Request Material</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Material yang digunakan teknisi saat menyelesaikan pekerjaan</div>
+          <div style="font-size:16px;font-weight:600">📦 Form Material Request</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Form pengambilan & pengembalian material oleh teknisi</div>
         </div>
-        <button class="btn green sm" onclick="exportMaterialExcel()">📥 Export Excel</button>
+        <button class="btn primary" onclick="showMRForm()">➕ Buat Material Request Baru</button>
       </div>
 
-      <div class="filter-row" style="margin-bottom:12px">
-        <input type="text" id="mat-search" placeholder="Cari WO, teknisi, atau material..." oninput="renderMaterialRequests()" style="flex:1"/>
-        <select id="mat-filter-date" onchange="renderMaterialRequests()" style="flex:0;min-width:130px">
-          <option value="">Semua Waktu</option>
-          <option value="today">Hari Ini</option>
-          <option value="week">7 Hari Terakhir</option>
-          <option value="month">30 Hari Terakhir</option>
-        </select>
+      <!-- LIST MR -->
+      <div id="mr-list-section">
+        <div class="filter-row" style="margin-bottom:12px">
+          <input type="text" id="mat-search" placeholder="Cari WO, teknisi, atau item..." oninput="renderMaterialRequests()" style="flex:1"/>
+          <select id="mat-filter-date" onchange="renderMaterialRequests()" style="flex:0;min-width:130px">
+            <option value="">Semua Waktu</option>
+            <option value="today">Hari Ini</option>
+            <option value="week">7 Hari Terakhir</option>
+            <option value="month">30 Hari Terakhir</option>
+          </select>
+        </div>
+        <div id="material-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <div id="material-list"></div>
       </div>
 
-      <div id="material-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
-      <div id="material-list"></div>
+      <!-- FORM MR BARU / EDIT -->
+      <div id="mr-form-section" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div class="card-title" style="margin:0">📦 Form Material Request</div>
+            <button class="btn sm" onclick="cancelMRForm()">✕ Batal</button>
+          </div>
+
+          <!-- Header -->
+          <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <div class="form-group">
+              <label>Nomor WO</label>
+              <select id="mr-wo" onchange="onMRWOChange()">
+                <option value="">-- Pilih WO --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Pekerjaan / Nama Project</label>
+              <input type="text" id="mr-project" placeholder="Otomatis dari WO..." readonly style="background:var(--surface2)"/>
+            </div>
+          </div>
+          <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="form-group">
+              <label>Teknisi</label>
+              <input type="text" id="mr-technician" readonly style="background:var(--surface2)"/>
+            </div>
+            <div class="form-group">
+              <label>Tanggal Membawa Material</label>
+              <input type="date" id="mr-date-out"/>
+            </div>
+            <div class="form-group">
+              <label>Tanggal Pengembalian</label>
+              <input type="date" id="mr-date-return"/>
+            </div>
+          </div>
+
+          <!-- Tabel Material -->
+          <div style="font-size:12px;font-weight:700;margin:16px 0 8px">DAFTAR MATERIAL</div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px" id="mr-items-table">
+              <thead>
+                <tr style="background:var(--surface2)">
+                  <th style="padding:8px;border:1px solid var(--border);width:36px;text-align:center">No</th>
+                  <th style="padding:8px;border:1px solid var(--border)">Item / Nama Material</th>
+                  <th style="padding:8px;border:1px solid var(--border);width:90px;text-align:center">Pengambilan</th>
+                  <th style="padding:8px;border:1px solid var(--border);width:90px;text-align:center">Pemakaian</th>
+                  <th style="padding:8px;border:1px solid var(--border);width:90px;text-align:center">Pengembalian</th>
+                  <th style="padding:8px;border:1px solid var(--border);width:36px"></th>
+                </tr>
+              </thead>
+              <tbody id="mr-items-body"></tbody>
+            </table>
+          </div>
+          <button class="btn sm" onclick="addMRItemRow()" style="margin-top:8px">➕ Tambah Item</button>
+
+          <div id="mr-form-error" style="font-size:12px;color:var(--red);margin-top:10px;display:none"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+            <button class="btn" onclick="cancelMRForm()">Batal</button>
+            <button class="btn primary" onclick="submitMR()">💾 Simpan</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB: PURCHASE REQUEST -->
@@ -1687,7 +1755,7 @@ function buildNav(){
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
-    {id:'materials', label:'📦 Request Material', show: isSuperAdmin||role==='accounting'||isManager},
+    {id:'materials', label:'📦 Form Material Request', show: true}, // semua role bisa akses
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
   ];
 
@@ -2357,7 +2425,7 @@ const ALL_MENUS=[
   {id:'dashboard',label:'📊 Dashboard Manager'},
   {id:'users',   label:'👥 Manajemen Akun'},
   {id:'actlog',  label:'📋 Activity Log'},
-  {id:'materials', label:'📦 Request Material'},
+  {id:'materials', label:'📦 Form Material Request'},
   {id:'pr',      label:'📝 Purchase Request'},
 ];
 
@@ -5592,38 +5660,343 @@ function exportMaterialExcel(){
   if(!materialRequestsData||!materialRequestsData.length){alert('Belum ada data material.');return;}
   const wb=XLSX.utils.book_new();
   const fname=`request_material_jasa_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`;
-
   const rows=[];
   materialRequestsData.forEach(m=>{
     (m.materials||[]).forEach(mt=>{
-      rows.push({
-        'Nomor WO':  m.wo_number||'',
-        'Teknisi':   m.technician||'',
-        'Tipe':      'Material',
-        'Nama':      mt.name,
-        'Jumlah':    mt.qty,
-        'Satuan':    mt.unit||'pcs',
-        'Catatan':   m.notes||'',
-        'Tanggal':   new Date(m.created_at).toLocaleString('id-ID'),
-      });
+      rows.push({'Nomor WO':m.wo_number||'','Teknisi':m.technician||'','Tipe':'Material','Nama':mt.name,'Jumlah':mt.qty,'Satuan':mt.unit||'pcs','Catatan':m.notes||'','Tanggal':new Date(m.created_at).toLocaleString('id-ID')});
     });
     (m.jasa||[]).forEach(j=>{
-      rows.push({
-        'Nomor WO':  m.wo_number||'',
-        'Teknisi':   m.technician||'',
-        'Tipe':      'Jasa',
-        'Nama':      j.name,
-        'Jumlah':    j.qty,
-        'Satuan':    j.unit||'pcs',
-        'Catatan':   m.notes||'',
-        'Tanggal':   new Date(m.created_at).toLocaleString('id-ID'),
-      });
+      rows.push({'Nomor WO':m.wo_number||'','Teknisi':m.technician||'','Tipe':'Jasa','Nama':j.name,'Jumlah':j.qty,'Satuan':j.unit||'pcs','Catatan':m.notes||'','Tanggal':new Date(m.created_at).toLocaleString('id-ID')});
     });
   });
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:16},{wch:22},{wch:10},{wch:25},{wch:10},{wch:10},{wch:35},{wch:20}];
   XLSX.utils.book_append_sheet(wb,ws,'Request Material & Jasa');
   XLSX.writeFile(wb,fname);
+}
+
+/* ══ MATERIAL REQUEST FORM (MR) ═════════════════════════════ */
+let mrData=[];        // data MR dari server
+let mrEditId=null;    // id MR yang sedang diedit
+let mrItemCount=0;
+
+async function loadMaterialRequestsFull(){
+  // Load dua sumber: MR baru (material_requests_form) + MR lama (material_requests)
+  try{ materialRequestsData=await api('GET','/material-requests'); }catch(e){ materialRequestsData=[]; }
+  try{ mrData=await api('GET','/material-requests-form'); }catch(e){ mrData=[]; }
+  renderMaterialRequests();
+  renderMRList();
+}
+
+// Override loadMaterialRequests
+async function loadMaterialRequests(){
+  await loadMaterialRequestsFull();
+}
+
+function showMRForm(editId=null){
+  mrEditId=editId;
+  mrItemCount=0;
+  document.getElementById('mr-items-body').innerHTML='';
+  document.getElementById('mr-form-error').style.display='none';
+
+  // Isi tanggal otomatis
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('mr-date-out').value=today;
+  document.getElementById('mr-date-return').value='';
+  document.getElementById('mr-technician').value=currentUser.name||'';
+
+  // Populate WO dropdown dari allTickets
+  const woSel=document.getElementById('mr-wo');
+  woSel.innerHTML='<option value="">-- Pilih WO --</option>';
+  const tickets=[...allTickets].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  tickets.forEach(t=>{
+    const opt=document.createElement('option');
+    opt.value=t.id;
+    opt.dataset.wo=t.wo_number||'';
+    opt.dataset.project=t.project_name||t.description||'';
+    opt.dataset.tech=Array.isArray(t.technicians)&&t.technicians.length?t.technicians.join(' & '):(t.technician||'');
+    opt.textContent=`${t.wo_number||t.id.slice(0,8)} — ${t.project_name||t.customer_name||''}`;
+    woSel.appendChild(opt);
+  });
+
+  if(editId){
+    const mr=mrData.find(x=>x.id===editId);
+    if(mr){
+      woSel.value=mr.ticket_id||'';
+      document.getElementById('mr-project').value=mr.project_name||'';
+      document.getElementById('mr-technician').value=mr.technician||'';
+      document.getElementById('mr-date-out').value=mr.date_out||today;
+      document.getElementById('mr-date-return').value=mr.date_return||'';
+      (mr.items||[]).forEach(item=>addMRItemRow(item));
+      // Load existing material dari tiket jika belum ada
+      if(!(mr.items||[]).length) loadMRItemsFromTicket(mr.ticket_id);
+    }
+  } else {
+    addMRItemRow(); // 1 baris default
+  }
+
+  document.getElementById('mr-list-section').style.display='none';
+  document.getElementById('mr-form-section').style.display='block';
+}
+
+function cancelMRForm(){
+  document.getElementById('mr-list-section').style.display='block';
+  document.getElementById('mr-form-section').style.display='none';
+  mrEditId=null;
+}
+
+function onMRWOChange(){
+  const sel=document.getElementById('mr-wo');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value) return;
+  document.getElementById('mr-project').value=opt.dataset.project||'';
+  document.getElementById('mr-technician').value=opt.dataset.tech||currentUser.name||'';
+  // Load material dari tiket tersebut
+  loadMRItemsFromTicket(opt.value);
+}
+
+async function loadMRItemsFromTicket(ticketId){
+  if(!ticketId) return;
+  try{
+    // Cari di materialRequestsData (material yang sudah diinput saat selesaikan tiket)
+    const existing=materialRequestsData.filter(m=>m.ticket_id===ticketId);
+    if(existing.length){
+      document.getElementById('mr-items-body').innerHTML='';
+      mrItemCount=0;
+      existing.forEach(m=>{
+        (m.materials||[]).forEach(mat=>addMRItemRow({name:mat.name, qty_out:mat.qty, unit:mat.unit}));
+        (m.jasa||[]).forEach(j=>addMRItemRow({name:j.name+' (jasa)', qty_out:j.qty, unit:j.unit}));
+      });
+      if(!document.querySelectorAll('#mr-items-body tr').length) addMRItemRow();
+    }
+  }catch(e){}
+}
+
+function addMRItemRow(item=null){
+  mrItemCount++;
+  const n=mrItemCount;
+  const tr=document.createElement('tr');
+  tr.id='mr-item-'+n;
+  const name=item?.name||'';
+  const qout=item?.qty_out||item?.qty||'';
+  const quse=item?.qty_use||'';
+  const qret=item?.qty_return||'';
+  tr.innerHTML=`
+    <td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:12px">${n}</td>
+    <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="mr-name" value="${name}" placeholder="Nama material..." style="width:100%;font-size:12px;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qout" value="${qout}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-quse" value="${quse}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qret" value="${qret}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border);text-align:center"><button class="btn danger sm" onclick="removeMRItemRow(${n})">✕</button></td>
+  `;
+  document.getElementById('mr-items-body').appendChild(tr);
+}
+
+function removeMRItemRow(n){
+  const tr=document.getElementById('mr-item-'+n);
+  if(tr){
+    const rows=document.querySelectorAll('#mr-items-body tr');
+    if(rows.length<=1){alert('Minimal 1 item harus diisi.');return;}
+    tr.remove();
+  }
+}
+
+function getMRItems(){
+  const items=[];
+  document.querySelectorAll('#mr-items-body tr').forEach((tr,idx)=>{
+    const name=tr.querySelector('.mr-name')?.value.trim()||'';
+    if(!name) return;
+    items.push({
+      no: idx+1,
+      name,
+      qty_out:  parseFloat(tr.querySelector('.mr-qout')?.value)||0,
+      qty_use:  parseFloat(tr.querySelector('.mr-quse')?.value)||0,
+      qty_return: parseFloat(tr.querySelector('.mr-qret')?.value)||0,
+    });
+  });
+  return items;
+}
+
+async function submitMR(){
+  const errEl=document.getElementById('mr-form-error');
+  errEl.style.display='none';
+  const woSel=document.getElementById('mr-wo');
+  const ticketId=woSel.value;
+  const opt=woSel.options[woSel.selectedIndex];
+  if(!ticketId){errEl.textContent='Pilih Nomor WO terlebih dahulu.';errEl.style.display='block';return;}
+  const items=getMRItems();
+  if(!items.length){errEl.textContent='Minimal 1 item harus diisi.';errEl.style.display='block';return;}
+
+  const payload={
+    ticket_id:    ticketId,
+    wo_number:    opt?.dataset.wo||'',
+    project_name: document.getElementById('mr-project').value,
+    technician:   document.getElementById('mr-technician').value,
+    created_by:   currentUser.name,
+    date_out:     document.getElementById('mr-date-out').value,
+    date_return:  document.getElementById('mr-date-return').value||null,
+    items,
+  };
+
+  try{
+    let result;
+    if(mrEditId){
+      result=await api('PATCH','/material-requests-form/'+mrEditId, payload);
+      mrData=mrData.map(m=>m.id===mrEditId?{...m,...result}:m);
+    }else{
+      result=await api('POST','/material-requests-form', payload);
+      mrData.unshift(result);
+    }
+    cancelMRForm();
+    renderMRList();
+  }catch(e){
+    errEl.textContent='Gagal: '+e.message;
+    errEl.style.display='block';
+  }
+}
+
+function renderMRList(){
+  const el=document.getElementById('material-list');
+  if(!el) return;
+  const search=(document.getElementById('mat-search')?.value||'').toLowerCase();
+  const dateF=document.getElementById('mat-filter-date')?.value||'';
+  const now=new Date();
+
+  const all=[...mrData,...materialRequestsData].filter(m=>{
+    if(search&&!JSON.stringify(m).toLowerCase().includes(search)) return false;
+    if(dateF){
+      const d=new Date(m.created_at);
+      const diff=(now-d)/(864e5);
+      if(dateF==='today'&&diff>1) return false;
+      if(dateF==='week'&&diff>7) return false;
+      if(dateF==='month'&&diff>30) return false;
+    }
+    return true;
+  }).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  const sumEl=document.getElementById('material-summary');
+  if(sumEl) sumEl.textContent=`${all.length} record material request`;
+
+  if(!all.length){el.innerHTML='<div class="empty">📭 Belum ada Material Request</div>';return;}
+
+  el.innerHTML=all.map(m=>{
+    const isMRForm=Array.isArray(m.items); // MR form baru punya .items
+    const dt=new Date(m.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    const itemCount=isMRForm?(m.items||[]).length:((m.materials||[]).length+(m.jasa||[]).length);
+    return`<div class="ticket-item" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:13px">${m.wo_number||'—'} <span style="font-size:11px;color:var(--muted)">${isMRForm?'📋 Material Request Form':'📦 Material Request Tiket'}</span></div>
+          <div style="font-size:11px;color:var(--muted)">👷 ${m.technician||m.created_by||'—'} · 📅 ${dt}${m.date_out?` · Bawa: ${m.date_out}`:''}${m.date_return?` · Kembali: ${m.date_return}`:''}</div>
+          ${m.project_name?`<div style="font-size:11px;margin-top:3px">${m.project_name}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--teal)18;color:var(--teal)">${itemCount} item</span>
+          ${isMRForm?`<button class="btn sm" onclick="exportMRPDF('${m.id}')">📄 PDF</button>
+          <button class="btn sm" onclick="showMRForm('${m.id}')">✏️ Edit</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Export MR PDF ── */
+function exportMRPDF(id){
+  const mr=mrData.find(x=>x.id===id);
+  if(!mr){alert('Data tidak ditemukan.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210,PH=297,ML=14,MR2=14,CW=PW-ML-MR2;
+  let y=14;
+
+  // ── Border luar ──
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
+  doc.rect(ML,y,CW,PH-28,'S');
+
+  // ── Header box ──
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(0,0,0);
+  doc.text('MATERIAL REQUEST',PW/2,y+8,{align:'center'});
+  doc.setLineWidth(0.3);doc.line(ML,y+11,ML+CW,y+11);
+  y+=14;
+
+  // ── Info rows ──
+  const infoRows=[
+    ['No. WO', mr.wo_number||'-'],
+    ['Pekerjaan', mr.project_name||'-'],
+    ['Teknisi Yang Mengerjakan', mr.technician||'-'],
+    ['Tanggal Membawa Material', mr.date_out||'-'],
+    ['Tanggal Pengembalian Material', mr.date_return||'-'],
+  ];
+  infoRows.forEach(([lbl,val])=>{
+    doc.setFont('helvetica','bold');doc.setFontSize(9);
+    doc.text(lbl+' :',ML+2,y+5);
+    doc.setFont('helvetica','normal');
+    doc.text(val,ML+70,y+5);
+    doc.line(ML,y+8,ML+CW,y+8);
+    y+=8;
+  });
+  y+=2;
+
+  // ── Table header ──
+  const colW=[12,90,24,24,24];
+  const colX=[ML];
+  colW.forEach((w,i)=>{if(i>0)colX.push(colX[i-1]+colW[i-1]);});
+  const heads=['NO','ITEM',         'PENGAMBILAN','PEMAKAIAN','PENGEMBALIAN'];
+  const TH=8;
+  doc.setFillColor(200,200,200);doc.rect(ML,y,CW,TH,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
+  heads.forEach((h,i)=>doc.text(h,colX[i]+colW[i]/2,y+5.5,{align:'center'}));
+  doc.rect(ML,y,CW,TH,'S');
+  y+=TH;
+
+  // ── Table rows (min 20 baris) ──
+  const ROW_H=7.5;
+  const minRows=20;
+  const items=mr.items||[];
+  for(let i=0;i<Math.max(items.length,minRows);i++){
+    const item=items[i]||null;
+    const bg=i%2===0?[255,255,255]:[248,248,248];
+    doc.setFillColor(...bg);doc.rect(ML,y,CW,ROW_H,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
+    doc.text(String(i+1),colX[0]+colW[0]/2,y+5,{align:'center'});
+    if(item){
+      doc.text(item.name||'',colX[1]+2,y+5);
+      if(item.qty_out) doc.text(String(item.qty_out),colX[2]+colW[2]/2,y+5,{align:'center'});
+      if(item.qty_use) doc.text(String(item.qty_use),colX[3]+colW[3]/2,y+5,{align:'center'});
+      if(item.qty_return) doc.text(String(item.qty_return),colX[4]+colW[4]/2,y+5,{align:'center'});
+    }
+    // Border baris
+    colX.forEach((cx,ci)=>{
+      doc.setDrawColor(160,160,160);doc.setLineWidth(0.2);
+      doc.rect(cx,y,colW[ci],ROW_H,'S');
+    });
+    y+=ROW_H;
+  }
+  y+=6;
+
+  // ── Footer TTD ──
+  const sigW=CW/3;
+  const sigLabels=['PIC MATERIAL REQUEST','MATERIAL PREPARED','TEKNISI'];
+  const sigNames=[mr.created_by||currentUser.name||'-','',mr.technician||'-'];
+  const sigY=Math.max(y+6, PH-48);
+
+  sigLabels.forEach((lbl,i)=>{
+    const sx=ML+i*sigW;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,0,0);
+    doc.text(lbl,sx+sigW/2,sigY,{align:'center'});
+    // Garis TTD
+    doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
+    doc.line(sx+4,sigY+18,sx+sigW-4,sigY+18);
+    // Titik-titik
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    doc.text(sigNames[i]||'',sx+sigW/2,sigY+24,{align:'center'});
+  });
+
+  // ── Footer tanggal ──
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(130,130,130);
+  doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')} | ${mr.wo_number||''}`,PW/2,PH-6,{align:'center'});
+
+  doc.save(`MR_${(mr.wo_number||mr.id.slice(0,8)).replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
 }
 
 /* ══ MATERIAL REQUEST ════════════════════ */

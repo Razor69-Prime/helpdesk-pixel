@@ -492,6 +492,29 @@ async function getMaterialRequests() {
   return await sbFetch('GET', '/material_requests?order=created_at.desc') || [];
 }
 
+// ─────────────────────────────────────────
+//  MATERIAL REQUEST FORM (tabel baru)
+// ─────────────────────────────────────────
+async function getMRForms() {
+  if (!USE_SUPABASE) return [];
+  return await sbFetch('GET', '/material_request_forms?order=created_at.desc') || [];
+}
+async function insertMRForm(data) {
+  const entry = { id: require('crypto').randomUUID(), ...data, created_at: new Date().toISOString() };
+  if (!USE_SUPABASE) return entry;
+  const rows = await sbFetch('POST', '/material_request_forms', entry);
+  return rows?.[0] || entry;
+}
+async function updateMRForm(id, data) {
+  if (!USE_SUPABASE) return { id, ...data };
+  const rows = await sbFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
+  return rows?.[0] || { id, ...data };
+}
+async function deleteMRForm(id) {
+  if (!USE_SUPABASE) return;
+  await sbFetch('DELETE', `/material_request_forms?id=eq.${id}`);
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -505,5 +528,7 @@ module.exports = {
   getSalesTargets, upsertSalesTarget, deleteSalesTarget,
   insertLog, getLogs, clearLogs,
   insertMaterialRequest, getMaterialRequests,
+  // MR Form
+  getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest
 };
