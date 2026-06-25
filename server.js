@@ -571,6 +571,37 @@ app.delete('/api/tickets/:id/invoice/:invId', requireRole('accounting','admin'),
 });
 
 // ══════════════════════════════════════════
+//  MASTER SUPPLIER
+// ══════════════════════════════════════════
+const SUPPLIER_ROLES=['superadmin','manager','accounting'];
+
+app.get('/api/suppliers', requireAuth, async (req,res)=>{
+  try{ res.json(await db.getSuppliers()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/suppliers', requireRole(...SUPPLIER_ROLES), async (req,res)=>{
+  try{
+    const entry=await db.insertSupplier(req.body);
+    res.status(201).json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/suppliers/:id', requireRole(...SUPPLIER_ROLES), async (req,res)=>{
+  try{
+    const entry=await db.updateSupplier(req.params.id, req.body);
+    res.json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/suppliers/:id', requireRole(...SUPPLIER_ROLES), async (req,res)=>{
+  try{
+    await db.deleteSupplier(req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ══════════════════════════════════════════
 //  PURCHASE REQUEST
 // ══════════════════════════════════════════
 const PR_ROLES = ['superadmin','manager','accounting','admin'];

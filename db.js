@@ -460,6 +460,29 @@ async function deletePurchaseRequest(id){
 }
 
 // ─────────────────────────────────────────
+//  SUPPLIERS
+// ─────────────────────────────────────────
+async function getSuppliers(){
+  if(!USE_SUPABASE) return [];
+  return await sbFetch('GET','/suppliers?order=name.asc')||[];
+}
+async function insertSupplier(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/suppliers',entry);
+  return rows?.[0]||entry;
+}
+async function updateSupplier(id,data){
+  if(!USE_SUPABASE) return {id,...data};
+  const rows=await sbFetch('PATCH',`/suppliers?id=eq.${id}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function deleteSupplier(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/suppliers?id=eq.${id}`);
+}
+
+// ─────────────────────────────────────────
 //  MATERIAL REQUESTS
 // ─────────────────────────────────────────
 const MATERIALS_FILE = require('path').join(__dirname, 'data', 'material_requests.json');
@@ -527,6 +550,7 @@ module.exports = {
   getUsers, getUsersWithPassword, insertUser, updateUser, deleteUser,
   getSalesTargets, upsertSalesTarget, deleteSalesTarget,
   insertLog, getLogs, clearLogs,
+  getSuppliers, insertSupplier, updateSupplier, deleteSupplier,
   insertMaterialRequest, getMaterialRequests,
   // MR Form
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,

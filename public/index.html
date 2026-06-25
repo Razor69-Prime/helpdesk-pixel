@@ -813,6 +813,22 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
     </div>
 
+    <!-- TAB: MASTER SUPPLIER -->
+    <div id="tab-supplier" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:600">🏪 Master Supplier</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Data supplier untuk kebutuhan Purchase Request</div>
+        </div>
+        <button class="btn primary" onclick="openSupplierModal()">➕ Tambah Supplier</button>
+      </div>
+      <div class="filter-row" style="margin-bottom:12px">
+        <input type="text" id="supplier-search" placeholder="Cari nama, PIC, atau telepon..." oninput="renderSuppliers()" style="flex:1"/>
+      </div>
+      <div id="supplier-count" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+      <div id="supplier-list"></div>
+    </div>
+
     <!-- TAB: PURCHASE REQUEST -->
     <div id="tab-pr" class="tab-content">
       <!-- Sub-nav: List vs Form baru -->
@@ -904,6 +920,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
                   <th style="padding:8px;border:1px solid var(--border);width:110px;text-align:right">Harga/Unit</th>
                   <th style="padding:8px;border:1px solid var(--border);width:110px;text-align:right">Total</th>
                   <th style="padding:8px;border:1px solid var(--border);width:70px;text-align:center">Stock</th>
+                  <th style="padding:8px;border:1px solid var(--border);width:130px">Supplier</th>
                   <th style="padding:8px;border:1px solid var(--border);width:130px">Ket/Tgl Dibutuhkan</th>
                   <th style="padding:8px;border:1px solid var(--border);width:36px"></th>
                 </tr>
@@ -1416,6 +1433,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <input type="checkbox" id="pr-role-approval2" style="width:14px;height:14px"/>
           <span><strong>Approval PR 2</strong> — approval kedua (opsional)</span>
         </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;text-transform:none;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="pr-role-supplier" style="width:14px;height:14px"/>
+          <span><strong>Master Supplier</strong> — kelola data supplier</span>
+        </label>
       </div>
     </div>
     <hr class="divider"/>
@@ -1471,6 +1492,39 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
       <button class="btn" onclick="closeMaterialModal()">Batal</button>
       <button class="btn primary" id="material-submit-btn" onclick="submitMaterialAndFinish()" disabled>✅ Selesaikan Pekerjaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPLIER MODAL -->
+<div class="modal-overlay" id="supplier-modal" onclick="if(event.target===this)closeSupplierModal()">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeSupplierModal()">✕</button>
+    <div class="modal-title" id="supplier-modal-title">🏪 Tambah Supplier</div>
+    <input type="hidden" id="supplier-edit-id"/>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>Nama Supplier <span style="color:var(--red)">*</span></label>
+      <input type="text" id="supplier-name" placeholder="mis. PT. Hikvision Indonesia"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>No. Telepon / WA</label>
+        <input type="text" id="supplier-phone" placeholder="mis. 08123456789"/>
+      </div>
+      <div class="form-group">
+        <label>Kontak PIC</label>
+        <input type="text" id="supplier-pic" placeholder="Nama PIC supplier"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Catatan</label>
+      <textarea id="supplier-notes" rows="2" placeholder="mis. Spesialis CCTV Hikvision, min order 5 unit..."></textarea>
+    </div>
+    <div id="supplier-error" style="font-size:12px;color:var(--red);margin-top:8px;display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn" onclick="closeSupplierModal()">Batal</button>
+      <button class="btn primary" onclick="saveSupplier()">💾 Simpan</button>
     </div>
   </div>
 </div>
@@ -1576,7 +1630,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ══ STATE ══════════════════════════════ */
-let allTickets=[], allUsers=[], salesPics=[], currentUser=null, currentRating=0;
+let allTickets=[], allUsers=[], allSuppliers=[], salesPics=[], currentUser=null, currentRating=0;
 let periodState={t:'all',k:'all'}, pollTimer=null, trackUrl='', selectedFile=null;
 let gpsCache=null;
 
@@ -1731,7 +1785,8 @@ function showApp(){
   const canSeeVisits=['admin','manager','superadmin','sales'].includes(currentUser.role);
   if(canSeeVisits) api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{});
 
-  // Preload pr_roles dari allUsers jika belum ada di currentUser
+  // Preload suppliers untuk dropdown PR
+  api('GET','/suppliers').then(d=>{allSuppliers=d||[];}).catch(()=>{});
   if(!Array.isArray(currentUser.pr_roles)){
     api('GET','/users').then(users=>{
       allUsers=users||[];
@@ -1761,8 +1816,9 @@ function buildNav(){
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
-    {id:'materials', label:'📦 Form Material Request', show: true}, // semua role bisa akses
+    {id:'materials', label:'📦 Form Material Request', show: true},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
+    {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
   let tabs;
@@ -1810,6 +1866,7 @@ function switchTab(tab,btn){
   if(tab==='actlog')    loadActivityLog();
   if(tab==='materials') loadMaterialRequests();
   if(tab==='pr')        loadPurchaseRequests();
+  if(tab==='supplier')  loadSuppliers();
 }
 
 /* ══ API ═════════════════════════════════ */
@@ -2433,6 +2490,7 @@ const ALL_MENUS=[
   {id:'actlog',  label:'📋 Activity Log'},
   {id:'materials', label:'📦 Form Material Request'},
   {id:'pr',      label:'📝 Purchase Request'},
+  {id:'supplier',label:'🏪 Master Supplier'},
 ];
 
 // Default menu per role
@@ -2513,6 +2571,7 @@ function openEditModal(userId){
   document.getElementById('pr-role-maker').checked=prRoles.includes('maker_pr');
   document.getElementById('pr-role-approval1').checked=prRoles.includes('approval_pr1');
   document.getElementById('pr-role-approval2').checked=prRoles.includes('approval_pr2');
+  document.getElementById('pr-role-supplier').checked=prRoles.includes('supplier_admin');
   document.getElementById('edit-user-modal').classList.add('show');
 }
 function closeEditModal(){document.getElementById('edit-user-modal').classList.remove('show');}
@@ -2555,6 +2614,7 @@ async function saveEditUser(){
     if(document.getElementById('pr-role-maker').checked) prRoles.push('maker_pr');
     if(document.getElementById('pr-role-approval1').checked) prRoles.push('approval_pr1');
     if(document.getElementById('pr-role-approval2').checked) prRoles.push('approval_pr2');
+    if(document.getElementById('pr-role-supplier').checked) prRoles.push('supplier_admin');
 
     const isSameAsDefault=checkedMenus.length===defaultMenus.length&&
       checkedMenus.every(m=>defaultMenus.includes(m));
@@ -4851,6 +4911,106 @@ async function clearActivityLog(){
   }catch(e){alert('Gagal: '+e.message);}
 }
 
+/* ══ MASTER SUPPLIER ════════════════════ */
+async function loadSuppliers(){
+  try{ allSuppliers=await api('GET','/suppliers'); }catch(e){ allSuppliers=[]; }
+  renderSuppliers();
+}
+
+function renderSuppliers(){
+  const el=document.getElementById('supplier-list');
+  if(!el) return;
+  const search=(document.getElementById('supplier-search')?.value||'').toLowerCase();
+  const data=allSuppliers.filter(s=>!search||JSON.stringify(s).toLowerCase().includes(search));
+  document.getElementById('supplier-count').textContent=`${data.length} supplier`;
+
+  if(!data.length){el.innerHTML='<div class="empty">📭 Belum ada data supplier</div>';return;}
+
+  el.innerHTML=data.map(s=>`
+    <div class="ticket-item" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:13px">🏪 ${s.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">
+            ${s.phone?`📞 ${s.phone}`:''}
+            ${s.phone&&s.pic?' · ':''}
+            ${s.pic?`👤 PIC: ${s.pic}`:''}
+          </div>
+          ${s.notes?`<div style="font-size:11px;margin-top:3px;color:var(--text)">${s.notes}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm" onclick="openSupplierModal('${s.id}')">✏️ Edit</button>
+          <button class="btn sm danger" onclick="deleteSupplier('${s.id}')">🗑️</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openSupplierModal(id=null){
+  document.getElementById('supplier-edit-id').value=id||'';
+  document.getElementById('supplier-error').style.display='none';
+  document.getElementById('supplier-modal-title').textContent=id?'✏️ Edit Supplier':'🏪 Tambah Supplier';
+  if(id){
+    const s=allSuppliers.find(x=>x.id===id);
+    if(s){
+      document.getElementById('supplier-name').value=s.name||'';
+      document.getElementById('supplier-phone').value=s.phone||'';
+      document.getElementById('supplier-pic').value=s.pic||'';
+      document.getElementById('supplier-notes').value=s.notes||'';
+    }
+  } else {
+    document.getElementById('supplier-name').value='';
+    document.getElementById('supplier-phone').value='';
+    document.getElementById('supplier-pic').value='';
+    document.getElementById('supplier-notes').value='';
+  }
+  document.getElementById('supplier-modal').classList.add('show');
+}
+
+function closeSupplierModal(){
+  document.getElementById('supplier-modal').classList.remove('show');
+}
+
+async function saveSupplier(){
+  const errEl=document.getElementById('supplier-error');
+  errEl.style.display='none';
+  const name=document.getElementById('supplier-name').value.trim();
+  if(!name){errEl.textContent='Nama supplier wajib diisi.';errEl.style.display='block';return;}
+
+  const payload={
+    name,
+    phone: document.getElementById('supplier-phone').value.trim()||null,
+    pic:   document.getElementById('supplier-pic').value.trim()||null,
+    notes: document.getElementById('supplier-notes').value.trim()||null,
+  };
+
+  const id=document.getElementById('supplier-edit-id').value;
+  try{
+    if(id){
+      const result=await api('PATCH','/suppliers/'+id, payload);
+      allSuppliers=allSuppliers.map(s=>s.id===id?{...s,...result}:s);
+    } else {
+      const result=await api('POST','/suppliers', payload);
+      allSuppliers.unshift(result);
+    }
+    closeSupplierModal();
+    renderSuppliers();
+  }catch(e){
+    errEl.textContent='Gagal: '+e.message;
+    errEl.style.display='block';
+  }
+}
+
+async function deleteSupplier(id){
+  if(!confirm('Hapus supplier ini?')) return;
+  try{
+    await api('DELETE','/suppliers/'+id);
+    allSuppliers=allSuppliers.filter(s=>s.id!==id);
+    renderSuppliers();
+  }catch(e){alert('Gagal hapus: '+e.message);}
+}
+
 /* ══ PURCHASE REQUEST ════════════════════ */
 let prData=[];
 let prItemCount=0;
@@ -5014,7 +5174,14 @@ function addPRItem(item=null){
   const unit=item?.unit||'Pcs';
   const price=item?.price||0;
   const stock=item?.stock||'';
+  const supplierId=item?.supplier_id||'';
   const ket=item?.ket||'';
+
+  // Build supplier options from allSuppliers
+  const supplierOpts=(allSuppliers||[]).map(s=>
+    `<option value="${s.id}" ${s.id===supplierId?'selected':''}>${s.name}</option>`
+  ).join('');
+
   tr.innerHTML=`
     <td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:12px">${n}</td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="pr-desc" value="${desc}" placeholder="Nama/deskripsi item..." style="width:100%;font-size:12px;border:none;background:transparent"/></td>
@@ -5023,6 +5190,12 @@ function addPRItem(item=null){
     <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="pr-price" value="${price}" min="0" onchange="updatePRTotal()" style="width:100%;font-size:12px;text-align:right;border:none;background:transparent"/></td>
     <td style="padding:6px;border:1px solid var(--border);text-align:right;font-size:12px;font-weight:600" class="pr-total-cell">Rp 0</td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="pr-stock" value="${stock}" placeholder="-" style="width:100%;font-size:12px;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border)">
+      <select class="pr-supplier" style="width:100%;font-size:11px;border:none;background:transparent">
+        <option value="">-- Pilih --</option>
+        ${supplierOpts}
+      </select>
+    </td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="pr-ket" value="${ket}" placeholder="Ket/tgl dibutuhkan" style="width:100%;font-size:12px;border:none;background:transparent"/></td>
     <td style="padding:4px;border:1px solid var(--border);text-align:center"><button class="btn danger sm" onclick="removePRItem(${n})">✕</button></td>
   `;
@@ -5057,13 +5230,19 @@ function updatePRTotal(){
 function getPRItems(){
   const items=[];
   document.querySelectorAll('#pr-items-body tr').forEach(tr=>{
+    const suppSel=tr.querySelector('.pr-supplier');
+    const suppId=suppSel?.value||'';
+    const supp=allSuppliers.find(s=>s.id===suppId);
     items.push({
-      desc:  tr.querySelector('.pr-desc')?.value.trim()||'',
-      qty:   parseFloat(tr.querySelector('.pr-qty')?.value)||0,
-      unit:  tr.querySelector('.pr-unit')?.value.trim()||'Pcs',
-      price: parseFloat(tr.querySelector('.pr-price')?.value)||0,
-      stock: tr.querySelector('.pr-stock')?.value.trim()||'',
-      ket:   tr.querySelector('.pr-ket')?.value.trim()||'',
+      desc:        tr.querySelector('.pr-desc')?.value.trim()||'',
+      qty:         parseFloat(tr.querySelector('.pr-qty')?.value)||0,
+      unit:        tr.querySelector('.pr-unit')?.value.trim()||'Pcs',
+      price:       parseFloat(tr.querySelector('.pr-price')?.value)||0,
+      stock:       tr.querySelector('.pr-stock')?.value.trim()||'',
+      supplier_id: suppId,
+      supplier_name: supp?.name||'',
+      supplier_phone: supp?.phone||'',
+      ket:         tr.querySelector('.pr-ket')?.value.trim()||'',
     });
   });
   return items;
@@ -5402,19 +5581,20 @@ function exportPRPDF(id){
   y+=5;
 
   // ── Table ── Portrait: narrower, adjust colW
-  // No | Deskripsi | Qty | Satuan | Harga/Unit | Total | Stock | Ket
-  const colW=[8, 60, 12, 18, 26, 26, 14, 18];
+  // No | Deskripsi | Qty | Satuan | Harga/Unit | Total | Stock | Supplier | Ket
+  const colW=[8, 50, 12, 16, 24, 24, 12, 28, 8];
   const colX=[ML];
   colW.forEach((w,i)=>{ if(i>0) colX.push(colX[i-1]+colW[i-1]); });
-  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Ket/Tgl'];
+  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Supplier','Ket'];
   const TH=7;
 
   doc.setFillColor(230,230,230);
   doc.rect(ML,y,CW,TH,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
   heads.forEach((h,i)=>{
-    const align=i>=4&&i<=5?'right':'left';
-    const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
+    const isRight=i>=4&&i<=5;
+    const align=isRight?'right':'left';
+    const tx=isRight?colX[i]+colW[i]-1:colX[i]+1;
     doc.text(h,tx,y+5,{align});
   });
   y+=TH;
@@ -5449,7 +5629,8 @@ function exportPRPDF(id){
     doc.text(item.price>0?fmtM(item.price):'-',colX[4]+colW[4]-1,y+5,{align:'right'});
     doc.text(total>0?fmtM(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
     doc.text(item.stock||'-',colX[6]+1,y+5);
-    doc.text(doc.splitTextToSize(item.ket||'-',colW[7]-2)[0],colX[7]+1,y+5);
+    doc.text(doc.splitTextToSize(item.supplier_name||'-',colW[7]-2)[0],colX[7]+1,y+5);
+    doc.text(doc.splitTextToSize(item.ket||'-',colW[8]-2)[0],colX[8]+1,y+5);
     doc.setDrawColor(0,0,0);doc.rect(ML,y,CW,ROW_H,'S');
     y+=ROW_H;
   });
