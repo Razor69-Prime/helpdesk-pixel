@@ -3017,6 +3017,12 @@ function fmtM(val){
   return 'Rp '+Number(val).toLocaleString('id-ID');
 }
 
+// format Rupiah FULL — angka real dengan titik ribuan (untuk Purchase Request)
+function fmtFull(val){
+  if(!val && val!==0) return 'Rp 0';
+  return 'Rp '+Number(val).toLocaleString('id-ID');
+}
+
 /* ══ EXPORT PDF PER TIKET ════════════════ */
 function exportTicketPDF(ticketId, source){
   const t=source==='archive'
@@ -5078,7 +5084,7 @@ function renderPRList(){
 
   el.innerHTML=data.map(p=>{
     const dt=new Date(p.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-    const total=fmtM((p.items||[]).reduce((s,i)=>s+(Number(i.qty||0)*Number(i.price||0)),0));
+    const total=fmtFull((p.items||[]).reduce((s,i)=>s+(Number(i.qty||0)*Number(i.price||0)),0));
     const pStatus=p.status||'pending';
     const isOwn=p.requester===currentUser.name;
     const sColor=statusColor[pStatus]||'var(--muted)';
@@ -5221,10 +5227,10 @@ function updatePRTotal(){
     const total=qty*price;
     grand+=total;
     const cell=tr.querySelector('.pr-total-cell');
-    if(cell) cell.textContent=total>0?fmtM(total):'Rp 0';
+    if(cell) cell.textContent=total>0?fmtFull(total):'Rp 0';
   });
   const el=document.getElementById('pr-grand-total');
-  if(el) el.textContent=fmtM(grand);
+  if(el) el.textContent=fmtFull(grand);
 }
 
 function getPRItems(){
@@ -5626,8 +5632,8 @@ function exportPRPDF(id){
     doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,y+5);
     doc.text(String(item.qty||0),colX[2]+colW[2]/2,y+5,{align:'center'});
     doc.text(item.unit||'Pcs',colX[3]+1,y+5);
-    doc.text(item.price>0?fmtM(item.price):'-',colX[4]+colW[4]-1,y+5,{align:'right'});
-    doc.text(total>0?fmtM(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
+    doc.text(item.price>0?fmtFull(item.price):'-',colX[4]+colW[4]-1,y+5,{align:'right'});
+    doc.text(total>0?fmtFull(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
     doc.text(item.stock||'-',colX[6]+1,y+5);
     doc.text(doc.splitTextToSize(item.supplier_name||'-',colW[7]-2)[0],colX[7]+1,y+5);
     doc.text(doc.splitTextToSize(item.ket||'-',colW[8]-2)[0],colX[8]+1,y+5);
@@ -5640,7 +5646,7 @@ function exportPRPDF(id){
   doc.rect(ML,y,CW,7,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
   doc.text('TOTAL KESELURUHAN',colX[4],y+5);
-  doc.text(fmtM(grand),colX[5]+colW[5]-1,y+5,{align:'right'});
+  doc.text(fmtFull(grand),colX[5]+colW[5]-1,y+5,{align:'right'});
   doc.rect(ML,y,CW,7,'S');
   y+=11;
 
