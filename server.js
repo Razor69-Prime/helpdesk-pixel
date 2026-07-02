@@ -364,8 +364,8 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
 
     // Build technicians array (max 2)
     let technicians = [];
-    if (['admin','superadmin','manager'].includes(role)) {
-      // admin/superadmin/manager assign: ambil dari assigned_to
+    if (['admin','superadmin','manager','operator'].includes(role)) {
+      // admin/superadmin/manager/operator assign: ambil dari assigned_to
       const raw = req.body.assigned_to;
       if (Array.isArray(raw)) {
         technicians = raw.filter(Boolean).slice(0, 2);
