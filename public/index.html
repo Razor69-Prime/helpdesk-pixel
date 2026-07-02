@@ -2363,12 +2363,11 @@ async function uploadInvoice(){
   const ticketId=document.getElementById('inv-ticket-select').value;
   const file=selectedFile||document.getElementById('inv-file').files[0];
   if(!ticketId){alert('Pilih tiket terlebih dahulu.');return;}
-  if(!file){alert('Pilih file invoice terlebih dahulu.');return;}
   const btn=document.getElementById('btn-upload');
   btn.disabled=true; btn.textContent='Mengupload...';
   try{
     const fd=new FormData();
-    fd.append('file',file);
+    if(file) fd.append('file',file);
     fd.append('note',document.getElementById('inv-note').value);
     const rawAmount=document.getElementById('inv-amount').value.replace(/\D/g,'');
     if(rawAmount) fd.append('total_amount',rawAmount);

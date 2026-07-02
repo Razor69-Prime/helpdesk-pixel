@@ -510,53 +510,58 @@ app.post('/api/tickets/:id/invoice',
   requireRole('accounting','admin','superadmin'),
   upload.single('file'),
   async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'File tidak ditemukan.' });
     try {
-      let file_url;
+      let file_url      = null;
+      let original_name = null;
+      let mime_type     = null;
 
-      if (db.USE_SUPABASE) {
-        // Upload ke Supabase Storage
-        const ext      = path.extname(req.file.originalname).toLowerCase();
-        const filename = crypto.randomBytes(10).toString('hex') + ext;
-        const bucket   = 'invoices';
+      if (req.file) {
+        if (db.USE_SUPABASE) {
+          // Upload ke Supabase Storage
+          const ext      = path.extname(req.file.originalname).toLowerCase();
+          const filename = crypto.randomBytes(10).toString('hex') + ext;
+          const bucket   = 'invoices';
 
-        const uploadRes = await fetch(
-          `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
-          {
-            method:  'POST',
-            headers: {
-              'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
-              'Content-Type':  req.file.mimetype,
-              'x-upsert':      'true'
-            },
-            body: req.file.buffer
+          const uploadRes = await fetch(
+            `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
+            {
+              method:  'POST',
+              headers: {
+                'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
+                'Content-Type':  req.file.mimetype,
+                'x-upsert':      'true'
+              },
+              body: req.file.buffer
+            }
+          );
+          if (!uploadRes.ok) {
+            const err = await uploadRes.text();
+            throw new Error('Upload ke Supabase Storage gagal: ' + err);
           }
-        );
-        if (!uploadRes.ok) {
-          const err = await uploadRes.text();
-          throw new Error('Upload ke Supabase Storage gagal: ' + err);
+          file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
+        } else {
+          // Simpan ke disk lokal
+          const ext      = path.extname(req.file.originalname).toLowerCase();
+          const filename = crypto.randomBytes(10).toString('hex') + ext;
+          const filepath = path.join(UPLOADS_DIR, filename);
+          fs.writeFileSync(filepath, req.file.buffer || req.file.path);
+          file_url = '/uploads/' + filename;
         }
-        file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
-      } else {
-        // Simpan ke disk lokal
-        const ext      = path.extname(req.file.originalname).toLowerCase();
-        const filename = crypto.randomBytes(10).toString('hex') + ext;
-        const filepath = path.join(UPLOADS_DIR, filename);
-        fs.writeFileSync(filepath, req.file.buffer || req.file.path);
-        file_url = '/uploads/' + filename;
+        original_name = req.file.originalname;
+        mime_type     = req.file.mimetype;
       }
 
       const inv = await db.insertInvoice({
         ticket_id:     req.params.id,
         file_url,
-        original_name: req.file.originalname,
-        mime_type:     req.file.mimetype,
+        original_name,
+        mime_type,
         uploaded_by:   req.session.user.name,
         note:          req.body.note         || null,
         total_amount:  req.body.total_amount ? Number(req.body.total_amount) : null,
         sales_pic:     req.body.sales_pic    || null,
       });
-      logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${req.file.originalname}`);
+      logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${original_name||'(tanpa file)'}`);
       res.status(201).json(inv);
     } catch(e) {
       console.error('Invoice upload error:', e.message);
