@@ -511,7 +511,7 @@ app.post('/api/tickets/:id/invoice',
   upload.single('file'),
   async (req, res) => {
     try {
-      let file_url      = null;
+      let file_url      = "";
       let original_name = null;
       let mime_type     = null;
 
