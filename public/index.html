@@ -5588,21 +5588,27 @@ function exportPRPDF(id){
 
   // ── Table ── Portrait: narrower, adjust colW
   // No | Deskripsi | Qty | Satuan | Harga/Unit | Total | Stock | Supplier | Ket
-  const colW=[8, 50, 12, 16, 24, 24, 12, 28, 8];
+  // Qty/Satuan/Harga dipersempit → sisa ruang ke Ket agar bisa 2 baris
+  const colW=[8, 44, 9, 12, 22, 24, 10, 24, 31];
   const colX=[ML];
   colW.forEach((w,i)=>{ if(i>0) colX.push(colX[i-1]+colW[i-1]); });
-  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Supplier','Ket'];
+  const heads=['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Supplier','Keterangan'];
   const TH=7;
+  const LINE_H=4.2; // tinggi per baris teks di dalam sel
 
-  doc.setFillColor(230,230,230);
-  doc.rect(ML,y,CW,TH,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
-  heads.forEach((h,i)=>{
-    const isRight=i>=4&&i<=5;
-    const align=isRight?'right':'left';
-    const tx=isRight?colX[i]+colW[i]-1:colX[i]+1;
-    doc.text(h,tx,y+5,{align});
-  });
+  function drawTableHeader(yh){
+    doc.setFillColor(230,230,230);
+    doc.rect(ML,yh,CW,TH,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
+    heads.forEach((h,i)=>{
+      const isRight=i>=4&&i<=5;
+      const align=isRight?'right':'left';
+      const tx=isRight?colX[i]+colW[i]-1:colX[i]+1;
+      doc.text(h,tx,yh+5,{align});
+    });
+  }
+
+  drawTableHeader(y);
   y+=TH;
 
   // Rows
@@ -5610,33 +5616,42 @@ function exportPRPDF(id){
   (p.items||[]).forEach((item,idx)=>{
     const total=Number(item.qty||0)*Number(item.price||0);
     grand+=total;
-    const ROW_H=7;
+
+    // Hitung baris Ket — max 2 baris
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+    const ketLines=doc.splitTextToSize(item.ket||'-', colW[8]-2).slice(0,2);
+    const ROW_H=ketLines.length>1 ? 11 : 7;
+
     // New page check — leave 80mm for TTD section
     if(y+ROW_H>PH-85){
       doc.addPage();y=14;
-      // Repeat header on new page
-      doc.setFillColor(230,230,230);doc.rect(ML,y,CW,TH,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
-      heads.forEach((h,i)=>{
-        const align=i>=4&&i<=5?'right':'left';
-        const tx=i>=4&&i<=5?colX[i]+colW[i]-1:colX[i]+1;
-        doc.text(h,tx,y+5,{align});
-      });
+      drawTableHeader(y);
       y+=TH;
     }
+
     const bg=idx%2===0?[255,255,255]:[245,245,245];
     doc.setFillColor(...bg);
     doc.rect(ML,y,CW,ROW_H,'F');
     doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
-    doc.text(String(idx+1),colX[0]+colW[0]/2,y+5,{align:'center'});
-    doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,y+5);
-    doc.text(String(item.qty||0),colX[2]+colW[2]/2,y+5,{align:'center'});
-    doc.text(item.unit||'Pcs',colX[3]+1,y+5);
-    doc.text(item.price>0?fmtFull(item.price):'-',colX[4]+colW[4]-1,y+5,{align:'right'});
-    doc.text(total>0?fmtFull(total):'-',colX[5]+colW[5]-1,y+5,{align:'right'});
-    doc.text(item.stock||'-',colX[6]+1,y+5);
-    doc.text(doc.splitTextToSize(item.supplier_name||'-',colW[7]-2)[0],colX[7]+1,y+5);
-    doc.text(doc.splitTextToSize(item.ket||'-',colW[8]-2)[0],colX[8]+1,y+5);
+
+    // Posisi vertikal teks — tengah secara vertikal
+    const midY=y+ROW_H/2+2;
+
+    doc.text(String(idx+1),colX[0]+colW[0]/2,midY,{align:'center'});
+    doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,midY);
+    doc.text(String(item.qty||0),colX[2]+colW[2]/2,midY,{align:'center'});
+    doc.text(item.unit||'Pcs',colX[3]+1,midY);
+    doc.text(item.price>0?fmtFull(item.price):'-',colX[4]+colW[4]-1,midY,{align:'right'});
+    doc.text(total>0?fmtFull(total):'-',colX[5]+colW[5]-1,midY,{align:'right'});
+    doc.text(item.stock||'-',colX[6]+1,midY);
+    doc.text(doc.splitTextToSize(item.supplier_name||'-',colW[7]-2)[0],colX[7]+1,midY);
+
+    // Ket: 2 baris jika panjang, rata atas
+    const ketStartY=ketLines.length>1 ? y+3.5 : midY;
+    ketLines.forEach((line,li)=>{
+      doc.text(line, colX[8]+1, ketStartY+(li*LINE_H));
+    });
+
     doc.setDrawColor(0,0,0);doc.rect(ML,y,CW,ROW_H,'S');
     y+=ROW_H;
   });
@@ -5645,8 +5660,8 @@ function exportPRPDF(id){
   doc.setFillColor(220,220,220);
   doc.rect(ML,y,CW,7,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(26,25,22);
-  doc.text('TOTAL KESELURUHAN',colX[4],y+5);
-  doc.text(fmtFull(grand),colX[5]+colW[5]-1,y+5,{align:'right'});
+  doc.text('TOTAL KESELURUHAN',colX[0]+1,y+5);
+  doc.text(fmtFull(grand),colX[5]+colW[5]-2,y+5,{align:'right'});
   doc.rect(ML,y,CW,7,'S');
   y+=11;
 
