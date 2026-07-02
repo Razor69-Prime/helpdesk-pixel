@@ -2722,7 +2722,7 @@ function renderDashboard(){
   document.getElementById('dm-total').textContent=data.length;
   document.getElementById('dm-done').textContent=done.length;
   document.getElementById('dm-done-pct').textContent=Math.round(done.length/data.length*100)+'% dari total';
-  document.getElementById('dm-invoice-total').textContent=totalAmount?fmtM(totalAmount):'Rp 0';
+  document.getElementById('dm-invoice-total').textContent=totalAmount?fmtFull(totalAmount):'Rp 0';
   document.getElementById('dm-invoice-count').textContent=allInv.length+' invoice';
 
   // ── Line chart: tren tiket harian ──
@@ -2770,7 +2770,7 @@ function renderDashboard(){
         <div class="dash-bar-row">
           <div class="dash-bar-label" title="${n}">👤 ${n}</div>
           <div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(salesMap[n].total/maxSales*100)}%;background:var(--teal)"></div></div>
-          <div class="dash-bar-val" style="font-size:11px">${salesMap[n].total?fmtM(salesMap[n].total):'—'}</div>
+          <div class="dash-bar-val" style="font-size:11px">${salesMap[n].total?fmtFull(salesMap[n].total):'—'}</div>
         </div>`).join('')}</div>`
     :'<div class="no-data">📭 Belum ada invoice dengan Sales PIC</div>';
 
@@ -2817,14 +2817,14 @@ function renderDashTargetMetrics(data, salesMap){
   const totalRealisasi=Object.values(salesMap).reduce((s,v)=>s+v.total,0);
   const achievement=totalTarget>0?Math.round(totalRealisasi/totalTarget*100):null;
 
-  document.getElementById('dm-target-total').textContent=totalTarget?fmtM(totalTarget):'Rp 0';
-  document.getElementById('dm-realisasi-total').textContent=totalRealisasi?fmtM(totalRealisasi):'Rp 0';
+  document.getElementById('dm-target-total').textContent=totalTarget?fmtFull(totalTarget):'Rp 0';
+  document.getElementById('dm-realisasi-total').textContent=totalRealisasi?fmtFull(totalRealisasi):'Rp 0';
   const achEl=document.getElementById('dm-achievement');
   const achSubEl=document.getElementById('dm-achievement-sub');
   if(achievement!==null){
     achEl.textContent=achievement+'%';
     achEl.style.color=achievement>=100?'var(--green)':achievement>=70?'var(--amber)':'var(--red)';
-    achSubEl.textContent=achievement>=100?'🎉 Target tercapai':`${fmtM(totalTarget-totalRealisasi)} lagi`;
+    achSubEl.textContent=achievement>=100?'🎉 Target tercapai':`${fmtFull(totalTarget-totalRealisasi)} lagi`;
   }else{
     achEl.textContent='—';
     achSubEl.textContent='Target belum diset';
@@ -2853,12 +2853,12 @@ function renderDashTargetMetrics(data, salesMap){
       <div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
         <span style="font-size:10px;color:var(--teal);width:56px">Realisasi</span>
         <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${realPct}%;background:var(--teal)"></div></div>
-        <span style="font-size:10px;font-weight:600;min-width:70px;text-align:right">${fmtM(real)}</span>
+        <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${fmtFull(real)}</span>
       </div>
       <div style="display:flex;gap:4px;align-items:center">
         <span style="font-size:10px;color:var(--accent);width:56px">Target</span>
         <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${targetPct}%;background:var(--accent)"></div></div>
-        <span style="font-size:10px;font-weight:600;min-width:70px;text-align:right">${target?fmtM(target):'—'}</span>
+        <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${target?fmtFull(target):'—'}</span>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -2890,7 +2890,7 @@ function renderDashTargetMetrics(data, salesMap){
   set('dm-visit-won-pct', totalVisit?`${winRate}% win rate`:'—');
   const overdueEl=document.getElementById('dm-visit-overdue');
   if(overdueEl){overdueEl.textContent=overdue||'0';overdueEl.style.color=overdue>0?'var(--red)':'var(--green)';}
-  set('dm-visit-estimasi', fmtM(estimasi)||'Rp 0');
+  set('dm-visit-estimasi', fmtFull(estimasi)||'Rp 0');
 
   // ── Chart: Kunjungan per Sales PIC ──
   const visitEl=document.getElementById('dash-visit-chart');
@@ -3008,13 +3008,6 @@ function renderDonut(segments){
   </div>`;
 }
 
-// format Rupiah compact
-function fmtM(val){
-  if(!val) return 'Rp 0';
-  if(val>=1e9) return 'Rp '+(val/1e9).toFixed(1)+' M';
-  if(val>=1e6) return 'Rp '+(val/1e6).toFixed(1)+' jt';
-  return 'Rp '+Number(val).toLocaleString('id-ID');
-}
 
 // format Rupiah FULL — angka real dengan titik ribuan (untuk Purchase Request)
 function fmtFull(val){
@@ -3667,8 +3660,8 @@ function renderSalesDashboard(){
   const totalReal=Object.values(realMap).reduce((a,b)=>a+b,0);
   const totalTarget=Object.values(targetMap).reduce((a,b)=>a+b,0);
   const achv=totalTarget>0?Math.round(totalReal/totalTarget*100):0;
-  document.getElementById('sd-total-real').textContent=fmtM(totalReal);
-  document.getElementById('sd-total-target').textContent=fmtM(totalTarget);
+  document.getElementById('sd-total-real').textContent=fmtFull(totalReal);
+  document.getElementById('sd-total-target').textContent=fmtFull(totalTarget);
   document.getElementById('sd-achievement').textContent=achv+'%';
 
   // Bar chart: Target vs Realisasi per PIC
@@ -3688,12 +3681,12 @@ function renderSalesDashboard(){
           <div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
             <span style="font-size:10px;color:var(--teal);width:56px">Realisasi</span>
             <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${realPct}%;background:var(--teal)"></div></div>
-            <span style="font-size:10px;font-weight:600;min-width:60px;text-align:right">${fmtM(real)}</span>
+            <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${fmtFull(real)}</span>
           </div>
           <div style="display:flex;gap:4px;align-items:center">
             <span style="font-size:10px;color:var(--accent);width:56px">Target</span>
             <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${targetPct}%;background:var(--accent)"></div></div>
-            <span style="font-size:10px;font-weight:600;min-width:60px;text-align:right">${fmtM(target)}</span>
+            <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${fmtFull(target)}</span>
           </div>
         </div>`;
       }).join('')}</div>`
@@ -3716,7 +3709,7 @@ function renderSalesDashboard(){
     const y=H-PAD-h;
     return`<rect x="${x}" y="${y}" width="${BW}" height="${h}" rx="2" fill="var(--teal)" opacity=".85"/>
            <text x="${x+BW/2}" y="${H-PAD+11}" font-size="8" fill="var(--muted)" text-anchor="middle">${k}</text>
-           ${dayVals[i]?`<text x="${x+BW/2}" y="${y-3}" font-size="8" fill="var(--text)" text-anchor="middle">${fmtM(dayVals[i]).replace('Rp ','')}</text>`:''}`;
+           ${dayVals[i]?`<text x="${x+BW/2}" y="${y-3}" font-size="8" fill="var(--text)" text-anchor="middle">${fmtFull(dayVals[i]).replace('Rp ','')}</text>`:''}`;
   }).join('');
   document.getElementById('sd-line-chart').innerHTML=dayKeys.length
     ?`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H+10}" style="width:100%;min-width:260px">
@@ -3991,8 +3984,8 @@ function renderKunjunganList(){
           ${v.address?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🏠 ${v.address}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          ${v.estimasi_omzet?`<div style="font-size:12px;font-weight:600;color:var(--teal)">${fmtM(v.estimasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Est. Omzet</div>`:''}
-          ${v.realisasi_omzet?`<div style="font-size:12px;font-weight:600;color:var(--green)">${fmtM(v.realisasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Realisasi</div>`:''}
+          ${v.estimasi_omzet?`<div style="font-size:10px;font-weight:600;color:var(--teal)">${fmtFull(v.estimasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Est. Omzet</div>`:''}
+          ${v.realisasi_omzet?`<div style="font-size:10px;font-weight:600;color:var(--green)">${fmtFull(v.realisasi_omzet)}</div><div style="font-size:10px;color:var(--muted)">Realisasi</div>`:''}
         </div>
       </div>
       ${v.notes?`<div style="font-size:12px;color:var(--dark,#1A1916);margin-top:8px;padding:8px;background:var(--surface2);border-radius:var(--radius-sm);white-space:pre-wrap">${v.notes}</div>`:''}
@@ -4391,7 +4384,7 @@ function renderKpiKunjungan(){
             <div style="font-size:10px;color:var(--muted)">Overdue</div>
           </div>`:''}
           ${pm.estimasi?`<div style="text-align:center;min-width:80px">
-            <div style="font-size:12px;font-weight:600;color:var(--teal)">${fmtM(pm.estimasi)}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--teal)">${fmtFull(pm.estimasi)}</div>
             <div style="font-size:10px;color:var(--muted)">Est. Pipeline</div>
           </div>`:''}
         </div>
@@ -4447,7 +4440,7 @@ function openKpiKunjunganDetail(pic){
       <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value">${visits.length}</div></div>
       <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Win Rate</div><div class="dash-metric-value">${winRate!==null?winRate+'%':'—'}</div><div class="dash-metric-sub">${won.length} won / ${totalClosed} closed</div></div>
       <div class="dash-metric ${overdue.length?'red':'green'}"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Overdue</div><div class="dash-metric-value">${overdue.length}</div><div class="dash-metric-sub">perlu follow up</div></div>
-      <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Pipeline</div><div class="dash-metric-value" style="font-size:16px">${fmtM(estimasi)||'—'}</div></div>
+      <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Pipeline</div><div class="dash-metric-value" style="font-size:11px">${fmtFull(estimasi)||'—'}</div></div>
     </div>
 
     <div class="dash-grid-2" style="margin-bottom:16px">
@@ -4509,7 +4502,7 @@ function openKpiKunjunganDetail(pic){
               ${v.address?`<div style="font-size:11px;color:var(--muted)">📍 ${v.address.slice(0,60)}${v.address.length>60?'...':''}</div>`:''}
             </div>
             <div style="text-align:right;flex-shrink:0">
-              ${v.estimasi_omzet?`<div style="font-size:11px;color:var(--teal);font-weight:600">${fmtM(v.estimasi_omzet)}</div>`:'' }
+              ${v.estimasi_omzet?`<div style="font-size:9px;color:var(--teal);font-weight:600">${fmtFull(v.estimasi_omzet)}</div>`:'' }
               ${nfu?`<div style="font-size:10px;color:var(--muted)">FU: ${nfu}</div>`:''}
               ${v.customer_phone?waLink(v.customer_phone,'📲'):''}
             </div>
@@ -4658,7 +4651,7 @@ function renderKpiSales(){
             <div style="font-size:11px;color:var(--muted);margin-top:2px">Klik untuk detail lengkap →</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:16px;font-weight:700;color:var(--teal)">${fmtM(ps.realisasi)}</div>
+            <div style="font-size:11px;font-weight:700;color:var(--teal)">${fmtFull(ps.realisasi)}</div>
             <div style="font-size:10px;color:var(--muted)">realisasi</div>
           </div>
         </div>
@@ -4688,7 +4681,7 @@ function renderKpiSales(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <div class="bar-bg" style="height:8px;flex:1"><div class="bar-fill" style="width:${barW}%;background:var(--teal);height:8px"></div></div>
-          <span style="font-size:10px;color:var(--muted);min-width:60px;text-align:right">${fmtM(ps.targetAmt)?'/ '+fmtM(ps.targetAmt):''}</span>
+          <span style="font-size:10px;color:var(--muted);min-width:90px;text-align:right;font-size:9px">${fmtFull(ps.targetAmt)?'/ '+fmtFull(ps.targetAmt):''}</span>
         </div>
       </div>`;
     }).join('')}`;
@@ -4746,7 +4739,7 @@ function openKpiSalesDetail(pic){
   document.getElementById('kpi-sales-detail-content').innerHTML=`
     <!-- Summary cards -->
     <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-      <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Realisasi</div><div class="dash-metric-value" style="font-size:16px">${fmtM(realisasi)}</div>${achievement!==null?`<div class="dash-metric-sub">${achievement}% dari target</div>`:''}</div>
+      <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Realisasi</div><div class="dash-metric-value" style="font-size:11px">${fmtFull(realisasi)}</div>${achievement!==null?`<div class="dash-metric-sub">${achievement}% dari target</div>`:''}</div>
       <div class="dash-metric blue"><div class="dash-metric-icon">🚶</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value">${picVisits.length}</div></div>
       <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Win Rate</div><div class="dash-metric-value">${winRate!==null?winRate+'%':'—'}</div><div class="dash-metric-sub">${pipeline.closed_won.length} won / ${totalClosed} closed</div></div>
       <div class="dash-metric ${overdue.length?'red':'green'}"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Overdue FU</div><div class="dash-metric-value">${overdue.length}</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
@@ -4758,17 +4751,17 @@ function openKpiSalesDetail(pic){
         <div class="dash-chart-title">💰 Omzet & Target</div>
         <div style="margin-top:12px">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span>Realisasi</span><span style="font-weight:700;color:var(--teal)">${fmtM(realisasi)}</span>
+            <span>Realisasi</span><span style="font-weight:700;color:var(--teal)">${fmtFull(realisasi)}</span>
           </div>
           <div class="bar-bg" style="height:10px;margin-bottom:12px"><div class="bar-fill" style="width:${Math.min(100,targetAmt?Math.round(realisasi/targetAmt*100):100)}%;background:var(--teal);height:10px"></div></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span>Target Bulan Ini</span><span style="font-weight:700;color:var(--accent)">${fmtM(targetAmt)||'Belum diset'}</span>
+            <span>Target Bulan Ini</span><span style="font-weight:700;color:var(--accent)">${fmtFull(targetAmt)||'Belum diset'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-            <span>Estimasi Pipeline Aktif</span><span style="font-weight:700;color:var(--blue)">${fmtM(estimasi)}</span>
+            <span>Estimasi Pipeline Aktif</span><span style="font-weight:700;color:var(--blue)">${fmtFull(estimasi)}</span>
           </div>
           ${avgDeal?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px">
-            <span>Avg Deal Size (Closed Won)</span><span style="font-weight:700;color:var(--green)">${fmtM(avgDeal)}</span>
+            <span>Avg Deal Size (Closed Won)</span><span style="font-weight:700;color:var(--green)">${fmtFull(avgDeal)}</span>
           </div>`:''}
         </div>
       </div>
@@ -6778,7 +6771,7 @@ function exportDashboardPDF(){
       doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
       doc.text(pic.split(' ').slice(0,3).join(' '),ML,y+9);
       doc.setFont('helvetica','bold');
-      doc.text(fmtM(val),PW-ML,y+9,{align:'right'});
+      doc.text(fmtFull(val),PW-ML,y+9,{align:'right'});
       y+=13;
     });
     y+=4;
