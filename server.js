@@ -356,7 +356,7 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'), async (req, res) => {
+app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator'), async (req, res) => {
   try {
     const now   = new Date().toISOString();
     const token = crypto.randomBytes(14).toString('hex');
@@ -768,8 +768,11 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
     if (!customer_name || !prospect_date) {
       return res.status(400).json({ error: 'customer_name dan prospect_date wajib diisi.' });
     }
+    // Operator boleh override sales_pic dari body
+    const isOperator = req.session.user.role === 'operator';
+    const salesPic = (isOperator && req.body.sales_pic_override) ? req.body.sales_pic_override : req.session.user.name;
     const visit = await db.insertSalesVisit({
-      sales_pic:       req.session.user.name,
+      sales_pic:       salesPic,
       sales_user_id:   req.session.user.id,
       customer_name,
       pic_name:        pic_name       || null,

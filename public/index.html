@@ -973,6 +973,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
               <option value="sales">Sales</option>
               <option value="manager">Manager</option>
               <option value="admin">Admin</option>
+              <option value="operator">Operator</option>
               <option value="superadmin">⚡ Super Admin</option>
             </select>
           </div>
@@ -1044,9 +1045,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <label>Prospect Date <span style="color:var(--red)">*</span></label>
             <input type="date" id="kv-prospect-date"/>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="kv-sales-pic-group">
             <label>Sales PIC</label>
             <input type="text" id="kv-sales-pic" readonly style="background:var(--surface2);color:var(--muted)"/>
+            <select id="kv-sales-pic-select" style="display:none"><option value="">Pilih Sales PIC...</option></select>
           </div>
         </div>
 
@@ -1394,6 +1396,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <option value="sales">Sales</option>
         <option value="manager">Manager</option>
         <option value="admin">Admin</option>
+        <option value="operator">Operator</option>
         <option value="superadmin" id="edit-role-superadmin">⚡ Super Admin</option>
       </select>
     </div>
@@ -1758,7 +1761,7 @@ function showApp(){
   pill.className='user-pill '+currentUser.role;
   // hide rating & gps for non-admin
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
-  const canAssign=isAdmin||currentUser.role==='manager';
+  const canAssign=isAdmin||currentUser.role==='manager'||currentUser.role==='operator';
   document.getElementById('gps-status-group').style.display =isAdmin?'block':'none';
   // admin: tampilkan dropdown assign teknisi
   const assignGroup=document.getElementById('f-assign-group');
@@ -1807,12 +1810,12 @@ function buildNav(){
   const isSuperAdmin=role==='superadmin';
   const ALL_TAB_DEFS=[
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
-    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin},
+    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
     {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
-    {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
+    {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
@@ -1942,7 +1945,7 @@ async function saveReport(){
   if(!time){showAlert('error','Tanggal & waktu wajib diisi.');return;}
 
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
-  const canAssign=isAdmin||currentUser.role==='manager';
+  const canAssign=isAdmin||currentUser.role==='manager'||currentUser.role==='operator';
   const tech1=document.getElementById('f-assign-tech')?.value.trim()||'';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
   if(canAssign&&!tech1){showAlert('error','Wajib memilih minimal 1 teknisi.');return;}
@@ -1960,7 +1963,7 @@ async function saveReport(){
       worked_at:     new Date(time).toISOString(),
       description:   document.getElementById('f-desc').value.trim()||null,
       rating:        currentRating,
-      ...(isAdmin && { assigned_to: tech1, ...(tech2&&{assigned_to2:tech2}) }),
+      ...(canAssign && { assigned_to: tech1, ...(tech2&&{assigned_to2:tech2}) }),
       ...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng})
     };
     const saved=await api('POST','/tickets',payload);
@@ -2496,6 +2499,7 @@ const ALL_MENUS=[
 function getDefaultMenus(role){
   switch(role){
     case 'technician': return['report','tickets'];
+    case 'operator':   return['report','tickets','kunjungan'];
     case 'accounting': return['tickets','invoice'];
     case 'manager':    return['dashboard','tickets','invoice','kpi'];
     case 'sales':      return[];
@@ -3778,7 +3782,24 @@ async function loadKunjungan(){
   // Set default values
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('kv-prospect-date').value=today;
-  document.getElementById('kv-sales-pic').value=currentUser.name;
+
+  // Operator: tampilkan dropdown pilih sales PIC
+  const isOperator=currentUser.role==='operator';
+  const picInput=document.getElementById('kv-sales-pic');
+  const picSelect=document.getElementById('kv-sales-pic-select');
+  if(isOperator && picSelect){
+    picInput.style.display='none';
+    picSelect.style.display='block';
+    try{
+      const users=await api('GET','/users');
+      const salesUsers=users.filter(u=>u.role==='sales');
+      picSelect.innerHTML='<option value="">Pilih Sales PIC...</option>'+salesUsers.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+    }catch(e){ console.error('Gagal load sales users',e); }
+  } else {
+    picInput.style.display='';
+    if(picSelect) picSelect.style.display='none';
+    picInput.value=currentUser.name;
+  }
 
   // Set next follow up default +3 hari
   const nfu=new Date(); nfu.setDate(nfu.getDate()+3);
@@ -3884,6 +3905,13 @@ async function submitKunjungan(){
   const estRaw=document.getElementById('kv-est-omzet').value.replace(/\D/g,'');
   const realRaw=document.getElementById('kv-realisasi').value.replace(/\D/g,'');
 
+  // Operator: ambil sales PIC dari dropdown
+  const isOperator=currentUser.role==='operator';
+  const salesPicVal=isOperator
+    ? (document.getElementById('kv-sales-pic-select')?.value||'')
+    : currentUser.name;
+  if(isOperator && !salesPicVal){errEl.textContent='Pilih Sales PIC terlebih dahulu.';errEl.style.display='block';return;}
+
   try{
     const payload={
       customer_name:   customerName,
@@ -3902,6 +3930,7 @@ async function submitKunjungan(){
       lat:             kunjunganGPS.lat,
       lng:             kunjunganGPS.lng,
       location_manual: !kunjunganGPS.lat,
+      ...(isOperator && salesPicVal ? {sales_pic_override: salesPicVal} : {}),
     };
     const saved=await api('POST','/sales-visits',payload);
     kunjunganData.unshift(saved);
