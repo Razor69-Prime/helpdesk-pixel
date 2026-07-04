@@ -3250,6 +3250,14 @@ function switchDashSub(sub, btn){
     const el=document.getElementById('dash-sec-'+s);
     if(el) el.style.display=s===sub?'':'none';
   });
+  // Pastikan data project selalu fresh saat submenu dibuka
+  if(sub==='project'){
+    api('GET','/projects').then(data=>{
+      dashProjectData=data;
+      renderDashboard();
+    }).catch(()=>{ dashProjectData=dashProjectData||[]; renderDashboard(); });
+    return;
+  }
   renderDashboard();
 }
 
