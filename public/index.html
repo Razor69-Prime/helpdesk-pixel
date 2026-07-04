@@ -287,6 +287,18 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .proj-catatan{padding:14px 18px;background:var(--surface2);border-top:1px solid var(--border)}
 .proj-catatan-title{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
 
+/* Overdue list di dashboard */
+.proj-overdue-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface)}
+.proj-overdue-item:last-child{margin-bottom:0}
+.proj-overdue-badge{flex-shrink:0;width:52px;text-align:center;padding:6px 4px;border-radius:8px;font-size:10px;font-weight:700;line-height:1.2}
+.proj-overdue-badge.urgent{background:#FEE2E2;color:#DC2626}
+.proj-overdue-badge.warn{background:#FEF3C7;color:#B45309}
+.proj-overdue-info{flex:1;min-width:0}
+.proj-overdue-name{font-weight:700;font-size:13px;color:var(--text);margin-bottom:2px}
+.proj-overdue-meta{font-size:11px;color:var(--muted)}
+.proj-overdue-issue{font-size:11.5px;color:var(--text);margin-top:4px;line-height:1.4}
+.proj-overdue-status{flex-shrink:0}
+
 @media(max-width:900px){
   .proj-summary-bar{grid-template-columns:repeat(3,1fr)}
 }
@@ -1900,9 +1912,9 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         </div>
         <div class="dash-grid-1" style="margin-top:12px">
           <div class="dash-chart-card">
-            <div class="dash-chart-title">📅 Tren Project Baru per Bulan</div>
-            <div class="dash-chart-sub">Jumlah project baru diinput per bulan</div>
-            <div id="dproj-trend-chart"></div>
+            <div class="dash-chart-title">⏰ Update Terbaru — Project Mendekati Overdue</div>
+            <div class="dash-chart-sub">Project On Plan / On Progress dengan target ≤ 14 hari lagi, diurutkan dari paling mendesak</div>
+            <div id="dproj-overdue-list"></div>
           </div>
         </div>
       </div>
@@ -3630,13 +3642,68 @@ function renderDashSubProject(projList){
   projList.forEach(p=>{ if(p.omset) omsetMap[p.nama_project]=Number(p.omset); });
   renderHBarChartFull(omsetMap,'dproj-omset-chart','green');
 
-  // Tren project baru per bulan
-  const byMonth={};
-  projList.forEach(p=>{
-    const d=(p.created_at||'').slice(0,7); // YYYY-MM
-    if(d) byMonth[d]=(byMonth[d]||0)+1;
-  });
-  renderBarChart(byMonth,'dproj-trend-chart','project','accent');
+  // Update terbaru — project mendekati overdue
+  renderProjectOverdueList(projList);
+}
+
+// Konversi target_week (mis. "Week-27") ke perkiraan tanggal akhir minggu tersebut di tahun berjalan
+function targetWeekToDate(targetWeek){
+  if(!targetWeek) return null;
+  const match=String(targetWeek).match(/(\d+)/);
+  if(!match) return null;
+  const weekNum=parseInt(match[1],10);
+  if(!weekNum || weekNum<1 || weekNum>53) return null;
+
+  const year=new Date().getFullYear();
+  // ISO week: cari Kamis minggu ke-1, lalu tambah (weekNum-1)*7 hari, ambil akhir minggu (Minggu)
+  const jan4=new Date(year,0,4);
+  const jan4Day=(jan4.getDay()+6)%7; // 0=Senin
+  const week1Monday=new Date(jan4);
+  week1Monday.setDate(jan4.getDate()-jan4Day);
+  const targetMonday=new Date(week1Monday);
+  targetMonday.setDate(week1Monday.getDate()+(weekNum-1)*7);
+  const targetSunday=new Date(targetMonday);
+  targetSunday.setDate(targetMonday.getDate()+6);
+  return targetSunday;
+}
+
+function renderProjectOverdueList(projList){
+  const el=document.getElementById('dproj-overdue-list');
+  if(!el) return;
+
+  const today=new Date(); today.setHours(0,0,0,0);
+  const cutoff=new Date(today); cutoff.setDate(today.getDate()+14);
+
+  const candidates=projList
+    .filter(p=>p.status==='On Plan'||p.status==='On Progress')
+    .map(p=>{
+      const targetDate=targetWeekToDate(p.target_week);
+      return {...p, _targetDate:targetDate};
+    })
+    .filter(p=>p._targetDate && p._targetDate<=cutoff)
+    .sort((a,b)=>a._targetDate-b._targetDate);
+
+  if(!candidates.length){
+    el.innerHTML='<div class="no-data">✅ Tidak ada project yang mendekati overdue dalam 14 hari ke depan</div>';
+    return;
+  }
+
+  const statusClass={'On Plan':'plan','On Progress':'progress'};
+
+  el.innerHTML=candidates.map(p=>{
+    const daysLeft=Math.ceil((p._targetDate-today)/(1000*60*60*24));
+    const isUrgent=daysLeft<=7;
+    const dayLabel=daysLeft<0?`Lewat ${Math.abs(daysLeft)} hari`:daysLeft===0?'Hari ini':`${daysLeft} hari lagi`;
+    return `<div class="proj-overdue-item">
+      <div class="proj-overdue-badge ${isUrgent?'urgent':'warn'}">${dayLabel}</div>
+      <div class="proj-overdue-info">
+        <div class="proj-overdue-name">${p.nama_project}</div>
+        <div class="proj-overdue-meta">PIC: ${p.pic||'—'} · Target: ${p.target_week||'—'}</div>
+        ${p.issue?`<div class="proj-overdue-issue">💬 ${p.issue}</div>`:''}
+      </div>
+      <div class="proj-overdue-status"><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${p.status}</span></div>
+    </div>`;
+  }).join('');
 }
 
 // Helper: horizontal bar chart dengan angka penuh (tanpa singkatan)
