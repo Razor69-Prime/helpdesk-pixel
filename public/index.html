@@ -2999,7 +2999,7 @@ function getDefaultMenus(role){
     case 'operator':   return['report','tickets','kunjungan'];
     case 'accounting': return['tickets','invoice'];
     case 'manager':    return['dashboard','tickets','invoice','kpi'];
-    case 'sales':      return[];
+    case 'sales':      return['kunjungan','projects'];
     case 'admin':      return ALL_MENUS.map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id); // full access
     default:           return[];
