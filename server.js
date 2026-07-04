@@ -644,6 +644,79 @@ app.delete('/api/purchase-requests/:id', requireRole('superadmin'), async (req,r
 });
 
 // ══════════════════════════════════════════
+//  PROJECT TRACKER
+// ══════════════════════════════════════════
+const PROJECT_ROLES = ['superadmin','manager','admin','sales'];
+
+app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{ res.json(await db.getProjects()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const {prioritas,nama_project,pic,harga_pokok,omset,issue,action_plan,status,
+           pic_desa,pic_desa_phone,target_week} = req.body;
+    if(!nama_project) return res.status(400).json({error:'Nama project wajib diisi.'});
+    const now=new Date().toISOString();
+    const history = issue||action_plan ? [{
+      date: now,
+      issue: issue||null,
+      action_plan: action_plan||null,
+      by: req.session.user.name,
+    }] : [];
+    const entry=await db.insertProject({
+      prioritas:      prioritas||'P2',
+      nama_project,
+      pic:            pic||null,
+      harga_pokok:    harga_pokok?Number(harga_pokok):null,
+      omset:          omset?Number(omset):null,
+      issue:          issue||null,
+      action_plan:    action_plan||null,
+      status:         status||'On Plan',
+      pic_desa:       pic_desa||null,
+      pic_desa_phone: pic_desa_phone||null,
+      target_week:    target_week||null,
+      history,
+      created_by:     req.session.user.name,
+    });
+    logActivity(req,'project','BUAT PROJECT',nama_project);
+    res.status(201).json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/projects/:id', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const projects = await db.getProjects();
+    const existing = projects.find(p=>p.id===req.params.id);
+    const patch = {...req.body};
+
+    // Jika ada issue/action_plan baru → tambahkan ke history, jangan overwrite
+    if((req.body.issue || req.body.action_plan) && existing){
+      const newEntry = {
+        date: new Date().toISOString(),
+        issue: req.body.issue ?? existing.issue ?? null,
+        action_plan: req.body.action_plan ?? existing.action_plan ?? null,
+        by: req.session.user.name,
+      };
+      patch.history = [...(existing.history||[]), newEntry];
+    }
+
+    const entry=await db.updateProject(req.params.id, patch);
+    logActivity(req,'project','UPDATE PROJECT',req.params.id);
+    res.json(entry);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/projects/:id', requireRole('superadmin','admin'), async (req,res)=>{
+  try{
+    await db.deleteProject(req.params.id);
+    logActivity(req,'project','HAPUS PROJECT',req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ══════════════════════════════════════════
 //  MATERIAL REQUEST (akses: superadmin, akunting, manager)
 // ══════════════════════════════════════════
 

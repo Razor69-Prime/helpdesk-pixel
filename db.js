@@ -460,6 +460,30 @@ async function deletePurchaseRequest(id){
 }
 
 // ─────────────────────────────────────────
+//  PROJECT TRACKER
+// ─────────────────────────────────────────
+async function getProjects(){
+  if(!USE_SUPABASE) return [];
+  return await sbFetch('GET','/projects?order=created_at.desc')||[];
+}
+async function insertProject(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/projects',entry);
+  return rows?.[0]||entry;
+}
+async function updateProject(id,data){
+  const patch={...data,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return {id,...patch};
+  const rows=await sbFetch('PATCH',`/projects?id=eq.${id}`,patch);
+  return rows?.[0]||{id,...patch};
+}
+async function deleteProject(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/projects?id=eq.${id}`);
+}
+
+// ─────────────────────────────────────────
 //  SUPPLIERS
 // ─────────────────────────────────────────
 async function getSuppliers(){
@@ -554,5 +578,6 @@ module.exports = {
   insertMaterialRequest, getMaterialRequests,
   // MR Form
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
-  getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest
+  getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
+  getProjects, insertProject, updateProject, deleteProject
 };

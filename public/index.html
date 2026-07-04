@@ -219,6 +219,55 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .dash-grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
 .dash-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+
+/* ══ PROJECT TRACKER ══ */
+.proj-card{background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+.proj-header{background:linear-gradient(135deg,#0F1E3D,#16244A);padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start;color:#fff}
+.proj-header-label{font-size:10px;letter-spacing:.12em;color:#8FA3C7;font-weight:600;margin-bottom:4px}
+.proj-header-title{font-size:20px;font-weight:800}
+.proj-header-date{font-size:13px;font-weight:600;margin-top:2px}
+.proj-filter-bar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.proj-filter-select{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.proj-summary-bar{background:#16244A;display:grid;grid-template-columns:repeat(6,1fr);color:#fff}
+.proj-summary-item{padding:12px 14px;border-right:1px solid rgba(255,255,255,.1)}
+.proj-summary-item:last-child{border-right:none}
+.proj-summary-label{font-size:9px;letter-spacing:.08em;color:#8FA3C7;font-weight:600;margin-bottom:4px}
+.proj-summary-val{font-size:15px;font-weight:800;white-space:nowrap}
+.proj-summary-val.green{color:#4ADE80}
+.proj-summary-val.plan{color:#86EFAC}
+.proj-summary-val.progress{color:#93C5FD}
+.proj-summary-val.hold{color:#D1D5DB}
+.proj-table-wrap{overflow-x:auto}
+.proj-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1300px}
+.proj-table thead th{background:var(--surface2);color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+.proj-table tbody td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+.proj-table tbody tr:hover{background:var(--surface2)}
+.proj-no-col{color:var(--muted);font-weight:600}
+.proj-prior-badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700}
+.proj-prior-badge.p1{background:#FEE2E2;color:#DC2626}
+.proj-prior-badge.p2{background:#FEF3C7;color:#B45309}
+.proj-name{font-weight:700;color:var(--text);font-size:12.5px}
+.proj-harga-pokok{color:#2563EB;font-weight:600;font-family:ui-monospace,monospace;white-space:nowrap;font-size:11.5px}
+.proj-omset{color:#16A34A;font-weight:600;font-family:ui-monospace,monospace;white-space:nowrap;font-size:11.5px}
+.proj-status-badge{display:inline-block;padding:4px 11px;border-radius:99px;font-size:10px;font-weight:700;white-space:nowrap}
+.proj-status-badge.plan{background:#DCFCE7;color:#15803D}
+.proj-status-badge.progress{background:#DBEAFE;color:#1D4ED8}
+.proj-status-badge.hold{background:var(--surface2);color:var(--muted)}
+.proj-pic-desa-name{font-weight:600;color:var(--text);font-size:11.5px}
+.proj-pic-desa-phone{color:var(--blue);font-size:11px;margin-top:2px}
+.proj-issue-text{color:var(--muted);font-size:11.5px;line-height:1.5;max-width:200px}
+.proj-action-text{color:var(--text);font-size:11.5px;line-height:1.5;max-width:200px}
+.proj-target-week{font-weight:600;color:var(--muted);font-size:11.5px}
+.proj-history-toggle{font-size:10.5px;color:var(--blue);cursor:pointer;margin-top:5px;font-weight:600}
+.proj-history-entry{padding:8px 0;border-bottom:1px dashed var(--border);font-size:12px}
+.proj-history-entry:last-child{border-bottom:none}
+.proj-history-date{color:var(--muted);font-weight:600;font-size:11px;margin-bottom:3px}
+.proj-catatan{padding:14px 18px;background:var(--surface2);border-top:1px solid var(--border)}
+.proj-catatan-title{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+
+@media(max-width:900px){
+  .proj-summary-bar{grid-template-columns:repeat(3,1fr)}
+}
 .dash-chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
 .dash-chart-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
 .dash-canvas-wrap{position:relative;width:100%}
@@ -830,6 +879,200 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     </div>
 
     <!-- TAB: PURCHASE REQUEST -->
+    <div id="tab-projects" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:600">📁 Project Tracker</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Tracking project & progress instalasi per desa</div>
+        </div>
+        <button class="btn primary" onclick="showProjectForm()">➕ Tambah Project</button>
+      </div>
+
+      <!-- List Section -->
+      <div id="proj-list-section">
+        <div class="proj-card">
+          <div class="proj-header">
+            <div>
+              <div class="proj-header-label">PROJECT TRACKER</div>
+              <div class="proj-header-title" id="proj-header-title">Project Priority</div>
+            </div>
+            <div style="text-align:right">
+              <div class="proj-header-label">GENERATED</div>
+              <div class="proj-header-date" id="proj-gen-date">—</div>
+            </div>
+          </div>
+
+          <!-- Filter bar -->
+          <div class="proj-filter-bar">
+            <select id="proj-filter-pic" onchange="renderProjectList()" class="proj-filter-select"><option value="">Semua PIC</option></select>
+            <select id="proj-filter-prioritas" onchange="renderProjectList()" class="proj-filter-select">
+              <option value="">Semua Prioritas</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+            </select>
+            <select id="proj-filter-status" onchange="renderProjectList()" class="proj-filter-select">
+              <option value="">Semua Status</option>
+              <option value="On Plan">On Plan</option>
+              <option value="On Progress">On Progress</option>
+              <option value="Hold">Hold</option>
+            </select>
+            <input type="text" id="proj-search" placeholder="Cari nama project..." oninput="renderProjectList()" class="proj-filter-select" style="flex:1;min-width:160px"/>
+            <button class="btn blue sm" onclick="exportProjectPDF()" style="margin-left:auto">📄 Export PDF</button>
+          </div>
+
+          <!-- Summary bar -->
+          <div class="proj-summary-bar">
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">TOTAL PROJECT</div>
+              <div class="proj-summary-val" id="ps-total">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">EST. HARGA POKOK</div>
+              <div class="proj-summary-val" id="ps-harga-pokok">Rp 0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">EST. OMSET</div>
+              <div class="proj-summary-val green" id="ps-omset">Rp 0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">ON PLAN</div>
+              <div class="proj-summary-val plan" id="ps-plan">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">ON PROGRESS</div>
+              <div class="proj-summary-val progress" id="ps-progress">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">HOLD</div>
+              <div class="proj-summary-val hold" id="ps-hold">0</div>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="proj-table-wrap">
+            <table class="proj-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Prior.</th><th>Nama Project</th><th>PIC</th>
+                  <th>Est. Harga Pokok</th><th>Est. Omset</th>
+                  <th>Issue Terakhir</th><th>Action Plan</th><th>Status</th>
+                  <th>PIC Desa</th><th>Target</th><th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="proj-table-body"></tbody>
+            </table>
+          </div>
+
+          <div class="proj-catatan">
+            <div class="proj-catatan-title">CATATAN</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">
+              1. Harga Pokok dihitung dari harga material dan total jasa yang menggunakan mandor.<br>
+              2. Nominal Omset dihitung dari total keseluruhan penawaran ke Desa, kemungkinan berbeda dari realisasi di lapangan.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Section (hidden by default) -->
+      <div id="proj-form-section" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:15px;font-weight:600" id="proj-form-title">➕ Tambah Project Baru</div>
+            <button class="btn ghost sm" onclick="hideProjectForm()">✕ Batal</button>
+          </div>
+
+          <input type="hidden" id="proj-edit-id"/>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Prioritas <span style="color:var(--red)">*</span></label>
+              <select id="proj-prioritas">
+                <option value="P1">P1</option>
+                <option value="P2" selected>P2</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:2">
+              <label>Nama Project <span style="color:var(--red)">*</span></label>
+              <input type="text" id="proj-nama" placeholder="mis. Project Pengadaan Desa Cemagi"/>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>PIC (Internal)</label>
+              <input type="text" id="proj-pic" placeholder="mis. Pak Eka"/>
+            </div>
+            <div class="form-group">
+              <label>Target (Week)</label>
+              <input type="text" id="proj-target-week" placeholder="mis. Week-27"/>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Est. Harga Pokok (Rp)</label>
+              <input type="text" id="proj-harga-pokok" placeholder="mis. 196435000" oninput="formatAmountInput(this)" inputmode="numeric"/>
+            </div>
+            <div class="form-group">
+              <label>Est. Omset (Rp)</label>
+              <input type="text" id="proj-omset" placeholder="mis. 332134780" oninput="formatAmountInput(this)" inputmode="numeric"/>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="proj-status">
+                <option value="On Plan">On Plan</option>
+                <option value="On Progress">On Progress</option>
+                <option value="Hold">Hold</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>PIC Desa</label>
+              <input type="text" id="proj-pic-desa" placeholder="mis. Pak Andi (Staff Desa Cemagi)"/>
+            </div>
+            <div class="form-group">
+              <label>No. HP PIC Desa</label>
+              <input type="tel" id="proj-pic-desa-phone" placeholder="mis. +62 895-2225-3468"/>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Issue Terbaru</label>
+            <textarea id="proj-issue" placeholder="Deskripsikan issue/kendala terkini..." rows="3" style="resize:vertical"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Action Plan Terbaru</label>
+            <textarea id="proj-action-plan" placeholder="Deskripsikan rencana tindak lanjut..." rows="3" style="resize:vertical"></textarea>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">💡 Issue & Action Plan yang diisi akan tersimpan sebagai histori update, tidak menimpa update sebelumnya.</div>
+          </div>
+
+          <div id="proj-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn ghost" onclick="hideProjectForm()">Batal</button>
+            <button class="btn primary" id="proj-submit-btn" onclick="submitProject()">💾 Simpan Project</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Histori Modal -->
+      <div id="proj-history-modal" class="modal-overlay">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-title" id="proj-history-title">📋 Histori Update</div>
+          <div id="proj-history-body" style="max-height:400px;overflow-y:auto;margin:12px 0"></div>
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn ghost" onclick="document.getElementById('proj-history-modal').classList.remove('show')">Tutup</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="tab-pr" class="tab-content">
       <!-- Sub-nav: List vs Form baru -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -1938,6 +2181,7 @@ function buildNav(){
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
+    {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
@@ -1986,6 +2230,7 @@ function switchTab(tab,btn){
   if(tab==='actlog')    loadActivityLog();
   if(tab==='materials') loadMaterialRequests();
   if(tab==='pr')        loadPurchaseRequests();
+  if(tab==='projects')  loadProjects();
   if(tab==='supplier')  loadSuppliers();
 }
 
@@ -2609,6 +2854,7 @@ const ALL_MENUS=[
   {id:'actlog',  label:'📋 Activity Log'},
   {id:'materials', label:'📦 Form Material Request'},
   {id:'pr',      label:'📝 Purchase Request'},
+  {id:'projects',label:'📁 Project Tracker'},
   {id:'supplier',label:'🏪 Master Supplier'},
 ];
 
@@ -5441,6 +5687,296 @@ const PR_APPROVERS={
     faTitle:'Managin Director',
   }
 };
+
+// ══════════════════════════════════════════
+//  PROJECT TRACKER
+// ══════════════════════════════════════════
+let projectsData=[];
+
+async function loadProjects(){
+  try{ projectsData=await api('GET','/projects'); }
+  catch(e){ projectsData=[]; }
+  populateProjectPicFilter();
+  renderProjectList();
+}
+
+function populateProjectPicFilter(){
+  const sel=document.getElementById('proj-filter-pic');
+  if(!sel) return;
+  const currentVal=sel.value;
+  const pics=[...new Set(projectsData.map(p=>p.pic).filter(Boolean))];
+  sel.innerHTML='<option value="">Semua PIC</option>'+pics.map(p=>`<option value="${p}">${p}</option>`).join('');
+  sel.value=currentVal;
+}
+
+function filterProjects(){
+  const search=(document.getElementById('proj-search')?.value||'').toLowerCase();
+  const pic=document.getElementById('proj-filter-pic')?.value||'';
+  const prioritas=document.getElementById('proj-filter-prioritas')?.value||'';
+  const status=document.getElementById('proj-filter-status')?.value||'';
+  return projectsData.filter(p=>{
+    if(search && !(p.nama_project||'').toLowerCase().includes(search)) return false;
+    if(pic && p.pic!==pic) return false;
+    if(prioritas && p.prioritas!==prioritas) return false;
+    if(status && p.status!==status) return false;
+    return true;
+  });
+}
+
+function renderProjectList(){
+  const filtered=filterProjects();
+  const tbody=document.getElementById('proj-table-body');
+  if(!tbody) return;
+
+  // Header title & date
+  const now=new Date();
+  const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const titleEl=document.getElementById('proj-header-title');
+  if(titleEl) titleEl.textContent=`Project Priority — ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  const dateEl=document.getElementById('proj-gen-date');
+  if(dateEl) dateEl.textContent=now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Summary
+  const totalHargaPokok=filtered.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
+  const totalOmset=filtered.reduce((s,p)=>s+(Number(p.omset)||0),0);
+  const onPlan=filtered.filter(p=>p.status==='On Plan').length;
+  const onProgress=filtered.filter(p=>p.status==='On Progress').length;
+  const onHold=filtered.filter(p=>p.status==='Hold').length;
+
+  const setEl=(id,val)=>{ const e=document.getElementById(id); if(e) e.textContent=val; };
+  setEl('ps-total', filtered.length);
+  setEl('ps-harga-pokok', fmtFull(totalHargaPokok));
+  setEl('ps-omset', fmtFull(totalOmset));
+  setEl('ps-plan', onPlan);
+  setEl('ps-progress', onProgress);
+  setEl('ps-hold', onHold);
+
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">📭 Belum ada project</td></tr>';
+    return;
+  }
+
+  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold'};
+  const priorClass={'P1':'p1','P2':'p2'};
+
+  tbody.innerHTML=filtered.map((p,idx)=>{
+    const histCount=(p.history||[]).length;
+    const histToggle = histCount>0
+      ? `<div class="proj-history-toggle" onclick="showProjectHistory('${p.id}')">📋 Lihat histori update (${histCount})</div>`
+      : '';
+    const canEdit = ['admin','superadmin','manager','sales'].includes(currentUser.role);
+    const canDelete = ['admin','superadmin'].includes(currentUser.role);
+    return `<tr>
+      <td class="proj-no-col">${idx+1}</td>
+      <td><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${p.prioritas||'P2'}</span></td>
+      <td>
+        <div class="proj-name">${p.nama_project}</div>
+        ${histToggle}
+      </td>
+      <td>${p.pic||'—'}</td>
+      <td class="proj-harga-pokok">${p.harga_pokok?fmtFull(p.harga_pokok):'—'}</td>
+      <td class="proj-omset">${p.omset?fmtFull(p.omset):'—'}</td>
+      <td class="proj-issue-text">${p.issue||'—'}</td>
+      <td class="proj-action-text">${p.action_plan||'—'}</td>
+      <td><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${p.status||'On Plan'}</span></td>
+      <td>
+        ${p.pic_desa?`<div class="proj-pic-desa-name">${p.pic_desa}</div>`:''}
+        ${p.pic_desa_phone?`<div class="proj-pic-desa-phone">${p.pic_desa_phone}</div>`:''}
+        ${!p.pic_desa&&!p.pic_desa_phone?'—':''}
+      </td>
+      <td class="proj-target-week">${p.target_week||'—'}</td>
+      <td style="white-space:nowrap">
+        ${canEdit?`<button class="btn ghost sm" onclick="editProject('${p.id}')" title="Edit">✏️</button>`:''}
+        ${canDelete?`<button class="btn ghost sm" onclick="deleteProject('${p.id}')" title="Hapus">🗑️</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function showProjectHistory(id){
+  const p=projectsData.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('proj-history-title').textContent=`📋 Histori Update — ${p.nama_project}`;
+  const body=document.getElementById('proj-history-body');
+  const hist=[...(p.history||[])].reverse();
+  body.innerHTML=hist.map(h=>{
+    const d=new Date(h.date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div class="proj-history-entry">
+      <div class="proj-history-date">🕐 ${d} — oleh ${h.by||'—'}</div>
+      ${h.issue?`<div style="margin-bottom:4px"><b>Issue:</b> ${h.issue}</div>`:''}
+      ${h.action_plan?`<div><b>Action Plan:</b> ${h.action_plan}</div>`:''}
+    </div>`;
+  }).join('')||'<div style="color:var(--muted);text-align:center;padding:16px">Belum ada histori</div>';
+  document.getElementById('proj-history-modal').classList.add('show');
+}
+
+function showProjectForm(){
+  document.getElementById('proj-list-section').style.display='none';
+  document.getElementById('proj-form-section').style.display='block';
+  document.getElementById('proj-form-title').textContent='➕ Tambah Project Baru';
+  document.getElementById('proj-edit-id').value='';
+  ['proj-nama','proj-pic','proj-target-week','proj-harga-pokok','proj-omset',
+   'proj-pic-desa','proj-pic-desa-phone','proj-issue','proj-action-plan'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('proj-prioritas').value='P2';
+  document.getElementById('proj-status').value='On Plan';
+  document.getElementById('proj-error').style.display='none';
+}
+
+function hideProjectForm(){
+  document.getElementById('proj-form-section').style.display='none';
+  document.getElementById('proj-list-section').style.display='block';
+}
+
+function editProject(id){
+  const p=projectsData.find(x=>x.id===id);
+  if(!p) return;
+  showProjectForm();
+  document.getElementById('proj-form-title').textContent='✏️ Edit Project';
+  document.getElementById('proj-edit-id').value=p.id;
+  document.getElementById('proj-prioritas').value=p.prioritas||'P2';
+  document.getElementById('proj-nama').value=p.nama_project||'';
+  document.getElementById('proj-pic').value=p.pic||'';
+  document.getElementById('proj-target-week').value=p.target_week||'';
+  document.getElementById('proj-harga-pokok').value=p.harga_pokok?Number(p.harga_pokok).toLocaleString('id-ID'):'';
+  document.getElementById('proj-omset').value=p.omset?Number(p.omset).toLocaleString('id-ID'):'';
+  document.getElementById('proj-status').value=p.status||'On Plan';
+  document.getElementById('proj-pic-desa').value=p.pic_desa||'';
+  document.getElementById('proj-pic-desa-phone').value=p.pic_desa_phone||'';
+  // Issue & action plan dikosongkan saat edit — field ini untuk UPDATE BARU (histori), bukan overwrite
+  document.getElementById('proj-issue').value='';
+  document.getElementById('proj-action-plan').value='';
+  document.getElementById('proj-issue').placeholder='Kosongkan jika tidak ada update baru...';
+  document.getElementById('proj-action-plan').placeholder='Kosongkan jika tidak ada update baru...';
+}
+
+async function submitProject(){
+  const errEl=document.getElementById('proj-error');
+  errEl.style.display='none';
+  const editId=document.getElementById('proj-edit-id').value;
+  const nama=document.getElementById('proj-nama').value.trim();
+  if(!nama){ errEl.textContent='Nama project wajib diisi.'; errEl.style.display='block'; return; }
+
+  const hargaRaw=document.getElementById('proj-harga-pokok').value.replace(/\D/g,'');
+  const omsetRaw=document.getElementById('proj-omset').value.replace(/\D/g,'');
+
+  const payload={
+    prioritas:      document.getElementById('proj-prioritas').value,
+    nama_project:   nama,
+    pic:            document.getElementById('proj-pic').value.trim()||null,
+    harga_pokok:    hargaRaw?Number(hargaRaw):null,
+    omset:          omsetRaw?Number(omsetRaw):null,
+    status:         document.getElementById('proj-status').value,
+    pic_desa:       document.getElementById('proj-pic-desa').value.trim()||null,
+    pic_desa_phone: document.getElementById('proj-pic-desa-phone').value.trim()||null,
+    target_week:    document.getElementById('proj-target-week').value.trim()||null,
+    issue:          document.getElementById('proj-issue').value.trim()||null,
+    action_plan:    document.getElementById('proj-action-plan').value.trim()||null,
+  };
+
+  const btn=document.getElementById('proj-submit-btn');
+  btn.disabled=true; btn.textContent='Menyimpan...';
+  try{
+    if(editId){
+      const updated=await api('PATCH','/projects/'+editId, payload);
+      const idx=projectsData.findIndex(p=>p.id===editId);
+      if(idx>-1) projectsData[idx]=updated;
+    }else{
+      const created=await api('POST','/projects', payload);
+      projectsData.unshift(created);
+    }
+    hideProjectForm();
+    populateProjectPicFilter();
+    renderProjectList();
+  }catch(e){
+    errEl.textContent='Gagal menyimpan: '+(e.message||'Unknown error');
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='💾 Simpan Project';
+  }
+}
+
+async function deleteProject(id){
+  if(!confirm('Hapus project ini beserta seluruh histori update-nya?')) return;
+  try{
+    await api('DELETE','/projects/'+id);
+    projectsData=projectsData.filter(p=>p.id!==id);
+    renderProjectList();
+  }catch(e){
+    alert('Gagal menghapus: '+(e.message||'Unknown error'));
+  }
+}
+
+function exportProjectPDF(){
+  const filtered=filterProjects();
+  if(!filtered.length){ alert('Tidak ada data untuk diexport.'); return; }
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const PW=297, PH=210, ML=10, MR=10, CW=PW-ML-MR;
+  let y=12;
+
+  doc.setFont('helvetica','bold');doc.setFontSize(16);
+  doc.text('PROJECT TRACKER — PROJECT PRIORITY', ML, y); y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100);
+  doc.text('Generated: '+new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}), ML, y); y+=8;
+
+  const totalHargaPokok=filtered.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
+  const totalOmset=filtered.reduce((s,p)=>s+(Number(p.omset)||0),0);
+  doc.setTextColor(0);doc.setFont('helvetica','bold');doc.setFontSize(9);
+  doc.text(`Total Project: ${filtered.length}   |   Est. Harga Pokok: ${fmtFull(totalHargaPokok)}   |   Est. Omset: ${fmtFull(totalOmset)}`, ML, y);
+  y+=8;
+
+  const colW=[8,12,45,20,28,28,45,45,20,35,16];
+  const colX=[ML]; colW.forEach((w,i)=>{ if(i>0) colX.push(colX[i-1]+colW[i-1]); });
+  const heads=['No','Prior','Nama Project','PIC','Harga Pokok','Omset','Issue','Action Plan','Status','PIC Desa','Target'];
+  const TH=7;
+
+  function drawHeader(yh){
+    doc.setFillColor(22,36,74);
+    doc.rect(ML,yh,CW,TH,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(255,255,255);
+    heads.forEach((h,i)=>{ doc.text(h,colX[i]+1,yh+5); });
+  }
+  drawHeader(y); y+=TH;
+
+  filtered.forEach((p,idx)=>{
+    doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+    const nameLines=doc.splitTextToSize(p.nama_project||'',colW[2]-2).slice(0,2);
+    const issueLines=doc.splitTextToSize(p.issue||'-',colW[6]-2).slice(0,3);
+    const actionLines=doc.splitTextToSize(p.action_plan||'-',colW[7]-2).slice(0,3);
+    const maxLines=Math.max(nameLines.length,issueLines.length,actionLines.length,1);
+    const ROW_H=Math.max(9, maxLines*3.2+3);
+
+    if(y+ROW_H>PH-15){
+      doc.addPage();y=14;
+      drawHeader(y); y+=TH;
+    }
+
+    const bg=idx%2===0?[255,255,255]:[245,247,250];
+    doc.setFillColor(...bg);
+    doc.rect(ML,y,CW,ROW_H,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(20,20,20);
+
+    doc.text(String(idx+1),colX[0]+1,y+5);
+    doc.text(p.prioritas||'P2',colX[1]+1,y+5);
+    nameLines.forEach((l,li)=>doc.text(l,colX[2]+1,y+5+li*3.2));
+    doc.text(p.pic||'-',colX[3]+1,y+5);
+    doc.text(p.harga_pokok?fmtFull(p.harga_pokok):'-',colX[4]+1,y+5);
+    doc.text(p.omset?fmtFull(p.omset):'-',colX[5]+1,y+5);
+    issueLines.forEach((l,li)=>doc.text(l,colX[6]+1,y+5+li*3.2));
+    actionLines.forEach((l,li)=>doc.text(l,colX[7]+1,y+5+li*3.2));
+    doc.text(p.status||'On Plan',colX[8]+1,y+5);
+    const picDesaText=doc.splitTextToSize(p.pic_desa||'-',colW[9]-2).slice(0,2);
+    picDesaText.forEach((l,li)=>doc.text(l,colX[9]+1,y+5+li*3.2));
+    doc.text(p.target_week||'-',colX[10]+1,y+5);
+
+    doc.setDrawColor(220,220,220);doc.rect(ML,y,CW,ROW_H,'S');
+    y+=ROW_H;
+  });
+
+  doc.save(`Project_Tracker_${new Date().toISOString().slice(0,10)}.pdf`);
+}
 
 async function loadPurchaseRequests(){
   try{ prData=await api('GET','/purchase-requests'); }
