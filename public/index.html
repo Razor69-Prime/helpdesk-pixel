@@ -220,6 +220,28 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .dash-grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
 .dash-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
 
+/* ══ KUNJUNGAN SAMPLE-STYLE ══ */
+.kj-filter-bar{display:flex;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.kj-filter-group{display:flex;align-items:center;gap:5px;flex-wrap:wrap;border-right:1px solid var(--border);padding-right:10px}
+.kj-filter-group:last-child{border-right:none}
+.kj-filter-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-right:4px}
+.kj-chip{background:#FBE5D6;color:#8B4513;border:1px solid #F4B183;border-radius:3px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer}
+.kj-chip.active{background:#DC7633;color:#fff;border-color:#DC7633}
+.kj-kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center}
+.kj-kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.kj-kpi-val{font-size:24px;font-weight:800;color:var(--text)}
+.kj-kpi-val.small{font-size:15px}
+.kj-kpi-note{font-size:8px;color:var(--muted);margin-top:2px}
+.kj-table{width:100%;border-collapse:collapse;font-size:11px}
+.kj-table th{background:#3A2317;color:#fff;padding:7px 8px;text-align:center;font-weight:600;white-space:nowrap}
+.kj-table td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text)}
+.kj-table td.tl{text-align:left;font-weight:600}
+.kj-table tr:nth-child(even){background:var(--surface2)}
+.kj-table td.dot{font-weight:700}
+.kj-table td.dot.g{color:#3B6D11}
+.kj-table td.dot.am{color:#8B5A00}
+.kj-table td.dot.r{color:var(--muted)}
+
 /* ══ PROJECT TRACKER ══ */
 .proj-card{background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
 .proj-header{background:linear-gradient(135deg,#0F1E3D,#16244A);padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start;color:#fff}
@@ -1649,18 +1671,68 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
       <!-- ══ KUNJUNGAN ══ -->
       <div id="dash-sec-kunjungan" style="display:none">
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
-          <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
-          <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Omzet Pipeline</div><div class="dash-metric-value" id="dm-visit-estimasi">—</div><div class="dash-metric-sub">pipeline aktif</div></div>
-        </div>
-        <div class="dash-grid-2" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🗺️ Kunjungan per Sales PIC</div>
-            <div class="dash-chart-sub">Total kunjungan, Closed Won, Follow Up Overdue per Sales PIC</div>
-            <div id="dash-visit-chart"></div>
+        <div class="kj-filter-bar">
+          <div class="kj-filter-group">
+            <div class="kj-filter-title">Periode</div>
+            <div class="kj-chip active" data-kjf="period" data-val="all" onclick="setKjFilter(this)">Semua</div>
+            <div class="kj-chip" data-kjf="period" data-val="month" onclick="setKjFilter(this)">Bulan Ini</div>
+            <div class="kj-chip" data-kjf="period" data-val="week" onclick="setKjFilter(this)">7 Hari</div>
           </div>
+          <div class="kj-filter-group">
+            <div class="kj-filter-title">Customer Type</div>
+            <div class="kj-chip active" data-kjf="ctype" data-val="" onclick="setKjFilter(this)">Semua</div>
+            <div class="kj-chip" data-kjf="ctype" data-val="B2B" onclick="setKjFilter(this)">B2B</div>
+            <div class="kj-chip" data-kjf="ctype" data-val="B2C" onclick="setKjFilter(this)">B2C</div>
+          </div>
+          <div class="kj-filter-group">
+            <div class="kj-filter-title">Sub-Segmentasi</div>
+            <div class="kj-chip active" data-kjf="subseg" data-val="" onclick="setKjFilter(this)">Semua</div>
+            <div class="kj-chip" data-kjf="subseg" data-val="Corporate" onclick="setKjFilter(this)">Corporate</div>
+            <div class="kj-chip" data-kjf="subseg" data-val="Retail" onclick="setKjFilter(this)">Retail</div>
+          </div>
+          <div class="kj-filter-group" id="kj-filter-pic-group">
+            <div class="kj-filter-title">Sales PIC</div>
+            <div class="kj-chip active" data-kjf="pic" data-val="" onclick="setKjFilter(this)">Semua</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:170px 1fr 1fr 1fr;gap:10px;margin-top:12px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="kj-kpi"><div class="kj-kpi-label">Total Visit</div><div class="kj-kpi-val" id="kj-kpi-total">0</div></div>
+            <div class="kj-kpi"><div class="kj-kpi-label">Estimasi Omzet</div><div class="kj-kpi-val small" id="kj-kpi-estimasi">Rp 0</div></div>
+            <div class="kj-kpi"><div class="kj-kpi-label">Realisasi Omzet</div><div class="kj-kpi-val small" id="kj-kpi-realisasi">Rp 0</div></div>
+            <div class="kj-kpi"><div class="kj-kpi-label">Conversion Rate</div><div class="kj-kpi-val" id="kj-kpi-conversion">0%</div><div class="kj-kpi-note">*Realisasi / Estimasi</div></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="dash-chart-title" style="text-align:center">REALISASI OMZET</div>
+            <div id="kj-omzet-chart"></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="dash-chart-title" style="text-align:center">CONVERSION RATE: VISITED → DEAL</div>
+            <div id="kj-conversion-chart"></div>
+          </div>
+
+          <div class="chart-card">
+            <div class="dash-chart-title" style="text-align:center">CANVASSING ACTIVITY</div>
+            <div id="kj-activity-chart"></div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:12px;padding:0;overflow:hidden">
+          <div style="background:#8B4513;color:#fff;text-align:center;font-weight:700;font-size:13px;padding:8px">PERFORMANCE DETAIL</div>
+          <div style="overflow-x:auto">
+          <table class="kj-table">
+            <thead>
+              <tr><th>Sales</th><th>Prospect</th><th>Visited</th><th>Follow Up</th><th>Negotiation</th><th>Deal</th><th>Reject</th><th>Total Visit</th><th>Deal Rate</th><th>Reject Rate</th><th>Estimasi Omz</th><th>Realisasi Omz</th><th>Realisasi/Omzet</th></tr>
+            </thead>
+            <tbody id="kj-perf-table-body"></tbody>
+          </table>
+          </div>
+        </div>
+
+        <div class="dash-grid-1" style="margin-top:12px">
           <div class="dash-chart-card">
             <div class="dash-chart-title">🍩 Status Customer</div>
             <div class="dash-chart-sub">Distribusi status customer (Canvasing, Prospect, dll)</div>
@@ -3220,20 +3292,207 @@ function renderDashSubInvoice(data){
   renderBarChart(byDay,'di-trend-chart','Rp','teal');
 }
 
-function renderDashSubKunjungan(){
-  // Metrics already rendered in renderDashboard
-  // Render additional charts
-  const visits=filterVisitsDash(kunjunganData||[]);
+let kjFilters={period:'all',ctype:'',subseg:'',pic:''};
 
-  // Status chart (donut)
+function setKjFilter(el){
+  const key=el.dataset.kjf, val=el.dataset.val;
+  kjFilters[key]=val;
+  document.querySelectorAll(`.kj-chip[data-kjf="${key}"]`).forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderDashSubKunjungan();
+}
+
+function populateKjPicFilter(visits){
+  const grp=document.getElementById('kj-filter-pic-group');
+  if(!grp) return;
+  const pics=[...new Set(visits.map(v=>v.sales_pic).filter(Boolean))];
+  const existingChips=grp.querySelectorAll('.kj-chip:not([data-val=""])');
+  existingChips.forEach(c=>c.remove());
+  pics.forEach(p=>{
+    const chip=document.createElement('div');
+    chip.className='kj-chip';
+    chip.dataset.kjf='pic';
+    chip.dataset.val=p;
+    chip.textContent=p;
+    chip.onclick=()=>setKjFilter(chip);
+    grp.appendChild(chip);
+  });
+}
+
+function applyKjFilters(visits){
+  let out=visits;
+  if(kjFilters.period==='month'){
+    const now=new Date(); const ym=now.toISOString().slice(0,7);
+    out=out.filter(v=>(v.created_at||'').slice(0,7)===ym);
+  }else if(kjFilters.period==='week'){
+    const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7);
+    out=out.filter(v=>new Date(v.created_at||v.prospect_date)>=cutoff);
+  }
+  if(kjFilters.ctype) out=out.filter(v=>v.customer_type===kjFilters.ctype);
+  if(kjFilters.subseg) out=out.filter(v=>v.sub_segmentasi===kjFilters.subseg);
+  if(kjFilters.pic) out=out.filter(v=>v.sales_pic===kjFilters.pic);
+  return out;
+}
+
+function classifyKjStage(custStatus){
+  const s=custStatus||'';
+  if(s==='Canvasing') return 'prospect';
+  if(s==='Prospect') return 'visited';
+  if(s.startsWith('Follow Up')||s==='Last Follow') return 'followup';
+  if(s==='Negotiation') return 'negotiation';
+  if(s==='Closed Won') return 'deal';
+  if(s==='Closed Lost') return 'reject';
+  return 'prospect';
+}
+
+function renderDashSubKunjungan(){
+  const allVisits=filterVisitsDash(kunjunganData||[]);
+  populateKjPicFilter(allVisits);
+  const visits=applyKjFilters(allVisits);
+
+  const totalVisit=visits.length;
+  const totalEstimasi=visits.reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
+  const totalRealisasi=visits.reduce((s,v)=>s+(Number(v.realisasi_omzet)||0),0);
+  const conversionRate=totalEstimasi?Math.round(totalRealisasi/totalEstimasi*100):0;
+
+  const el=id=>document.getElementById(id);
+  if(el('kj-kpi-total')) el('kj-kpi-total').textContent=totalVisit;
+  if(el('kj-kpi-estimasi')) el('kj-kpi-estimasi').textContent=fmtFull(totalEstimasi);
+  if(el('kj-kpi-realisasi')) el('kj-kpi-realisasi').textContent=fmtFull(totalRealisasi);
+  if(el('kj-kpi-conversion')) el('kj-kpi-conversion').textContent=conversionRate+'%';
+
+  // Per sales PIC breakdown
+  const bySales={};
+  visits.forEach(v=>{
+    const pic=v.sales_pic||'Tanpa PIC';
+    if(!bySales[pic]) bySales[pic]={prospect:0,visited:0,followup:0,negotiation:0,deal:0,reject:0,estimasi:0,realisasi:0,total:0};
+    const stage=classifyKjStage(v.cust_status);
+    bySales[pic][stage]++;
+    bySales[pic].total++;
+    bySales[pic].estimasi+=Number(v.estimasi_omzet)||0;
+    bySales[pic].realisasi+=Number(v.realisasi_omzet)||0;
+  });
+  const salesNames=Object.keys(bySales).sort((a,b)=>bySales[b].total-bySales[a].total);
+
+  // Chart 1: Realisasi Omzet (est vs realisasi bar ganda)
+  renderKjOmzetChart(bySales, salesNames);
+
+  // Chart 2: Conversion rate per PIC
+  renderKjConversionChart(bySales, salesNames);
+
+  // Chart 3: Canvassing activity funnel
+  const funnel={followup:0,prospect:0,visited:0,deal:0};
+  visits.forEach(v=>{
+    const stage=classifyKjStage(v.cust_status);
+    if(stage==='followup') funnel.followup++;
+    else if(stage==='prospect') funnel.prospect++;
+    else if(stage==='visited'||stage==='negotiation') funnel.visited++;
+    else if(stage==='deal') funnel.deal++;
+  });
+  renderKjFunnelChart(funnel);
+
+  // Performance detail table
+  renderKjPerformanceTable(bySales, salesNames);
+
+  // Status chart (donut) — existing
   const statusMap={};
   visits.forEach(v=>{ const s=v.cust_status||'Lainnya'; statusMap[s]=(statusMap[s]||0)+1; });
   renderDonutCustom(statusMap,'dv-status-chart');
 
-  // Trend
+  // Trend — existing
   const byDay={};
   visits.forEach(v=>{ const d=(v.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
   renderBarChart(byDay,'dv-trend-chart','kunjungan','blue');
+}
+
+function renderKjOmzetChart(bySales, names){
+  const el=document.getElementById('kj-omzet-chart');
+  if(!el) return;
+  const top=names.slice(0,5);
+  if(!top.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const maxVal=Math.max(...top.map(n=>bySales[n].estimasi),1);
+  const W=280,rowH=34,ML=4,MT=10;
+  const H=MT+top.length*rowH+20;
+  const CW=W-ML-4;
+  let rows='';
+  top.forEach((n,i)=>{
+    const y=MT+i*rowH;
+    const est=bySales[n].estimasi, real=bySales[n].realisasi;
+    const wEst=Math.round((est/maxVal)*CW*0.7)||2;
+    const wReal=Math.round((real/maxVal)*CW*0.7)||2;
+    rows+=`<text x="${ML}" y="${y}" font-size="9" fill="var(--text)">${n.length>16?n.slice(0,15)+'…':n}</text>
+    <rect x="${ML}" y="${y+3}" width="${wEst}" height="9" fill="#A9D18E" rx="1"/>
+    <text x="${ML+wEst+4}" y="${y+11}" font-size="7.5" fill="var(--muted)">${fmtFull(est)}</text>
+    <rect x="${ML}" y="${y+13}" width="${wReal}" height="9" fill="#4C8C3C" rx="1"/>
+    <text x="${ML+wReal+4}" y="${y+21}" font-size="7.5" fill="var(--muted)">${fmtFull(real)}</text>`;
+  });
+  rows+=`<rect x="${ML+120}" y="${H-14}" width="9" height="7" fill="#A9D18E" rx="1"/><text x="${ML+132}" y="${H-8}" font-size="7" fill="var(--muted)">Est. Omzet</text>
+  <rect x="${ML+190}" y="${H-14}" width="9" height="7" fill="#4C8C3C" rx="1"/><text x="${ML+202}" y="${H-8}" font-size="7" fill="var(--muted)">Realisasi</text>`;
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${rows}</svg>`;
+}
+
+function renderKjConversionChart(bySales, names){
+  const el=document.getElementById('kj-conversion-chart');
+  if(!el) return;
+  const top=names.slice(0,5);
+  if(!top.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const W=280,rowH=28,ML=4,MT=10;
+  const H=MT+top.length*rowH+10;
+  const CW=W-ML-40;
+  let rows='';
+  top.forEach((n,i)=>{
+    const y=MT+i*rowH;
+    const rate=bySales[n].total?Math.round((bySales[n].deal/bySales[n].total)*100):0;
+    const w=Math.round((rate/100)*CW)||2;
+    rows+=`<text x="${ML}" y="${y}" font-size="9" fill="var(--text)">${n.length>16?n.slice(0,15)+'…':n}</text>
+    <rect x="${ML}" y="${y+4}" width="${w}" height="14" fill="#F4B183" rx="2"/>
+    <text x="${ML+w+4}" y="${y+14}" font-size="9" fill="var(--muted)">${rate}%</text>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${rows}</svg>`;
+}
+
+function renderKjFunnelChart(funnel){
+  const el=document.getElementById('kj-activity-chart');
+  if(!el) return;
+  const stages=[['Follow Up',funnel.followup,'#F4B183'],['Prospect',funnel.prospect,'#F4B183'],['Visited',funnel.visited,'#F4B183'],['Deal',funnel.deal,'#DC7633']];
+  const max=Math.max(...stages.map(s=>s[1]),1);
+  const W=280,rowH=28,ML=60,MT=10;
+  const H=MT+stages.length*rowH+10;
+  const CW=W-ML-30;
+  let rows='';
+  stages.forEach(([label,val,color],i)=>{
+    const y=MT+i*rowH;
+    const w=Math.round((val/max)*CW)||2;
+    rows+=`<text x="${ML-4}" y="${y+10}" font-size="9" fill="var(--text)" text-anchor="end">${label}</text>
+    <rect x="${ML}" y="${y}" width="${w}" height="16" fill="${color}" rx="2"/>
+    <text x="${ML+w+4}" y="${y+12}" font-size="9" fill="var(--muted)">${val}</text>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${rows}</svg>`;
+}
+
+function renderKjPerformanceTable(bySales, names){
+  const tbody=document.getElementById('kj-perf-table-body');
+  if(!tbody) return;
+  if(!names.length){
+    tbody.innerHTML='<tr><td colspan="13" style="text-align:center;padding:16px;color:var(--muted)">📭 Belum ada data</td></tr>';
+    return;
+  }
+  tbody.innerHTML=names.map(n=>{
+    const d=bySales[n];
+    const dealRate=d.total?Math.round(d.deal/d.total*100):0;
+    const rejectRate=d.total?Math.round(d.reject/d.total*100):0;
+    const realPct=d.estimasi?Math.round(d.realisasi/d.estimasi*100):0;
+    const dotClass=realPct>=70?'g':realPct>0?'am':'r';
+    return `<tr>
+      <td class="tl">${n}</td>
+      <td>${d.prospect}</td><td>${d.visited}</td><td>${d.followup}</td>
+      <td>${d.negotiation}</td><td>${d.deal}</td><td>${d.reject}</td>
+      <td>${d.total}</td><td>${dealRate}%</td><td>${rejectRate}%</td>
+      <td>${d.estimasi?fmtFull(d.estimasi):'—'}</td>
+      <td>${d.realisasi?fmtFull(d.realisasi):'—'}</td>
+      <td class="dot ${dotClass}">${realPct}%</td>
+    </tr>`;
+  }).join('');
 }
 
 function renderDashSubMR(mrList){
