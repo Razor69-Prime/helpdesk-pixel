@@ -3252,10 +3252,16 @@ function switchDashSub(sub, btn){
   });
   // Pastikan data project selalu fresh saat submenu dibuka
   if(sub==='project'){
+    console.log('[DEBUG] Fetching /projects for dashboard...');
     api('GET','/projects').then(data=>{
+      console.log('[DEBUG] /projects response:', data);
       dashProjectData=data;
       renderDashboard();
-    }).catch(()=>{ dashProjectData=dashProjectData||[]; renderDashboard(); });
+    }).catch(err=>{
+      console.error('[DEBUG] /projects fetch FAILED:', err);
+      dashProjectData=dashProjectData||[];
+      renderDashboard();
+    });
     return;
   }
   renderDashboard();
