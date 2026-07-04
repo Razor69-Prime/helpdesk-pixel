@@ -653,6 +653,54 @@ app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
+// POST bulk import project dari Excel — SUPERADMIN ONLY
+app.post('/api/projects/import', requireRole('superadmin'), async (req,res)=>{
+  try{
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || !rows.length) {
+      return res.status(400).json({ error: 'Data import kosong atau format salah.' });
+    }
+    const results = { success: 0, failed: 0, errors: [] };
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      try {
+        if (!r.nama_project) {
+          results.failed++;
+          results.errors.push(`Baris ${i+2}: nama_project wajib diisi.`);
+          continue;
+        }
+        const history = (r.issue || r.action_plan) ? [{
+          date: new Date().toISOString(),
+          issue: r.issue || null,
+          action_plan: r.action_plan || null,
+          by: req.session.user.name,
+        }] : [];
+        await db.insertProject({
+          prioritas:      r.prioritas || 'P2',
+          nama_project:   r.nama_project,
+          pic:            r.pic || null,
+          harga_pokok:    r.harga_pokok ? Number(r.harga_pokok) : null,
+          omset:          r.omset ? Number(r.omset) : null,
+          issue:          r.issue || null,
+          action_plan:    r.action_plan || null,
+          status:         r.status || 'On Plan',
+          pic_desa:       r.pic_desa || null,
+          pic_desa_phone: r.pic_desa_phone || null,
+          target_week:    r.target_week || null,
+          history,
+          created_by:     req.session.user.name,
+        });
+        results.success++;
+      } catch (rowErr) {
+        results.failed++;
+        results.errors.push(`Baris ${i+2}: ${rowErr.message}`);
+      }
+    }
+    logActivity(req, 'project', 'IMPORT EXCEL', `${results.success} berhasil, ${results.failed} gagal`);
+    res.json(results);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.post('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
   try{
     const {prioritas,nama_project,pic,harga_pokok,omset,issue,action_plan,status,
@@ -826,6 +874,54 @@ app.get('/api/sales-visits', requireAuth, async (req, res) => {
     const filterUserId = isPrivileged ? null : req.session.user.id;
     const visits = await db.getSalesVisits(filterUserId);
     res.json(visits);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST bulk import kunjungan dari Excel — SUPERADMIN ONLY
+app.post('/api/sales-visits/import', requireRole('superadmin'), async (req, res) => {
+  try {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || !rows.length) {
+      return res.status(400).json({ error: 'Data import kosong atau format salah.' });
+    }
+    const results = { success: 0, failed: 0, errors: [] };
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      try {
+        if (!r.customer_name || !r.prospect_date) {
+          results.failed++;
+          results.errors.push(`Baris ${i+2}: customer_name dan prospect_date wajib diisi.`);
+          continue;
+        }
+        await db.insertSalesVisit({
+          sales_pic:       r.sales_pic || req.session.user.name,
+          sales_user_id:   req.session.user.id,
+          customer_name:   r.customer_name,
+          pic_name:        r.pic_name || null,
+          customer_phone:  r.customer_phone || null,
+          address:         r.address || null,
+          kabupaten:       r.kabupaten || null,
+          customer_type:   r.customer_type || null,
+          sub_segmentasi:  r.sub_segmentasi || null,
+          visit_status:    r.visit_status || 'Visited',
+          cust_status:     r.cust_status || 'Canvasing',
+          lat:             null,
+          lng:             null,
+          location_manual: true,
+          estimasi_omzet:  r.estimasi_omzet ? Number(r.estimasi_omzet) : null,
+          realisasi_omzet: r.realisasi_omzet ? Number(r.realisasi_omzet) : null,
+          prospect_date:   r.prospect_date,
+          next_follow_up:  r.next_follow_up || null,
+          notes:           r.notes || null,
+        });
+        results.success++;
+      } catch (rowErr) {
+        results.failed++;
+        results.errors.push(`Baris ${i+2}: ${rowErr.message}`);
+      }
+    }
+    logActivity(req, 'kunjungan', 'IMPORT EXCEL', `${results.success} berhasil, ${results.failed} gagal`);
+    res.json(results);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

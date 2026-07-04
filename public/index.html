@@ -907,7 +907,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div style="font-size:16px;font-weight:600">📁 Project Tracker</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">Tracking project & progress instalasi per desa</div>
         </div>
-        <button class="btn primary" onclick="showProjectForm()">➕ Tambah Project</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn blue sm" id="proj-import-btn-wrap" style="display:none" onclick="openImportModal('project')">📥 Import dari Excel</button>
+          <button class="btn primary" onclick="showProjectForm()">➕ Tambah Project</button>
+        </div>
       </div>
 
       <!-- List Section -->
@@ -1091,6 +1094,40 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div style="display:flex;justify-content:flex-end">
             <button class="btn ghost" onclick="document.getElementById('proj-history-modal').classList.remove('show')">Tutup</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Excel Modal (universal — Kunjungan & Project Tracker) -->
+    <div id="import-modal" class="modal-overlay">
+      <div class="modal" style="max-width:640px">
+        <button class="modal-close" onclick="closeImportModal()">✕</button>
+        <div class="modal-title" id="import-modal-title">📥 Import dari Excel</div>
+        <div class="modal-sub" id="import-modal-sub">Upload file .xlsx sesuai template</div>
+
+        <div style="margin-bottom:14px">
+          <button class="btn ghost sm" onclick="downloadImportTemplate()">⬇️ Download Template Excel</button>
+        </div>
+
+        <div class="upload-drop" id="import-upload-drop" onclick="document.getElementById('import-file-input').click()">
+          <div style="font-size:28px;margin-bottom:6px">📁</div>
+          <div>Klik untuk pilih file .xlsx</div>
+        </div>
+        <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportFileSelect(this)"/>
+
+        <div id="import-preview-wrap" style="display:none;margin-top:14px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:8px" id="import-preview-title"></div>
+          <div style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <table style="width:100%;border-collapse:collapse;font-size:11px" id="import-preview-table"></table>
+          </div>
+        </div>
+
+        <div id="import-result" style="display:none;margin-top:14px;padding:10px 12px;border-radius:var(--radius-sm);font-size:12px"></div>
+        <div id="import-error" class="form-error" style="display:none;margin-top:10px"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button class="btn ghost" onclick="closeImportModal()">Batal</button>
+          <button class="btn primary" id="import-submit-btn" onclick="submitImport()" style="display:none">💾 Import Sekarang</button>
         </div>
       </div>
     </div>
@@ -1294,9 +1331,12 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div id="tab-kunjungan" class="tab-content">
 
       <!-- Sub tabs: Form Input & Riwayat -->
-      <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);padding:4px;border-radius:var(--radius);border:1px solid var(--border);width:fit-content">
+      <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);padding:4px;border-radius:var(--radius);border:1px solid var(--border);width:fit-content;align-items:center">
         <button class="nav-btn active" id="kun-sub-form" onclick="switchKunSub('form',this)">📝 Input Kunjungan</button>
         <button class="nav-btn" id="kun-sub-list" onclick="switchKunSub('list',this)">📋 Riwayat Kunjungan</button>
+      </div>
+      <div id="kj-import-btn-wrap" style="display:none;margin-bottom:16px">
+        <button class="btn blue sm" onclick="openImportModal('kunjungan')">📥 Import dari Excel</button>
       </div>
 
       <!-- PANEL: FORM INPUT -->
@@ -2357,14 +2397,14 @@ function switchTab(tab,btn){
     }
   }
   if(tab==='sales')     loadSalesDashboard();
-  if(tab==='kunjungan') loadKunjungan();
+  if(tab==='kunjungan') { loadKunjungan(); updateImportButtonVisibility(); }
   if(tab==='archive')   loadArchive();
   if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
   if(tab==='actlog')    loadActivityLog();
   if(tab==='materials') loadMaterialRequests();
   if(tab==='pr')        loadPurchaseRequests();
-  if(tab==='projects')  loadProjects();
+  if(tab==='projects')  { loadProjects(); updateImportButtonVisibility(); }
   if(tab==='supplier')  loadSuppliers();
 }
 
@@ -6361,6 +6401,180 @@ function exportProjectPDF(){
   });
 
   doc.save(`Project_Tracker_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// ══════════════════════════════════════════
+//  IMPORT EXCEL — Universal (Kunjungan & Project Tracker) — SUPERADMIN ONLY
+// ══════════════════════════════════════════
+let importContext=null; // 'kunjungan' | 'project'
+let importParsedRows=[];
+
+const IMPORT_CONFIG={
+  kunjungan:{
+    title:'📥 Import Kunjungan dari Excel',
+    sub:'Upload file .xlsx berisi data kunjungan sales sesuai template',
+    endpoint:'/sales-visits/import',
+    templateHeaders:['customer_name','prospect_date','sales_pic','pic_name','customer_phone','address','kabupaten','customer_type','sub_segmentasi','visit_status','cust_status','estimasi_omzet','realisasi_omzet','next_follow_up','notes'],
+    templateSample:{
+      customer_name:'Toko Elektronik Maju', prospect_date:'2026-07-01', sales_pic:'Ngariani',
+      pic_name:'Bapak Budi (Owner)', customer_phone:'081234567890', address:'Jl. Contoh No. 1',
+      kabupaten:'Badung', customer_type:'B2C', sub_segmentasi:'Retail', visit_status:'Visited',
+      cust_status:'Canvasing', estimasi_omzet:9000000, realisasi_omzet:'', next_follow_up:'2026-07-04', notes:'Contoh catatan'
+    },
+    requiredFields:['customer_name','prospect_date'],
+    templateName:'template_import_kunjungan.xlsx',
+  },
+  project:{
+    title:'📥 Import Project dari Excel',
+    sub:'Upload file .xlsx berisi data project tracker sesuai template',
+    endpoint:'/projects/import',
+    templateHeaders:['nama_project','prioritas','pic','harga_pokok','omset','issue','action_plan','status','pic_desa','pic_desa_phone','target_week'],
+    templateSample:{
+      nama_project:'Project Pengadaan Desa Contoh', prioritas:'P1', pic:'Pak Eka',
+      harga_pokok:196435000, omset:332134780, issue:'Contoh issue terkini',
+      action_plan:'Contoh rencana tindak lanjut', status:'On Plan',
+      pic_desa:'Pak Andi (Staff Desa)', pic_desa_phone:'+62 895-2225-3468', target_week:'Week-27'
+    },
+    requiredFields:['nama_project'],
+    templateName:'template_import_project.xlsx',
+  }
+};
+
+function openImportModal(context){
+  if(currentUser.role!=='superadmin'){ alert('Fitur import hanya untuk Superadmin.'); return; }
+  importContext=context;
+  importParsedRows=[];
+  const cfg=IMPORT_CONFIG[context];
+  document.getElementById('import-modal-title').textContent=cfg.title;
+  document.getElementById('import-modal-sub').textContent=cfg.sub;
+  document.getElementById('import-file-input').value='';
+  document.getElementById('import-preview-wrap').style.display='none';
+  document.getElementById('import-result').style.display='none';
+  document.getElementById('import-error').style.display='none';
+  document.getElementById('import-submit-btn').style.display='none';
+  document.getElementById('import-modal').classList.add('show');
+}
+
+function closeImportModal(){
+  document.getElementById('import-modal').classList.remove('show');
+  importContext=null;
+  importParsedRows=[];
+}
+
+function downloadImportTemplate(){
+  if(!importContext) return;
+  const cfg=IMPORT_CONFIG[importContext];
+  const ws=XLSX.utils.json_to_sheet([cfg.templateSample], {header:cfg.templateHeaders});
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, cfg.templateName);
+}
+
+function handleImportFileSelect(input){
+  const file=input.files[0];
+  if(!file) return;
+  const errEl=document.getElementById('import-error');
+  errEl.style.display='none';
+
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      if(!rows.length){
+        errEl.textContent='File Excel kosong atau tidak terbaca.';
+        errEl.style.display='block';
+        return;
+      }
+      importParsedRows=rows;
+      renderImportPreview(rows);
+    }catch(err){
+      errEl.textContent='Gagal membaca file: '+err.message;
+      errEl.style.display='block';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderImportPreview(rows){
+  const cfg=IMPORT_CONFIG[importContext];
+  document.getElementById('import-preview-title').textContent=`📋 Preview (${rows.length} baris ditemukan)`;
+  const cols=cfg.templateHeaders;
+  const table=document.getElementById('import-preview-table');
+  const previewRows=rows.slice(0,10);
+  table.innerHTML=`
+    <thead><tr>${cols.map(c=>`<th style="padding:6px 8px;background:var(--surface2);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">${c}</th>`).join('')}</tr></thead>
+    <tbody>${previewRows.map(r=>`<tr>${cols.map(c=>`<td style="padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${r[c]??''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  document.getElementById('import-preview-wrap').style.display='block';
+  document.getElementById('import-submit-btn').style.display='inline-block';
+  document.getElementById('import-result').style.display='none';
+
+  if(rows.length>10){
+    const note=document.createElement('div');
+    note.style.cssText='font-size:11px;color:var(--muted);margin-top:6px';
+    note.textContent=`Menampilkan 10 dari ${rows.length} baris. Semua baris akan diimport saat klik "Import Sekarang".`;
+    document.getElementById('import-preview-wrap').appendChild(note);
+  }
+}
+
+async function submitImport(){
+  if(!importParsedRows.length) return;
+  const cfg=IMPORT_CONFIG[importContext];
+  const errEl=document.getElementById('import-error');
+  const resultEl=document.getElementById('import-result');
+  errEl.style.display='none';
+  resultEl.style.display='none';
+
+  // Validasi required fields
+  const missing=[];
+  importParsedRows.forEach((r,i)=>{
+    cfg.requiredFields.forEach(f=>{
+      if(!r[f]) missing.push(`Baris ${i+2}: kolom "${f}" kosong`);
+    });
+  });
+  if(missing.length){
+    errEl.innerHTML='Validasi gagal:<br>'+missing.slice(0,10).join('<br>')+(missing.length>10?`<br>...dan ${missing.length-10} lainnya`:'');
+    errEl.style.display='block';
+    return;
+  }
+
+  const btn=document.getElementById('import-submit-btn');
+  btn.disabled=true; btn.textContent='Mengimport...';
+  try{
+    const result=await api('POST', cfg.endpoint, {rows: importParsedRows});
+    resultEl.style.display='block';
+    resultEl.style.background=result.failed>0?'var(--amber-bg,#FEF3C7)':'var(--green-bg)';
+    resultEl.style.color=result.failed>0?'#92400E':'var(--green)';
+    resultEl.innerHTML=`✅ Berhasil: ${result.success} baris<br>${result.failed>0?`⚠️ Gagal: ${result.failed} baris<br>${(result.errors||[]).slice(0,5).join('<br>')}`:''}`;
+
+    // Reload data di module terkait
+    if(importContext==='kunjungan'){
+      kunjunganData=await api('GET','/sales-visits');
+      renderKunjunganList();
+    }else if(importContext==='project'){
+      projectsData=await api('GET','/projects');
+      populateProjectPicFilter();
+      renderProjectList();
+    }
+    document.getElementById('import-preview-wrap').style.display='none';
+    btn.style.display='none';
+  }catch(e){
+    errEl.textContent='Gagal import: '+(e.message||'Unknown error');
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='💾 Import Sekarang';
+  }
+}
+
+// Tampilkan tombol import hanya untuk superadmin
+function updateImportButtonVisibility(){
+  const isSA=currentUser && currentUser.role==='superadmin';
+  const kjBtn=document.getElementById('kj-import-btn-wrap');
+  const projBtn=document.getElementById('proj-import-btn-wrap');
+  if(kjBtn) kjBtn.style.display=isSA?'block':'none';
+  if(projBtn) projBtn.style.display=isSA?'inline-block':'none';
 }
 
 async function loadPurchaseRequests(){
