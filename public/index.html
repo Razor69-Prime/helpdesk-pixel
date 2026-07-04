@@ -1553,6 +1553,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <button class="dash-sub-btn" id="dsub-kunjungan" onclick="switchDashSub('kunjungan',this)">🗺️ Kunjungan</button>
         <button class="dash-sub-btn" id="dsub-mr" onclick="switchDashSub('mr',this)">📦 Material Request</button>
         <button class="dash-sub-btn" id="dsub-pr" onclick="switchDashSub('pr',this)">📝 Purchase Request</button>
+        <button class="dash-sub-btn" id="dsub-project" onclick="switchDashSub('project',this)">📁 Project</button>
       </div>
 
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
@@ -1729,6 +1730,67 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <div class="dash-chart-title">📅 Tren PR Harian</div>
             <div class="dash-chart-sub">Jumlah PR yang diajukan per hari</div>
             <div id="dpr-trend-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PROJECT ══ -->
+      <div id="dash-sec-project" style="display:none">
+        <div class="proj-card">
+          <div class="proj-header">
+            <div>
+              <div class="proj-header-label">PROJECT TRACKER</div>
+              <div class="proj-header-title" id="dproj-header-title">Project Priority</div>
+            </div>
+            <div style="text-align:right">
+              <div class="proj-header-label">GENERATED</div>
+              <div class="proj-header-date" id="dproj-gen-date">—</div>
+            </div>
+          </div>
+          <div class="proj-summary-bar">
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">TOTAL PROJECT</div>
+              <div class="proj-summary-val" id="dproj-total">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">EST. HARGA POKOK</div>
+              <div class="proj-summary-val" id="dproj-harga-pokok">Rp 0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">EST. OMSET</div>
+              <div class="proj-summary-val green" id="dproj-omset">Rp 0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">ON PLAN</div>
+              <div class="proj-summary-val plan" id="dproj-plan">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">ON PROGRESS</div>
+              <div class="proj-summary-val progress" id="dproj-progress">0</div>
+            </div>
+            <div class="proj-summary-item">
+              <div class="proj-summary-label">HOLD</div>
+              <div class="proj-summary-val hold" id="dproj-hold">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🍩 Distribusi Status Project</div>
+            <div class="dash-chart-sub">Komposisi status semua project</div>
+            <div id="dproj-status-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">💰 Estimasi Omset per Project</div>
+            <div class="dash-chart-sub">Top project berdasarkan nilai omset</div>
+            <div id="dproj-omset-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-1" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📅 Tren Project Baru per Bulan</div>
+            <div class="dash-chart-sub">Jumlah project baru diinput per bulan</div>
+            <div id="dproj-trend-chart"></div>
           </div>
         </div>
       </div>
@@ -3030,6 +3092,7 @@ async function loadDashboard(){
     // Load MR & PR untuk dashboard
     try{ if(!dashMRData) dashMRData=await api('GET','/material-requests'); }catch{ dashMRData=[]; }
     try{ if(!dashPRData) dashPRData=await api('GET','/purchase-requests'); }catch{ dashPRData=[]; }
+    try{ if(!dashProjectData) dashProjectData=await api('GET','/projects'); }catch{ dashProjectData=[]; }
     renderDashboard();
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
@@ -3071,7 +3134,7 @@ function switchDashSub(sub, btn){
   currentDashSub=sub;
   document.querySelectorAll('.dash-sub-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['overview','teknisi','invoice','kunjungan','mr','pr'].forEach(s=>{
+  ['overview','teknisi','invoice','kunjungan','mr','pr','project'].forEach(s=>{
     const el=document.getElementById('dash-sec-'+s);
     if(el) el.style.display=s===sub?'':'none';
   });
@@ -3226,6 +3289,67 @@ function renderDashSubPR(prList){
   const byDay={};
   prList.forEach(p=>{ const d=(p.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
   renderBarChart(byDay,'dpr-trend-chart','PR','accent');
+}
+
+function renderDashSubProject(projList){
+  const el=id=>document.getElementById(id);
+  const now=new Date();
+  const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  if(el('dproj-header-title')) el('dproj-header-title').textContent=`Project Priority — ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  if(el('dproj-gen-date')) el('dproj-gen-date').textContent=now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+
+  const totalHargaPokok=projList.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
+  const totalOmset=projList.reduce((s,p)=>s+(Number(p.omset)||0),0);
+  const onPlan=projList.filter(p=>p.status==='On Plan').length;
+  const onProgress=projList.filter(p=>p.status==='On Progress').length;
+  const onHold=projList.filter(p=>p.status==='Hold').length;
+
+  if(el('dproj-total')) el('dproj-total').textContent=projList.length;
+  if(el('dproj-harga-pokok')) el('dproj-harga-pokok').textContent=fmtFull(totalHargaPokok);
+  if(el('dproj-omset')) el('dproj-omset').textContent=fmtFull(totalOmset);
+  if(el('dproj-plan')) el('dproj-plan').textContent=onPlan;
+  if(el('dproj-progress')) el('dproj-progress').textContent=onProgress;
+  if(el('dproj-hold')) el('dproj-hold').textContent=onHold;
+
+  // Status donut
+  const statusMap={'On Plan':onPlan,'On Progress':onProgress,'Hold':onHold};
+  renderDonutCustom(statusMap,'dproj-status-chart');
+
+  // Top project by omset (horizontal bar, full number)
+  const omsetMap={};
+  projList.forEach(p=>{ if(p.omset) omsetMap[p.nama_project]=Number(p.omset); });
+  renderHBarChartFull(omsetMap,'dproj-omset-chart','green');
+
+  // Tren project baru per bulan
+  const byMonth={};
+  projList.forEach(p=>{
+    const d=(p.created_at||'').slice(0,7); // YYYY-MM
+    if(d) byMonth[d]=(byMonth[d]||0)+1;
+  });
+  renderBarChart(byMonth,'dproj-trend-chart','project','accent');
+}
+
+// Helper: horizontal bar chart dengan angka penuh (tanpa singkatan)
+function renderHBarChartFull(dataMap,elId,color){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  const entries=Object.entries(dataMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!entries.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const max=entries[0][1]||1;
+  const W=520,BH=20,GAP=10,ML=150,MR=120,MT=10;
+  const H=MT+entries.length*(BH+GAP)+10;
+  const CW=W-ML-MR;
+  const colorMap={green:'#16A34A',blue:'#3B82F6',accent:'var(--accent)',teal:'var(--teal)'};
+  const fill=colorMap[color]||'#16A34A';
+  const bars=entries.map(([name,val],i)=>{
+    const y=MT+i*(BH+GAP);
+    const w=Math.round((val/max)*CW)||2;
+    const label=name.length>20?name.slice(0,19)+'…':name;
+    return `<text x="${ML-4}" y="${y+13}" font-size="10" fill="var(--text)" text-anchor="end">${label}</text>
+    <rect x="${ML}" y="${y}" width="${w}" height="${BH}" fill="${fill}" rx="3" opacity=".85"/>
+    <text x="${ML+w+4}" y="${y+13}" font-size="9" fill="var(--muted)">${fmtFull(val)}</text>`;
+  }).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${bars}</svg>`;
 }
 
 // Helper: render horizontal bar chart
@@ -3397,6 +3521,7 @@ function renderDashboard(){
   else if(currentDashSub==='kunjungan') renderDashSubKunjungan();
   else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
   else if(currentDashSub==='pr') renderDashSubPR(dashPRData||[]);
+  else if(currentDashSub==='project') renderDashSubProject(dashProjectData||[]);
 }
 
 // ── Target & Pencapaian metrics + chart ──
@@ -5661,6 +5786,7 @@ async function deleteSupplier(id){
 let prData=[];
 let dashMRData=null;
 let dashPRData=null;
+let dashProjectData=null;
 let prItemCount=0;
 let prEditId=null;
 
