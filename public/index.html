@@ -1101,6 +1101,14 @@ input[type=file]{padding:7px 11px;cursor:pointer}
               <option value="Project">Project</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Sub-Segmentasi</label>
+            <select id="kv-sub-segmentasi">
+              <option value="">-- Pilih --</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Retail">Retail</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-row">
@@ -1294,82 +1302,191 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <button class="btn blue sm" onclick="exportDashboardPDF()" style="margin-left:4px">📄 Export PDF</button>
       </div>
 
+      <!-- Submenu Dashboard -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 16px;border-bottom:2px solid var(--border);padding-bottom:0">
+        <button class="dash-sub-btn active" id="dsub-overview" onclick="switchDashSub('overview',this)">📊 Overview</button>
+        <button class="dash-sub-btn" id="dsub-teknisi" onclick="switchDashSub('teknisi',this)">👷 Teknisi</button>
+        <button class="dash-sub-btn" id="dsub-invoice" onclick="switchDashSub('invoice',this)">🧾 Invoice</button>
+        <button class="dash-sub-btn" id="dsub-kunjungan" onclick="switchDashSub('kunjungan',this)">🗺️ Kunjungan</button>
+        <button class="dash-sub-btn" id="dsub-mr" onclick="switchDashSub('mr',this)">📦 Material Request</button>
+        <button class="dash-sub-btn" id="dsub-pr" onclick="switchDashSub('pr',this)">📝 Purchase Request</button>
+      </div>
+
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
 
-      <!-- ════ SEKSI 1: OPERASIONAL TIKET ════ -->
-      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
-        📋 Operasional Tiket
-      </div>
-      <div class="dash-metric-grid">
-        <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dm-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Tiket Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
-      </div>
-
-      <!-- Chart Tiket -->
-      <div class="dash-grid-2" style="margin-top:12px">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">📈 Tren Tiket Harian</div>
-          <div class="dash-chart-sub">Jumlah tiket masuk per hari + % selesai</div>
-          <div id="dash-line-chart"></div>
+      <!-- ══ OVERVIEW ══ -->
+      <div id="dash-sec-overview">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dm-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Tiket Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
+          <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
         </div>
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">🍩 Distribusi Status Tiket</div>
-          <div class="dash-chart-sub">Komposisi status tiket aktif</div>
-          <div id="dash-donut-chart"></div>
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+          <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
+          <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
         </div>
-      </div>
-
-      <!-- Chart Teknisi -->
-      <div class="dash-grid-1" style="margin-top:12px">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">👷 Performa Teknisi</div>
-          <div class="dash-chart-sub">Tiket selesai & avg rating per teknisi periode dipilih</div>
-          <div id="dash-tech-chart"></div>
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+          <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target Sales</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
+          <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📈 Tren Tiket Harian</div>
+            <div class="dash-chart-sub">Jumlah tiket masuk per hari + % selesai</div>
+            <div id="dash-line-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🍩 Distribusi Status Tiket</div>
+            <div class="dash-chart-sub">Komposisi status tiket aktif</div>
+            <div id="dash-donut-chart"></div>
+          </div>
         </div>
       </div>
 
-      <!-- ════ SEKSI 2: OMZET & TARGET SALES ════ -->
-      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
-        💰 Omzet & Target Sales
-      </div>
-      <div class="dash-metric-grid">
-        <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target Semua Sales</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
-      </div>
-
-      <!-- Chart Sales -->
-      <div class="dash-grid-2" style="margin-top:12px">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">🎯 Target vs Realisasi per Sales PIC</div>
-          <div class="dash-chart-sub">Pencapaian target omzet periode dipilih</div>
-          <div id="dash-target-chart"></div>
+      <!-- ══ TEKNISI ══ -->
+      <div id="dash-sec-teknisi" style="display:none">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dt-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Selesai</div><div class="dash-metric-value" id="dt-done">—</div><div class="dash-metric-sub" id="dt-done-pct">—</div></div>
+          <div class="dash-metric blue"><div class="dash-metric-icon">🚗</div><div class="dash-metric-label">Dalam Perjalanan</div><div class="dash-metric-value" id="dt-travelling">—</div><div class="dash-metric-sub">travelling</div></div>
+          <div class="dash-metric amber"><div class="dash-metric-icon">⏳</div><div class="dash-metric-label">Pending</div><div class="dash-metric-value" id="dt-pending">—</div><div class="dash-metric-sub">menunggu</div></div>
         </div>
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">💼 Invoice per Sales PIC</div>
-          <div class="dash-chart-sub">Total nominal invoice yang diterbitkan</div>
-          <div id="dash-sales-chart"></div>
+        <div class="dash-grid-1" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">👷 Performa Teknisi</div>
+            <div class="dash-chart-sub">Tiket selesai & avg rating per teknisi periode dipilih</div>
+            <div id="dash-tech-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📊 Distribusi Status per Teknisi</div>
+            <div class="dash-chart-sub">Komposisi status tiket tiap teknisi</div>
+            <div id="dt-status-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📅 Tren Tiket Harian</div>
+            <div class="dash-chart-sub">Jumlah tiket masuk per hari</div>
+            <div id="dt-trend-chart"></div>
+          </div>
         </div>
       </div>
 
-      <!-- ════ SEKSI 3: KUNJUNGAN SALES ════ -->
-      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">
-        🗺️ Kunjungan Sales
-      </div>
-      <div class="dash-metric-grid">
-        <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
-        <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
-        <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Omzet Pipeline</div><div class="dash-metric-value" id="dm-visit-estimasi">—</div><div class="dash-metric-sub">pipeline aktif</div></div>
+      <!-- ══ INVOICE ══ -->
+      <div id="dash-sec-invoice" style="display:none">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="di-total">—</div><div class="dash-metric-sub" id="di-count">—</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Rata-rata per Invoice</div><div class="dash-metric-value" id="di-avg">—</div><div class="dash-metric-sub">average</div></div>
+          <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target Sales</div><div class="dash-metric-value" id="di-target">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric blue"><div class="dash-metric-icon">📈</div><div class="dash-metric-label">Pencapaian</div><div class="dash-metric-value" id="di-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">vs target</div></div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🎯 Target vs Realisasi per Sales PIC</div>
+            <div class="dash-chart-sub">Pencapaian target omzet periode dipilih</div>
+            <div id="dash-target-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">💼 Invoice per Sales PIC</div>
+            <div class="dash-chart-sub">Total nominal invoice yang diterbitkan</div>
+            <div id="dash-sales-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-1" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📈 Tren Invoice Harian</div>
+            <div class="dash-chart-sub">Nominal invoice per hari periode dipilih</div>
+            <div id="di-trend-chart"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Chart Kunjungan -->
-      <div class="dash-grid-1" style="margin-top:12px">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">🗺️ Kunjungan per Sales PIC</div>
-          <div class="dash-chart-sub">Total kunjungan, Closed Won, dan Follow Up Overdue per Sales PIC</div>
-          <div id="dash-visit-chart"></div>
+      <!-- ══ KUNJUNGAN ══ -->
+      <div id="dash-sec-kunjungan" style="display:none">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
+          <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
+          <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Est. Omzet Pipeline</div><div class="dash-metric-value" id="dm-visit-estimasi">—</div><div class="dash-metric-sub">pipeline aktif</div></div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🗺️ Kunjungan per Sales PIC</div>
+            <div class="dash-chart-sub">Total kunjungan, Closed Won, Follow Up Overdue per Sales PIC</div>
+            <div id="dash-visit-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🍩 Status Customer</div>
+            <div class="dash-chart-sub">Distribusi status customer (Canvasing, Prospect, dll)</div>
+            <div id="dv-status-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-1" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📅 Tren Kunjungan Harian</div>
+            <div class="dash-chart-sub">Jumlah kunjungan per hari periode dipilih</div>
+            <div id="dv-trend-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MATERIAL REQUEST ══ -->
+      <div id="dash-sec-mr" style="display:none">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="dash-metric accent"><div class="dash-metric-icon">📦</div><div class="dash-metric-label">Total MR</div><div class="dash-metric-value" id="dmr-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric blue"><div class="dash-metric-icon">🔧</div><div class="dash-metric-label">Total Item Material</div><div class="dash-metric-value" id="dmr-items">—</div><div class="dash-metric-sub">semua permintaan</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">⚙️</div><div class="dash-metric-label">Total Item Jasa</div><div class="dash-metric-value" id="dmr-jasa">—</div><div class="dash-metric-sub">semua permintaan</div></div>
+          <div class="dash-metric teal"><div class="dash-metric-icon">👷</div><div class="dash-metric-label">Teknisi Aktif</div><div class="dash-metric-value" id="dmr-techs">—</div><div class="dash-metric-sub">submit MR</div></div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">👷 MR per Teknisi</div>
+            <div class="dash-chart-sub">Jumlah material request yang diajukan per teknisi</div>
+            <div id="dmr-tech-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🔧 Material Paling Banyak Diminta</div>
+            <div class="dash-chart-sub">Top 10 material berdasarkan frekuensi permintaan</div>
+            <div id="dmr-item-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-1" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📅 Tren MR Harian</div>
+            <div class="dash-chart-sub">Jumlah MR yang diajukan per hari</div>
+            <div id="dmr-trend-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PURCHASE REQUEST ══ -->
+      <div id="dash-sec-pr" style="display:none">
+        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="dash-metric accent"><div class="dash-metric-icon">📝</div><div class="dash-metric-label">Total PR</div><div class="dash-metric-value" id="dpr-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
+          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Approved</div><div class="dash-metric-value" id="dpr-approved">—</div><div class="dash-metric-sub" id="dpr-approved-pct">—</div></div>
+          <div class="dash-metric amber"><div class="dash-metric-icon">⏳</div><div class="dash-metric-label">Pending</div><div class="dash-metric-value" id="dpr-pending">—</div><div class="dash-metric-sub">menunggu approval</div></div>
+          <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Total Nilai PR</div><div class="dash-metric-value" id="dpr-nilai">—</div><div class="dash-metric-sub">semua PR</div></div>
+        </div>
+        <div class="dash-grid-2" style="margin-top:14px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🍩 Status PR</div>
+            <div class="dash-chart-sub">Distribusi status Purchase Request</div>
+            <div id="dpr-status-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🏪 PR per Outlet</div>
+            <div class="dash-chart-sub">Jumlah dan nilai PR per outlet/cabang</div>
+            <div id="dpr-outlet-chart"></div>
+          </div>
+        </div>
+        <div class="dash-grid-1" style="margin-top:12px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">📅 Tren PR Harian</div>
+            <div class="dash-chart-sub">Jumlah PR yang diajukan per hari</div>
+            <div id="dpr-trend-chart"></div>
+          </div>
         </div>
       </div>
 
@@ -2658,16 +2775,15 @@ async function loadDashboard(){
   const el=document.getElementById('dash-loading');
   if(el) el.style.display='block';
   try{
-    // reuse allTickets already fetched (manager sees all via /api/tickets)
     dashData=allTickets.length?allTickets:await api('GET','/tickets');
     if(!allTickets.length) allTickets=dashData;
-    // preload sales targets untuk metrik pencapaian
     if(!salesTargets.length){
       try{ salesTargets=await api('GET','/sales-targets'); }catch{}
-      // Preload kunjungan data untuk KPI dashboard
-      try{ if(!kunjunganData||!kunjunganData.length) kunjunganData=await api('GET','/sales-visits'); }catch{}
-      // Preload sales targets
     }
+    try{ if(!kunjunganData||!kunjunganData.length) kunjunganData=await api('GET','/sales-visits'); }catch{}
+    // Load MR & PR untuk dashboard
+    try{ if(!dashMRData) dashMRData=await api('GET','/material-requests'); }catch{ dashMRData=[]; }
+    try{ if(!dashPRData) dashPRData=await api('GET','/purchase-requests'); }catch{ dashPRData=[]; }
     renderDashboard();
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
@@ -2700,6 +2816,254 @@ function filterDash(list){
     const d=new Date(t.worked_at||t.created_at);
     return!(from&&d<from)&&!(to&&d>to);
   });
+}
+
+// ══ DASHBOARD SUBMENU ══
+let currentDashSub='overview';
+
+function switchDashSub(sub, btn){
+  currentDashSub=sub;
+  document.querySelectorAll('.dash-sub-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['overview','teknisi','invoice','kunjungan','mr','pr'].forEach(s=>{
+    const el=document.getElementById('dash-sec-'+s);
+    if(el) el.style.display=s===sub?'':'none';
+  });
+  renderDashboard();
+}
+
+function renderDashSubTeknisi(data){
+  const done=data.filter(t=>t.status==='done');
+  const travelling=data.filter(t=>t.status==='travelling');
+  const pending=data.filter(t=>t.status==='pending');
+  const el=id=>document.getElementById(id);
+  if(el('dt-total')) el('dt-total').textContent=data.length;
+  if(el('dt-done')) el('dt-done').textContent=done.length;
+  if(el('dt-done-pct')) el('dt-done-pct').textContent=data.length?Math.round(done.length/data.length*100)+'% dari total':'0%';
+  if(el('dt-travelling')) el('dt-travelling').textContent=travelling.length;
+  if(el('dt-pending')) el('dt-pending').textContent=pending.length;
+
+  // Performa teknisi chart (reuse dash-tech-chart)
+  renderTechChart(data,'dash-tech-chart');
+
+  // Status per teknisi bar chart
+  const techMap={};
+  data.forEach(t=>{
+    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
+    techs.forEach(n=>{
+      if(!techMap[n]) techMap[n]={done:0,travelling:0,ongoing:0,pending:0,assigned:0};
+      techMap[n][t.status]=(techMap[n][t.status]||0)+1;
+    });
+  });
+  const names=Object.keys(techMap).slice(0,8);
+  const W=500,H=Math.max(160,names.length*36+40),ML=90,MR=20,MT=20,MB=30,CW=W-ML-MR,CH=H-MT-MB;
+  const BH=20,GAP=16,colors={done:'#639922',ongoing:'#3B82F6',travelling:'#F59E0B',pending:'#EF4444',assigned:'#8B5CF6'};
+  let rows='';
+  names.forEach((n,i)=>{
+    const y=MT+i*(BH+GAP);
+    const total=Object.values(techMap[n]).reduce((a,b)=>a+b,0)||1;
+    let x=ML;
+    Object.entries(techMap[n]).forEach(([st,v])=>{
+      if(!v) return;
+      const w=Math.round((v/total)*CW);
+      rows+=`<rect x="${x}" y="${y}" width="${w}" height="${BH}" fill="${colors[st]||'#aaa'}" rx="2"><title>${st}: ${v}</title></rect>`;
+      if(w>20) rows+=`<text x="${x+w/2}" y="${y+13}" font-size="9" fill="#fff" text-anchor="middle">${v}</text>`;
+      x+=w;
+    });
+    rows+=`<text x="${ML-4}" y="${y+13}" font-size="10" fill="var(--text)" text-anchor="end">${n.split(' ')[0]}</text>`;
+  });
+  const legend=Object.entries(colors).map(([k,c],i)=>`<rect x="${10+i*90}" y="4" width="10" height="10" fill="${c}" rx="2"/><text x="${24+i*90}" y="13" font-size="9" fill="var(--muted)">${k}</text>`).join('');
+  const stEl=document.getElementById('dt-status-chart');
+  if(stEl) stEl.innerHTML=`<svg viewBox="0 0 ${W} ${H+20}" style="width:100%;overflow:visible"><g>${legend}</g><g transform="translate(0,20)">${rows}</g></svg>`;
+
+  // Tren harian
+  renderTrendChart(data,'dt-trend-chart','tiket');
+}
+
+function renderDashSubInvoice(data){
+  const allInv=data.flatMap(t=>t.invoices||[]);
+  const total=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const avg=allInv.length?Math.round(total/allInv.length):0;
+  const el=id=>document.getElementById(id);
+  if(el('di-total')) el('di-total').textContent=fmtFull(total);
+  if(el('di-count')) el('di-count').textContent=allInv.length+' invoice';
+  if(el('di-avg')) el('di-avg').textContent=fmtFull(avg);
+
+  // Target & achievement
+  const{from,to}=getDashRange();
+  const now=new Date();
+  const mKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthTargets=salesTargets.filter(t=>t.year_month===mKey);
+  const targetTotal=monthTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+  if(el('di-target')) el('di-target').textContent=fmtFull(targetTotal)||'—';
+  if(el('di-achievement')) el('di-achievement').textContent=targetTotal?Math.round(total/targetTotal*100)+'%':'—';
+
+  // Reuse charts
+  renderTargetChart(data,'dash-target-chart');
+  renderSalesChart(data,'dash-sales-chart');
+
+  // Invoice trend chart
+  const byDay={};
+  allInv.forEach(inv=>{
+    const d=(inv.uploaded_at||'').slice(0,10);
+    if(d) byDay[d]=(byDay[d]||0)+(Number(inv.total_amount)||0);
+  });
+  renderBarChart(byDay,'di-trend-chart','Rp','teal');
+}
+
+function renderDashSubKunjungan(){
+  // Metrics already rendered in renderDashboard
+  // Render additional charts
+  const visits=filterVisitsDash(kunjunganData||[]);
+
+  // Status chart (donut)
+  const statusMap={};
+  visits.forEach(v=>{ const s=v.cust_status||'Lainnya'; statusMap[s]=(statusMap[s]||0)+1; });
+  renderDonutCustom(statusMap,'dv-status-chart');
+
+  // Trend
+  const byDay={};
+  visits.forEach(v=>{ const d=(v.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
+  renderBarChart(byDay,'dv-trend-chart','kunjungan','blue');
+}
+
+function renderDashSubMR(mrList){
+  const el=id=>document.getElementById(id);
+  if(el('dmr-total')) el('dmr-total').textContent=mrList.length;
+  const totalItems=mrList.reduce((s,m)=>s+(m.materials||[]).length,0);
+  const totalJasa=mrList.reduce((s,m)=>s+(m.jasa||[]).length,0);
+  const techs=new Set(mrList.map(m=>m.technician).filter(Boolean));
+  if(el('dmr-items')) el('dmr-items').textContent=totalItems;
+  if(el('dmr-jasa')) el('dmr-jasa').textContent=totalJasa;
+  if(el('dmr-techs')) el('dmr-techs').textContent=techs.size;
+
+  // MR per teknisi bar
+  const techCount={};
+  mrList.forEach(m=>{ if(m.technician) techCount[m.technician]=(techCount[m.technician]||0)+1; });
+  renderHBarChart(techCount,'dmr-tech-chart','MR','accent');
+
+  // Top material
+  const matCount={};
+  mrList.forEach(m=>(m.materials||[]).forEach(mt=>{ if(mt.name) matCount[mt.name]=(matCount[mt.name]||0)+(Number(mt.qty)||1); }));
+  const top10=Object.entries(matCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const top10Map=Object.fromEntries(top10);
+  renderHBarChart(top10Map,'dmr-item-chart','qty','blue');
+
+  // Tren MR
+  const byDay={};
+  mrList.forEach(m=>{ const d=(m.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
+  renderBarChart(byDay,'dmr-trend-chart','MR','green');
+}
+
+function renderDashSubPR(prList){
+  const el=id=>document.getElementById(id);
+  const approved=prList.filter(p=>p.status==='approved'||p.status==='approved1');
+  const pending=prList.filter(p=>p.status==='pending');
+  const totalNilai=prList.reduce((s,p)=>s+((p.items||[]).reduce((a,i)=>a+(Number(i.qty||0)*Number(i.price||0)),0)),0);
+  if(el('dpr-total')) el('dpr-total').textContent=prList.length;
+  if(el('dpr-approved')) el('dpr-approved').textContent=approved.length;
+  if(el('dpr-approved-pct')) el('dpr-approved-pct').textContent=prList.length?Math.round(approved.length/prList.length*100)+'% approved':'—';
+  if(el('dpr-pending')) el('dpr-pending').textContent=pending.length;
+  if(el('dpr-nilai')) el('dpr-nilai').textContent=fmtFull(totalNilai);
+
+  // Status donut
+  const statusMap={};
+  prList.forEach(p=>{ const s=p.status||'pending'; statusMap[s]=(statusMap[s]||0)+1; });
+  renderDonutCustom(statusMap,'dpr-status-chart');
+
+  // PR per outlet bar
+  const outletMap={};
+  prList.forEach(p=>{ if(p.outlet) outletMap[p.outlet]=(outletMap[p.outlet]||0)+1; });
+  renderHBarChart(outletMap,'dpr-outlet-chart','PR','teal');
+
+  // Tren PR
+  const byDay={};
+  prList.forEach(p=>{ const d=(p.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
+  renderBarChart(byDay,'dpr-trend-chart','PR','accent');
+}
+
+// Helper: render horizontal bar chart
+function renderHBarChart(dataMap,elId,unit,color){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  const entries=Object.entries(dataMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!entries.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const max=entries[0][1]||1;
+  const W=500,BH=20,GAP=10,ML=120,MR=50,MT=10;
+  const H=MT+entries.length*(BH+GAP)+20;
+  const CW=W-ML-MR;
+  const colorMap={accent:'var(--accent)',blue:'#3B82F6',green:'#639922',teal:'var(--teal)'};
+  const fill=colorMap[color]||'var(--accent)';
+  const bars=entries.map(([name,val],i)=>{
+    const y=MT+i*(BH+GAP);
+    const w=Math.round((val/max)*CW);
+    return `<text x="${ML-4}" y="${y+13}" font-size="10" fill="var(--text)" text-anchor="end">${name.length>14?name.slice(0,13)+'…':name}</text>
+    <rect x="${ML}" y="${y}" width="${w||2}" height="${BH}" fill="${fill}" rx="3" opacity=".85"/>
+    <text x="${ML+w+4}" y="${y+13}" font-size="10" fill="var(--muted)">${val} ${unit}</text>`;
+  }).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${bars}</svg>`;
+}
+
+// Helper: render bar chart by day
+function renderBarChart(byDay,elId,unit,color){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  const entries=Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])).slice(-30);
+  if(!entries.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const max=Math.max(...entries.map(e=>e[1]))||1;
+  const W=560,H=140,ML=8,MR=8,MT=10,MB=30,CW=W-ML-MR,CH=H-MT-MB;
+  const BW=Math.max(4,Math.floor(CW/entries.length)-2);
+  const colorMap={teal:'var(--teal)',blue:'#3B82F6',green:'#639922',accent:'var(--accent)'};
+  const fill=colorMap[color]||'var(--accent)';
+  const bars=entries.map(([d,v],i)=>{
+    const bh=Math.round((v/max)*CH);
+    const x=ML+i*(CW/entries.length);
+    const y=MT+CH-bh;
+    const label=d.slice(5); // MM-DD
+    return `<rect x="${x}" y="${y}" width="${BW}" height="${bh}" fill="${fill}" rx="2" opacity=".85"/>
+    ${v>0?`<text x="${x+BW/2}" y="${y-2}" font-size="8" fill="var(--muted)" text-anchor="middle">${v}</text>`:''}
+    ${i%Math.ceil(entries.length/10)===0?`<text x="${x+BW/2}" y="${MT+CH+MB-4}" font-size="8" fill="var(--muted)" text-anchor="middle">${label}</text>`:''}`;
+  }).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">${bars}</svg>`;
+}
+
+// Helper: donut chart with custom data
+function renderDonutCustom(dataMap,elId){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  const entries=Object.entries(dataMap).filter(e=>e[1]>0);
+  if(!entries.length){el.innerHTML='<div class="no-data">📭 Belum ada data</div>';return;}
+  const total=entries.reduce((s,e)=>s+e[1],0);
+  const COLORS=['#3B82F6','#639922','#F59E0B','#EF4444','#8B5CF6','#14B8A6','#F97316','#EC4899'];
+  const W=320,CX=100,CY=100,R=70,RI=45;
+  let angle=-Math.PI/2;
+  const slices=entries.map(([name,val],i)=>{
+    const sweep=(val/total)*Math.PI*2;
+    const x1=CX+R*Math.cos(angle),y1=CY+R*Math.sin(angle);
+    angle+=sweep;
+    const x2=CX+R*Math.cos(angle),y2=CY+R*Math.sin(angle);
+    const xi1=CX+RI*Math.cos(angle-sweep),yi1=CY+RI*Math.sin(angle-sweep);
+    const xi2=CX+RI*Math.cos(angle),yi2=CY+RI*Math.sin(angle);
+    const large=sweep>Math.PI?1:0;
+    return `<path d="M${xi1},${yi1} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${xi2},${yi2} A${RI},${RI} 0 ${large},0 ${xi1},${yi1}" fill="${COLORS[i%COLORS.length]}"><title>${name}: ${val}</title></path>`;
+  }).join('');
+  const legend=entries.map(([name,val],i)=>`<rect x="210" y="${10+i*22}" width="12" height="12" fill="${COLORS[i%COLORS.length]}" rx="2"/><text x="226" y="${21+i*22}" font-size="10" fill="var(--text)">${name} (${val})</text>`).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} 220" style="width:100%;max-width:360px"><g>${slices}</g><text x="${CX}" y="${CY+4}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">${total}</text><g>${legend}</g></svg>`;
+}
+
+function filterVisitsDash(visits){
+  const{from,to}=getDashRange();
+  if(!from&&!to) return visits;
+  return visits.filter(v=>{
+    const d=new Date(v.created_at||v.prospect_date);
+    return!(from&&d<from)&&!(to&&d>to);
+  });
+}
+
+function renderTrendChart(data,elId,unit){
+  const byDay={};
+  data.forEach(t=>{ const d=(t.worked_at||t.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
+  renderBarChart(byDay,elId,unit,'accent');
 }
 
 function renderDashboard(){
@@ -2780,6 +3144,13 @@ function renderDashboard(){
 
   // ── Total Target & Pencapaian (menggunakan periode dashboard yang sama) ──
   renderDashTargetMetrics(data, salesMap);
+
+  // ── Dispatch sub-section renders ──
+  if(currentDashSub==='teknisi') renderDashSubTeknisi(data);
+  else if(currentDashSub==='invoice') renderDashSubInvoice(data);
+  else if(currentDashSub==='kunjungan') renderDashSubKunjungan();
+  else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
+  else if(currentDashSub==='pr') renderDashSubPR(dashPRData||[]);
 }
 
 // ── Target & Pencapaian metrics + chart ──
@@ -3875,6 +4246,7 @@ function resetKunjunganForm(){
   document.getElementById('kv-address').value='';
   document.getElementById('kv-kabupaten').value='';
   document.getElementById('kv-customer-type').value='B2C';
+  document.getElementById('kv-sub-segmentasi').value='';
   document.getElementById('kv-est-omzet').value='';
   document.getElementById('kv-realisasi').value='';
   document.getElementById('kv-status').value='Visited';
@@ -3920,6 +4292,7 @@ async function submitKunjungan(){
       address:         document.getElementById('kv-address').value.trim()||null,
       kabupaten:       document.getElementById('kv-kabupaten').value||null,
       customer_type:   document.getElementById('kv-customer-type').value,
+      sub_segmentasi:  document.getElementById('kv-sub-segmentasi').value||null,
       estimasi_omzet:  estRaw?Number(estRaw):null,
       realisasi_omzet: realRaw?Number(realRaw):null,
       visit_status:    document.getElementById('kv-status').value,
@@ -4008,7 +4381,7 @@ function renderKunjunganList(){
           <div style="font-size:12px;color:var(--muted);margin-top:2px">
             👷 ${v.sales_pic} · 📅 ${dt}
             ${v.kabupaten?` · 📍 ${v.kabupaten}`:''}
-            ${v.customer_type?` · ${v.customer_type}`:''}
+            ${v.customer_type?` · ${v.customer_type}`:''}${v.sub_segmentasi?` · ${v.sub_segmentasi}`:''}
           </div>
           ${v.address?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🏠 ${v.address}</div>`:''}
         </div>
@@ -5040,6 +5413,8 @@ async function deleteSupplier(id){
 
 /* ══ PURCHASE REQUEST ════════════════════ */
 let prData=[];
+let dashMRData=null;
+let dashPRData=null;
 let prItemCount=0;
 let prEditId=null;
 
@@ -6533,6 +6908,7 @@ function exportKunjunganExcel(){
     'PIC Customer':     v.pic_name||'',
     'Kabupaten':        v.kabupaten||'',
     'Customer Type':    v.customer_type||'',
+    'Sub-Segmentasi':   v.sub_segmentasi||'',
     'Alamat':           v.address||'',
     'No. WA/HP':        v.customer_phone||'',
     'Status Kunjungan': v.visit_status||'',

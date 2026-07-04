@@ -760,7 +760,7 @@ app.get('/api/sales-visits', requireAuth, async (req, res) => {
 app.post('/api/sales-visits', requireAuth, async (req, res) => {
   try {
     const { customer_name, customer_phone, address,
-            pic_name, kabupaten, customer_type,
+            pic_name, kabupaten, customer_type, sub_segmentasi,
             visit_status, cust_status,
             lat, lng, location_manual,
             estimasi_omzet, realisasi_omzet,
@@ -780,6 +780,7 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
       address:         address        || null,
       kabupaten:       kabupaten      || null,
       customer_type:   customer_type  || null,
+      sub_segmentasi:  sub_segmentasi || null,
       visit_status:    visit_status   || 'Visited',
       cust_status:     cust_status    || 'Canvasing',
       lat:             lat            || null,
