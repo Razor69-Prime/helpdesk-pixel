@@ -3252,13 +3252,10 @@ function switchDashSub(sub, btn){
   });
   // Pastikan data project selalu fresh saat submenu dibuka
   if(sub==='project'){
-    console.log('[DEBUG] Fetching /projects for dashboard...');
     api('GET','/projects').then(data=>{
-      console.log('[DEBUG] /projects response:', data);
       dashProjectData=data;
       renderDashboard();
     }).catch(err=>{
-      console.error('[DEBUG] /projects fetch FAILED:', err);
       dashProjectData=dashProjectData||[];
       renderDashboard();
     });
@@ -3762,6 +3759,11 @@ function renderDashboard(){
       const el=document.getElementById(id);
       if(el) el.textContent='—';
     });
+    // Submenu yang tidak bergantung pada data tiket tetap harus dirender
+    if(currentDashSub==='kunjungan') renderDashSubKunjungan();
+    else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
+    else if(currentDashSub==='pr') renderDashSubPR(dashPRData||[]);
+    else if(currentDashSub==='project') renderDashSubProject(dashProjectData||[]);
     return;
   }
 
