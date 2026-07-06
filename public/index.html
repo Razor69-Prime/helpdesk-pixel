@@ -1739,6 +1739,12 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <div class="kj-chip active" data-kjf="period" data-val="all" onclick="setKjFilter(this)">Semua</div>
             <div class="kj-chip" data-kjf="period" data-val="month" onclick="setKjFilter(this)">Bulan Ini</div>
             <div class="kj-chip" data-kjf="period" data-val="week" onclick="setKjFilter(this)">7 Hari</div>
+            <div class="kj-chip" data-kjf="period" data-val="custom" onclick="setKjFilter(this)">Custom</div>
+          </div>
+          <div class="kj-filter-group" id="kj-custom-date-group" style="display:none">
+            <input type="date" id="kj-date-from" class="proj-filter-select" onchange="onKjCustomDateChange()"/>
+            <span style="font-size:11px;color:var(--muted)">s/d</span>
+            <input type="date" id="kj-date-to" class="proj-filter-select" onchange="onKjCustomDateChange()"/>
           </div>
           <div class="kj-filter-group">
             <div class="kj-filter-title">Customer Type</div>
@@ -3383,23 +3389,80 @@ function renderDashSubInvoice(data){
   renderBarChart(byDay,'di-trend-chart','Rp','teal');
 }
 
-let kjFilters={period:'all',ctype:'',subseg:'',pic:''};
+let kjFilters={period:'all',ctype:'',subseg:'',pic:[],customFrom:null,customTo:null};
 
 function setKjFilter(el){
   const key=el.dataset.kjf, val=el.dataset.val;
-  kjFilters[key]=val;
-  document.querySelectorAll(`.kj-chip[data-kjf="${key}"]`).forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
+  if(key==='pic'){
+    // Multi-select khusus Sales PIC
+    if(val===''){
+      // Klik "Semua" → reset ke kosong (artinya semua tampil)
+      kjFilters.pic=[];
+      document.querySelectorAll(`.kj-chip[data-kjf="pic"]`).forEach(c=>c.classList.remove('active'));
+      el.classList.add('active');
+    } else {
+      const semuaChip=document.querySelector(`.kj-chip[data-kjf="pic"][data-val=""]`);
+      const idx=kjFilters.pic.indexOf(val);
+      if(idx>-1){
+        kjFilters.pic.splice(idx,1);
+        el.classList.remove('active');
+      } else {
+        kjFilters.pic.push(val);
+        el.classList.add('active');
+      }
+      // Kalau tidak ada satupun yang dipilih, aktifkan kembali "Semua"
+      if(kjFilters.pic.length===0 && semuaChip) semuaChip.classList.add('active');
+      else if(semuaChip) semuaChip.classList.remove('active');
+    }
+  } else {
+    kjFilters[key]=val;
+    document.querySelectorAll(`.kj-chip[data-kjf="${key}"]`).forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+    if(key==='period'){
+      const customGroup=document.getElementById('kj-custom-date-group');
+      if(customGroup) customGroup.style.display=val==='custom'?'flex':'none';
+    }
+  }
   renderDashSubKunjungan();
 }
 
-function populateKjPicFilter(visits){
+function onKjCustomDateChange(){
+  kjFilters.customFrom=document.getElementById('kj-date-from').value||null;
+  kjFilters.customTo=document.getElementById('kj-date-to').value||null;
+  renderDashSubKunjungan();
+}
+
+let kjActiveSalesNames=null; // cache nama sales yang masih aktif
+
+async function getActiveSalesNames(){
+  if(kjActiveSalesNames) return kjActiveSalesNames;
+  try{
+    const users=await api('GET','/sales-pics');
+    kjActiveSalesNames=new Set(users.map(u=>u.name));
+  }catch(e){
+    kjActiveSalesNames=null; // gagal fetch → jangan filter apapun
+  }
+  return kjActiveSalesNames;
+}
+
+async function populateKjPicFilter(visits){
   const grp=document.getElementById('kj-filter-pic-group');
   if(!grp) return;
-  const pics=[...new Set(visits.map(v=>v.sales_pic).filter(Boolean))];
+  const activeSales=await getActiveSalesNames();
+  let pics=[...new Set(visits.map(v=>v.sales_pic).filter(Boolean))];
+  if(activeSales) pics=pics.filter(p=>activeSales.has(p));
+  pics.sort();
+
   const existingChips=grp.querySelectorAll('.kj-chip:not([data-val=""])');
-  existingChips.forEach(c=>c.remove());
+  const existingVals=new Set([...existingChips].map(c=>c.dataset.val));
+  const newVals=new Set(pics);
+
+  // Hapus chip yang sudah tidak relevan (misal jadi nonaktif)
+  existingChips.forEach(c=>{ if(!newVals.has(c.dataset.val)) c.remove(); });
+
+  // Tambah chip baru yang belum ada
   pics.forEach(p=>{
+    if(existingVals.has(p)) return;
     const chip=document.createElement('div');
     chip.className='kj-chip';
     chip.dataset.kjf='pic';
@@ -3407,6 +3470,13 @@ function populateKjPicFilter(visits){
     chip.textContent=p;
     chip.onclick=()=>setKjFilter(chip);
     grp.appendChild(chip);
+  });
+
+  // Sinkronkan status active sesuai kjFilters.pic (array)
+  grp.querySelectorAll('.kj-chip').forEach(c=>{
+    const isSemua=c.dataset.val==='';
+    const isSelected=kjFilters.pic.includes(c.dataset.val);
+    c.classList.toggle('active', isSemua ? kjFilters.pic.length===0 : isSelected);
   });
 }
 
@@ -3418,10 +3488,18 @@ function applyKjFilters(visits){
   }else if(kjFilters.period==='week'){
     const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7);
     out=out.filter(v=>new Date(v.created_at||v.prospect_date)>=cutoff);
+  }else if(kjFilters.period==='custom'){
+    const from=kjFilters.customFrom?new Date(kjFilters.customFrom):null;
+    const to=kjFilters.customTo?new Date(kjFilters.customTo):null;
+    if(to) to.setHours(23,59,59,999); // include seluruh hari akhir
+    out=out.filter(v=>{
+      const d=new Date(v.created_at||v.prospect_date);
+      return !(from&&d<from) && !(to&&d>to);
+    });
   }
   if(kjFilters.ctype) out=out.filter(v=>v.customer_type===kjFilters.ctype);
   if(kjFilters.subseg) out=out.filter(v=>v.sub_segmentasi===kjFilters.subseg);
-  if(kjFilters.pic) out=out.filter(v=>v.sales_pic===kjFilters.pic);
+  if(kjFilters.pic && kjFilters.pic.length>0) out=out.filter(v=>kjFilters.pic.includes(v.sales_pic));
   return out;
 }
 
@@ -3436,10 +3514,15 @@ function classifyKjStage(custStatus){
   return 'prospect';
 }
 
-function renderDashSubKunjungan(){
+async function renderDashSubKunjungan(){
   const allVisits=filterVisitsDash(kunjunganData||[]);
-  populateKjPicFilter(allVisits);
-  const visits=applyKjFilters(allVisits);
+  await populateKjPicFilter(allVisits);
+
+  // Sembunyikan data milik sales yang sudah nonaktif dari SEMUA tampilan dashboard
+  const activeSales=await getActiveSalesNames();
+  const visibleVisits=activeSales ? allVisits.filter(v=>activeSales.has(v.sales_pic)) : allVisits;
+
+  const visits=applyKjFilters(visibleVisits);
 
   const totalVisit=visits.length;
   const totalEstimasi=visits.reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
