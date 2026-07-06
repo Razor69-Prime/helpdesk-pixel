@@ -228,8 +228,16 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (req.session.user.id === req.params.id && req.body.is_active === false)
       return res.status(400).json({ error: 'Tidak bisa menonaktifkan akun Anda sendiri.' });
 
-    const { name, password, role, custom_menus, signature_url, pr_roles, is_active } = req.body;
+    // Validasi & cek duplikat username jika diubah
+    if (req.body.username && req.body.username !== targetUser.username) {
+      const allUsersList = db.USE_SUPABASE ? await db.getUsersWithPassword() : readUsers();
+      const clash = allUsersList.find(u => u.username === req.body.username && u.id !== req.params.id);
+      if (clash) return res.status(409).json({ error: 'Username sudah digunakan oleh akun lain.' });
+    }
+
+    const { username, name, password, role, custom_menus, signature_url, pr_roles, is_active } = req.body;
     const patch = {};
+    if (username)                     patch.username      = username;
     if (name)                         patch.name          = name;
     if (password)                     patch.password      = password;
     if (role)                         patch.role          = role;
@@ -933,7 +941,7 @@ app.post('/api/sales-visits/import', requireRole('superadmin'), async (req, res)
 app.post('/api/sales-visits', requireAuth, async (req, res) => {
   try {
     const { customer_name, customer_phone, address,
-            pic_name, kabupaten, customer_type, sub_segmentasi,
+            pic_name, kabupaten, customer_type, sub_segmentasi, activity, week_progress,
             visit_status, cust_status,
             lat, lng, location_manual,
             estimasi_omzet, realisasi_omzet,
@@ -954,6 +962,8 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
       kabupaten:       kabupaten      || null,
       customer_type:   customer_type  || null,
       sub_segmentasi:  sub_segmentasi || null,
+      activity:        activity       || null,
+      week_progress:   week_progress  || null,
       visit_status:    visit_status   || 'Visited',
       cust_status:     cust_status    || 'Canvasing',
       lat:             lat            || null,

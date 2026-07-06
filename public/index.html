@@ -1994,6 +1994,11 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div class="modal-sub" id="edit-user-subtitle"></div>
     <input type="hidden" id="edit-user-id"/>
     <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="edit-username" placeholder="username untuk login" style="font-family:'DM Mono',monospace"/>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Mengubah username tidak mempengaruhi data historis (tiket, kunjungan, dll) — semua tetap terhubung ke akun ini.</div>
+    </div>
+    <div class="form-group">
       <label>Nama Lengkap</label>
       <input type="text" id="edit-name" placeholder="Nama lengkap"/>
     </div>
@@ -3199,6 +3204,7 @@ function openEditModal(userId){
   if(!u) return;
   document.getElementById('edit-user-id').value=u.id;
   document.getElementById('edit-user-subtitle').textContent=`@${u.username}`;
+  document.getElementById('edit-username').value=u.username;
   document.getElementById('edit-name').value=u.name;
   document.getElementById('edit-role').value=u.role;
   document.getElementById('edit-password').value='';
@@ -3257,11 +3263,14 @@ function clearSignature(){
 
 async function saveEditUser(){
   const id=document.getElementById('edit-user-id').value;
+  const username=document.getElementById('edit-username').value.trim();
   const name=document.getElementById('edit-name').value.trim();
   const role=document.getElementById('edit-role').value;
   const password=document.getElementById('edit-password').value;
   const errEl=document.getElementById('edit-error');
   errEl.style.display='none';
+  if(!username){errEl.textContent='Username tidak boleh kosong.';errEl.style.display='block';return;}
+  if(!/^[a-zA-Z0-9._-]+$/.test(username)){errEl.textContent='Username hanya boleh huruf, angka, titik, underscore, dan strip.';errEl.style.display='block';return;}
   if(!name){errEl.textContent='Nama tidak boleh kosong.';errEl.style.display='block';return;}
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
@@ -3278,7 +3287,7 @@ async function saveEditUser(){
     const isSameAsDefault=checkedMenus.length===defaultMenus.length&&
       checkedMenus.every(m=>defaultMenus.includes(m));
     const patch={
-      name, role,
+      username, name, role,
       custom_menus: isSameAsDefault ? [] : checkedMenus,
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
@@ -3291,6 +3300,7 @@ async function saveEditUser(){
     renderUserTable(); closeEditModal();
     if(id===currentUser.id){
       currentUser.name=updated.name;
+      currentUser.username=updated.username;
       currentUser.custom_menus=updated.custom_menus||[];
       currentUser.signature_url=updated.signature_url||null;
       document.getElementById('user-pill').textContent=`${updated.name} (Admin)`;
