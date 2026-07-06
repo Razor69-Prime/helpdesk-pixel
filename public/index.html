@@ -1829,6 +1829,24 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           </div>
         </div>
 
+        <div class="chart-grid gc3" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🏢 Customer Type</div>
+            <div class="dash-chart-sub">Distribusi B2B vs B2C</div>
+            <div id="dv-ctype-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🏷️ Sub-Segmentasi</div>
+            <div class="dash-chart-sub">Distribusi Corporate vs Retail</div>
+            <div id="dv-subseg-chart"></div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">🚶 Activity</div>
+            <div class="dash-chart-sub">Distribusi Canvassing vs Non Canvassing</div>
+            <div id="dv-activity-chart"></div>
+          </div>
+        </div>
+
         <div class="dash-grid-1" style="margin-top:12px">
           <div class="dash-chart-card">
             <div class="dash-chart-title">🍩 Status Customer</div>
@@ -3715,6 +3733,19 @@ async function renderDashSubKunjungan(){
 
   // Performance detail table
   renderKjPerformanceTable(bySales, salesNames);
+
+  // Breakdown charts berdasarkan hasil filter yang sedang aktif
+  const ctypeMap={};
+  visits.forEach(v=>{ const t=v.customer_type||'Lainnya'; ctypeMap[t]=(ctypeMap[t]||0)+1; });
+  renderDonutCustom(ctypeMap,'dv-ctype-chart');
+
+  const subsegMap={};
+  visits.forEach(v=>{ const t=v.sub_segmentasi||'Lainnya'; subsegMap[t]=(subsegMap[t]||0)+1; });
+  renderDonutCustom(subsegMap,'dv-subseg-chart');
+
+  const activityMap={};
+  visits.forEach(v=>{ const t=v.activity||'Lainnya'; activityMap[t]=(activityMap[t]||0)+1; });
+  renderDonutCustom(activityMap,'dv-activity-chart');
 
   // Status chart (donut) — existing
   const statusMap={};
