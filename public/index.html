@@ -2303,14 +2303,31 @@ async function doLogin(){
   const errEl=document.getElementById('login-error');
   const btn=document.getElementById('btn-login');
   errEl.classList.remove('show'); btn.disabled=true; btn.textContent='Memverifikasi...';
-  try{
+
+  const attemptLogin=async()=>{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
     const data=await r.json();
-    if(!r.ok){errEl.textContent=data.error;errEl.classList.add('show');return;}
-    // Simpan JWT token ke localStorage
+    return {ok:r.ok, data};
+  };
+
+  try{
+    let result;
+    try{
+      result=await attemptLogin();
+    }catch(firstErr){
+      // Percobaan pertama gagal (kemungkinan database baru "bangun" dari idle) → retry sekali otomatis
+      btn.textContent='Menghubungkan ke server...';
+      await new Promise(res=>setTimeout(res,2500));
+      result=await attemptLogin();
+    }
+    const{ok,data}=result;
+    if(!ok){errEl.textContent=data.error;errEl.classList.add('show');return;}
     if(data.token) localStorage.setItem('pixel_token', data.token);
     currentUser=data.user; showApp();
-  }catch(e){errEl.textContent='Server tidak merespons.';errEl.classList.add('show');}
+  }catch(e){
+    errEl.textContent='Server sedang bangun dari mode hemat daya. Silakan tunggu beberapa detik lalu coba tekan Masuk sekali lagi.';
+    errEl.classList.add('show');
+  }
   finally{btn.disabled=false;btn.textContent='Masuk';}
 }
 async function doLogout(){
