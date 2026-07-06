@@ -294,6 +294,18 @@ app.get('/api/sales-pics', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Endpoint publik daftar teknisi aktif — dipakai untuk dropdown assign teknisi
+// oleh role yang tidak punya akses penuh ke /api/users (mis. operator)
+app.get('/api/technician-pics', requireAuth, async (req, res) => {
+  try {
+    let users;
+    if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
+    else users = readUsers();
+    const techs = users.filter(u => u.role === 'technician' && u.is_active !== false).map(({ password: _, ...u }) => u);
+    res.json(techs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── GET dashboard data (manager + admin) ──
 app.get('/api/dashboard', requireRole('manager','admin'), async (req, res) => {
   try {

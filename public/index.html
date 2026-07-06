@@ -2579,8 +2579,7 @@ function setRating(val){
 }
 async function loadTechnicianDropdown(){
   try{
-    const users=await api('GET','/users');
-    const techs=users.filter(u=>u.role==='technician' && u.is_active!==false);
+    const techs=await api('GET','/technician-pics');
     const opts='<option value="">—</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     const sel1=document.getElementById('f-assign-tech');
     const sel2=document.getElementById('f-assign-tech2');
@@ -5229,8 +5228,7 @@ async function loadKunjungan(){
     picInput.style.display='none';
     picSelect.style.display='block';
     try{
-      const users=await api('GET','/users');
-      const salesUsers=users.filter(u=>u.role==='sales' && u.is_active!==false);
+      const salesUsers=await api('GET','/sales-pics');
       picSelect.innerHTML='<option value="">Pilih Sales PIC...</option>'+salesUsers.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     }catch(e){ console.error('Gagal load sales users',e); }
   } else {
@@ -8381,8 +8379,7 @@ async function openAssignModal(ticketId, currentTechs){
 
   // Load teknisi list
   try{
-    const users=await api('GET','/users');
-    const techs=users.filter(u=>u.role==='technician' && u.is_active!==false);
+    const techs=await api('GET','/technician-pics');
     const opts='<option value="">Tidak ada</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     const opts1='<option value="">Pilih Teknisi 1...</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     document.getElementById('assign-tech1').innerHTML=opts1;
