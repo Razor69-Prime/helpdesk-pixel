@@ -2731,6 +2731,8 @@ function renderTickets(){
   const isTech=currentUser.role==='technician';
   const isAccounting=currentUser.role==='accounting';
   const isManager=currentUser.role==='manager';
+  const isOperator=currentUser.role==='operator';
+  const canEditStatus=isAdmin||isOperator; // admin & operator boleh ubah status manual dari Daftar Tiket
   const isReadOnly=isManager; // read-only roles: lihat semua, tidak bisa aksi apapun
 
   const data=applyRange(allTickets,'t').filter(t=>
@@ -2774,7 +2776,7 @@ function renderTickets(){
       </div>`).join(''):'';
 
     // Status: teknisi pakai tombol tahapan, admin bisa ubah manual, lainnya read-only
-    const statusSel=isAdmin
+    const statusSel=canEditStatus
       ?`<select class="status-select" onchange="updateStatus('${t.id}',this.value)">
           <option value="assigned"   ${t.status==='assigned'?'selected':''}>👷 Assigned</option>
           <option value="travelling" ${t.status==='travelling'?'selected':''}>🚗 Dalam Perjalanan</option>
@@ -2792,7 +2794,7 @@ function renderTickets(){
     const delBtn=isAdmin?`<button class="btn danger" onclick="deleteTicket('${t.id}')">Hapus</button>`:'';
 
     // Assign Teknisi btn: manager ke atas
-    const canAssignTicket=isAdmin||currentUser.role==='manager';
+    const canAssignTicket=isAdmin||currentUser.role==='manager'||isOperator;
     const assignBtn=canAssignTicket
       ?`<button class="btn sm" style="background:var(--purple-bg);color:var(--purple);border-color:#AFA9EC;font-size:12px;padding:4px 10px" onclick="openAssignModal('${t.id}','${(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean)).join('|')}')">👷 Assign</button>`
       :'';

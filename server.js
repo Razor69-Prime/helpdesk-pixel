@@ -455,16 +455,25 @@ app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
       }
     }
 
+    // Hanya role tertentu yang boleh mengubah status tiket secara manual.
+    // Operator, sales, accounting hanya boleh melihat — tidak boleh ubah status/assign.
+    const STATUS_EDIT_ROLES = ['admin','superadmin','technician','operator'];
+    if (status && !STATUS_EDIT_ROLES.includes(role)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki izin untuk mengubah status tiket.' });
+    }
+
     const patch = {};
     if (status) patch.status = status;
     if (lat && lng){ patch.last_lat = lat; patch.last_lng = lng; patch.last_gps_at = now; }
 
     // Manager ke atas bisa update teknisi
-    const canAssign = ['admin','superadmin','manager'].includes(role);
+    const canAssign = ['admin','superadmin','manager','operator'].includes(role);
     if (canAssign && technicians && Array.isArray(technicians) && technicians.length) {
       patch.technicians = technicians;
       patch.technician  = technicians[0];
       logActivity(req, 'ticket', 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${technicians.join(', ')}`);
+    } else if (!canAssign && technicians) {
+      return res.status(403).json({ error: 'Anda tidak memiliki izin untuk mengubah teknisi yang ditugaskan.' });
     }
 
     const updated = await db.updateTicket(req.params.id, patch);
