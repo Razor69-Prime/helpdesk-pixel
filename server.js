@@ -235,7 +235,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
       if (clash) return res.status(409).json({ error: 'Username sudah digunakan oleh akun lain.' });
     }
 
-    const { username, name, password, role, custom_menus, signature_url, pr_roles, is_active } = req.body;
+    const { username, name, password, role, custom_menus, signature_url, pr_roles, extra_roles, is_active } = req.body;
     const patch = {};
     if (username)                     patch.username      = username;
     if (name)                         patch.name          = name;
@@ -244,6 +244,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
     if (signature_url !== undefined)  patch.signature_url = signature_url;
     if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
+    if (extra_roles !== undefined)    patch.extra_roles   = extra_roles;
     if (is_active !== undefined)      patch.is_active     = is_active;
 
     if (db.USE_SUPABASE) {
@@ -289,7 +290,10 @@ app.get('/api/sales-pics', requireAuth, async (req, res) => {
     let users;
     if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
     else users = readUsers();
-    const sales = users.filter(u => u.role === 'sales' && u.is_active !== false).map(({ password: _, ...u }) => u);
+    const sales = users.filter(u =>
+      (u.role === 'sales' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('sales')))
+      && u.is_active !== false
+    ).map(({ password: _, ...u }) => u);
     res.json(sales);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -301,7 +305,10 @@ app.get('/api/technician-pics', requireAuth, async (req, res) => {
     let users;
     if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
     else users = readUsers();
-    const techs = users.filter(u => u.role === 'technician' && u.is_active !== false).map(({ password: _, ...u }) => u);
+    const techs = users.filter(u =>
+      (u.role === 'technician' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('technician')))
+      && u.is_active !== false
+    ).map(({ password: _, ...u }) => u);
     res.json(techs);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

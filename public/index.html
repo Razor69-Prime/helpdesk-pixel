@@ -2022,6 +2022,20 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         <option value="superadmin" id="edit-role-superadmin">⚡ Super Admin</option>
       </select>
     </div>
+    <div class="form-group">
+      <label>Role Tambahan <span style="color:var(--muted);font-weight:400;text-transform:none">(opsional)</span></label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 0">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none">
+          <input type="checkbox" id="edit-extra-sales" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+          💰 Sales
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none">
+          <input type="checkbox" id="edit-extra-technician" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+          👷 Teknisi
+        </label>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Tidak mengubah akses menu — hanya membuat akun ini juga muncul di dropdown Sales PIC dan/atau Teknisi (Set Target, KPI, Assign Teknisi, dll).</div>
+    </div>
     <hr class="divider"/>
     <div class="form-group">
       <label>Password Baru <span style="color:var(--muted);font-weight:400;text-transform:none">(kosongkan jika tidak diubah)</span></label>
@@ -3213,6 +3227,10 @@ function openEditModal(userId){
   document.getElementById('edit-is-active').disabled=(u.id===currentUser.id);
   document.getElementById('edit-error').style.display='none';
   document.getElementById('edit-role').disabled=(u.id===currentUser.id);
+  // Role tambahan (extra_roles) — hanya untuk tampil di dropdown Sales PIC / Teknisi
+  const extraRoles=Array.isArray(u.extra_roles)?u.extra_roles:[];
+  document.getElementById('edit-extra-sales').checked=extraRoles.includes('sales');
+  document.getElementById('edit-extra-technician').checked=extraRoles.includes('technician');
   // opsi superadmin hanya tampil jika yang login adalah superadmin
   const superOpt=document.getElementById('edit-role-superadmin');
   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
@@ -3287,11 +3305,15 @@ async function saveEditUser(){
 
     const isSameAsDefault=checkedMenus.length===defaultMenus.length&&
       checkedMenus.every(m=>defaultMenus.includes(m));
+    const extraRoles=[];
+    if(document.getElementById('edit-extra-sales').checked) extraRoles.push('sales');
+    if(document.getElementById('edit-extra-technician').checked) extraRoles.push('technician');
     const patch={
       username, name, role,
       custom_menus: isSameAsDefault ? [] : checkedMenus,
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
+      extra_roles: extraRoles,
       is_active: document.getElementById('edit-is-active').value==='true',
     };
     if(password) patch.password=password;
@@ -5023,7 +5045,7 @@ async function loadSalesDashboard(){
     salesTargets=await api('GET','/sales-targets');
     // load sales PICs for dropdown
     const users=await api('GET','/users');
-    const pics=users.filter(u=>u.role==='sales' && u.is_active!==false);
+    const pics=users.filter(u=>(u.role==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales'))) && u.is_active!==false);
     const sel=document.getElementById('st-pic');
     if(sel) sel.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     // set default month to current
