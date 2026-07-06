@@ -2204,6 +2204,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 <script>
 /* ══ STATE ══════════════════════════════ */
 let allTickets=[], allUsers=[], allSuppliers=[], salesPics=[], currentUser=null, currentRating=0;
+let myPrRoles=[]; // pr_roles milik currentUser, di-set ulang tiap kali login/showApp
 let periodState={t:'all',k:'all'}, pollTimer=null, trackUrl='', selectedFile=null;
 let gpsCache=null;
 
@@ -2325,6 +2326,7 @@ async function doLogout(){
 function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('show');
+  myPrRoles=Array.isArray(currentUser.pr_roles)?currentUser.pr_roles:[];
   const roleLabel={technician:'Teknisi',admin:'Admin',accounting:'Akunting',sales:'Sales',manager:'Manager',superadmin:'Super Admin'};
   const pill=document.getElementById('user-pill');
   pill.textContent=`${currentUser.name} (${roleLabel[currentUser.role]||currentUser.role})`;
@@ -6802,10 +6804,10 @@ function renderPRList(){
 
   const _isSuperAdmin=currentUser.role==='superadmin';
   const _isManager=currentUser.role==='manager';
-  const myPrRoles=Array.isArray(currentUser.pr_roles)?currentUser.pr_roles:[];
-  const canMakePR=_isSuperAdmin||myPrRoles.includes('maker_pr')||myPrRoles.includes('approval_pr1');
-  const isApproval1=_isSuperAdmin||myPrRoles.includes('approval_pr1');
-  const isApproval2=_isSuperAdmin||myPrRoles.includes('approval_pr2');
+  const _prRoles=Array.isArray(currentUser.pr_roles)?currentUser.pr_roles:[];
+  const canMakePR=_isSuperAdmin||_prRoles.includes('maker_pr')||_prRoles.includes('approval_pr1');
+  const isApproval1=_isSuperAdmin||_prRoles.includes('approval_pr1');
+  const isApproval2=_isSuperAdmin||_prRoles.includes('approval_pr2');
 
   el.innerHTML=data.map(p=>{
     const dt=new Date(p.created_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
