@@ -135,6 +135,7 @@ app.post('/api/login', async (req, res) => {
       u = users.find(u => u.username === req.body.username && u.password === req.body.password);
     }
     if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
+    if (u.is_active === false) return res.status(403).json({ error: 'Akun Anda telah dinonaktifkan. Hubungi admin untuk informasi lebih lanjut.' });
     const userData = {
       id:            u.id,
       username:      u.username,
@@ -192,13 +193,13 @@ app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
       const existing = await db.getUsersWithPassword();
       if (existing.find(u => u.username === username))
         return res.status(409).json({ error: 'Username sudah digunakan.' });
-      const saved = await db.insertUser({ username, password, name, role, custom_menus: custom_menus||[] });
+      const saved = await db.insertUser({ username, password, name, role, custom_menus: custom_menus||[], is_active: true });
       return res.status(201).json(saved);
     }
     const users = readUsers();
     if (users.find(u => u.username === username))
       return res.status(409).json({ error: 'Username sudah digunakan.' });
-    const newUser = { id: crypto.randomUUID(), username, password, name, role, custom_menus: custom_menus||[] };
+    const newUser = { id: crypto.randomUUID(), username, password, name, role, custom_menus: custom_menus||[], is_active: true };
     users.push(newUser);
     writeUsers(users);
     const { password: _, ...safe } = newUser;
@@ -224,8 +225,10 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
       return res.status(403).json({ error: 'Hanya Super Admin yang bisa assign role Super Admin.' });
     if (req.session.user.id === req.params.id && req.body.role && req.body.role !== callerRole)
       return res.status(400).json({ error: 'Tidak bisa mengubah role akun Anda sendiri.' });
+    if (req.session.user.id === req.params.id && req.body.is_active === false)
+      return res.status(400).json({ error: 'Tidak bisa menonaktifkan akun Anda sendiri.' });
 
-    const { name, password, role, custom_menus, signature_url, pr_roles } = req.body;
+    const { name, password, role, custom_menus, signature_url, pr_roles, is_active } = req.body;
     const patch = {};
     if (name)                         patch.name          = name;
     if (password)                     patch.password      = password;
@@ -233,6 +236,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
     if (signature_url !== undefined)  patch.signature_url = signature_url;
     if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
+    if (is_active !== undefined)      patch.is_active     = is_active;
 
     if (db.USE_SUPABASE) {
       const updated = await db.updateUser(req.params.id, patch);
@@ -277,7 +281,7 @@ app.get('/api/sales-pics', requireAuth, async (req, res) => {
     let users;
     if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
     else users = readUsers();
-    const sales = users.filter(u => u.role === 'sales').map(({ password: _, ...u }) => u);
+    const sales = users.filter(u => u.role === 'sales' && u.is_active !== false).map(({ password: _, ...u }) => u);
     res.json(sales);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

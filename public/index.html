@@ -1292,6 +1292,15 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             </select>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status Akun</label>
+            <select id="nu-is-active">
+              <option value="true" selected>✅ Aktif</option>
+              <option value="false">🚫 Non-Aktif</option>
+            </select>
+          </div>
+        </div>
         <div id="nu-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
         <div style="display:flex;justify-content:flex-end">
           <button class="btn primary" onclick="addUser()">➕ Tambah Akun</button>
@@ -1307,6 +1316,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
                 <th>Nama</th>
                 <th>Username</th>
                 <th>Role</th>
+                <th>Status</th>
                 <th style="text-align:right">Aksi</th>
               </tr>
             </thead>
@@ -1935,6 +1945,14 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <input type="text" id="edit-name" placeholder="Nama lengkap"/>
     </div>
     <div class="form-group">
+      <label>Status Akun</label>
+      <select id="edit-is-active">
+        <option value="true">✅ Aktif</option>
+        <option value="false">🚫 Non-Aktif</option>
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Akun non-aktif tidak bisa login dan tidak muncul di pilihan dropdown teknisi/sales baru.</div>
+    </div>
+    <div class="form-group">
       <label>Role</label>
       <select id="edit-role">
         <option value="technician">Teknisi</option>
@@ -2477,7 +2495,7 @@ function setRating(val){
 async function loadTechnicianDropdown(){
   try{
     const users=await api('GET','/users');
-    const techs=users.filter(u=>u.role==='technician');
+    const techs=users.filter(u=>u.role==='technician' && u.is_active!==false);
     const opts='<option value="">—</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     const sel1=document.getElementById('f-assign-tech');
     const sel2=document.getElementById('f-assign-tech2');
@@ -2989,15 +3007,20 @@ async function loadUsers(){
 function renderUserTable(){
   const roleLabel={technician:'Teknisi',admin:'Admin',accounting:'Akunting',sales:'Sales',manager:'Manager',superadmin:'Super Admin'};
   const tbody=document.getElementById('user-table-body');
-  if(!allUsers.length){tbody.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Belum ada user</td></tr>`;return;}
+  if(!allUsers.length){tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Belum ada user</td></tr>`;return;}
   tbody.innerHTML=allUsers.map(u=>{
     const hasCustom=Array.isArray(u.custom_menus)&&u.custom_menus.length>0;
     const customBadge=hasCustom
       ?`<span style="font-size:10px;background:var(--accent-light);color:var(--accent);border:1px solid #F5C4A0;border-radius:99px;padding:1px 7px;margin-left:4px" title="${u.custom_menus.join(', ')}">custom</span>`:'';
-    return`<tr>
+    const isActive=u.is_active!==false;
+    const statusBadge=isActive
+      ?`<span style="font-size:10px;background:var(--green-bg);color:var(--green);border:1px solid #C0DD97;border-radius:99px;padding:2px 9px;font-weight:600">✅ Aktif</span>`
+      :`<span style="font-size:10px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-weight:600">🚫 Non-Aktif</span>`;
+    return`<tr style="${isActive?'':'opacity:.6'}">
       <td><strong>${u.name}</strong></td>
       <td><span style="font-family:'DM Mono',monospace;font-size:12px">${u.username}</span></td>
       <td><span class="role-badge ${u.role}">${roleLabel[u.role]||u.role}</span>${customBadge}</td>
+      <td>${statusBadge}</td>
       <td style="text-align:right">
         <div style="display:flex;gap:6px;justify-content:flex-end">
           <button class="btn amber" onclick="openEditModal('${u.id}')">✏️ Edit</button>
@@ -3013,15 +3036,17 @@ async function addUser(){
   const name=document.getElementById('nu-name').value.trim();
   const password=document.getElementById('nu-password').value;
   const role=document.getElementById('nu-role').value;
+  const is_active=document.getElementById('nu-is-active').value==='true';
   const errEl=document.getElementById('nu-error');
   errEl.style.display='none';
   if(!username||!name||!password||!role){errEl.textContent='Semua field wajib diisi.';errEl.style.display='block';return;}
   if(password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
-    const newUser=await api('POST','/users',{username,name,password,role});
+    const newUser=await api('POST','/users',{username,name,password,role,is_active});
     allUsers.push(newUser); renderUserTable();
     ['nu-username','nu-name','nu-password'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('nu-role').value='technician';
+    document.getElementById('nu-is-active').value='true';
     alert('✅ Akun berhasil ditambahkan!');
   }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
 }
@@ -3097,6 +3122,8 @@ function openEditModal(userId){
   document.getElementById('edit-name').value=u.name;
   document.getElementById('edit-role').value=u.role;
   document.getElementById('edit-password').value='';
+  document.getElementById('edit-is-active').value=(u.is_active===false)?'false':'true';
+  document.getElementById('edit-is-active').disabled=(u.id===currentUser.id);
   document.getElementById('edit-error').style.display='none';
   document.getElementById('edit-role').disabled=(u.id===currentUser.id);
   // opsi superadmin hanya tampil jika yang login adalah superadmin
@@ -3175,6 +3202,7 @@ async function saveEditUser(){
       custom_menus: isSameAsDefault ? [] : checkedMenus,
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
+      is_active: document.getElementById('edit-is-active').value==='true',
     };
     if(password) patch.password=password;
     const updated=await api('PATCH','/users/'+id,patch);
@@ -4708,7 +4736,7 @@ async function loadSalesDashboard(){
     salesTargets=await api('GET','/sales-targets');
     // load sales PICs for dropdown
     const users=await api('GET','/users');
-    const pics=users.filter(u=>u.role==='sales');
+    const pics=users.filter(u=>u.role==='sales' && u.is_active!==false);
     const sel=document.getElementById('st-pic');
     if(sel) sel.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     // set default month to current
@@ -4916,7 +4944,7 @@ async function loadKunjungan(){
     picSelect.style.display='block';
     try{
       const users=await api('GET','/users');
-      const salesUsers=users.filter(u=>u.role==='sales');
+      const salesUsers=users.filter(u=>u.role==='sales' && u.is_active!==false);
       picSelect.innerHTML='<option value="">Pilih Sales PIC...</option>'+salesUsers.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     }catch(e){ console.error('Gagal load sales users',e); }
   } else {
@@ -8065,7 +8093,7 @@ async function openAssignModal(ticketId, currentTechs){
   // Load teknisi list
   try{
     const users=await api('GET','/users');
-    const techs=users.filter(u=>u.role==='technician');
+    const techs=users.filter(u=>u.role==='technician' && u.is_active!==false);
     const opts='<option value="">Tidak ada</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     const opts1='<option value="">Pilih Teknisi 1...</option>'+techs.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
     document.getElementById('assign-tech1').innerHTML=opts1;
