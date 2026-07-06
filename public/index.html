@@ -227,6 +227,14 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .kj-filter-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-right:4px}
 .kj-chip{background:#FBE5D6;color:#8B4513;border:1px solid #F4B183;border-radius:3px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer}
 .kj-chip.active{background:#DC7633;color:#fff;border-color:#DC7633}
+.kj-week-dropdown-btn{background:#FBE5D6;color:#8B4513;border:1px solid #F4B183;border-radius:3px;padding:3px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;user-select:none}
+.kj-week-dropdown-btn.has-selection{background:#DC7633;color:#fff;border-color:#DC7633}
+.kj-week-dropdown-panel{position:absolute;top:100%;left:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:8px;z-index:50;min-width:160px;max-height:240px;overflow-y:auto}
+.kj-week-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)}
+.kj-week-option:hover{background:var(--surface2)}
+.kj-week-option input{cursor:pointer}
+.kj-week-panel-footer{display:flex;justify-content:space-between;gap:6px;padding-top:6px;margin-top:6px;border-top:1px solid var(--border)}
+.kj-week-panel-footer button{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text)}
 .kj-kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center}
 .kj-kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
 .kj-kpi-val{font-size:24px;font-weight:800;color:var(--text)}
@@ -1440,6 +1448,16 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 
         <div class="form-row">
           <div class="form-group">
+            <label>Activity</label>
+            <select id="kv-activity">
+              <option value="Canvassing">Canvassing</option>
+              <option value="Non Canvassing">Non Canvassing</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
             <label>Est. Omzet (Rp)</label>
             <input type="text" id="kv-est-omzet" placeholder="mis. 9000000" oninput="formatAmountInput(this)" inputmode="numeric"/>
             <div style="font-size:11px;color:var(--muted);margin-top:3px" id="kv-est-preview"></div>
@@ -1758,9 +1776,20 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <div class="kj-chip" data-kjf="subseg" data-val="Corporate" onclick="setKjFilter(this)">Corporate</div>
             <div class="kj-chip" data-kjf="subseg" data-val="Retail" onclick="setKjFilter(this)">Retail</div>
           </div>
+          <div class="kj-filter-group">
+            <div class="kj-filter-title">Activity</div>
+            <div class="kj-chip active" data-kjf="activity" data-val="" onclick="setKjFilter(this)">Semua</div>
+            <div class="kj-chip" data-kjf="activity" data-val="Canvassing" onclick="setKjFilter(this)">Canvassing</div>
+            <div class="kj-chip" data-kjf="activity" data-val="Non Canvassing" onclick="setKjFilter(this)">Non Canvassing</div>
+          </div>
           <div class="kj-filter-group" id="kj-filter-pic-group">
             <div class="kj-filter-title">Sales PIC</div>
             <div class="kj-chip active" data-kjf="pic" data-val="" onclick="setKjFilter(this)">Semua</div>
+          </div>
+          <div class="kj-filter-group" id="kj-filter-week-group" style="position:relative">
+            <div class="kj-filter-title">Week Progress</div>
+            <div class="kj-week-dropdown-btn" onclick="toggleKjWeekDropdown()" id="kj-week-dropdown-btn">Semua Minggu ▾</div>
+            <div class="kj-week-dropdown-panel" id="kj-week-dropdown-panel" style="display:none"></div>
           </div>
         </div>
 
@@ -2310,22 +2339,30 @@ async function doLogin(){
     return {ok:r.ok, data};
   };
 
+  const delays=[2000,4000,6000]; // jeda antar percobaan retry (ms), makin lama makin panjang
   try{
-    let result;
-    try{
-      result=await attemptLogin();
-    }catch(firstErr){
-      // Percobaan pertama gagal (kemungkinan database baru "bangun" dari idle) → retry sekali otomatis
-      btn.textContent='Menghubungkan ke server...';
-      await new Promise(res=>setTimeout(res,2500));
-      result=await attemptLogin();
+    let result, lastErr;
+    for(let i=0;i<=delays.length;i++){
+      try{
+        result=await attemptLogin();
+        lastErr=null;
+        break;
+      }catch(err){
+        lastErr=err;
+        if(i<delays.length){
+          btn.textContent=`Menghubungkan ke server... (percobaan ${i+2})`;
+          await new Promise(res=>setTimeout(res,delays[i]));
+        }
+      }
     }
+    if(lastErr) throw lastErr;
+
     const{ok,data}=result;
     if(!ok){errEl.textContent=data.error;errEl.classList.add('show');return;}
     if(data.token) localStorage.setItem('pixel_token', data.token);
     currentUser=data.user; showApp();
   }catch(e){
-    errEl.textContent='Server sedang bangun dari mode hemat daya. Silakan tunggu beberapa detik lalu coba tekan Masuk sekali lagi.';
+    errEl.textContent='Server sedang bangun dari mode hemat daya (bisa memakan waktu hingga 30 detik pada login pertama). Silakan tunggu sebentar lalu tekan Masuk sekali lagi.';
     errEl.classList.add('show');
   }
   finally{btn.disabled=false;btn.textContent='Masuk';}
@@ -3408,29 +3445,30 @@ function renderDashSubInvoice(data){
   renderBarChart(byDay,'di-trend-chart','Rp','teal');
 }
 
-let kjFilters={period:'all',ctype:'',subseg:'',pic:[],customFrom:null,customTo:null};
+let kjFilters={period:'all',ctype:'',subseg:'',activity:'',pic:[],week:[],customFrom:null,customTo:null};
+const KJ_MULTI_KEYS=['pic']; // week ditangani terpisah via dropdown checkbox
 
 function setKjFilter(el){
   const key=el.dataset.kjf, val=el.dataset.val;
-  if(key==='pic'){
-    // Multi-select khusus Sales PIC
+  if(KJ_MULTI_KEYS.includes(key)){
+    // Multi-select (Sales PIC / Week Progress)
     if(val===''){
       // Klik "Semua" → reset ke kosong (artinya semua tampil)
-      kjFilters.pic=[];
-      document.querySelectorAll(`.kj-chip[data-kjf="pic"]`).forEach(c=>c.classList.remove('active'));
+      kjFilters[key]=[];
+      document.querySelectorAll(`.kj-chip[data-kjf="${key}"]`).forEach(c=>c.classList.remove('active'));
       el.classList.add('active');
     } else {
-      const semuaChip=document.querySelector(`.kj-chip[data-kjf="pic"][data-val=""]`);
-      const idx=kjFilters.pic.indexOf(val);
+      const semuaChip=document.querySelector(`.kj-chip[data-kjf="${key}"][data-val=""]`);
+      const idx=kjFilters[key].indexOf(val);
       if(idx>-1){
-        kjFilters.pic.splice(idx,1);
+        kjFilters[key].splice(idx,1);
         el.classList.remove('active');
       } else {
-        kjFilters.pic.push(val);
+        kjFilters[key].push(val);
         el.classList.add('active');
       }
       // Kalau tidak ada satupun yang dipilih, aktifkan kembali "Semua"
-      if(kjFilters.pic.length===0 && semuaChip) semuaChip.classList.add('active');
+      if(kjFilters[key].length===0 && semuaChip) semuaChip.classList.add('active');
       else if(semuaChip) semuaChip.classList.remove('active');
     }
   } else {
@@ -3499,6 +3537,94 @@ async function populateKjPicFilter(visits){
   });
 }
 
+function populateKjWeekFilter(visits){
+  const panel=document.getElementById('kj-week-dropdown-panel');
+  if(!panel) return;
+  let weeks=[...new Set(visits.map(v=>v.week_progress).filter(Boolean))];
+  weeks.sort((a,b)=>{
+    const na=parseInt(String(a).replace(/\D/g,''))||0;
+    const nb=parseInt(String(b).replace(/\D/g,''))||0;
+    return na-nb;
+  });
+
+  if(!weeks.length){
+    panel.innerHTML='<div style="font-size:11px;color:var(--muted);padding:6px">Belum ada data minggu</div>';
+    updateKjWeekButtonLabel();
+    return;
+  }
+
+  panel.innerHTML=weeks.map(w=>{
+    const checked=kjFilters.week.includes(w)?'checked':'';
+    return `<label class="kj-week-option">
+      <input type="checkbox" value="${w}" ${checked} onchange="onKjWeekCheckboxChange(this)"/>
+      <span>${w}</span>
+    </label>`;
+  }).join('')+`
+    <div class="kj-week-panel-footer">
+      <button type="button" onclick="setAllKjWeek(true)">Pilih Semua</button>
+      <button type="button" onclick="setAllKjWeek(false)">Kosongkan</button>
+    </div>`;
+
+  updateKjWeekButtonLabel();
+}
+
+function toggleKjWeekDropdown(){
+  const panel=document.getElementById('kj-week-dropdown-panel');
+  if(!panel) return;
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+}
+
+// Tutup dropdown kalau klik di luar area-nya
+document.addEventListener('click', function(e){
+  const group=document.getElementById('kj-filter-week-group');
+  const panel=document.getElementById('kj-week-dropdown-panel');
+  if(group && panel && !group.contains(e.target)){
+    panel.style.display='none';
+  }
+});
+
+function onKjWeekCheckboxChange(checkbox){
+  const val=checkbox.value;
+  const idx=kjFilters.week.indexOf(val);
+  if(checkbox.checked){
+    if(idx===-1) kjFilters.week.push(val);
+  } else {
+    if(idx>-1) kjFilters.week.splice(idx,1);
+  }
+  updateKjWeekButtonLabel();
+  renderDashSubKunjungan();
+}
+
+function setAllKjWeek(selectAll){
+  const panel=document.getElementById('kj-week-dropdown-panel');
+  const checkboxes=panel.querySelectorAll('input[type="checkbox"]');
+  if(selectAll){
+    kjFilters.week=[...checkboxes].map(c=>c.value);
+  } else {
+    kjFilters.week=[];
+  }
+  checkboxes.forEach(c=>c.checked=selectAll);
+  updateKjWeekButtonLabel();
+  renderDashSubKunjungan();
+}
+
+function updateKjWeekButtonLabel(){
+  const btn=document.getElementById('kj-week-dropdown-btn');
+  if(!btn) return;
+  const n=kjFilters.week.length;
+  if(n===0){
+    btn.textContent='Semua Minggu ▾';
+    btn.classList.remove('has-selection');
+  } else if(n===1){
+    btn.textContent=kjFilters.week[0]+' ▾';
+    btn.classList.add('has-selection');
+  } else {
+    btn.textContent=n+' Minggu Dipilih ▾';
+    btn.classList.add('has-selection');
+  }
+}
+
 function applyKjFilters(visits){
   let out=visits;
   if(kjFilters.period==='month'){
@@ -3518,7 +3644,9 @@ function applyKjFilters(visits){
   }
   if(kjFilters.ctype) out=out.filter(v=>v.customer_type===kjFilters.ctype);
   if(kjFilters.subseg) out=out.filter(v=>v.sub_segmentasi===kjFilters.subseg);
+  if(kjFilters.activity) out=out.filter(v=>v.activity===kjFilters.activity);
   if(kjFilters.pic && kjFilters.pic.length>0) out=out.filter(v=>kjFilters.pic.includes(v.sales_pic));
+  if(kjFilters.week && kjFilters.week.length>0) out=out.filter(v=>kjFilters.week.includes(v.week_progress));
   return out;
 }
 
@@ -3536,6 +3664,7 @@ function classifyKjStage(custStatus){
 async function renderDashSubKunjungan(){
   const allVisits=filterVisitsDash(kunjunganData||[]);
   await populateKjPicFilter(allVisits);
+  populateKjWeekFilter(allVisits);
 
   // Sembunyikan data milik sales yang sudah nonaktif dari SEMUA tampilan dashboard
   const activeSales=await getActiveSalesNames();
@@ -3777,6 +3906,20 @@ function renderDashSubProject(projList){
 }
 
 // Konversi target_week (mis. "Week-27") ke perkiraan tanggal akhir minggu tersebut di tahun berjalan
+// Hitung ISO week number dari tanggal, format "W-XX"
+function computeWeekProgress(dateStr){
+  if(!dateStr) return null;
+  const d=new Date(dateStr);
+  if(isNaN(d)) return null;
+  const target=new Date(d.valueOf());
+  const dayNr=(d.getDay()+6)%7; // 0=Senin
+  target.setDate(target.getDate()-dayNr+3); // Kamis minggu ini
+  const firstThursday=new Date(target.getFullYear(),0,4);
+  const diff=(target-firstThursday)/(86400000*7);
+  const weekNum=1+Math.floor(diff);
+  return 'W-'+String(weekNum).padStart(2,'0');
+}
+
 function targetWeekToDate(targetWeek){
   if(!targetWeek) return null;
   const match=String(targetWeek).match(/(\d+)/);
@@ -5130,6 +5273,7 @@ function resetKunjunganForm(){
   document.getElementById('kv-kabupaten').value='';
   document.getElementById('kv-customer-type').value='B2C';
   document.getElementById('kv-sub-segmentasi').value='';
+  document.getElementById('kv-activity').value='Canvassing';
   document.getElementById('kv-est-omzet').value='';
   document.getElementById('kv-realisasi').value='';
   document.getElementById('kv-status').value='Visited';
@@ -5176,6 +5320,8 @@ async function submitKunjungan(){
       kabupaten:       document.getElementById('kv-kabupaten').value||null,
       customer_type:   document.getElementById('kv-customer-type').value,
       sub_segmentasi:  document.getElementById('kv-sub-segmentasi').value||null,
+      activity:        document.getElementById('kv-activity').value,
+      week_progress:   computeWeekProgress(prospectDate),
       estimasi_omzet:  estRaw?Number(estRaw):null,
       realisasi_omzet: realRaw?Number(realRaw):null,
       visit_status:    document.getElementById('kv-status').value,
