@@ -3629,16 +3629,16 @@ function applyKjFilters(visits){
   let out=visits;
   if(kjFilters.period==='month'){
     const now=new Date(); const ym=now.toISOString().slice(0,7);
-    out=out.filter(v=>(v.created_at||'').slice(0,7)===ym);
+    out=out.filter(v=>(v.prospect_date||v.created_at||'').slice(0,7)===ym);
   }else if(kjFilters.period==='week'){
     const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7);
-    out=out.filter(v=>new Date(v.created_at||v.prospect_date)>=cutoff);
+    out=out.filter(v=>new Date(v.prospect_date||v.created_at)>=cutoff);
   }else if(kjFilters.period==='custom'){
     const from=kjFilters.customFrom?new Date(kjFilters.customFrom):null;
     const to=kjFilters.customTo?new Date(kjFilters.customTo):null;
     if(to) to.setHours(23,59,59,999); // include seluruh hari akhir
     out=out.filter(v=>{
-      const d=new Date(v.created_at||v.prospect_date);
+      const d=new Date(v.prospect_date||v.created_at);
       return !(from&&d<from) && !(to&&d>to);
     });
   }
@@ -3723,7 +3723,7 @@ async function renderDashSubKunjungan(){
 
   // Trend — existing
   const byDay={};
-  visits.forEach(v=>{ const d=(v.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
+  visits.forEach(v=>{ const d=(v.prospect_date||v.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
   renderBarChart(byDay,'dv-trend-chart','kunjungan','blue');
 }
 
@@ -4075,7 +4075,7 @@ function filterVisitsDash(visits){
   const{from,to}=getDashRange();
   if(!from&&!to) return visits;
   return visits.filter(v=>{
-    const d=new Date(v.created_at||v.prospect_date);
+    const d=new Date(v.prospect_date||v.created_at);
     return!(from&&d<from)&&!(to&&d>to);
   });
 }
