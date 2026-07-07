@@ -143,6 +143,8 @@ app.post('/api/login', async (req, res) => {
       role:          u.role,
       custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
       pr_roles:      Array.isArray(u.pr_roles) ? u.pr_roles : [],
+      extra_roles:   Array.isArray(u.extra_roles) ? u.extra_roles : [],
+      allow_invoice_no_wo: u.allow_invoice_no_wo === true,
       // signature_url TIDAK disimpan di JWT (terlalu besar → HTTP 494)
     };
     req.session._setUser(userData);
@@ -235,7 +237,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
       if (clash) return res.status(409).json({ error: 'Username sudah digunakan oleh akun lain.' });
     }
 
-    const { username, name, password, role, custom_menus, signature_url, pr_roles, extra_roles, is_active } = req.body;
+    const { username, name, password, role, custom_menus, signature_url, pr_roles, extra_roles, allow_invoice_no_wo, is_active } = req.body;
     const patch = {};
     if (username)                     patch.username      = username;
     if (name)                         patch.name          = name;
@@ -245,6 +247,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (signature_url !== undefined)  patch.signature_url = signature_url;
     if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
     if (extra_roles !== undefined)    patch.extra_roles   = extra_roles;
+    if (allow_invoice_no_wo !== undefined) patch.allow_invoice_no_wo = allow_invoice_no_wo;
     if (is_active !== undefined)      patch.is_active     = is_active;
 
     if (db.USE_SUPABASE) {
@@ -612,6 +615,81 @@ app.post('/api/tickets/:id/invoice',
 
 app.delete('/api/tickets/:id/invoice/:invId', requireRole('accounting','admin'), async (req, res) => {
   try { await db.deleteInvoice(req.params.invId, req.params.id); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════
+//  INVOICE TANPA WO (STANDALONE)
+//  Hanya untuk akun yang di-checklist admin: allow_invoice_no_wo = true
+// ══════════════════════════════════════════
+app.get('/api/invoices/standalone', requireAuth, async (req, res) => {
+  try { res.json(await db.getStandaloneInvoices()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/invoices/standalone', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (req.session.user.allow_invoice_no_wo !== true) {
+      return res.status(403).json({ error: 'Anda tidak memiliki izin upload invoice tanpa WO.' });
+    }
+
+    let file_url      = "";
+    let original_name = null;
+    let mime_type     = null;
+
+    if (req.file) {
+      if (db.USE_SUPABASE) {
+        const ext      = path.extname(req.file.originalname).toLowerCase();
+        const filename = crypto.randomBytes(10).toString('hex') + ext;
+        const bucket   = 'invoices';
+
+        const uploadRes = await fetch(
+          `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
+          {
+            method:  'POST',
+            headers: {
+              'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
+              'Content-Type':  req.file.mimetype,
+              'x-upsert':      'true'
+            },
+            body: req.file.buffer
+          }
+        );
+        if (!uploadRes.ok) {
+          const err = await uploadRes.text();
+          throw new Error('Upload ke Supabase Storage gagal: ' + err);
+        }
+        file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
+      } else {
+        const ext      = path.extname(req.file.originalname).toLowerCase();
+        const filename = crypto.randomBytes(10).toString('hex') + ext;
+        const filepath = path.join(UPLOADS_DIR, filename);
+        fs.writeFileSync(filepath, req.file.buffer || req.file.path);
+        file_url = '/uploads/' + filename;
+      }
+      original_name = req.file.originalname;
+      mime_type     = req.file.mimetype;
+    }
+
+    const inv = await db.insertStandaloneInvoice({
+      file_url,
+      original_name,
+      mime_type,
+      uploaded_by:   req.session.user.name,
+      note:          req.body.note         || null,
+      total_amount:  req.body.total_amount ? Number(req.body.total_amount) : null,
+      sales_pic:     req.body.sales_pic    || null,
+    });
+    logActivity(req, 'invoice', 'UPLOAD INVOICE TANPA WO', `File: ${original_name||'(tanpa file)'} · Nominal: ${req.body.total_amount||'-'}`);
+    res.status(201).json(inv);
+  } catch(e) {
+    console.error('Standalone invoice upload error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/invoices/standalone/:invId', requireRole('accounting','admin','superadmin'), async (req, res) => {
+  try { await db.deleteStandaloneInvoice(req.params.invId); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 

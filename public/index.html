@@ -625,7 +625,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div id="tab-invoice" class="tab-content">
       <div class="card">
         <div class="card-title">Upload Invoice ke Tiket</div>
-        <div class="form-group">
+        <div class="form-group" id="inv-no-wo-toggle-group" style="display:none">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="inv-no-wo-toggle" onchange="toggleInvoiceNoWO()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+            Tidak ada WO terkait (input omzet langsung)
+          </label>
+        </div>
+        <div class="form-group" id="inv-ticket-select-group">
           <label>Pilih Tiket (Nomor WO)</label>
           <select id="inv-ticket-select"><option value="">Memuat tiket...</option></select>
         </div>
@@ -2036,6 +2042,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">Tidak mengubah akses menu — hanya membuat akun ini juga muncul di dropdown Sales PIC dan/atau Teknisi (Set Target, KPI, Assign Teknisi, dll).</div>
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="edit-allow-invoice-no-wo" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+        🧾 Boleh Upload Invoice Tanpa Nomor WO
+      </label>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Kalau dicentang, akun ini akan melihat opsi "Tidak ada WO terkait" di form Upload Invoice — bisa input omzet/nominal tanpa perlu pilih tiket.</div>
+    </div>
     <hr class="divider"/>
     <div class="form-group">
       <label>Password Baru <span style="color:var(--muted);font-weight:400;text-transform:none">(kosongkan jika tidak diubah)</span></label>
@@ -2528,7 +2541,7 @@ function switchTab(tab,btn){
   if(tab==='sales')     loadSalesDashboard();
   if(tab==='kunjungan') { loadKunjungan(); updateImportButtonVisibility(); }
   if(tab==='archive')   loadArchive();
-  if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); renderInvoiceTab(); }
+  if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); loadStandaloneInvoices().then(renderInvoiceList); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
   if(tab==='actlog')    loadActivityLog();
   if(tab==='materials') loadMaterialRequests();
@@ -2945,11 +2958,27 @@ function formatAmountInput(el){
 }
 
 /* ══ INVOICE ═════════════════════════════ */
+async function loadStandaloneInvoices(){
+  try{ standaloneInvoices=await api('GET','/invoices/standalone'); }
+  catch(e){ standaloneInvoices=[]; }
+}
+
+function toggleInvoiceNoWO(){
+  const checked=document.getElementById('inv-no-wo-toggle').checked;
+  const ticketGroup=document.getElementById('inv-ticket-select-group');
+  if(ticketGroup) ticketGroup.style.display=checked?'none':'block';
+  if(checked) document.getElementById('inv-ticket-select').value='';
+}
+
 function renderInvoiceTab(){
   const isManager=currentUser.role==='manager';
   // sembunyikan form upload untuk manager (read-only)
   const uploadCard=document.querySelector('#tab-invoice .card');
   if(uploadCard) uploadCard.style.display=isManager?'none':'block';
+
+  // Tampilkan toggle "Tidak ada WO" hanya untuk akun yang diizinkan admin
+  const noWoGroup=document.getElementById('inv-no-wo-toggle-group');
+  if(noWoGroup) noWoGroup.style.display=currentUser.allow_invoice_no_wo===true?'block':'none';
 
   const sel=document.getElementById('inv-ticket-select');
   if(sel){
@@ -2967,7 +2996,38 @@ function renderInvoiceList(){
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const isManager=currentUser.role==='manager';
   const all=allTickets.flatMap(t=>(t.invoices||[]).map(inv=>({...inv,wo:t.wo_number,customer:t.customer_name,ticketId:t.id,ticketStatus:t.status,hasInvoice:true})));
-  if(!all.length){el.innerHTML=`<div class="empty">📭 Belum ada invoice</div>`;return;}
+
+  // Render section invoice tanpa WO (standalone) di atas, jika ada
+  let standaloneHtml='';
+  if(standaloneInvoices.length){
+    const items=standaloneInvoices.map(inv=>{
+      const isPDF=inv.mime_type==='application/pdf'||inv.original_name?.endsWith('.pdf');
+      const dt=new Date(inv.uploaded_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const amountHtml=inv.total_amount?`<div class="invoice-summary-item"><div class="invoice-summary-label">Total Invoice</div><div class="invoice-summary-value amount">${formatRupiah(inv.total_amount)}</div></div>`:'';
+      const salesHtml=inv.sales_pic?`<div class="invoice-summary-item"><div class="invoice-summary-label">Sales PIC</div><div class="invoice-summary-value">👤 ${inv.sales_pic}</div></div>`:'';
+      return`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:24px;flex-shrink:0">${inv.file_url?(isPDF?'📑':'🖼️'):'🧾'}</div>
+        <div style="flex:1;min-width:0">
+          ${inv.file_url
+            ? `<a href="${inv.file_url}" target="_blank" style="font-size:12px;color:var(--blue)">${inv.original_name}</a>`
+            : `<span style="font-size:12px;color:var(--muted)">Tanpa file lampiran</span>`
+          }
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${inv.note||''} · ${dt} · ${inv.uploaded_by}</div>
+          ${(amountHtml||salesHtml)?`<div class="invoice-summary" style="margin-top:6px">${amountHtml}${salesHtml}</div>`:''}
+        </div>
+        <button class="btn danger" style="padding:3px 8px;font-size:11px" onclick="deleteStandaloneInvoice('${inv.id}')">✕</button>
+      </div>`;
+    }).join('');
+    standaloneHtml=`<div class="ticket-item" style="margin-bottom:12px;border-left:3px solid var(--accent)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div><span style="font-size:12px;font-weight:600;color:var(--accent)">🧾 Invoice Tanpa WO</span></div>
+      </div>
+      ${items}
+    </div>`;
+  }
+
+  if(!all.length && !standaloneInvoices.length){el.innerHTML=`<div class="empty">📭 Belum ada invoice</div>`;return;}
+  if(!all.length){el.innerHTML=standaloneHtml;return;}
 
   // Group by ticket untuk tampilkan tombol Arsipkan per tiket
   const ticketGroups={};
@@ -2976,7 +3036,7 @@ function renderInvoiceList(){
     ticketGroups[inv.ticketId].invoices.push(inv);
   });
 
-  el.innerHTML=Object.entries(ticketGroups).map(([tid,tg])=>{
+  const ticketGroupsHtml=Object.entries(ticketGroups).map(([tid,tg])=>{
     const invHtml=tg.invoices.map(inv=>{
       const isPDF=inv.mime_type==='application/pdf'||inv.original_name?.endsWith('.pdf');
       const dt=new Date(inv.uploaded_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -3009,6 +3069,8 @@ function renderInvoiceList(){
       ${invHtml}
     </div>`;
   }).join('');
+
+  el.innerHTML = standaloneHtml + ticketGroupsHtml;
 }
 function handleFileSelect(input){if(input.files[0]) setPreview(input.files[0]);}
 function handleDragOver(e){e.preventDefault();document.getElementById('upload-drop').classList.add('dragover');}
@@ -3029,9 +3091,10 @@ function clearFileSelect(){
   document.getElementById('upload-preview').style.display='none';
 }
 async function uploadInvoice(){
+  const noWoMode=document.getElementById('inv-no-wo-toggle')?.checked && currentUser.allow_invoice_no_wo===true;
   const ticketId=document.getElementById('inv-ticket-select').value;
   const file=selectedFile||document.getElementById('inv-file').files[0];
-  if(!ticketId){alert('Pilih tiket terlebih dahulu.');return;}
+  if(!noWoMode && !ticketId){alert('Pilih tiket terlebih dahulu.');return;}
   const btn=document.getElementById('btn-upload');
   btn.disabled=true; btn.textContent='Mengupload...';
   try{
@@ -3043,17 +3106,24 @@ async function uploadInvoice(){
     const salesPic=document.getElementById('inv-sales-pic').value;
     if(salesPic) fd.append('sales_pic',salesPic);
     const token=localStorage.getItem('pixel_token')||'';
-    const r=await fetch('/api/tickets/'+ticketId+'/invoice',{method:'POST',body:fd,headers:token?{'Authorization':'Bearer '+token}:{}});
+    const endpoint=noWoMode ? '/api/invoices/standalone' : '/api/tickets/'+ticketId+'/invoice';
+    const r=await fetch(endpoint,{method:'POST',body:fd,headers:token?{'Authorization':'Bearer '+token}:{}});
     if(r.status===401){doLogout();return;}
     if(!r.ok) throw new Error((await r.json()).error||'Error');
     const inv=await r.json();
-    const t=allTickets.find(t=>t.id===ticketId);
-    if(t){if(!t.invoices)t.invoices=[];t.invoices.push(inv);}
+    if(!noWoMode){
+      const t=allTickets.find(t=>t.id===ticketId);
+      if(t){if(!t.invoices)t.invoices=[];t.invoices.push(inv);}
+    } else {
+      standaloneInvoices.push(inv);
+    }
     clearFileSelect();
     document.getElementById('inv-note').value='';
     document.getElementById('inv-amount').value='';
     document.getElementById('inv-amount-preview').textContent='';
     document.getElementById('inv-sales-pic').value='';
+    if(document.getElementById('inv-no-wo-toggle')) document.getElementById('inv-no-wo-toggle').checked=false;
+    toggleInvoiceNoWO();
     renderInvoiceList(); renderTickets();
     alert('✅ Invoice berhasil diupload!');
   }catch(e){alert('Gagal: '+e.message);}
@@ -3069,6 +3139,15 @@ async function deleteInvoice(ticketId,invId){
     const t=allTickets.find(t=>t.id===ticketId);
     if(t) t.invoices=t.invoices.filter(i=>i.id!==invId);
     renderInvoiceList(); renderTickets();
+  }catch(e){alert('Gagal hapus: '+e.message);}
+}
+
+async function deleteStandaloneInvoice(invId){
+  if(!confirm('Hapus invoice ini?')) return;
+  try{
+    await api('DELETE','/invoices/standalone/'+invId);
+    standaloneInvoices=standaloneInvoices.filter(i=>i.id!==invId);
+    renderInvoiceList();
   }catch(e){alert('Gagal hapus: '+e.message);}
 }
 
@@ -3231,6 +3310,7 @@ function openEditModal(userId){
   const extraRoles=Array.isArray(u.extra_roles)?u.extra_roles:[];
   document.getElementById('edit-extra-sales').checked=extraRoles.includes('sales');
   document.getElementById('edit-extra-technician').checked=extraRoles.includes('technician');
+  document.getElementById('edit-allow-invoice-no-wo').checked=u.allow_invoice_no_wo===true;
   // opsi superadmin hanya tampil jika yang login adalah superadmin
   const superOpt=document.getElementById('edit-role-superadmin');
   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
@@ -3314,6 +3394,7 @@ async function saveEditUser(){
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
       extra_roles: extraRoles,
+      allow_invoice_no_wo: document.getElementById('edit-allow-invoice-no-wo').checked,
       is_active: document.getElementById('edit-is-active').value==='true',
     };
     if(password) patch.password=password;
@@ -4993,6 +5074,7 @@ async function unarsipkanTiket(ticketId){
 /* ══ SALES DASHBOARD ═════════════════════ */
 let salesTargets=[], salesPeriod='this_month';
 let allInvoicesFlat=[]; // built from allTickets
+let standaloneInvoices=[]; // invoice tanpa WO terkait
 
 function getSalesPeriodRange(period){
   const now=new Date();

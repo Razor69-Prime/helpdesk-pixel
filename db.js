@@ -206,6 +206,24 @@ async function deleteInvoice(id, ticketId) {
   return sbFetch('DELETE', `/invoices?id=eq.${id}`);
 }
 
+// ─────────────────────────────────────────
+//  INVOICE TANPA WO (STANDALONE)
+// ─────────────────────────────────────────
+async function getStandaloneInvoices() {
+  if (!USE_SUPABASE) return [];
+  return await sbFetch('GET', '/standalone_invoices?order=uploaded_at.desc') || [];
+}
+async function insertStandaloneInvoice(data) {
+  const entry = { id: crypto.randomUUID(), ...data, uploaded_at: new Date().toISOString() };
+  if (!USE_SUPABASE) return entry;
+  const rows = await sbFetch('POST', '/standalone_invoices', entry);
+  return rows?.[0] || entry;
+}
+async function deleteStandaloneInvoice(id) {
+  if (!USE_SUPABASE) return;
+  await sbFetch('DELETE', `/standalone_invoices?id=eq.${id}`);
+}
+
 console.log(`💾 Storage: ${USE_SUPABASE ? 'Supabase (online)' : 'Local JSON (lokal)'}`);
 
 // ── Job Stages ────────────────────────────
@@ -568,6 +586,7 @@ module.exports = {
   insertTicket, updateTicket, deleteTicket,
   getStatusHistory, insertStatusHistory,
   getInvoicesByTicket, insertInvoice, deleteInvoice,
+  getStandaloneInvoices, insertStandaloneInvoice, deleteStandaloneInvoice,
   getJobStages, insertJobStage,
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
   computePipelineDates,
