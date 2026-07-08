@@ -224,6 +224,46 @@ async function deleteStandaloneInvoice(id) {
   await sbFetch('DELETE', `/standalone_invoices?id=eq.${id}`);
 }
 
+// ─────────────────────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────────────────────
+async function insertNotification(data) {
+  const entry = { id: crypto.randomUUID(), ...data, is_read: false, read_by: [], created_at: new Date().toISOString() };
+  if (!USE_SUPABASE) return entry;
+  const rows = await sbFetch('POST', '/notifications', entry);
+  return rows?.[0] || entry;
+}
+
+async function getNotificationsForUser(user) {
+  if (!USE_SUPABASE) return [];
+  // Ambil notif yang: target_user_id = user.id, ATAU target_role = user.role, ATAU target_role null (broadcast)
+  const rows = await sbFetch('GET',
+    `/notifications?or=(target_user_id.eq.${user.id},target_role.eq.${user.role})&order=created_at.desc&limit=50`
+  ) || [];
+  return rows;
+}
+
+async function markNotificationRead(id, userId) {
+  if (!USE_SUPABASE) return;
+  // Ambil dulu read_by yang ada, tambahkan userId, simpan lagi
+  const rows = await sbFetch('GET', `/notifications?id=eq.${id}&select=read_by`);
+  const current = rows?.[0]?.read_by || [];
+  if (!current.includes(userId)) current.push(userId);
+  await sbFetch('PATCH', `/notifications?id=eq.${id}`, { read_by: current, is_read: true });
+}
+
+async function markAllNotificationsRead(user) {
+  if (!USE_SUPABASE) return;
+  const notifs = await getNotificationsForUser(user);
+  for (const n of notifs) {
+    const current = n.read_by || [];
+    if (!current.includes(user.id)) {
+      current.push(user.id);
+      await sbFetch('PATCH', `/notifications?id=eq.${n.id}`, { read_by: current, is_read: true });
+    }
+  }
+}
+
 console.log(`💾 Storage: ${USE_SUPABASE ? 'Supabase (online)' : 'Local JSON (lokal)'}`);
 
 // ── Job Stages ────────────────────────────
@@ -587,6 +627,7 @@ module.exports = {
   getStatusHistory, insertStatusHistory,
   getInvoicesByTicket, insertInvoice, deleteInvoice,
   getStandaloneInvoices, insertStandaloneInvoice, deleteStandaloneInvoice,
+  insertNotification, getNotificationsForUser, markNotificationRead, markAllNotificationsRead,
   getJobStages, insertJobStage,
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
   computePipelineDates,

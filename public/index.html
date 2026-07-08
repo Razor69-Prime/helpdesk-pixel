@@ -46,6 +46,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .user-pill.accounting{background:var(--green-bg);color:var(--green);border:1px solid #C0DD97}
 .user-pill.manager{background:var(--blue-bg);color:var(--blue);border:1px solid #B5D4F4}
 .user-pill.superadmin{background:linear-gradient(135deg,#4A1D96,#E07B39);color:#fff;border:none;font-weight:700}
+
+/* ══ NOTIFIKASI ══ */
+.notif-bell:hover{background:var(--border)}
+.notif-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;position:relative}
+.notif-item:hover{background:var(--surface2)}
+.notif-item.unread{background:var(--accent-light)}
+.notif-item.unread::before{content:'';position:absolute;left:5px;top:16px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.notif-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.notif-icon.tiket{background:var(--blue-bg)}
+.notif-icon.kunjungan{background:#E3EEFB}
+.notif-icon.pr{background:var(--accent-light)}
+.notif-icon.mr{background:var(--green-bg)}
+.notif-icon.project{background:#FBE9D0}
+.notif-icon.invoice{background:#E3F2EA}
+.notif-content{flex:1;min-width:0}
+.notif-text{font-size:12px;line-height:1.4;color:var(--text)}
+.notif-time{font-size:10.5px;color:var(--muted);margin-top:2px}
+.notif-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:12px}
 .logout-btn{font-size:12px;color:var(--muted);cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif}
 .logout-btn:hover{color:var(--red)}
 .conn-dot{width:7px;height:7px;border-radius:50%;background:#ccc;transition:background .3s}
@@ -505,6 +523,19 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div class="logo"><div class="logo-dot"></div>Helpdesk Pixel</div>
     <div class="topbar-right">
       <button class="btn sm" id="btn-install-pwa-app" onclick="installPWA()" style="display:none">📲 Install</button>
+      <div class="notif-wrap" style="position:relative">
+        <div class="notif-bell" onclick="toggleNotifPanel()" style="width:34px;height:34px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;position:relative">
+          🔔
+          <div class="notif-badge" id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:17px;height:17px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--surface)">0</div>
+        </div>
+        <div class="notif-panel" id="notif-panel" style="display:none;position:absolute;top:44px;right:0;width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.15);z-index:200;overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:13px;font-weight:700">Notifikasi</div>
+            <div style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:600" onclick="markAllNotifsRead()">Tandai semua dibaca</div>
+          </div>
+          <div id="notif-list" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+      </div>
       <div class="conn-dot" id="conn-dot"></div>
       <span class="user-pill" id="user-pill">—</span>
       <button class="logout-btn" onclick="doLogout()">Keluar</button>
@@ -2455,7 +2486,7 @@ function showApp(){
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   const ft=document.getElementById('f-time'); if(ft) ft.value=now.toISOString().slice(0,16);
-  loadTickets(); startPolling();
+  loadTickets(); startPolling(); startNotifPolling();
   // Preload arsip agar data arsip masuk ke laporan sejak awal
   const canArchive=['admin','manager','accounting'].includes(currentUser.role);
   if(canArchive) api('GET','/archive').then(d=>{archivedTickets=d||[];}).catch(()=>{});
@@ -2598,6 +2629,89 @@ async function loadSalesPics(){
   }catch(e){console.error('Failed to load sales PICs',e);}
 }
 function startPolling(){ clearInterval(pollTimer); pollTimer=setInterval(loadTickets,10000); }
+
+// ══ NOTIFIKASI ══
+let notifList=[];
+let notifPollTimer=null;
+const NOTIF_ICONS={tiket:'🎫',kunjungan:'🗺️',pr:'📝',mr:'📦',project:'📁',invoice:'🧾'};
+
+function startNotifPolling(){
+  loadNotifications();
+  clearInterval(notifPollTimer);
+  notifPollTimer=setInterval(loadNotifications,15000);
+}
+
+async function loadNotifications(){
+  try{
+    const data=await api('GET','/notifications');
+    notifList=data;
+    renderNotifPanel();
+  }catch(e){ /* silent fail, tidak perlu ganggu user */ }
+}
+
+function renderNotifPanel(){
+  const badge=document.getElementById('notif-badge');
+  const list=document.getElementById('notif-list');
+  if(!badge||!list) return;
+
+  const unreadCount=notifList.filter(n=>!n.is_read).length;
+  badge.textContent=unreadCount>99?'99+':unreadCount;
+  badge.style.display=unreadCount>0?'flex':'none';
+
+  if(!notifList.length){
+    list.innerHTML='<div class="notif-empty">🔕 Belum ada notifikasi</div>';
+    return;
+  }
+
+  list.innerHTML=notifList.map(n=>{
+    const time=timeAgo(n.created_at);
+    return`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-icon ${n.type}">${NOTIF_ICONS[n.type]||'🔔'}</div>
+      <div class="notif-content">
+        <div class="notif-text">${n.text}</div>
+        <div class="notif-time">${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function timeAgo(iso){
+  const diff=(new Date()-new Date(iso))/1000;
+  if(diff<60) return 'Baru saja';
+  if(diff<3600) return Math.floor(diff/60)+' menit lalu';
+  if(diff<86400) return Math.floor(diff/3600)+' jam lalu';
+  return Math.floor(diff/86400)+' hari lalu';
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notif-panel');
+  const isShown=panel.style.display==='block';
+  panel.style.display=isShown?'none':'block';
+  if(!isShown) loadNotifications(); // refresh saat dibuka
+}
+document.addEventListener('click', function(e){
+  const wrap=document.querySelector('.notif-wrap');
+  const panel=document.getElementById('notif-panel');
+  if(wrap && panel && !wrap.contains(e.target)){
+    panel.style.display='none';
+  }
+});
+
+async function markNotifRead(id){
+  try{
+    await api('POST','/notifications/'+id+'/read');
+    const n=notifList.find(x=>x.id===id);
+    if(n) n.is_read=true;
+    renderNotifPanel();
+  }catch(e){}
+}
+async function markAllNotifsRead(){
+  try{
+    await api('POST','/notifications/read-all');
+    notifList.forEach(n=>n.is_read=true);
+    renderNotifPanel();
+  }catch(e){}
+}
 
 /* ══ FORM ════════════════════════════════ */
 function setRating(val){

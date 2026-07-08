@@ -438,6 +438,20 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       lat: req.body.lat || null, lng: req.body.lng || null
     });
     logActivity(req, 'ticket', 'BUAT TIKET', `WO: ${ticket.wo_number} → Teknisi: ${technicians.join(', ')}`);
+    createNotification({
+      type: 'tiket',
+      text: `<b>Tiket baru</b> ${ticket.wo_number} dibuat oleh ${req.session.user.name}`,
+      target_role: 'superadmin',
+      ref_id: ticket.id,
+      created_by: req.session.user.name,
+    });
+    createNotification({
+      type: 'tiket',
+      text: `<b>Tiket baru</b> ${ticket.wo_number} dibuat oleh ${req.session.user.name}`,
+      target_role: 'manager',
+      ref_id: ticket.id,
+      created_by: req.session.user.name,
+    });
     res.status(201).json({
       ...ticket,
       invoices:       [],
@@ -605,6 +619,13 @@ app.post('/api/tickets/:id/invoice',
         sales_pic:     req.body.sales_pic    || null,
       });
       logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${original_name||'(tanpa file)'}`);
+      createNotification({
+        type: 'invoice',
+        text: `<b>Invoice baru</b> diupload oleh ${req.session.user.name}${inv.total_amount?` — Rp ${Number(inv.total_amount).toLocaleString('id-ID')}`:''}`,
+        target_role: 'superadmin',
+        ref_id: inv.id,
+        created_by: req.session.user.name,
+      });
       res.status(201).json(inv);
     } catch(e) {
       console.error('Invoice upload error:', e.message);
@@ -681,6 +702,13 @@ app.post('/api/invoices/standalone', requireAuth, upload.single('file'), async (
       sales_pic:     req.body.sales_pic    || null,
     });
     logActivity(req, 'invoice', 'UPLOAD INVOICE TANPA WO', `File: ${original_name||'(tanpa file)'} · Nominal: ${req.body.total_amount||'-'}`);
+    createNotification({
+      type: 'invoice',
+      text: `<b>Invoice baru</b> (tanpa WO) diupload oleh ${req.session.user.name}${inv.total_amount?` — Rp ${Number(inv.total_amount).toLocaleString('id-ID')}`:''}`,
+      target_role: 'superadmin',
+      ref_id: inv.id,
+      created_by: req.session.user.name,
+    });
     res.status(201).json(inv);
   } catch(e) {
     console.error('Standalone invoice upload error:', e.message);
@@ -740,6 +768,20 @@ app.post('/api/purchase-requests', requireRole(...PR_ROLES), async (req,res)=>{
     if(!pr_number||!outlet||!items?.length) return res.status(400).json({error:'Field wajib kurang.'});
     const entry=await db.insertPurchaseRequest({pr_number,pr_date,outlet,requester,requester_title,department,reason,items,status:'pending'});
     logActivity(req,'pr','BUAT PR',`${pr_number} - ${outlet}`);
+    createNotification({
+      type: 'pr',
+      text: `<b>Purchase Request baru</b> ${pr_number} diajukan oleh ${requester||req.session.user.name}`,
+      target_role: 'superadmin',
+      ref_id: entry.id,
+      created_by: req.session.user.name,
+    });
+    createNotification({
+      type: 'pr',
+      text: `<b>Purchase Request baru</b> ${pr_number} menunggu approval Anda`,
+      target_role: 'manager',
+      ref_id: entry.id,
+      created_by: req.session.user.name,
+    });
     res.status(201).json(entry);
   }catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -847,6 +889,20 @@ app.post('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
       created_by:     req.session.user.name,
     });
     logActivity(req,'project','BUAT PROJECT',nama_project);
+    createNotification({
+      type: 'project',
+      text: `<b>Project baru</b> "${nama_project}" ditambahkan oleh ${req.session.user.name}`,
+      target_role: 'superadmin',
+      ref_id: entry.id,
+      created_by: req.session.user.name,
+    });
+    createNotification({
+      type: 'project',
+      text: `<b>Project baru</b> "${nama_project}" ditambahkan`,
+      target_role: 'manager',
+      ref_id: entry.id,
+      created_by: req.session.user.name,
+    });
     res.status(201).json(entry);
   }catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -920,6 +976,13 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
       notes
     });
     logActivity(req, 'ticket', 'REQUEST MATERIAL/JASA', `WO: ${ticket?.wo_number||ticket_id} · ${matArr.length} material, ${jasaArr.length} jasa`);
+    createNotification({
+      type: 'mr',
+      text: `<b>Material Request baru</b> untuk ${ticket?.wo_number||ticket_id} oleh ${req.session.user.name}`,
+      target_role: 'superadmin',
+      ref_id: entry.id,
+      created_by: req.session.user.name,
+    });
     res.status(201).json(entry);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1083,6 +1146,13 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
       status:          cust_status    || 'prospect',
     });
     logActivity(req, 'ticket', 'KUNJUNGAN SALES', `Customer: ${customer_name} · Status: ${visit_status||'Visited'}`);
+    createNotification({
+      type: 'kunjungan',
+      text: `<b>Kunjungan baru</b> dicatat oleh ${salesPic} — ${customer_name}`,
+      target_role: 'superadmin',
+      ref_id: visit.id,
+      created_by: salesPic,
+    });
     res.status(201).json(visit);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1299,6 +1369,44 @@ async function cleanExpiredAttachments() {
     }
   } catch(e) {
     console.error('❌ Auto-delete error:', e.message);
+  }
+}
+
+// ══════════════════════════════════════════
+//  NOTIFICATIONS
+// ══════════════════════════════════════════
+app.get('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const notifs = await db.getNotificationsForUser(req.session.user);
+    // Tandai is_read per user berdasarkan read_by array
+    const withReadState = notifs.map(n => ({
+      ...n,
+      is_read: Array.isArray(n.read_by) && n.read_by.includes(req.session.user.id)
+    }));
+    res.json(withReadState);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
+  try {
+    await db.markNotificationRead(req.params.id, req.session.user.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
+  try {
+    await db.markAllNotificationsRead(req.session.user);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Helper dipakai di seluruh route lain untuk membuat notifikasi baru
+async function createNotification({ type, text, target_role, target_user_id, ref_id, created_by }) {
+  try {
+    await db.insertNotification({ type, text, target_role: target_role || null, target_user_id: target_user_id || null, ref_id: ref_id || null, created_by: created_by || null });
+  } catch(e) {
+    console.error('Gagal membuat notifikasi:', e.message);
   }
 }
 
