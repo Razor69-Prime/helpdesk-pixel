@@ -7634,7 +7634,7 @@ function exportPRPDF(id){
   function drawTableHeader(yh){
     doc.setFillColor(230,230,230);
     doc.rect(ML,yh,CW,TH,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,0,0);
     heads.forEach((h,i)=>{
       const isRight=i>=4&&i<=5;
       const align=isRight?'right':'left';
@@ -7652,10 +7652,12 @@ function exportPRPDF(id){
     const total=Number(item.qty||0)*Number(item.price||0);
     grand+=total;
 
-    // Hitung baris Ket — max 2 baris
-    doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+    // Hitung baris Deskripsi & Ket — max 2 baris masing-masing
+    doc.setFont('helvetica','normal');doc.setFontSize(7);
+    const descLines=doc.splitTextToSize(item.desc||'', colW[1]-2).slice(0,2);
     const ketLines=doc.splitTextToSize(item.ket||'-', colW[8]-2).slice(0,2);
-    const ROW_H=ketLines.length>1 ? 11 : 7;
+    const maxLines=Math.max(descLines.length, ketLines.length, 1);
+    const ROW_H=maxLines>1 ? 11 : 7;
 
     // New page check — leave 80mm for TTD section
     if(y+ROW_H>PH-85){
@@ -7667,13 +7669,17 @@ function exportPRPDF(id){
     const bg=idx%2===0?[255,255,255]:[245,245,245];
     doc.setFillColor(...bg);
     doc.rect(ML,y,CW,ROW_H,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(26,25,22);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(26,25,22);
 
-    // Posisi vertikal teks — tengah secara vertikal
+    // Posisi vertikal teks — tengah secara vertikal (untuk kolom baris tunggal)
     const midY=y+ROW_H/2+2;
+    // Posisi rata atas (untuk kolom yang wrap 2 baris)
+    const topY=maxLines>1 ? y+3.5 : midY;
 
     doc.text(String(idx+1),colX[0]+colW[0]/2,midY,{align:'center'});
-    doc.text(doc.splitTextToSize(item.desc||'',colW[1]-2)[0],colX[1]+1,midY);
+    descLines.forEach((line,li)=>{
+      doc.text(line, colX[1]+1, topY+(li*LINE_H));
+    });
     doc.text(String(item.qty||0),colX[2]+colW[2]/2,midY,{align:'center'});
     doc.text(item.unit||'Pcs',colX[3]+1,midY);
     doc.text(item.price>0?fmtFull(item.price):'-',colX[4]+colW[4]-1,midY,{align:'right'});
@@ -7682,9 +7688,8 @@ function exportPRPDF(id){
     doc.text(doc.splitTextToSize(item.supplier_name||'-',colW[7]-2)[0],colX[7]+1,midY);
 
     // Ket: 2 baris jika panjang, rata atas
-    const ketStartY=ketLines.length>1 ? y+3.5 : midY;
     ketLines.forEach((line,li)=>{
-      doc.text(line, colX[8]+1, ketStartY+(li*LINE_H));
+      doc.text(line, colX[8]+1, topY+(li*LINE_H));
     });
 
     doc.setDrawColor(0,0,0);doc.rect(ML,y,CW,ROW_H,'S');
