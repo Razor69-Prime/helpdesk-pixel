@@ -2179,6 +2179,52 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
 </div>
 
+<!-- MODAL TTD PENYELESAIAN TIKET -->
+<div class="modal-overlay" id="ttd-selesai-modal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="closeTTDSelesaiModal()">✕</button>
+    <div class="modal-title">✍️ Tanda Tangan Penyelesaian</div>
+    <div class="modal-sub" id="ttd-selesai-sub">WO: —</div>
+
+    <input type="hidden" id="ttd-ticket-id"/>
+
+    <!-- TTD Teknisi (wajib) -->
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">
+        👷 Tanda Tangan Teknisi <span style="color:var(--red)">*wajib</span>
+      </label>
+      <div class="sig-canvas-wrap" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;position:relative">
+        <canvas id="ttd-tech-canvas" style="width:100%;height:120px;display:block;touch-action:none;cursor:crosshair"></canvas>
+        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;color:var(--muted);pointer-events:none" id="ttd-tech-hint">Tanda tangan di sini</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:4px">
+        <button class="btn ghost sm" onclick="clearTTDCanvas('tech')">🗑️ Hapus</button>
+      </div>
+    </div>
+
+    <!-- TTD Customer (opsional) -->
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">
+        🧑 Tanda Tangan Customer <span style="color:var(--muted);font-weight:400">(opsional — jika customer ada di lokasi)</span>
+      </label>
+      <div class="sig-canvas-wrap" style="border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;position:relative">
+        <canvas id="ttd-cust-canvas" style="width:100%;height:120px;display:block;touch-action:none;cursor:crosshair"></canvas>
+        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;color:var(--muted);pointer-events:none" id="ttd-cust-hint">Serahkan HP ke customer untuk TTD di sini</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:4px">
+        <button class="btn ghost sm" onclick="clearTTDCanvas('cust')">🗑️ Hapus</button>
+      </div>
+    </div>
+
+    <div id="ttd-selesai-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn ghost" onclick="closeTTDSelesaiModal()">Batal</button>
+      <button class="btn primary" id="ttd-selesai-submit-btn" onclick="submitTTDAndFinish()">✅ Selesaikan & Simpan TTD</button>
+    </div>
+  </div>
+</div>
+
 <!-- SUPPLIER MODAL -->
 <div class="modal-overlay" id="supplier-modal" onclick="if(event.target===this)closeSupplierModal()">
   <div class="modal" style="max-width:480px">
@@ -2776,7 +2822,7 @@ async function updateStatus(id,status){
   }catch(e){alert('Gagal update: '+e.message);}
 }
 
-async function recordStage(ticketId, stage){
+async function recordStage(ticketId, stage, signatures){
   try{
     const token=localStorage.getItem('pixel_token')||'';
     const r=await fetch('/api/tickets/'+ticketId+'/stage',{
@@ -2785,7 +2831,7 @@ async function recordStage(ticketId, stage){
         'Content-Type':'application/json',
         ...(token?{'Authorization':'Bearer '+token}:{})
       },
-      body:JSON.stringify({stage,...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng})})
+      body:JSON.stringify({stage,...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng}),...(signatures||{})})
     });
     if(r.status===401){doLogout();return;}
     const data=await r.json();
@@ -2797,7 +2843,11 @@ async function recordStage(ticketId, stage){
       if(stage!=='selesai') t.job_stages.push(data);
       if(stage==='berangkat') t.status='travelling';
       else if(stage==='tiba') t.status='ongoing';
-      else if(stage==='selesai') t.status='done';
+      else if(stage==='selesai'){
+        t.status='done';
+        if(signatures?.tech_signature) t.tech_signature=signatures.tech_signature;
+        if(signatures?.customer_signature) t.customer_signature=signatures.customer_signature;
+      }
     }
     renderTickets(); renderKPI();
   }catch(e){alert('Gagal: '+e.message);}
@@ -4693,6 +4743,16 @@ function exportTicketPDF(ticketId, source){
 
   let y=18;
 
+  // Helper: cek apakah konten akan melebihi batas halaman, tambah halaman baru jika perlu
+  function checkPageBreak(neededHeight){
+    if(y+neededHeight>PH-16){
+      doc.addPage();
+      y=18;
+      return true;
+    }
+    return false;
+  }
+
   // ── Header strip ──
   doc.setFillColor(224,123,57);
   doc.rect(0,0,PW,14,'F');
@@ -4786,6 +4846,7 @@ function exportTicketPDF(ticketId, source){
   }
 
   // ── Deskripsi ──
+  checkPageBreak(30);
   doc.setFont('helvetica','bold');
   doc.setFontSize(9);
   doc.setTextColor(26,25,22);
@@ -4804,6 +4865,7 @@ function exportTicketPDF(ticketId, source){
   doc.setFillColor(250,249,247);
   doc.setDrawColor(226,222,214);
   const descH=Math.max(descLines.length*5+8,20);
+  checkPageBreak(descH+10);
   doc.roundedRect(ML,y,CW,descH,2,2,'FD');
   doc.text(descLines,ML+4,y+6);
   y+=descH+8;
@@ -4811,6 +4873,7 @@ function exportTicketPDF(ticketId, source){
   // ── Job Stages ──
   const stages = t.job_stages || [];
   if (stages.length) {
+    checkPageBreak(20);
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
     doc.setTextColor(26,25,22);
@@ -4824,6 +4887,7 @@ function exportTicketPDF(ticketId, source){
     const stageLabel={berangkat:'🚗 Berangkat',tiba:'📍 Tiba di Lokasi'};
     const stageColor={berangkat:[24,95,165],tiba:[59,109,17]};
     stages.forEach((s,i)=>{
+      checkPageBreak(20);
       const col=stageColor[s.stage]||[122,118,112];
       const timeStr=new Date(s.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
       // dot
@@ -4859,6 +4923,7 @@ function exportTicketPDF(ticketId, source){
   // ── Status History ──
   const hist=t.status_history||[];
   if(hist.length){
+    checkPageBreak(20);
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
     doc.setTextColor(26,25,22);
@@ -4914,7 +4979,8 @@ function exportTicketPDF(ticketId, source){
   }
 
   // ── TTD section ──
-  const ttdY=Math.max(y+10, PH-70);
+  checkPageBreak(46); // TTD box tinggi 36mm + margin
+  const ttdY=y+10;
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
   doc.setTextColor(122,118,112);
@@ -4927,6 +4993,9 @@ function exportTicketPDF(ticketId, source){
   doc.text('Teknisi Pelaksana',ML+4,ttdY+5);
   const techNames=Array.isArray(t.technicians)&&t.technicians.length
     ? t.technicians.join(' & ') : (t.technician||'-');
+  if(t.tech_signature&&t.tech_signature.startsWith('data:')){
+    try{ doc.addImage(t.tech_signature,'PNG',ML+4,ttdY+7,halfW-8,20); }catch(e){}
+  }
   doc.setFontSize(7.5);
   doc.setTextColor(26,25,22);
   doc.text(doc.splitTextToSize(techNames,halfW-8)[0],ML+4,ttdY+32);
@@ -4936,19 +5005,26 @@ function exportTicketPDF(ticketId, source){
   doc.setTextColor(122,118,112);
   doc.rect(ML+halfW+8,ttdY,halfW,36,'S');
   doc.text('Customer / Penerima',ML+halfW+12,ttdY+5);
+  if(t.customer_signature&&t.customer_signature.startsWith('data:')){
+    try{ doc.addImage(t.customer_signature,'PNG',ML+halfW+12,ttdY+7,halfW-8,20); }catch(e){}
+  }
   if(t.customer_name){
     doc.setFontSize(7.5);
     doc.setTextColor(26,25,22);
     doc.text(t.customer_name,ML+halfW+12,ttdY+32);
   }
 
-  // ── Footer ──
-  doc.setFillColor(224,123,57);
-  doc.rect(0,PH-10,PW,10,'F');
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7);
-  doc.setTextColor(255,255,255);
-  doc.text(`WO: ${t.wo_number||'-'}  |  Pixel Solusindo  |  0877-3477-2999`,PW/2,PH-4,{align:'center'});
+  // ── Footer di semua halaman ──
+  const totalPagesTicket=doc.getNumberOfPages();
+  for(let pg=1;pg<=totalPagesTicket;pg++){
+    doc.setPage(pg);
+    doc.setFillColor(224,123,57);
+    doc.rect(0,PH-10,PW,10,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(255,255,255);
+    doc.text(`WO: ${t.wo_number||'-'}  |  Pixel Solusindo  |  0877-3477-2999  |  Hal ${pg}/${totalPagesTicket}`,PW/2,PH-4,{align:'center'});
+  }
 
   const fname=`laporan_${(t.wo_number||'tiket').replace(/[^a-zA-Z0-9]/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(fname);
@@ -8585,14 +8661,151 @@ async function submitMaterialAndFinish(){
         notes: document.getElementById('material-notes').value.trim()||null
       });
     }
-    // Lanjutkan proses selesai tiket (reuse recordStage)
-    await recordStage(ticketId, 'selesai');
+    // Material/jasa sudah tersimpan → lanjut ke modal TTD sebelum tiket benar-benar selesai
     closeMaterialModal();
+    openTTDSelesaiModal(ticketId);
   }catch(e){
     errEl.textContent='Gagal: '+e.message;
     errEl.style.display='block';
   }finally{
     btn.disabled=false; btn.textContent='✅ Selesaikan Pekerjaan';
+  }
+}
+
+/* ══ TTD PENYELESAIAN TIKET ══════════════ */
+let _ttdTechCanvas=null, _ttdTechCtx=null, _ttdTechDrawing=false, _ttdTechHasData=false;
+let _ttdCustCanvas=null, _ttdCustCtx=null, _ttdCustDrawing=false, _ttdCustHasData=false;
+
+function openTTDSelesaiModal(ticketId){
+  const t=allTickets.find(t=>t.id===ticketId);
+  document.getElementById('ttd-ticket-id').value=ticketId;
+  document.getElementById('ttd-selesai-sub').textContent=`WO: ${t?.wo_number||'-'}${t?.customer_name?' · '+t.customer_name:''}`;
+  document.getElementById('ttd-selesai-error').style.display='none';
+  document.getElementById('ttd-selesai-modal').classList.add('show');
+  setTimeout(()=>{
+    initTTDCanvas('tech');
+    initTTDCanvas('cust');
+  }, 150);
+}
+
+function closeTTDSelesaiModal(){
+  document.getElementById('ttd-selesai-modal').classList.remove('show');
+}
+
+function initTTDCanvas(who){
+  const canvas=document.getElementById('ttd-'+who+'-canvas');
+  if(!canvas) return;
+  const rect=canvas.getBoundingClientRect();
+  const W=rect.width||420;
+  const H=120;
+  const dpr=window.devicePixelRatio||1;
+
+  if(canvas.width!==Math.floor(W*dpr)||canvas.height!==Math.floor(H*dpr)){
+    canvas.width=Math.floor(W*dpr);
+    canvas.height=Math.floor(H*dpr);
+    canvas.style.width=W+'px';
+    canvas.style.height=H+'px';
+  }
+
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.strokeStyle='#000';
+  ctx.lineWidth=2;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  if(who==='tech'){ _ttdTechCanvas=canvas; _ttdTechCtx=ctx; _ttdTechHasData=false; }
+  else { _ttdCustCanvas=canvas; _ttdCustCtx=ctx; _ttdCustHasData=false; }
+
+  const getPos=(e)=>{
+    const r=canvas.getBoundingClientRect();
+    return{x:(e.clientX-r.left), y:(e.clientY-r.top)};
+  };
+  const hint=document.getElementById('ttd-'+who+'-hint');
+
+  canvas.onmousedown=e=>{
+    if(who==='tech'){_ttdTechDrawing=true;} else {_ttdCustDrawing=true;}
+    const p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);
+    if(hint) hint.style.display='none';
+  };
+  canvas.onmousemove=e=>{
+    const drawing=who==='tech'?_ttdTechDrawing:_ttdCustDrawing;
+    if(!drawing)return;
+    const p=getPos(e);
+    ctx.lineTo(p.x,p.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    if(who==='tech'){_ttdTechHasData=true;} else {_ttdCustHasData=true;}
+  };
+  canvas.onmouseup=()=>{ if(who==='tech'){_ttdTechDrawing=false;} else {_ttdCustDrawing=false;} };
+  canvas.onmouseleave=()=>{ if(who==='tech'){_ttdTechDrawing=false;} else {_ttdCustDrawing=false;} };
+
+  canvas.ontouchstart=e=>{
+    e.preventDefault();
+    if(who==='tech'){_ttdTechDrawing=true;} else {_ttdCustDrawing=true;}
+    const p=getPos(e.touches[0]);ctx.beginPath();ctx.moveTo(p.x,p.y);
+    if(hint) hint.style.display='none';
+  };
+  canvas.ontouchmove=e=>{
+    e.preventDefault();
+    const drawing=who==='tech'?_ttdTechDrawing:_ttdCustDrawing;
+    if(!drawing)return;
+    const p=getPos(e.touches[0]);
+    ctx.lineTo(p.x,p.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    if(who==='tech'){_ttdTechHasData=true;} else {_ttdCustHasData=true;}
+  };
+  canvas.ontouchend=()=>{ if(who==='tech'){_ttdTechDrawing=false;} else {_ttdCustDrawing=false;} };
+}
+
+function clearTTDCanvas(who){
+  const ctx=who==='tech'?_ttdTechCtx:_ttdCustCtx;
+  const canvas=who==='tech'?_ttdTechCanvas:_ttdCustCanvas;
+  if(!ctx||!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+  if(who==='tech'){_ttdTechHasData=false;} else {_ttdCustHasData=false;}
+  const hint=document.getElementById('ttd-'+who+'-hint');
+  if(hint) hint.style.display='block';
+}
+
+function exportTTDCanvas(canvas){
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.width/dpr;
+  const H=canvas.height/dpr;
+  const exportCanvas=document.createElement('canvas');
+  exportCanvas.width=Math.max(W,200);
+  exportCanvas.height=Math.max(H,80);
+  const ectx=exportCanvas.getContext('2d');
+  ectx.fillStyle='#ffffff';
+  ectx.fillRect(0,0,exportCanvas.width,exportCanvas.height);
+  ectx.drawImage(canvas,0,0,canvas.width,canvas.height,0,0,exportCanvas.width,exportCanvas.height);
+  return exportCanvas.toDataURL('image/png');
+}
+
+async function submitTTDAndFinish(){
+  const ticketId=document.getElementById('ttd-ticket-id').value;
+  const errEl=document.getElementById('ttd-selesai-error');
+  errEl.style.display='none';
+
+  if(!_ttdTechHasData){
+    errEl.textContent='Tanda tangan Teknisi wajib diisi.';
+    errEl.style.display='block';
+    return;
+  }
+
+  const tech_signature=exportTTDCanvas(_ttdTechCanvas);
+  const customer_signature=_ttdCustHasData?exportTTDCanvas(_ttdCustCanvas):null;
+
+  const btn=document.getElementById('ttd-selesai-submit-btn');
+  btn.disabled=true; btn.textContent='⏳ Menyimpan...';
+  try{
+    await recordStage(ticketId, 'selesai', {tech_signature, customer_signature});
+    closeTTDSelesaiModal();
+  }catch(e){
+    errEl.textContent='Gagal: '+e.message;
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='✅ Selesaikan & Simpan TTD';
   }
 }
 

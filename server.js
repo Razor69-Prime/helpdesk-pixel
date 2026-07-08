@@ -1195,7 +1195,7 @@ app.get('/api/sales-visits/pipeline-dates', requireAuth, (req, res) => {
 // ══════════════════════════════════════════
 app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req, res) => {
   try {
-    const { stage, lat, lng } = req.body;
+    const { stage, lat, lng, tech_signature, customer_signature } = req.body;
     const VALID = ['berangkat','tiba','selesai'];
     if (!VALID.includes(stage)) return res.status(400).json({ error: 'Stage tidak valid.' });
 
@@ -1258,7 +1258,12 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
     };
     const newStatus = stageStatusMap[stage];
     if (newStatus) {
-      await db.updateTicket(req.params.id, { status: newStatus });
+      const ticketPatch = { status: newStatus };
+      if (stage === 'selesai') {
+        if (tech_signature)     ticketPatch.tech_signature     = tech_signature;
+        if (customer_signature) ticketPatch.customer_signature = customer_signature;
+      }
+      await db.updateTicket(req.params.id, ticketPatch);
       await db.insertStatusHistory({
         ticket_id:  req.params.id,
         status:     newStatus,
