@@ -4787,7 +4787,7 @@ function exportTicketPDF(ticketId, source){
   doc.setTextColor(255,255,255);
   doc.text(stLabel,PW-MR-16,y+10,{align:'center'});
 
-  y+=26;
+  y+=22;
 
   // ── Info section ──
   const infoRows=[
@@ -4799,140 +4799,198 @@ function exportTicketPDF(ticketId, source){
     ['Dibuat',        fmtDT(t.created_at)],
   ];
 
-  // 2-column info grid
+  // 2-column info grid — dirapatkan, dengan auto-wrap teks panjang
   const colW=CW/2-4;
+  const infoRowGap=17;
+  const lineH=3.6;
+
+  // Precompute jumlah baris tiap sel (max 2 baris) untuk menentukan tinggi baris grid
+  const infoLinesArr=infoRows.map(row=>{
+    if(row[0]==='No. WA Customer') return 1; // WA selalu 1 baris (link)
+    return doc.splitTextToSize(row[1],colW-8).slice(0,2);
+  });
+
   infoRows.forEach((row,i)=>{
     const col=i%2, rowIdx=Math.floor(i/2);
     const x=ML+(col*(colW+8));
-    const iy=y+(rowIdx*18);
+    const iy=y+(rowIdx*infoRowGap);
+    const cellLines=Array.isArray(infoLinesArr[i])?infoLinesArr[i]:[row[1]];
+    const cellRowH=cellLines.length>1?(infoRowGap-2):13;
+
     doc.setFillColor(col%2===0?250:247,col%2===0?249:248,col%2===0?247:245);
     doc.setDrawColor(226,222,214);
-    doc.roundedRect(x,iy,colW,14,2,2,'FD');
+    doc.roundedRect(x,iy,colW,cellRowH,2,2,'FD');
     doc.setFont('helvetica','normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(122,118,112);
-    doc.text(row[0].toUpperCase(),x+4,iy+5);
+    doc.text(row[0].toUpperCase(),x+4,iy+4.5);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     // WA link for phone
     if(row[0]==='No. WA Customer'&&row[1]!=='-'){
       const clean=row[1].replace(/\D/g,'').replace(/^0/,'62');
       doc.setTextColor(15,110,86);
       const waText='WA: '+row[1];
-      doc.text(waText,x+4,iy+11);
-      doc.link(x+4,iy+7,doc.getTextWidth(waText),5,{url:'https://wa.me/'+clean});
+      doc.text(waText,x+4,iy+10);
+      doc.link(x+4,iy+7,doc.getTextWidth(waText),4,{url:'https://wa.me/'+clean});
     } else {
       doc.setTextColor(26,25,22);
-      const lines=doc.splitTextToSize(row[1],colW-8);
-      doc.text(lines[0],x+4,iy+11);
+      cellLines.forEach((line,li)=>{
+        doc.text(line,x+4,iy+9+(li*lineH));
+      });
     }
   });
 
   // account for rows: ceil(6/2)=3 rows
-  y+=3*18+6;
+  y+=3*infoRowGap+4;
 
   // GPS lokasi terakhir (jika ada) — clickable
   if(t.last_lat&&t.last_lng){
     const gpsUrl=`https://maps.google.com/?q=${t.last_lat},${t.last_lng}`;
     doc.setFont('helvetica','normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(24,95,165);
     const gpsText=`Lokasi GPS Terakhir: ${parseFloat(t.last_lat).toFixed(6)}, ${parseFloat(t.last_lng).toFixed(6)} (klik untuk buka Maps)`;
     doc.text(gpsText,ML,y);
     const gpsW=doc.getTextWidth(gpsText);
     doc.link(ML,y-4,gpsW,5,{url:gpsUrl});
     doc.setTextColor(26,25,22);
-    y+=7;
+    y+=6;
   }
 
   // ── Deskripsi ──
-  checkPageBreak(30);
+  checkPageBreak(28);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(26,25,22);
   doc.text('DESKRIPSI PEKERJAAN',ML,y);
-  y+=4;
+  y+=3.5;
   doc.setDrawColor(224,123,57);
   doc.setLineWidth(0.5);
   doc.line(ML,y,ML+CW,y);
-  y+=5;
+  y+=4;
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(26,25,22);
   const desc=t.description||'(tidak ada deskripsi)';
   const descLines=doc.splitTextToSize(desc,CW);
   doc.setFillColor(250,249,247);
   doc.setDrawColor(226,222,214);
-  const descH=Math.max(descLines.length*5+8,20);
-  checkPageBreak(descH+10);
+  const descH=Math.max(descLines.length*4.5+6,16);
+  checkPageBreak(descH+8);
   doc.roundedRect(ML,y,CW,descH,2,2,'FD');
-  doc.text(descLines,ML+4,y+6);
-  y+=descH+8;
+  doc.text(descLines,ML+4,y+5.5);
+  y+=descH+6;
 
-  // ── Job Stages ──
+  // ── TTD section (dipindah ke atas, sebelum info tambahan Tahapan & Riwayat) ──
+  checkPageBreak(48);
+  const ttdY=y+3;
+  const ttdBoxH=40; // sedikit lebih tinggi untuk menampung nama 2 baris
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(122,118,112);
+  doc.setDrawColor(200,196,190);
+  doc.setLineWidth(0.3);
+
+  // Teknisi sign (half width)
+  const halfW=(CW-8)/2;
+  doc.rect(ML,ttdY,halfW,ttdBoxH,'S');
+  doc.text('Teknisi Pelaksana',ML+4,ttdY+5);
+  const techNames=Array.isArray(t.technicians)&&t.technicians.length
+    ? t.technicians.join(' & ') : (t.technician||'-');
+  if(t.tech_signature&&t.tech_signature.startsWith('data:')){
+    try{ doc.addImage(t.tech_signature,'PNG',ML+4,ttdY+7,halfW-8,18); }catch(e){}
+  }
+  doc.setFontSize(7);
+  doc.setTextColor(26,25,22);
+  const techNameLines=doc.splitTextToSize(techNames,halfW-8).slice(0,2);
+  techNameLines.forEach((line,li)=>{
+    doc.text(line,ML+4,ttdY+30+(li*3.4));
+  });
+
+  // Customer sign (half width)
+  doc.setFontSize(7.5);
+  doc.setTextColor(122,118,112);
+  doc.rect(ML+halfW+8,ttdY,halfW,ttdBoxH,'S');
+  doc.text('Customer / Penerima',ML+halfW+12,ttdY+5);
+  if(t.customer_signature&&t.customer_signature.startsWith('data:')){
+    try{ doc.addImage(t.customer_signature,'PNG',ML+halfW+12,ttdY+7,halfW-8,18); }catch(e){}
+  }
+  if(t.customer_name){
+    doc.setFontSize(7);
+    doc.setTextColor(26,25,22);
+    const custNameLines=doc.splitTextToSize(t.customer_name,halfW-8).slice(0,2);
+    custNameLines.forEach((line,li)=>{
+      doc.text(line,ML+halfW+12,ttdY+30+(li*3.4));
+    });
+  }
+
+  y=ttdY+ttdBoxH+8;
+
+  // ── Job Stages (informasi tambahan — ditaruh setelah TTD) ──
   const stages = t.job_stages || [];
   if (stages.length) {
-    checkPageBreak(20);
+    checkPageBreak(18);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(26,25,22);
     doc.text('TAHAPAN PEKERJAAN',ML,y);
-    y+=4;
+    y+=3.5;
     doc.setDrawColor(224,123,57);
     doc.setLineWidth(0.5);
     doc.line(ML,y,ML+CW,y);
-    y+=5;
+    y+=4;
 
     const stageLabel={berangkat:'🚗 Berangkat',tiba:'📍 Tiba di Lokasi'};
     const stageColor={berangkat:[24,95,165],tiba:[59,109,17]};
     stages.forEach((s,i)=>{
-      checkPageBreak(20);
+      checkPageBreak(16);
       const col=stageColor[s.stage]||[122,118,112];
       const timeStr=new Date(s.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});
       // dot
       doc.setFillColor(...col);
-      doc.circle(ML+3,y+2,2,'F');
+      doc.circle(ML+3,y+2,1.8,'F');
       if(i<stages.length-1){
         doc.setDrawColor(...col);
         doc.setLineWidth(0.5);
-        doc.line(ML+3,y+4,ML+3,y+14);
+        doc.line(ML+3,y+3.8,ML+3,y+11.5);
       }
       doc.setFont('helvetica','bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...col);
-      doc.text((stageLabel[s.stage]||s.stage).replace(/[^\x00-\x7F]/g,'').trim()||s.stage,ML+8,y+3.5);
-      doc.setFont('helvetica','normal');
       doc.setFontSize(8);
+      doc.setTextColor(...col);
+      doc.text((stageLabel[s.stage]||s.stage).replace(/[^\x00-\x7F]/g,'').trim()||s.stage,ML+8,y+3);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
       doc.setTextColor(122,118,112);
-      doc.text(timeStr,ML+8,y+9);
+      doc.text(timeStr,ML+8,y+7.5);
       if(s.lat&&s.lng){
         const gpsUrl=`https://maps.google.com/?q=${s.lat},${s.lng}`;
         doc.setTextColor(24,95,165);
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
         const stGpsText='Maps: '+parseFloat(s.lat).toFixed(5)+', '+parseFloat(s.lng).toFixed(5);
-        doc.text(stGpsText,ML+8,y+14);
-        doc.link(ML+8,y+10,doc.getTextWidth(stGpsText),5,{url:gpsUrl});
-        y+=6;
+        doc.text(stGpsText,ML+8,y+11.5);
+        doc.link(ML+8,y+8.5,doc.getTextWidth(stGpsText),4,{url:gpsUrl});
+        y+=5;
       }
-      y+=14;
+      y+=11.5;
     });
-    y+=4;
+    y+=3;
   }
 
-  // ── Status History ──
+  // ── Status History (informasi tambahan — ditaruh setelah TTD) ──
   const hist=t.status_history||[];
   if(hist.length){
-    checkPageBreak(20);
+    checkPageBreak(18);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(26,25,22);
     doc.text('RIWAYAT STATUS',ML,y);
-    y+=4;
+    y+=3.5;
     doc.setDrawColor(224,123,57);
     doc.setLineWidth(0.5);
     doc.line(ML,y,ML+CW,y);
-    y+=5;
+    y+=4;
 
     doc.autoTable({
       head:[['Waktu','Status','Teknisi',...(isAdmin?['Lokasi GPS']:[])]],
@@ -4944,8 +5002,8 @@ function exportTicketPDF(ticketId, source){
       ]),
       startY:y,
       margin:{left:ML,right:MR},
-      styles:{fontSize:8,cellPadding:2.5,valign:'middle'},
-      headStyles:{fillColor:[240,238,233],textColor:[26,25,22],fontStyle:'bold',fontSize:8},
+      styles:{fontSize:7.5,cellPadding:2,valign:'middle'},
+      headStyles:{fillColor:[240,238,233],textColor:[26,25,22],fontStyle:'bold',fontSize:7.5},
       columnStyles:{
         0:{cellWidth:48},
         1:{cellWidth:28,halign:'center'},
@@ -4961,7 +5019,7 @@ function exportTicketPDF(ticketId, source){
         if(d.section==='body'&&d.row.index%2!==0) d.cell.styles.fillColor=[250,249,247];
         if(isAdmin&&d.section==='body'&&d.column.index===3&&d.cell.raw!=='—'){
           d.cell.styles.textColor=[24,95,165];
-          d.cell.styles.fontSize=7;
+          d.cell.styles.fontSize=6.5;
         }
       },
       didDrawCell(d){
@@ -4975,43 +5033,7 @@ function exportTicketPDF(ticketId, source){
         }
       },
     });
-    y=doc.lastAutoTable.finalY+8;
-  }
-
-  // ── TTD section ──
-  checkPageBreak(46); // TTD box tinggi 36mm + margin
-  const ttdY=y+10;
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(8);
-  doc.setTextColor(122,118,112);
-  doc.setDrawColor(200,196,190);
-  doc.setLineWidth(0.3);
-
-  // Teknisi sign (half width)
-  const halfW=(CW-8)/2;
-  doc.rect(ML,ttdY,halfW,36,'S');
-  doc.text('Teknisi Pelaksana',ML+4,ttdY+5);
-  const techNames=Array.isArray(t.technicians)&&t.technicians.length
-    ? t.technicians.join(' & ') : (t.technician||'-');
-  if(t.tech_signature&&t.tech_signature.startsWith('data:')){
-    try{ doc.addImage(t.tech_signature,'PNG',ML+4,ttdY+7,halfW-8,20); }catch(e){}
-  }
-  doc.setFontSize(7.5);
-  doc.setTextColor(26,25,22);
-  doc.text(doc.splitTextToSize(techNames,halfW-8)[0],ML+4,ttdY+32);
-
-  // Customer sign (half width)
-  doc.setFontSize(8);
-  doc.setTextColor(122,118,112);
-  doc.rect(ML+halfW+8,ttdY,halfW,36,'S');
-  doc.text('Customer / Penerima',ML+halfW+12,ttdY+5);
-  if(t.customer_signature&&t.customer_signature.startsWith('data:')){
-    try{ doc.addImage(t.customer_signature,'PNG',ML+halfW+12,ttdY+7,halfW-8,20); }catch(e){}
-  }
-  if(t.customer_name){
-    doc.setFontSize(7.5);
-    doc.setTextColor(26,25,22);
-    doc.text(t.customer_name,ML+halfW+12,ttdY+32);
+    y=doc.lastAutoTable.finalY+6;
   }
 
   // ── Footer di semua halaman ──
