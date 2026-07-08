@@ -1307,7 +1307,9 @@ app.get('/api/track/:token', async (req, res) => {
       last_lng: ticket.last_lng, last_gps_at: ticket.last_gps_at,
       created_at: ticket.created_at, expires_at: trackExpiry(ticket).toISOString(),
       invoices: invoices || [], status_history: status_history || [],
-      job_stages: job_stages || []
+      job_stages: job_stages || [],
+      tech_signature: ticket.tech_signature || null,
+      customer_signature: ticket.customer_signature || null,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
