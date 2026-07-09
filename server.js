@@ -1168,8 +1168,21 @@ app.patch('/api/sales-visits/:id', requireAuth, async (req, res) => {
     if (!['admin','superadmin','manager'].includes(role) && visit.sales_user_id !== req.session.user.id) {
       return res.status(403).json({ error: 'Akses ditolak.' });
     }
-    // sales_pic dan sales_user_id tidak bisa diubah
-    const { sales_pic: _, sales_user_id: __, ...patch } = req.body;
+    // sales_pic dan sales_user_id tidak bisa diubah, KECUALI oleh superadmin
+    // (mis. untuk mengoreksi kunjungan yang salah input Sales PIC oleh operator)
+    let patch;
+    if (role === 'superadmin') {
+      patch = { ...req.body };
+      // Kalau superadmin kirim sales_pic baru, pastikan sales_user_id ikut disesuaikan
+      if (req.body.sales_pic && !req.body.sales_user_id) {
+        const users = await db.getUsers();
+        const matchedUser = users.find(u => u.name === req.body.sales_pic);
+        patch.sales_user_id = matchedUser ? matchedUser.id : null;
+      }
+    } else {
+      const { sales_pic: _, sales_user_id: __, ...rest } = req.body;
+      patch = rest;
+    }
     const updated = await db.updateSalesVisit(req.params.id, patch);
     res.json(updated);
   } catch(e) { res.status(500).json({ error: e.message }); }

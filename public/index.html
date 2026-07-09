@@ -1155,6 +1155,33 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       </div>
     </div>
 
+    <!-- Modal Ganti Sales PIC (khusus Superadmin) -->
+    <div id="change-pic-modal" class="modal-overlay">
+      <div class="modal" style="max-width:420px">
+        <button class="modal-close" onclick="closeChangePicModal()">✕</button>
+        <div class="modal-title">🔄 Ganti Sales PIC</div>
+        <div class="modal-sub">Ubah kepemilikan data kunjungan ini ke Sales lain.</div>
+
+        <input type="hidden" id="cp-visit-id"/>
+
+        <div class="form-group">
+          <label>PIC Saat Ini</label>
+          <input type="text" id="cp-current-pic" disabled style="background:var(--surface2);color:var(--muted)"/>
+        </div>
+        <div class="form-group">
+          <label>PIC Baru</label>
+          <select id="cp-new-pic"><option value="">Pilih Sales PIC baru...</option></select>
+        </div>
+
+        <div id="cp-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn ghost" onclick="closeChangePicModal()">Batal</button>
+          <button class="btn primary" id="cp-submit-btn" onclick="submitChangePic()">💾 Simpan Perubahan</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Import Excel Modal (universal — Kunjungan & Project Tracker) -->
     <div id="import-modal" class="modal-overlay">
       <div class="modal" style="max-width:640px">
@@ -5781,6 +5808,7 @@ function renderKunjunganList(){
         ${v.customer_phone?`<span style="font-size:12px">📞 ${v.customer_phone} ${waBtn}</span>`:''}
         ${nfu?`<span style="font-size:11px;color:${isOverdue?'var(--red)':'var(--blue)'}">📅 Follow Up: ${nfu}</span>`:''}
         ${gpsLink}
+        ${currentUser.role==='superadmin'?`<button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="openChangePicModal('${v.id}','${(v.sales_pic||'').replace(/'/g,"\\'")}')">🔄 Ganti PIC</button>`:''}
         ${(currentUser.role==='admin'||currentUser.role==='superadmin'||currentUser.role==='manager')?`<button class="btn danger" style="padding:2px 8px;font-size:11px;margin-left:auto" onclick="deleteKunjungan('${v.id}')">Hapus</button>`:''}
       </div>
     </div>`;
@@ -5794,6 +5822,54 @@ async function deleteKunjungan(id){
     kunjunganData=kunjunganData.filter(v=>v.id!==id);
     renderKunjunganList();
   }catch(e){alert('Gagal: '+e.message);}
+}
+
+// ══ Ganti Sales PIC (khusus Superadmin) ══
+async function openChangePicModal(visitId, currentPic){
+  document.getElementById('cp-visit-id').value=visitId;
+  document.getElementById('cp-current-pic').value=currentPic||'-';
+  document.getElementById('cp-error').style.display='none';
+  const sel=document.getElementById('cp-new-pic');
+  sel.innerHTML='<option value="">Memuat...</option>';
+  document.getElementById('change-pic-modal').classList.add('show');
+  try{
+    const salesUsers=await api('GET','/sales-pics');
+    sel.innerHTML='<option value="">Pilih Sales PIC baru...</option>'+
+      salesUsers.filter(u=>u.name!==currentPic).map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+  }catch(e){
+    sel.innerHTML='<option value="">Gagal memuat daftar sales</option>';
+  }
+}
+
+function closeChangePicModal(){
+  document.getElementById('change-pic-modal').classList.remove('show');
+}
+
+async function submitChangePic(){
+  const visitId=document.getElementById('cp-visit-id').value;
+  const newPic=document.getElementById('cp-new-pic').value;
+  const errEl=document.getElementById('cp-error');
+  errEl.style.display='none';
+  if(!newPic){
+    errEl.textContent='Pilih Sales PIC baru terlebih dahulu.';
+    errEl.style.display='block';
+    return;
+  }
+  const btn=document.getElementById('cp-submit-btn');
+  btn.disabled=true; btn.textContent='Menyimpan...';
+  try{
+    const updated=await api('PATCH','/sales-visits/'+visitId,{sales_pic:newPic});
+    const idx=kunjunganData.findIndex(v=>v.id===visitId);
+    if(idx>-1) kunjunganData[idx]={...kunjunganData[idx],...updated};
+    closeChangePicModal();
+    renderKunjunganList();
+    alert('✅ Sales PIC berhasil diubah menjadi '+newPic);
+  }catch(e){
+    errEl.textContent='Gagal: '+(e.message||'Unknown error');
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='💾 Simpan Perubahan';
+  }
 }
 
 /* ══ KPI TEKNISI ══════════════════════════ */
