@@ -3630,6 +3630,7 @@ async function loadDashboard(){
     try{ if(!dashMRData) dashMRData=await api('GET','/material-requests'); }catch{ dashMRData=[]; }
     try{ if(!dashPRData) dashPRData=await api('GET','/purchase-requests'); }catch{ dashPRData=[]; }
     try{ if(!dashProjectData) dashProjectData=await api('GET','/projects'); }catch{ dashProjectData=[]; }
+    try{ if(!standaloneInvoices||!standaloneInvoices.length) standaloneInvoices=await api('GET','/invoices/standalone'); }catch{ standaloneInvoices=standaloneInvoices||[]; }
     renderDashboard();
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
@@ -3738,7 +3739,8 @@ function renderDashSubTeknisi(data){
 }
 
 function renderDashSubInvoice(data){
-  const allInv=data.flatMap(t=>t.invoices||[]);
+  const ticketInv=data.flatMap(t=>t.invoices||[]);
+  const allInv=[...ticketInv, ...(standaloneInvoices||[])];
   const total=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avg=allInv.length?Math.round(total/allInv.length):0;
   const el=id=>document.getElementById(id);
@@ -4446,7 +4448,7 @@ function renderDashboard(){
   // ── Metric cards ──
   const done=data.filter(t=>t.status==='done');
   const pending=data.filter(t=>t.status==='pending');
-  const allInv=data.flatMap(t=>t.invoices||[]);
+  const allInv=[...data.flatMap(t=>t.invoices||[]), ...(standaloneInvoices||[])];
   const totalAmount=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   document.getElementById('dm-total').textContent=data.length;
   document.getElementById('dm-done').textContent=done.length;
@@ -5396,12 +5398,18 @@ function allTicketsForReport(){
 }
 
 function buildInvoiceFlat(){
-  // flatten invoices dari SEMUA tiket (aktif + arsip) untuk report
-  return allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({
+  // flatten invoices dari SEMUA tiket (aktif + arsip) + invoice tanpa WO, untuk report
+  const ticketInv=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({
     ...inv,
     ticket_date: t.worked_at||t.created_at,
     wo_number:   t.wo_number
   })));
+  const standaloneInv=(standaloneInvoices||[]).map(inv=>({
+    ...inv,
+    ticket_date: inv.uploaded_at,
+    wo_number:   null
+  }));
+  return [...ticketInv, ...standaloneInv];
 }
 
 function renderSalesDashboard(){
@@ -6427,11 +6435,9 @@ function renderKpiSales(){
   const role=currentUser.role;
   const isSalesOnly=role==='sales';
 
-  // Realisasi dari invoice (allTicketsForReport)
+  // Realisasi dari invoice (allTicketsForReport + standalone)
   const {from,to}=getKpiSalesRange();
-  const invFlat=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({
-    ...inv, ticket_date: t.worked_at||t.created_at
-  }))).filter(inv=>{
+  const invFlat=buildInvoiceFlat().filter(inv=>{
     if(!from) return true;
     const d=new Date(inv.uploaded_at||inv.ticket_date);
     return d>=from&&d<=to;
@@ -6553,9 +6559,13 @@ function renderKpiSales(){
 
 function openKpiSalesDetail(pic){
   const {from,to,label}=getKpiSalesRange();
-  const invFlat=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({
+  const ticketInv=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({
     ...inv,ticket_date:t.worked_at||t.created_at,wo_number:t.wo_number,customer_name:t.customer_name
-  }))).filter(inv=>{
+  })));
+  const standaloneInv=(standaloneInvoices||[]).map(inv=>({
+    ...inv,ticket_date:inv.uploaded_at,wo_number:null,customer_name:null
+  }));
+  const invFlat=[...ticketInv, ...standaloneInv].filter(inv=>{
     if(inv.sales_pic!==pic) return false;
     if(!from) return true;
     const d=new Date(inv.uploaded_at||inv.ticket_date);
@@ -9219,7 +9229,7 @@ function exportDashboardPDF(){
   ]);
 
   // Target vs Realisasi per PIC dari dashData
-  const invFlat=allTicketsForReport().flatMap(t=>(t.invoices||[]).map(inv=>({...inv,ticket_date:t.worked_at||t.created_at})));
+  const invFlat=buildInvoiceFlat();
   const {from:dfrom,to:dto}=getDashRange();
   const filteredInv=invFlat.filter(inv=>{
     if(!dfrom) return true;
