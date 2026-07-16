@@ -1339,7 +1339,7 @@ app.get('/track/:token', (req, res) => {
 // ══════════════════════════════════════════
 //  INVENTORY
 // ══════════════════════════════════════════
-app.get('/api/inventory/health', requireAuth, async (req,res) => {
+app.get('/api/inventory/health', async (req,res) => {
   try {
     const health = await db.getInventoryHealth();
     res.json({ ok:true, ...health });
