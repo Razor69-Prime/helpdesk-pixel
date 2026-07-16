@@ -656,14 +656,14 @@ async function getInventoryItem(id) {
 async function insertInventoryItem(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_items', entry);
+  const rows = await sbFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
   if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
   return rows[0];
 }
 async function updateInventoryItem(id, data) {
   const patch = { ...data, updated_at: new Date().toISOString() };
   requireInventorySupabase();
-  const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${id}`, patch);
+  const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${id}`, patch, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...patch };
 }
 async function getInventoryTransactions() {
@@ -673,7 +673,7 @@ async function getInventoryTransactions() {
 async function insertInventoryTransaction(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
   requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_transactions', entry);
+  const rows = await sbFetch('POST', '/inventory_transactions', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 async function getInventoryOpnames() {
@@ -683,18 +683,18 @@ async function getInventoryOpnames() {
 async function insertInventoryOpname(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
   requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_opnames', entry);
+  const rows = await sbFetch('POST', '/inventory_opnames', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 async function updateInventoryOpname(id, data) {
   requireInventorySupabase();
-  const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${id}`, data);
+  const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${id}`, data, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...data };
 }
 async function insertInventoryOpnameItem(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
   requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_opname_items', entry);
+  const rows = await sbFetch('POST', '/inventory_opname_items', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 
