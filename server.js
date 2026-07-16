@@ -1421,6 +1421,108 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+
+// ══════════════════════════════════════════
+//  INVENTORY
+// ══════════════════════════════════════════
+app.get('/api/inventory/items', requireAuth, async (req,res) => {
+  try { res.json(await db.getInventoryItems()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/inventory/logs', requireAuth, async (req,res) => {
+  try { res.json(await db.getInventoryTransactions()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/inventory/opnames', requireAuth, async (req,res) => {
+  try { res.json(await db.getInventoryOpnames()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/inventory/items', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const name = String(req.body.name||'').trim();
+    const qty = Number(req.body.qty||0);
+    if(!name) return res.status(400).json({error:'Nama barang wajib diisi.'});
+    if(qty < 0) return res.status(400).json({error:'Qty tidak boleh negatif.'});
+    const item = await db.insertInventoryItem({
+      name,
+      product_number: String(req.body.product_number||'').trim() || null,
+      category: String(req.body.category||'Aksesoris'),
+      unit: String(req.body.unit||'pcs'),
+      stock: qty,
+      min_stock: Number(req.body.min_stock||0),
+      barcode: String(req.body.barcode||'').trim() || `PXL-INV-${Date.now()}`,
+      is_active: true
+    });
+    if(qty > 0) await db.insertInventoryTransaction({
+      item_id:item.id, transaction_type:'RESTOCK', qty, balance_after:qty,
+      reference:'Stok awal', notes:'Barang baru', created_by:req.session.user.name
+    });
+    logActivity(req,'inventory','TAMBAH BARANG',`${name} · stok awal ${qty}`);
+    res.json(item);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/inventory/items/:id/restock', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const qty = Number(req.body.qty||0);
+    if(qty <= 0) return res.status(400).json({error:'Qty restock harus lebih dari 0.'});
+    const item = await db.getInventoryItem(req.params.id);
+    if(!item) return res.status(404).json({error:'Barang tidak ditemukan.'});
+    const balance = Number(item.stock||0) + qty;
+    const updated = await db.updateInventoryItem(item.id,{stock:balance});
+    await db.insertInventoryTransaction({item_id:item.id,transaction_type:'RESTOCK',qty,balance_after:balance,reference:req.body.reference||'Restock',notes:req.body.notes||null,created_by:req.session.user.name});
+    logActivity(req,'inventory','RESTOCK',`${item.name} +${qty} ${item.unit}`);
+    res.json(updated);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/inventory/request', requireAuth, async (req,res) => {
+  try {
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if(!items.length) return res.status(400).json({error:'Minimal satu barang harus dipilih.'});
+    const results=[];
+    for(const line of items){
+      const item=await db.getInventoryItem(line.item_id);
+      const qty=Number(line.qty||0);
+      if(!item || qty<=0) throw new Error('Data barang request tidak valid.');
+      if(Number(item.stock||0)<qty) throw new Error(`Stok ${item.name} tidak mencukupi.`);
+      const balance=Number(item.stock)-qty;
+      await db.updateInventoryItem(item.id,{stock:balance});
+      await db.insertInventoryTransaction({item_id:item.id,transaction_type:'REQUEST',qty:-qty,balance_after:balance,reference:req.body.reference||null,notes:req.body.notes||null,created_by:req.session.user.name});
+      results.push({id:item.id,name:item.name,stock:balance});
+    }
+    logActivity(req,'inventory','MATERIAL REQUEST',`${items.length} item · ${req.body.reference||'-'}`);
+    res.json({ok:true,items:results});
+  } catch(e){ res.status(400).json({error:e.message}); }
+});
+
+app.post('/api/inventory/opname', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const lines=Array.isArray(req.body.items)?req.body.items:[];
+    if(!lines.length) return res.status(400).json({error:'Tidak ada barang untuk opname.'});
+    let matched=0,different=0;
+    const opname=await db.insertInventoryOpname({item_count:lines.length,matched_count:0,difference_count:0,created_by:req.session.user.name,notes:req.body.notes||null});
+    for(const line of lines){
+      const item=await db.getInventoryItem(line.item_id);
+      if(!item) continue;
+      const system=Number(item.stock||0), physical=Number(line.physical_stock||0), diff=physical-system;
+      diff===0?matched++:different++;
+      await db.insertInventoryOpnameItem({opname_id:opname.id,item_id:item.id,system_stock:system,physical_stock:physical,difference:diff,notes:line.notes||null});
+      if(diff!==0){
+        await db.updateInventoryItem(item.id,{stock:physical});
+        await db.insertInventoryTransaction({item_id:item.id,transaction_type:'OPNAME',qty:diff,balance_after:physical,reference:`Opname ${opname.id}`,notes:line.notes||null,created_by:req.session.user.name});
+      }
+    }
+    await db.updateInventoryOpname(opname.id,{matched_count:matched,difference_count:different});
+    logActivity(req,'inventory','STOCK OPNAME',`${lines.length} item · ${different} selisih`);
+    res.json({ok:true,item_count:lines.length,matched_count:matched,difference_count:different});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 // Helper dipakai di seluruh route lain untuk membuat notifikasi baru
 async function createNotification({ type, text, target_role, target_user_id, ref_id, created_by }) {
   try {
