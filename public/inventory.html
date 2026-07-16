@@ -18,11 +18,25 @@
 <div id="sub-opname" class="inv-sub-page"><div class="toolbar"><div><div class="page-heading">Rekonsiliasi Stok</div><div class="page-sub">Isi stok fisik, lalu simpan untuk menyesuaikan stok sistem.</div></div><button class="btn primary" onclick="submitOpname()">✅ Selesaikan & Sesuaikan Stok</button></div><table class="inv-table"><thead><tr><th>Barang</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Keterangan</th></tr></thead><tbody id="opname-body"></tbody></table></div>
 </div></div>
 <div id="page-technician" class="page"><div class="container"><div class="tech-card"><div class="page-heading">📋 Form Material Request</div><div class="page-sub">Cari barang inventory dan masukkan ke request.</div><div class="scan-camera-box">📷 Scan barcode dapat dikembangkan melalui kamera perangkat.<br><small>Gunakan pencarian manual untuk saat ini.</small></div><div class="form-group"><label>Referensi WO</label><input id="mr-reference" placeholder="mis. WO-2026-0512"/></div><div class="form-group"><label>Cari Barang</label><input id="search-item" placeholder="Nama / product number / barcode" oninput="renderSearch()"/></div><div id="search-results"></div><div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;margin-top:16px">Item yang direquest</div><div id="cart-list" class="empty">Belum ada item dipilih</div><button class="btn primary" style="width:100%;justify-content:center;margin-top:14px" onclick="submitRequest()">📤 Submit Material Request</button></div></div></div>
-<div class="modal-overlay" id="item-modal"><div class="modal-box"><div class="modal-header" id="modal-title">Tambah Barang</div><div class="modal-body"><input type="hidden" id="item-id"/><div class="form-group"><label>Nama Barang</label><input id="item-name"/></div><div class="form-row"><div class="form-group"><label>Product Number</label><input id="item-pn"/></div><div class="form-group"><label>Barcode</label><input id="item-barcode" placeholder="otomatis bila kosong"/></div></div><div class="form-row"><div class="form-group"><label>Kategori</label><select id="item-category"><option>Material Kabel</option><option>Perangkat Jaringan</option><option>Aksesoris</option></select></div><div class="form-group"><label>Satuan</label><select id="item-unit"><option value="pcs">Pcs</option><option value="meter">Meter</option><option value="roll">Roll</option><option value="box">Box</option></select></div></div><div class="form-row"><div class="form-group"><label id="qty-label">Stok Awal</label><input type="number" id="item-qty" min="0" value="0"/></div><div class="form-group"><label>Minimum Stok</label><input type="number" id="item-min" min="0" value="0"/></div></div><div class="form-group" id="reference-group" style="display:none"><label>Referensi Restock</label><input id="restock-reference" placeholder="mis. Pembelian / Invoice"/></div></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Batal</button><button class="btn primary" onclick="saveItem()">💾 Simpan</button></div></div></div>
+<div class="modal-overlay" id="item-modal"><div class="modal-box"><div class="modal-header" id="modal-title">Tambah Barang</div><div class="modal-body"><input type="hidden" id="item-id"/><div class="form-group"><label>Nama Barang</label><input id="item-name"/></div><div class="form-row"><div class="form-group"><label>Product Number</label><input id="item-pn"/></div><div class="form-group"><label>Barcode</label><input id="item-barcode" placeholder="otomatis bila kosong"/></div></div><div class="form-row"><div class="form-group"><label>Kategori</label><select id="item-category"><option>Material Kabel</option><option>Perangkat Jaringan</option><option>Aksesoris</option></select></div><div class="form-group"><label>Satuan</label><select id="item-unit"><option value="pcs">Pcs</option><option value="meter">Meter</option><option value="roll">Roll</option><option value="box">Box</option></select></div></div><div class="form-row"><div class="form-group"><label id="qty-label">Stok Awal</label><input type="number" id="item-qty" min="0" value="0"/></div><div class="form-group"><label>Minimum Stok</label><input type="number" id="item-min" min="0" value="0"/></div></div><div class="form-group" id="reference-group" style="display:none"><label>Referensi Restock</label><input id="restock-reference" placeholder="mis. Pembelian / Invoice"/></div></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Batal</button><button type="button" class="btn primary" id="save-item-btn" onclick="saveItem(event)">💾 Simpan</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script>
 let items=[],logs=[],cart=[];const token=localStorage.getItem('pixel_token')||'';
-async function api(url,opt={}){const r=await fetch(url,{...opt,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Terjadi kesalahan');return d}
+async function api(url,opt={}){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch(url,{...opt,credentials:'same-origin',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,...(opt.headers||{})}});
+    const text=await r.text();
+    let d={};
+    try{d=text?JSON.parse(text):{}}catch(_){d={error:text||'Respons server tidak valid'}}
+    if(!r.ok)throw new Error(d.error||`Gagal terhubung ke server (${r.status})`);
+    return d;
+  }catch(e){
+    if(e.name==='AbortError')throw new Error('Koneksi ke server timeout. Coba lagi.');
+    throw e;
+  }finally{clearTimeout(timeout)}
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
 function switchView(v,b){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+v).classList.add('active');document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
@@ -33,7 +47,36 @@ async function load(){try{[items,logs]=await Promise.all([api('/api/inventory/it
 function openItemModal(){document.getElementById('item-id').value='';document.getElementById('modal-title').textContent='Tambah Barang';['item-name','item-pn','item-barcode','restock-reference'].forEach(id=>document.getElementById(id).value='');document.getElementById('item-qty').value=0;document.getElementById('item-min').value=0;document.getElementById('reference-group').style.display='none';document.getElementById('qty-label').textContent='Stok Awal';document.getElementById('item-modal').classList.add('show')}
 function openRestock(id){const i=items.find(x=>x.id===id);document.getElementById('item-id').value=id;document.getElementById('modal-title').textContent='Restock — '+i.name;document.getElementById('item-name').value=i.name;document.getElementById('item-pn').value=i.product_number||'';document.getElementById('item-barcode').value=i.barcode||'';document.getElementById('item-category').value=i.category;document.getElementById('item-unit').value=i.unit;document.getElementById('item-qty').value=1;document.getElementById('item-min').value=i.min_stock||0;document.getElementById('reference-group').style.display='block';document.getElementById('qty-label').textContent='Qty Ditambahkan';document.getElementById('item-modal').classList.add('show')}
 function closeModal(){document.getElementById('item-modal').classList.remove('show')}
-async function saveItem(){try{const id=document.getElementById('item-id').value,qty=Number(document.getElementById('item-qty').value);if(id)await api('/api/inventory/items/'+id+'/restock',{method:'POST',body:JSON.stringify({qty,reference:document.getElementById('restock-reference').value})});else await api('/api/inventory/items',{method:'POST',body:JSON.stringify({name:document.getElementById('item-name').value,product_number:document.getElementById('item-pn').value,barcode:document.getElementById('item-barcode').value,category:document.getElementById('item-category').value,unit:document.getElementById('item-unit').value,qty,min_stock:Number(document.getElementById('item-min').value)})});closeModal();toast('✅ Data inventory tersimpan');await load()}catch(e){toast('⚠️ '+e.message)}}
+async function saveItem(event){
+  if(event)event.preventDefault();
+  const btn=document.getElementById('save-item-btn');
+  if(btn?.disabled)return;
+  const id=document.getElementById('item-id').value;
+  const name=document.getElementById('item-name').value.trim();
+  const qty=Number(document.getElementById('item-qty').value);
+  const minStock=Number(document.getElementById('item-min').value);
+  if(!id&&!name){toast('⚠️ Nama barang wajib diisi');document.getElementById('item-name').focus();return}
+  if(!Number.isFinite(qty)||qty<0){toast('⚠️ Stok awal tidak valid');return}
+  if(!Number.isFinite(minStock)||minStock<0){toast('⚠️ Minimum stok tidak valid');return}
+  const original=btn?.innerHTML;
+  if(btn){btn.disabled=true;btn.innerHTML='⏳ Menyimpan...'}
+  try{
+    if(id){
+      if(qty<=0)throw new Error('Qty restock harus lebih dari 0.');
+      await api('/api/inventory/items/'+encodeURIComponent(id)+'/restock',{method:'POST',body:JSON.stringify({qty,reference:document.getElementById('restock-reference').value.trim()})});
+    }else{
+      await api('/api/inventory/items',{method:'POST',body:JSON.stringify({name,product_number:document.getElementById('item-pn').value.trim(),barcode:document.getElementById('item-barcode').value.trim(),category:document.getElementById('item-category').value,unit:document.getElementById('item-unit').value,qty,min_stock:minStock})});
+    }
+    closeModal();
+    toast('✅ Data inventory tersimpan');
+    await load();
+  }catch(e){
+    console.error('Inventory save error:',e);
+    toast('⚠️ '+(e.message||'Data gagal disimpan'));
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML=original||'💾 Simpan'}
+  }
+}
 function calcDiff(el){const tr=el.closest('tr'),d=Number(el.value)-Number(tr.dataset.system);tr.querySelector('.diff').textContent=d>0?'+'+d:d}
 async function submitOpname(){if(!items.length)return toast('⚠️ Belum ada barang');const rows=[...document.querySelectorAll('#opname-body tr[data-id]')],data=rows.map(r=>({item_id:r.dataset.id,physical_stock:Number(r.querySelector('.physical').value),notes:r.querySelector('.note').value}));if(!confirm('Simpan hasil opname dan sesuaikan stok?'))return;try{const r=await api('/api/inventory/opname',{method:'POST',body:JSON.stringify({items:data})});toast(`✅ Opname selesai: ${r.difference_count} selisih`);await load()}catch(e){toast('⚠️ '+e.message)}}
 function renderSearch(){const q=document.getElementById('search-item').value.toLowerCase().trim(),box=document.getElementById('search-results');if(!q){box.innerHTML='';return}const m=items.filter(i=>[i.name,i.product_number,i.barcode].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,8);box.innerHTML=m.length?m.map(i=>`<div class="search-result" onclick="addCart('${i.id}')"><span><b>${esc(i.name)}</b><br><small>${esc(i.product_number||'-')}</small></span><span>${Number(i.stock)} ${esc(i.unit)}</span></div>`).join(''):'<div class="empty">Barang tidak ditemukan</div>'}
