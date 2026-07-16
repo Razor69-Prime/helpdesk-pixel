@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<title>Mockup Inventory Asset — Helpdesk Pixel Solusindo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F7F6F1;color:#1A1916;padding:0}
+.app-bar{background:#fff;border-bottom:1px solid #E5E3DA;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.app-title{font-size:15px;font-weight:700;color:#2C2C2A}
+.mode-switch{display:flex;gap:6px}
+.mode-btn{background:#F7F6F1;border:1px solid #E5E3DA;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;color:#5F5E5A}
+.mode-btn.active{background:#E07B39;color:#fff;border-color:#E07B39}
+.container{max-width:960px;margin:0 auto;padding:20px}
+
+/* ═══ ADMIN VIEW ═══ */
+.page{display:none}
+.page.active{display:block}
+
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.page-heading{font-size:18px;font-weight:700}
+.page-sub{font-size:12px;color:#888780;margin-top:2px}
+.btn{background:#fff;border:1px solid #E5E3DA;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:#2C2C2A;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:#E07B39;color:#fff;border-color:#E07B39}
+.btn.small{padding:5px 10px;font-size:12px}
+.btn:hover{opacity:.9}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:#fff;border:1px solid #E5E3DA;border-radius:10px;padding:14px 16px;border-left:4px solid #E07B39}
+.stat-card.warn{border-left-color:#D97A2E}
+.stat-card.ok{border-left-color:#639922}
+.stat-label{font-size:10px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.04em}
+.stat-val{font-size:22px;font-weight:700;margin-top:4px}
+
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-chip{background:#fff;border:1px solid #E5E3DA;border-radius:99px;padding:5px 13px;font-size:12px;cursor:pointer;color:#5F5E5A}
+.filter-chip.active{background:#2C2C2A;color:#fff;border-color:#2C2C2A}
+
+.inv-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #E5E3DA}
+.inv-table th{background:#F7F6F1;font-size:10.5px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.03em;padding:9px 12px;text-align:left;border-bottom:1px solid #E5E3DA}
+.inv-table td{padding:11px 12px;border-bottom:1px solid #F0EEE5;font-size:12.5px;vertical-align:middle}
+.inv-table tr:last-child td{border-bottom:none}
+.inv-table tr:hover{background:#FAF9F5}
+.item-name{font-weight:700;color:#1A1916}
+.item-meta{font-size:11px;color:#888780;margin-top:1px}
+.stock-bar-wrap{width:90px;height:6px;background:#F0EEE5;border-radius:99px;overflow:hidden}
+.stock-bar{height:100%;border-radius:99px}
+.stock-bar.ok{background:#639922}
+.stock-bar.warn{background:#D97A2E}
+.stock-bar.crit{background:#C0392B}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:700}
+.badge.ok{background:#EAF3DE;color:#3B6D11}
+.badge.warn{background:#FCEBD8;color:#B25A16}
+.badge.crit{background:#FBE3E1;color:#A32E24}
+.qr-icon{width:28px;height:28px;border:1px solid #E5E3DA;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;background:#F7F6F1}
+
+/* ═══ POPUP LOW STOCK ═══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,18,14,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-header{background:#FBE3E1;padding:20px 22px;display:flex;align-items:center;gap:12px}
+.modal-header-icon{font-size:28px}
+.modal-header-title{font-size:16px;font-weight:800;color:#A32E24}
+.modal-header-sub{font-size:12px;color:#8C3B32;margin-top:2px}
+.modal-body{padding:16px 22px;max-height:340px;overflow-y:auto}
+.low-stock-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F0EEE5}
+.low-stock-item:last-child{border-bottom:none}
+.ls-name{font-weight:700;font-size:13px}
+.ls-cat{font-size:11px;color:#888780}
+.ls-pct{font-weight:800;font-size:14px;color:#A32E24}
+.ls-qty{font-size:11px;color:#888780}
+.modal-footer{padding:14px 22px;border-top:1px solid #E5E3DA;display:flex;justify-content:flex-end;gap:8px}
+
+/* ═══ MODAL RESTOCK / ADD ITEM ═══ */
+.form-modal{max-width:520px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px}
+.form-group input,.form-group select{width:100%;padding:9px 11px;border:1px solid #E5E3DA;border-radius:8px;font-size:13px;background:#fff}
+.form-row{display:flex;gap:10px}
+.form-row .form-group{flex:1}
+.radio-group{display:flex;gap:10px}
+.radio-opt{flex:1;border:1px solid #E5E3DA;border-radius:8px;padding:10px;text-align:center;cursor:pointer;font-size:12px;font-weight:600}
+.radio-opt.active{background:#FCEBD8;border-color:#E07B39;color:#B25A16}
+.scan-box{border:2px dashed #E5E3DA;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#888780;margin-bottom:10px}
+.scan-box:hover{border-color:#E07B39;background:#FCEBD8;color:#B25A16}
+.barcode-generated{background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px;font-size:12px;display:none;align-items:center;gap:8px;margin-top:8px}
+.barcode-generated.show{display:flex}
+
+/* ═══ TECHNICIAN VIEW (Material Request simulation) ═══ */
+.tech-card{background:#fff;border:1px solid #E5E3DA;border-radius:12px;padding:20px;max-width:480px;margin:0 auto}
+.tech-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.tech-sub{font-size:12px;color:#888780;margin-bottom:16px}
+.scan-camera-box{background:#1A1916;border-radius:12px;aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;position:relative;overflow:hidden}
+.scan-frame{width:60%;aspect-ratio:1;border:3px solid #E07B39;border-radius:12px;position:relative}
+.scan-frame::before,.scan-frame::after{content:'';position:absolute;width:20px;height:20px;border:3px solid #fff}
+.scan-line{position:absolute;top:0;left:5%;right:5%;height:2px;background:#E07B39;box-shadow:0 0 8px #E07B39;animation:scanmove 2s ease-in-out infinite}
+@keyframes scanmove{0%,100%{top:5%}50%{top:95%}}
+.scan-hint{font-size:11px;color:#ccc;margin-top:12px}
+.scanned-item-card{background:#FAF9F5;border:1px solid #E5E3DA;border-radius:10px;padding:14px;margin-bottom:12px;display:none}
+.scanned-item-card.show{display:block}
+.si-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.si-name{font-weight:700;font-size:14px}
+.si-meta{font-size:11px;color:#888780;margin-top:2px}
+.si-stock-info{font-size:12px;background:#EAF3DE;color:#3B6D11;border-radius:6px;padding:6px 10px;margin-top:8px;font-weight:600}
+.qty-input-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.qty-btn{width:32px;height:32px;border-radius:8px;border:1px solid #E5E3DA;background:#fff;font-size:16px;cursor:pointer}
+.qty-val{flex:1;text-align:center;font-size:16px;font-weight:700}
+.cart-list{margin-top:16px}
+.cart-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F0EEE5;font-size:13px}
+.cart-item-name{font-weight:600}
+.cart-item-qty{color:#888780;font-size:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1916;color:#fff;padding:12px 20px;border-radius:99px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.show{display:flex}
+
+.or-divider{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:11px;color:#888780;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:#E5E3DA}
+.manual-search-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #E5E3DA;border-radius:8px;margin-top:4px;box-shadow:0 8px 20px rgba(0,0,0,.1);z-index:10;display:none;max-height:220px;overflow-y:auto}
+.manual-search-results.show{display:block}
+.search-result-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid #F0EEE5;display:flex;justify-content:space-between;align-items:center}
+.search-result-item:last-child{border-bottom:none}
+.search-result-item:hover{background:#FAF9F5}
+.sri-name{font-weight:600;font-size:13px}
+.sri-pn{font-size:11px;color:#888780}
+.sri-stock{font-size:11px;font-weight:700;color:#3B6D11}
+.sri-stock.low{color:#B25A16}
+.no-results{padding:12px;text-align:center;font-size:12px;color:#888780}
+
+.sub-tabs{display:flex;gap:4px;background:#F0EEE5;padding:4px;border-radius:10px;width:fit-content;margin-bottom:16px}
+.sub-tab-btn{background:transparent;border:none;padding:7px 16px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;color:#5F5E5A}
+.sub-tab-btn.active{background:#fff;color:#1A1916;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.inv-sub-page{display:none}
+.inv-sub-page.active{display:block}
+
+.item-clickable{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color .15s}
+.item-clickable:hover{color:#E07B39;text-decoration-color:#E07B39}
+
+.log-type-badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap}
+.log-type-badge.in{background:#EAF3DE;color:#3B6D11}
+.log-type-badge.out{background:#FBE3E1;color:#A32E24}
+.log-type-badge.return{background:#E3EEFB;color:#1D5A9C}
+.qty-pos{color:#3B6D11;font-weight:700}
+.qty-neg{color:#A32E24;font-weight:700}
+
+/* Stock Card modal (kartu stok per barang) */
+.stock-card-modal{max-width:600px}
+.sc-header-info{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;background:#F7F6F1;border-bottom:1px solid #E5E3DA}
+.sc-name{font-size:16px;font-weight:800}
+.sc-meta{font-size:12px;color:#888780;margin-top:3px}
+.sc-current-stock{text-align:right}
+.sc-current-stock-label{font-size:10px;color:#888780;text-transform:uppercase;font-weight:700}
+.sc-current-stock-val{font-size:22px;font-weight:800;color:#E07B39}
+.sc-timeline{padding:16px 20px;max-height:360px;overflow-y:auto}
+.sc-timeline-item{display:flex;gap:12px;padding-bottom:16px;position:relative}
+.sc-timeline-item:not(:last-child)::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:#F0EEE5}
+.sc-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;z-index:1}
+.sc-dot.in{background:#EAF3DE}
+.sc-dot.out{background:#FBE3E1}
+.sc-dot.return{background:#E3EEFB}
+.sc-content{flex:1;padding-top:2px}
+.sc-title-row{display:flex;justify-content:space-between}
+.sc-desc{font-size:12.5px;font-weight:600}
+.sc-qty{font-size:13px;font-weight:800}
+.sc-sub{font-size:11px;color:#888780;margin-top:2px}
+
+.opname-intro-card{background:#fff;border:1px solid #E5E3DA;border-radius:12px;padding:32px 20px;text-align:center}
+.opname-input{width:70px;padding:6px 8px;border:1px solid #E5E3DA;border-radius:6px;font-size:13px;font-weight:700;text-align:center}
+.opname-note{width:100%;padding:6px 8px;border:1px solid #E5E3DA;border-radius:6px;font-size:12px}
+.opname-diff{font-weight:800;font-size:14px}
+.opname-diff.zero{color:#888780}
+.opname-diff.pos{color:#3B6D11}
+.opname-diff.neg{color:#A32E24}
+.opname-summary-card{background:#fff;border:1px solid #E5E3DA;border-radius:12px;padding:32px 20px;text-align:center;max-width:480px;margin:20px auto}
+.opname-summary-stats{display:flex;gap:12px;justify-content:center;margin-top:8px}
+.oss-stat{background:#F7F6F1;border-radius:10px;padding:14px 20px;min-width:100px}
+.oss-stat.ok{background:#EAF3DE}
+.oss-stat.warn{background:#FCEBD8}
+.oss-val{font-size:22px;font-weight:800}
+.oss-label{font-size:10px;color:#888780;text-transform:uppercase;font-weight:700;margin-top:2px}
+
+.not-found-box{padding:12px}
+.not-found-title{font-size:12.5px;font-weight:700;color:#A32E24}
+.not-found-sub{font-size:11px;color:#888780;margin-top:3px;line-height:1.4}
+.scan-not-found-box{display:none;background:#FBE3E1;border:1px solid #F0C4C0;border-radius:10px;padding:14px;margin-bottom:12px}
+.scan-not-found-box.show{display:block}
+.scan-not-found-box .form-group input{background:#fff}
+
+.nav-badge{background:#C0392B;color:#fff;font-size:10px;font-weight:800;border-radius:99px;padding:1px 6px;margin-left:6px}
+.pending-item-card{background:#FCEBD8;border:1px solid #F5D0A9;border-radius:10px;padding:14px;margin-bottom:10px}
+.pi-header{display:flex;justify-content:space-between;align-items:flex-start}
+.pi-name{font-weight:700;font-size:13px}
+.pi-meta{font-size:11px;color:#888780;margin-top:2px}
+.pi-badge{background:#F5D0A9;color:#8C4A0F;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
+.pi-actions{display:flex;gap:8px;margin-top:10px}
+
+@media(max-width:700px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .inv-table{font-size:11px}
+  .inv-table th,.inv-table td{padding:8px 6px}
+}
+</style>
+</head>
+<body>
+
+<div class="app-bar">
+  <div class="app-title">📦 Inventory Asset — Mockup Simulasi</div>
+  <div class="mode-switch">
+    <button class="mode-btn active" onclick="switchView('admin',this)">👤 Admin <span class="nav-badge" id="admin-nav-badge" style="display:none">0</span></button>
+    <button class="mode-btn" onclick="switchView('technician',this)">👷 Teknisi (Scan)</button>
+  </div>
+</div>
+
+<!-- ═══════════ ADMIN VIEW ═══════════ -->
+<div id="page-admin" class="page active">
+  <div class="container">
+
+    <div class="toolbar">
+      <div>
+        <div class="page-heading">Inventory Asset</div>
+        <div class="page-sub">Kelola stok barang & material — gudang pusat</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="openScanRestockModal()">📷 Scan Barcode</button>
+        <button class="btn primary" onclick="openAddItemModal()">➕ Tambah / Restock Barang</button>
+      </div>
+    </div>
+
+    <div id="pending-items-section" style="display:none;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#A32E24;text-transform:uppercase;margin-bottom:8px">⚠️ Item Baru Menunggu Didaftarkan</div>
+      <div id="pending-items-list"></div>
+    </div>
+
+    <div class="sub-tabs">
+      <button class="sub-tab-btn active" onclick="switchInvSub('barang',this)">📦 Daftar Barang</button>
+      <button class="sub-tab-btn" onclick="switchInvSub('log',this)">📋 Log Stok</button>
+      <button class="sub-tab-btn" onclick="switchInvSub('opname',this)">🔍 Rekonsiliasi Stok</button>
+    </div>
+
+    <div id="inv-sub-barang" class="inv-sub-page active">
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Jenis Barang</div>
+        <div class="stat-val">18</div>
+      </div>
+      <div class="stat-card ok">
+        <div class="stat-label">Stok Aman</div>
+        <div class="stat-val">13</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">Mendekati Minimum</div>
+        <div class="stat-val" style="color:#D97A2E">4</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#C0392B">
+        <div class="stat-label">Stok Kritis</div>
+        <div class="stat-val" style="color:#C0392B">1</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-chip active">Semua Kategori</div>
+      <div class="filter-chip">Material Kabel</div>
+      <div class="filter-chip">Perangkat Jaringan</div>
+      <div class="filter-chip">Aksesoris</div>
+    </div>
+
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Barang</th><th>Kategori</th><th>Satuan</th><th>Stok Saat Ini</th><th>Level Stok</th><th>Barcode</th><th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="item-name item-clickable" onclick="openStockCard('Kabel UTP Cat6')">Kabel UTP Cat6</div><div class="item-meta">PN: CBL-UTP6-BLK</div></td>
+          <td>Material Kabel</td>
+          <td>Meter</td>
+          <td><b>15 m</b><div class="item-meta">dari rekor 100m</div></td>
+          <td>
+            <div class="stock-bar-wrap"><div class="stock-bar crit" style="width:15%"></div></div>
+            <span class="badge crit" style="margin-top:4px;display:inline-block">15% — Kritis</span>
+          </td>
+          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
+          <td><button class="btn small" onclick="openAddItemModal('Kabel UTP Cat6')">+ Stok</button></td>
+        </tr>
+        <tr>
+          <td><div class="item-name item-clickable" onclick="openStockCard('Konektor RJ45')">Konektor RJ45</div><div class="item-meta">PN: CON-RJ45-CAT6</div></td>
+          <td>Aksesoris</td>
+          <td>Pcs</td>
+          <td><b>8 pcs</b><div class="item-meta">dari rekor 50 pcs</div></td>
+          <td>
+            <div class="stock-bar-wrap"><div class="stock-bar warn" style="width:16%"></div></div>
+            <span class="badge warn" style="margin-top:4px;display:inline-block">16% — Rendah</span>
+          </td>
+          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
+          <td><button class="btn small" onclick="openAddItemModal('Konektor RJ45')">+ Stok</button></td>
+        </tr>
+        <tr>
+          <td><div class="item-name item-clickable" onclick="openStockCard('Router Mikrotik RB750')">Router Mikrotik RB750</div><div class="item-meta">PN: MTK-RB750 · SN: 4 unit tersedia</div></td>
+          <td>Perangkat Jaringan</td>
+          <td>Pcs</td>
+          <td><b>4 pcs</b><div class="item-meta">dari rekor 20 pcs</div></td>
+          <td>
+            <div class="stock-bar-wrap"><div class="stock-bar warn" style="width:20%"></div></div>
+            <span class="badge warn" style="margin-top:4px;display:inline-block">20% — Rendah</span>
+          </td>
+          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
+          <td><button class="btn small" onclick="openAddItemModal('Router Mikrotik RB750')">+ Stok</button></td>
+        </tr>
+        <tr>
+          <td><div class="item-name item-clickable" onclick="openStockCard('Switch 8 Port TP-Link')">Switch 8 Port TP-Link</div><div class="item-meta">PN: TPL-SW08</div></td>
+          <td>Perangkat Jaringan</td>
+          <td>Pcs</td>
+          <td><b>22 pcs</b><div class="item-meta">dari rekor 30 pcs</div></td>
+          <td>
+            <div class="stock-bar-wrap"><div class="stock-bar ok" style="width:73%"></div></div>
+            <span class="badge ok" style="margin-top:4px;display:inline-block">73% — Aman</span>
+          </td>
+          <td><div class="qr-icon" title="Belum ada barcode" style="background:#FCEBD8;color:#B25A16">＋</div></td>
+          <td><button class="btn small" onclick="openAddItemModal('Switch 8 Port TP-Link')">+ Stok</button></td>
+        </tr>
+        <tr>
+          <td><div class="item-name item-clickable" onclick="openStockCard('Isolasi Listrik')">Isolasi Listrik</div><div class="item-meta">PN: ISO-BLK-20M</div></td>
+          <td>Aksesoris</td>
+          <td>Pcs</td>
+          <td><b>45 pcs</b><div class="item-meta">dari rekor 50 pcs</div></td>
+          <td>
+            <div class="stock-bar-wrap"><div class="stock-bar ok" style="width:90%"></div></div>
+            <span class="badge ok" style="margin-top:4px;display:inline-block">90% — Aman</span>
+          </td>
+          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
+          <td><button class="btn small" onclick="openAddItemModal('Isolasi Listrik')">+ Stok</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+    <div id="inv-sub-log" class="inv-sub-page">
+      <div class="toolbar" style="margin-bottom:12px">
+        <div class="page-sub" style="font-size:13px;font-weight:600;color:#1A1916">Riwayat seluruh transaksi stok — masuk, keluar, dan pengembalian</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn small" onclick="showToast('📊 Export Excel disimulasikan')">⬇️ Export Excel</button>
+          <button class="btn small" onclick="showToast('📄 Export PDF disimulasikan')">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-chip active">Semua Transaksi</div>
+        <div class="filter-chip">Masuk (Restock)</div>
+        <div class="filter-chip">Keluar (Request)</div>
+        <div class="filter-chip">Masuk (Return)</div>
+      </div>
+
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th><th>Jenis</th><th>Barang</th><th>Qty</th><th>Saldo Setelah</th><th>Referensi</th><th>Oleh</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>06 Jul 2026, 14:32</td>
+            <td><span class="log-type-badge out">⬇ Keluar (Request)</span></td>
+            <td>Kabel UTP Cat6</td>
+            <td class="qty-neg">−30 m</td>
+            <td>15 m</td>
+            <td>WO-2026-0512</td>
+            <td>Budi Santoso</td>
+          </tr>
+          <tr>
+            <td>06 Jul 2026, 09:10</td>
+            <td><span class="log-type-badge in">⬆ Masuk (Restock)</span></td>
+            <td>Kabel UTP Cat6</td>
+            <td class="qty-pos">+100 m</td>
+            <td>45 m</td>
+            <td>Restock #12</td>
+            <td>Admin Eka</td>
+          </tr>
+          <tr>
+            <td>05 Jul 2026, 16:45</td>
+            <td><span class="log-type-badge return">↩ Masuk (Return)</span></td>
+            <td>Konektor RJ45</td>
+            <td class="qty-pos">+3 pcs</td>
+            <td>8 pcs</td>
+            <td>WO-2026-0498</td>
+            <td>Farel Agi</td>
+          </tr>
+          <tr>
+            <td>05 Jul 2026, 11:20</td>
+            <td><span class="log-type-badge out">⬇ Keluar (Request)</span></td>
+            <td>Router Mikrotik RB750</td>
+            <td class="qty-neg">−2 pcs</td>
+            <td>4 pcs</td>
+            <td>WO-2026-0498</td>
+            <td>Farel Agi</td>
+          </tr>
+          <tr>
+            <td>04 Jul 2026, 08:55</td>
+            <td><span class="log-type-badge in">⬆ Masuk (Restock)</span></td>
+            <td>Router Mikrotik RB750</td>
+            <td class="qty-pos">+6 pcs</td>
+            <td>6 pcs</td>
+            <td>Restock #11</td>
+            <td>Admin Eka</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="inv-sub-opname" class="inv-sub-page">
+
+      <!-- State 1: Belum ada opname aktif -->
+      <div id="opname-start-state">
+        <div class="opname-intro-card">
+          <div style="font-size:32px;margin-bottom:10px">🔍</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px">Rekonsiliasi Stok (Opname)</div>
+          <div style="font-size:12.5px;color:#888780;max-width:420px;margin:0 auto 16px">Cocokkan stok sistem dengan stok fisik di gudang. Bisa dilakukan kapan saja, tidak ada jadwal tetap.</div>
+          <button class="btn primary" onclick="startOpname()">▶️ Mulai Opname Baru</button>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;margin:20px 0 10px">Riwayat Opname Sebelumnya</div>
+        <table class="inv-table">
+          <thead>
+            <tr><th>Tanggal</th><th>Barang Dicek</th><th>Sesuai</th><th>Selisih Ditemukan</th><th>Oleh</th><th>Aksi</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>01 Jun 2026</td>
+              <td>18 barang</td>
+              <td><span class="badge ok">15 sesuai</span></td>
+              <td><span class="badge warn">3 selisih</span></td>
+              <td>Admin Eka</td>
+              <td><button class="btn small" onclick="showToast('📄 Lihat detail opname 1 Juni')">Lihat Detail</button></td>
+            </tr>
+            <tr>
+              <td>02 Mei 2026</td>
+              <td>16 barang</td>
+              <td><span class="badge ok">16 sesuai</span></td>
+              <td><span class="badge ok">0 selisih</span></td>
+              <td>Admin Eka</td>
+              <td><button class="btn small" onclick="showToast('📄 Lihat detail opname 2 Mei')">Lihat Detail</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- State 2: Sesi opname sedang berjalan -->
+      <div id="opname-active-state" style="display:none">
+        <div class="toolbar" style="margin-bottom:12px">
+          <div>
+            <div class="page-heading" style="font-size:15px">Opname Berlangsung</div>
+            <div class="page-sub">Dimulai 06 Jul 2026, 15:00 — isi kolom Stok Fisik untuk tiap barang</div>
+          </div>
+          <button class="btn primary" onclick="finishOpname()">✅ Selesaikan & Sesuaikan Stok</button>
+        </div>
+
+        <table class="inv-table">
+          <thead>
+            <tr><th>Barang</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Keterangan</th></tr>
+          </thead>
+          <tbody id="opname-items-body">
+            <tr>
+              <td><div class="item-name">Kabel UTP Cat6</div><div class="item-meta">Meter</div></td>
+              <td><b>15</b> m</td>
+              <td><input type="number" class="opname-input" data-item="Kabel UTP Cat6" data-system="15" value="15" oninput="calcOpnameDiff(this)"/></td>
+              <td class="opname-diff" id="diff-kabel">0</td>
+              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+            </tr>
+            <tr>
+              <td><div class="item-name">Konektor RJ45</div><div class="item-meta">Pcs</div></td>
+              <td><b>8</b> pcs</td>
+              <td><input type="number" class="opname-input" data-item="Konektor RJ45" data-system="8" value="8" oninput="calcOpnameDiff(this)"/></td>
+              <td class="opname-diff" id="diff-konektor">0</td>
+              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+            </tr>
+            <tr>
+              <td><div class="item-name">Router Mikrotik RB750</div><div class="item-meta">Pcs</div></td>
+              <td><b>4</b> pcs</td>
+              <td><input type="number" class="opname-input" data-item="Router Mikrotik RB750" data-system="4" value="4" oninput="calcOpnameDiff(this)"/></td>
+              <td class="opname-diff" id="diff-router">0</td>
+              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+            </tr>
+            <tr>
+              <td><div class="item-name">Switch 8 Port TP-Link</div><div class="item-meta">Pcs</div></td>
+              <td><b>22</b> pcs</td>
+              <td><input type="number" class="opname-input" data-item="Switch 8 Port TP-Link" data-system="22" value="22" oninput="calcOpnameDiff(this)"/></td>
+              <td class="opname-diff" id="diff-switch">0</td>
+              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+            </tr>
+            <tr>
+              <td><div class="item-name">Isolasi Listrik</div><div class="item-meta">Pcs</div></td>
+              <td><b>45</b> pcs</td>
+              <td><input type="number" class="opname-input" data-item="Isolasi Listrik" data-system="45" value="45" oninput="calcOpnameDiff(this)"/></td>
+              <td class="opname-diff" id="diff-isolasi">0</td>
+              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- State 3: Ringkasan hasil opname -->
+      <div id="opname-summary-state" style="display:none">
+        <div class="opname-summary-card">
+          <div style="font-size:32px;margin-bottom:8px">✅</div>
+          <div style="font-size:16px;font-weight:800;margin-bottom:4px">Opname Selesai Disimpan</div>
+          <div style="font-size:12.5px;color:#888780;margin-bottom:18px">Stok sistem sudah disesuaikan dengan hasil fisik. Semua selisih tercatat di Log Stok.</div>
+          <div class="opname-summary-stats">
+            <div class="oss-stat"><div class="oss-val">5</div><div class="oss-label">Barang Dicek</div></div>
+            <div class="oss-stat ok"><div class="oss-val" id="oss-sesuai">3</div><div class="oss-label">Sesuai</div></div>
+            <div class="oss-stat warn"><div class="oss-val" id="oss-selisih">2</div><div class="oss-label">Ada Selisih</div></div>
+          </div>
+          <button class="btn" onclick="backToOpnameStart()" style="margin-top:16px">← Kembali ke Riwayat Opname</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ TECHNICIAN VIEW (scan simulation) ═══════════ -->
+<div id="page-technician" class="page">
+  <div class="container">
+    <div class="tech-card">
+      <div class="tech-title">📋 Form Material Request</div>
+      <div class="tech-sub">WO-2026-0512 · Scan barcode barang untuk request material</div>
+
+      <div class="scan-camera-box" onclick="simulateScan()">
+        <div class="scan-frame"><div class="scan-line"></div></div>
+        <div class="scan-hint">📷 Ketuk untuk simulasikan scan barcode...</div>
+      </div>
+
+      <div class="or-divider">atau</div>
+
+      <div class="form-group" style="position:relative">
+        <label>Cari Barang Manual</label>
+        <input type="text" id="manual-search" placeholder="Ketik nama barang / product number..." oninput="onManualSearch(this.value)" autocomplete="off"/>
+        <div class="manual-search-results" id="manual-search-results"></div>
+      </div>
+
+      <div class="scanned-item-card" id="scanned-card">
+        <div class="si-header">
+          <div>
+            <div class="si-name" id="si-name">Kabel UTP Cat6</div>
+            <div class="si-meta" id="si-meta">PN: CBL-UTP6-BLK</div>
+          </div>
+          <div class="qr-icon">▦</div>
+        </div>
+        <div class="si-stock-info" id="si-stock-info">✅ Stok tersedia: 15 meter</div>
+        <div class="qty-input-row">
+          <button class="qty-btn" onclick="changeQty(-1)">−</button>
+          <div class="qty-val" id="qty-val">5</div>
+          <button class="qty-btn" onclick="changeQty(1)">+</button>
+          <button class="btn primary small" onclick="addToCart()">+ Tambah ke Request</button>
+        </div>
+      </div>
+
+      <div class="scan-not-found-box" id="scan-not-found-box">
+        <div class="not-found-title">⚠️ Barcode tidak dikenali</div>
+        <div class="not-found-sub">Barang ini belum ada di master Inventory. Anda tetap bisa lanjut request — item baru akan dicatat sebagai reminder untuk Admin.</div>
+        <div class="form-group" style="margin:10px 0">
+          <label>Nama Barang (isi manual)</label>
+          <input type="text" id="nf-item-name" placeholder="mis. Baut Bracket 12mm"/>
+        </div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Generate kode/barcode baru untuk item ini?</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn small" style="flex:1;justify-content:center" onclick="confirmNewItem(false)">Tidak, lanjut saja</button>
+          <button class="btn primary small" style="flex:1;justify-content:center" onclick="confirmNewItem(true)">✅ Ya, Generate Kode</button>
+        </div>
+      </div>
+
+      <div class="cart-list" id="cart-list">
+        <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;margin-bottom:8px">Item yang akan direquest</div>
+        <div style="text-align:center;color:#888780;font-size:12px;padding:16px 0" id="cart-empty">Belum ada item discan</div>
+      </div>
+
+      <button class="btn primary" style="width:100%;margin-top:16px;justify-content:center" onclick="submitRequest()">📤 Submit Material Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ POPUP LOW STOCK ═══════════ -->
+<div class="modal-overlay" id="low-stock-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-header-icon">⚠️</div>
+      <div>
+        <div class="modal-header-title">5 Barang Mendekati Stok Minimum</div>
+        <div class="modal-header-sub">Berdasarkan threshold kategori masing-masing</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="low-stock-item">
+        <div>
+          <div class="ls-name">Kabel UTP Cat6</div>
+          <div class="ls-cat">Material Kabel · threshold 20%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ls-pct">15%</div>
+          <div class="ls-qty">15m / 100m</div>
+        </div>
+      </div>
+      <div class="low-stock-item">
+        <div>
+          <div class="ls-name">Konektor RJ45</div>
+          <div class="ls-cat">Aksesoris · threshold 25%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ls-pct">16%</div>
+          <div class="ls-qty">8 / 50 pcs</div>
+        </div>
+      </div>
+      <div class="low-stock-item">
+        <div>
+          <div class="ls-name">Router Mikrotik RB750</div>
+          <div class="ls-cat">Perangkat Jaringan · threshold 30%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ls-pct">20%</div>
+          <div class="ls-qty">4 / 20 pcs</div>
+        </div>
+      </div>
+      <div class="low-stock-item">
+        <div>
+          <div class="ls-name">Baut Bracket 10mm</div>
+          <div class="ls-cat">Aksesoris · threshold 25%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ls-pct">18%</div>
+          <div class="ls-qty">9 / 50 pcs</div>
+        </div>
+      </div>
+      <div class="low-stock-item">
+        <div>
+          <div class="ls-name">Patch Cord 1m</div>
+          <div class="ls-cat">Material Kabel · threshold 20%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ls-pct">12%</div>
+          <div class="ls-qty">6 / 50 pcs</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeLowStockModal()">Tutup (sesi ini tidak muncul lagi)</button>
+      <button class="btn primary" onclick="closeLowStockModal();switchViewProgrammatic('admin')">Lihat Detail Stok</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL ADD/RESTOCK ITEM ═══════════ -->
+<div class="modal-overlay" id="add-item-modal">
+  <div class="modal-box form-modal">
+    <div class="modal-header" style="background:#F7F6F1">
+      <div class="modal-header-icon">📦</div>
+      <div>
+        <div class="modal-header-title" style="color:#1A1916">Tambah / Restock Barang</div>
+        <div class="modal-header-sub" style="color:#888780">Input barang masuk ke stok gudang</div>
+      </div>
+    </div>
+    <div class="modal-body" style="max-height:60vh">
+      <div class="form-group">
+        <label>Jenis Satuan</label>
+        <div class="radio-group">
+          <div class="radio-opt active" id="opt-pcs" onclick="setUnitType('pcs')">📦 Per Unit (Pcs)</div>
+          <div class="radio-opt" id="opt-meter" onclick="setUnitType('meter')">📏 Per Meter</div>
+        </div>
+      </div>
+
+      <div class="scan-box" onclick="simulateScanRestock()">
+        📷 Ketuk untuk scan barcode existing (jika ada)
+      </div>
+
+      <div class="form-group">
+        <label>Nama Barang</label>
+        <input type="text" id="add-name" placeholder="mis. Kabel UTP Cat6" value="Kabel UTP Cat6"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Product Number</label>
+          <input type="text" id="add-pn" placeholder="mis. CBL-UTP6-BLK" value="CBL-UTP6-BLK"/>
+        </div>
+        <div class="form-group" id="add-sn-group" style="display:none">
+          <label>Serial Number</label>
+          <input type="text" id="add-sn" placeholder="mis. SN-00231"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Kategori</label>
+          <select id="add-category">
+            <option>Material Kabel</option>
+            <option>Perangkat Jaringan</option>
+            <option>Aksesoris</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="qty-label">Qty Ditambahkan (meter)</label>
+          <input type="number" id="add-qty" placeholder="mis. 100" value="100"/>
+        </div>
+      </div>
+
+      <div class="barcode-generated" id="barcode-generated-box">
+        <div style="font-size:20px">▦</div>
+        <div>
+          <div style="font-weight:700">Barcode baru berhasil dibuat!</div>
+          <div style="font-size:11px;color:#3B6D11">Kode: PXL-INV-08231 — klik untuk cetak label</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-item-modal')">Batal</button>
+      <button class="btn primary" onclick="submitAddItem()">💾 Simpan ke Stok</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════ MODAL KARTU STOK (detail per barang) ═══════════ -->
+<div class="modal-overlay" id="stock-card-modal">
+  <div class="modal-box stock-card-modal">
+    <div class="sc-header-info">
+      <div>
+        <div class="sc-name" id="sc-name">Kabel UTP Cat6</div>
+        <div class="sc-meta" id="sc-meta">PN: CBL-UTP6-BLK · Material Kabel</div>
+      </div>
+      <div class="sc-current-stock">
+        <div class="sc-current-stock-label">Stok Saat Ini</div>
+        <div class="sc-current-stock-val" id="sc-current-val">15 m</div>
+      </div>
+    </div>
+    <div class="sc-timeline" id="sc-timeline">
+      <div class="sc-timeline-item">
+        <div class="sc-dot out">⬇</div>
+        <div class="sc-content">
+          <div class="sc-title-row">
+            <div class="sc-desc">Keluar — Request Material</div>
+            <div class="sc-qty" style="color:#A32E24">−30 m</div>
+          </div>
+          <div class="sc-sub">06 Jul 2026, 14:32 · WO-2026-0512 · oleh Budi Santoso · saldo: 15m</div>
+        </div>
+      </div>
+      <div class="sc-timeline-item">
+        <div class="sc-dot in">⬆</div>
+        <div class="sc-content">
+          <div class="sc-title-row">
+            <div class="sc-desc">Masuk — Restock</div>
+            <div class="sc-qty" style="color:#3B6D11">+100 m</div>
+          </div>
+          <div class="sc-sub">06 Jul 2026, 09:10 · Restock #12 · oleh Admin Eka · saldo: 45m</div>
+        </div>
+      </div>
+      <div class="sc-timeline-item">
+        <div class="sc-dot out">⬇</div>
+        <div class="sc-content">
+          <div class="sc-title-row">
+            <div class="sc-desc">Keluar — Request Material</div>
+            <div class="sc-qty" style="color:#A32E24">−15 m</div>
+          </div>
+          <div class="sc-sub">28 Jun 2026, 10:05 · WO-2026-0470 · oleh Farel Agi · saldo: −55m (rekor tertinggi sebelumnya 100m)</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn small" onclick="showToast('📊 Export riwayat barang ini disimulasikan')">⬇️ Export Riwayat</button>
+      <button class="btn" onclick="closeModal('stock-card-modal')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✅ Berhasil!</div>
+
+<script>
+let currentQty = 5;
+let cart = [];
+
+function switchView(view, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+view).classList.add('active');
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function switchViewProgrammatic(view){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+view).classList.add('active');
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>b.classList.toggle('active', (view==='admin'&&i===0)||(view==='technician'&&i===1)));
+}
+
+function switchInvSub(sub, btn){
+  document.querySelectorAll('.inv-sub-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('inv-sub-'+sub).classList.add('active');
+  document.querySelectorAll('.sub-tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function openStockCard(itemName){
+  document.getElementById('sc-name').textContent = itemName;
+  document.getElementById('stock-card-modal').classList.add('show');
+  showToast('📋 Menampilkan kartu stok: ' + itemName);
+}
+
+// ═══ Rekonsiliasi Stok (Opname) ═══
+function startOpname(){
+  document.getElementById('opname-start-state').style.display = 'none';
+  document.getElementById('opname-active-state').style.display = 'block';
+  document.getElementById('opname-summary-state').style.display = 'none';
+  showToast('▶️ Sesi opname dimulai — isi stok fisik tiap barang');
+}
+function calcOpnameDiff(input){
+  const system = parseFloat(input.dataset.system);
+  const fisik = parseFloat(input.value) || 0;
+  const diff = fisik - system;
+  const row = input.closest('tr');
+  const diffCell = row.querySelector('.opname-diff');
+  diffCell.textContent = diff > 0 ? '+' + diff : diff;
+  diffCell.classList.remove('zero','pos','neg');
+  diffCell.classList.add(diff === 0 ? 'zero' : diff > 0 ? 'pos' : 'neg');
+}
+function finishOpname(){
+  // Hitung ringkasan dari semua baris
+  const rows = document.querySelectorAll('#opname-items-body tr');
+  let sesuai = 0, selisih = 0;
+  rows.forEach(row=>{
+    const diffText = row.querySelector('.opname-diff').textContent.trim();
+    if(diffText === '0') sesuai++; else selisih++;
+  });
+  document.getElementById('oss-sesuai').textContent = sesuai;
+  document.getElementById('oss-selisih').textContent = selisih;
+
+  document.getElementById('opname-active-state').style.display = 'none';
+  document.getElementById('opname-summary-state').style.display = 'block';
+  showToast('✅ Opname disimpan — stok sistem disesuaikan & tercatat di Log Stok');
+}
+function backToOpnameStart(){
+  document.getElementById('opname-summary-state').style.display = 'none';
+  document.getElementById('opname-start-state').style.display = 'block';
+}
+
+// ═══ Popup low stock — simulasi muncul otomatis sekali saat load ═══
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{
+    document.getElementById('low-stock-modal').classList.add('show');
+  }, 600);
+});
+function closeLowStockModal(){
+  document.getElementById('low-stock-modal').classList.remove('show');
+}
+
+// ═══ Add / Restock Modal ═══
+function openAddItemModal(prefillName, autoGenerate){
+  document.getElementById('add-item-modal').classList.add('show');
+  if(prefillName){
+    document.getElementById('add-name').value = prefillName;
+  }
+  if(autoGenerate){
+    // Auto-generate Product Number dari nama barang
+    const slug = prefillName.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,14);
+    const pn = 'PXL-' + slug + '-' + Math.floor(100+Math.random()*900);
+    document.getElementById('add-pn').value = pn;
+    document.getElementById('add-pn').readOnly = true;
+    document.getElementById('add-pn').style.background = '#F7F6F1';
+
+    // Auto-generate kode barcode/QR
+    const barcodeCode = 'PXL-INV-' + String(Math.floor(10000+Math.random()*90000));
+    const box = document.getElementById('barcode-generated-box');
+    box.classList.add('show');
+    box.querySelector('div:last-child > div:last-child').textContent = 'Kode: ' + barcodeCode + ' — klik untuk cetak label';
+
+    showToast('🔄 Product Number & Barcode otomatis digenerate');
+  }
+}
+function openScanRestockModal(){
+  openAddItemModal();
+  setTimeout(()=>simulateScanRestock(), 300);
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+}
+function setUnitType(type){
+  document.getElementById('opt-pcs').classList.toggle('active', type==='pcs');
+  document.getElementById('opt-meter').classList.toggle('active', type==='meter');
+  document.getElementById('add-sn-group').style.display = type==='pcs' ? 'block' : 'none';
+  document.getElementById('qty-label').textContent = type==='pcs' ? 'Qty Ditambahkan (unit)' : 'Qty Ditambahkan (meter)';
+}
+function simulateScanRestock(){
+  document.getElementById('barcode-generated-box').classList.remove('show');
+  showToast('📷 Barcode terdeteksi — data barang otomatis terisi');
+}
+function submitAddItem(){
+  const name = document.getElementById('add-name').value || 'Barang Baru';
+  const isNew = Math.random() > 0.5;
+  if(isNew){
+    document.getElementById('barcode-generated-box').classList.add('show');
+    showToast('✅ Stok "'+name+'" berhasil ditambahkan + barcode baru dibuat');
+  } else {
+    showToast('✅ Stok "'+name+'" berhasil ditambahkan');
+    closeModal('add-item-modal');
+  }
+}
+
+// ═══ Technician scan simulation ═══
+const scanItems = [
+  {name:'Kabel UTP Cat6', pn:'CBL-UTP6-BLK', stock:15, unit:'meter'},
+  {name:'Konektor RJ45', pn:'CON-RJ45-CAT6', stock:8, unit:'pcs'},
+  {name:'Router Mikrotik RB750', pn:'MTK-RB750', stock:4, unit:'pcs'},
+  {name:'Switch 8 Port TP-Link', pn:'TPL-SW08', stock:22, unit:'pcs'},
+  {name:'Isolasi Listrik', pn:'ISO-BLK-20M', stock:45, unit:'pcs'},
+];
+let scanIdx = 0;
+
+function simulateScan(){
+  // Setiap scan ke-4 disimulasikan sebagai barcode tidak dikenali
+  if(scanIdx>0 && scanIdx % 4 === 3){
+    scanIdx++;
+    showBarcodeNotFound();
+    return;
+  }
+  const item = scanItems[scanIdx % scanItems.length];
+  scanIdx++;
+  selectItem(item, '📷 Barcode terdeteksi: ' + item.name);
+}
+
+function showBarcodeNotFound(){
+  document.getElementById('scanned-card').classList.remove('show');
+  const box = document.getElementById('scan-not-found-box');
+  box.classList.add('show');
+  showToast('⚠️ Barcode tidak dikenali di sistem');
+}
+
+function handleItemNotFound(query){
+  document.getElementById('manual-search-results').classList.remove('show');
+  document.getElementById('nf-item-name').value = query;
+  document.getElementById('scan-not-found-box').classList.add('show');
+  document.getElementById('scanned-card').classList.remove('show');
+}
+
+let pendingNewItems = []; // notifikasi barang baru untuk admin
+
+function confirmNewItem(generateCode){
+  const name = document.getElementById('nf-item-name').value.trim() || 'Item Baru Tanpa Nama';
+  pendingNewItems.push({name, generateCode, wo: 'WO-2026-0512'});
+
+  // Tambahkan ke cart sebagai item baru (qty default 1)
+  cart.push({name, qty: currentQty, unit: 'pcs', isNew: true});
+  renderCart();
+
+  document.getElementById('scan-not-found-box').classList.remove('show');
+  document.getElementById('manual-search').value = '';
+
+  const msg = generateCode
+    ? '✅ "'+name+'" ditambahkan ke request. Kode baru akan digenerate & Admin mendapat reminder.'
+    : '✅ "'+name+'" ditambahkan ke request. Admin mendapat reminder untuk daftarkan barang ini.';
+  showToast(msg);
+  updateAdminNotifBadge();
+}
+
+function updateAdminNotifBadge(){
+  const badge = document.getElementById('admin-nav-badge');
+  if(badge){
+    badge.textContent = pendingNewItems.length;
+    badge.style.display = pendingNewItems.length > 0 ? 'inline-block' : 'none';
+  }
+  const section = document.getElementById('pending-items-section');
+  const list = document.getElementById('pending-items-list');
+  if(pendingNewItems.length === 0){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  list.innerHTML = pendingNewItems.map((it,i)=>`
+    <div class="pending-item-card">
+      <div class="pi-header">
+        <div>
+          <div class="pi-name">${it.name}</div>
+          <div class="pi-meta">Direquest via ${it.wo} · ${it.generateCode ? 'Perlu generate barcode baru' : 'Tanpa barcode'}</div>
+        </div>
+        <div class="pi-badge">Belum Terdaftar</div>
+      </div>
+      <div class="pi-actions">
+        <button class="btn small primary" onclick="registerPendingItem(${i})">➕ Daftarkan ke Master Barang</button>
+        <button class="btn small" onclick="dismissPendingItem(${i})">Abaikan</button>
+      </div>
+    </div>
+  `).join('');
+}
+function registerPendingItem(idx){
+  const item = pendingNewItems[idx];
+  openAddItemModal(item.name, true);
+  dismissPendingItem(idx);
+}
+function dismissPendingItem(idx){
+  pendingNewItems.splice(idx,1);
+  updateAdminNotifBadge();
+}
+
+function onManualSearch(query){
+  const resultsBox = document.getElementById('manual-search-results');
+  if(!query.trim()){
+    resultsBox.classList.remove('show');
+    resultsBox.innerHTML='';
+    return;
+  }
+  const matches = scanItems.filter(it =>
+    it.name.toLowerCase().includes(query.toLowerCase()) ||
+    it.pn.toLowerCase().includes(query.toLowerCase())
+  );
+  if(!matches.length){
+    resultsBox.innerHTML = `<div class="not-found-box">
+      <div class="not-found-title">⚠️ "${query}" tidak ditemukan di stok</div>
+      <div class="not-found-sub">Barang ini belum terdaftar di master Inventory</div>
+      <button class="btn small primary" style="width:100%;justify-content:center;margin-top:8px" onclick="handleItemNotFound('${query.replace(/'/g,"\\'")}')">+ Lanjutkan dengan Item Baru</button>
+    </div>`;
+  } else {
+    resultsBox.innerHTML = matches.map((it,i)=>{
+      const lowClass = it.stock <= 10 ? 'low' : '';
+      return `<div class="search-result-item" onclick="selectFromSearch(${scanItems.indexOf(it)})">
+        <div><div class="sri-name">${it.name}</div><div class="sri-pn">PN: ${it.pn}</div></div>
+        <div class="sri-stock ${lowClass}">${it.stock} ${it.unit}</div>
+      </div>`;
+    }).join('');
+  }
+  resultsBox.classList.add('show');
+}
+function selectFromSearch(idx){
+  const item = scanItems[idx];
+  selectItem(item, '✅ Barang dipilih: ' + item.name);
+  document.getElementById('manual-search').value = '';
+  document.getElementById('manual-search-results').classList.remove('show');
+}
+function selectItem(item, toastMsg){
+  document.getElementById('si-name').textContent = item.name;
+  document.getElementById('si-meta').textContent = 'PN: ' + item.pn;
+  const stockEl = document.getElementById('si-stock-info');
+  if(item.stock <= 10){
+    stockEl.textContent = '⚠️ Stok tersisa: ' + item.stock + ' ' + item.unit + ' (rendah)';
+    stockEl.style.background = '#FCEBD8';
+    stockEl.style.color = '#B25A16';
+  } else {
+    stockEl.textContent = '✅ Stok tersedia: ' + item.stock + ' ' + item.unit;
+    stockEl.style.background = '#EAF3DE';
+    stockEl.style.color = '#3B6D11';
+  }
+  currentQty = 1;
+  document.getElementById('qty-val').textContent = currentQty;
+  document.getElementById('scanned-card').classList.add('show');
+  document.getElementById('scanned-card').dataset.name = item.name;
+  document.getElementById('scanned-card').dataset.unit = item.unit;
+  showToast(toastMsg);
+}
+// Tutup dropdown pencarian kalau klik di luar area
+document.addEventListener('click', function(e){
+  const searchGroup = document.getElementById('manual-search');
+  const resultsBox = document.getElementById('manual-search-results');
+  if(searchGroup && resultsBox && !searchGroup.contains(e.target) && !resultsBox.contains(e.target)){
+    resultsBox.classList.remove('show');
+  }
+});
+function changeQty(delta){
+  currentQty = Math.max(1, currentQty + delta);
+  document.getElementById('qty-val').textContent = currentQty;
+}
+function addToCart(){
+  const card = document.getElementById('scanned-card');
+  const name = card.dataset.name;
+  const unit = card.dataset.unit;
+  cart.push({name, qty: currentQty, unit});
+  renderCart();
+  card.classList.remove('show');
+  showToast('➕ Ditambahkan ke request: ' + name);
+}
+function renderCart(){
+  const list = document.getElementById('cart-list');
+  const empty = document.getElementById('cart-empty');
+  if(cart.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.querySelectorAll('.cart-item').forEach(el=>el.remove());
+  cart.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'cart-item';
+    const newTag = item.isNew ? ' <span style="font-size:9px;background:#FCEBD8;color:#B25A16;padding:1px 6px;border-radius:99px;font-weight:700">BARU</span>' : '';
+    div.innerHTML = `<div class="cart-item-name">${item.name}${newTag}</div><div class="cart-item-qty">${item.qty} ${item.unit}</div>`;
+    list.appendChild(div);
+  });
+}
+function submitRequest(){
+  if(cart.length === 0){
+    showToast('⚠️ Scan dan tambahkan minimal 1 item dulu');
+    return;
+  }
+  showToast('✅ Material Request berhasil disubmit — stok otomatis berkurang');
+  cart = [];
+  renderCart();
+}
+
+function showToast(msg){
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
