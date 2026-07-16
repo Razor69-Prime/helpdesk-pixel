@@ -200,6 +200,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </style>
 </head>
 <body>
+<!-- PXL-REV-0003: inventory empty state, dummy data removed -->
 
 <div class="app-bar">
   <div class="app-title">📦 Inventory Asset — Mockup Simulasi</div>
@@ -240,19 +241,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="stat-grid">
       <div class="stat-card">
         <div class="stat-label">Total Jenis Barang</div>
-        <div class="stat-val">18</div>
+        <div class="stat-val">0</div>
       </div>
       <div class="stat-card ok">
         <div class="stat-label">Stok Aman</div>
-        <div class="stat-val">13</div>
+        <div class="stat-val">0</div>
       </div>
       <div class="stat-card warn">
         <div class="stat-label">Mendekati Minimum</div>
-        <div class="stat-val" style="color:#D97A2E">4</div>
+        <div class="stat-val" style="color:#D97A2E">0</div>
       </div>
       <div class="stat-card" style="border-left-color:#C0392B">
         <div class="stat-label">Stok Kritis</div>
-        <div class="stat-val" style="color:#C0392B">1</div>
+        <div class="stat-val" style="color:#C0392B">0</div>
       </div>
     </div>
 
@@ -271,64 +272,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </thead>
       <tbody>
         <tr>
-          <td><div class="item-name item-clickable" onclick="openStockCard('Kabel UTP Cat6')">Kabel UTP Cat6</div><div class="item-meta">PN: CBL-UTP6-BLK</div></td>
-          <td>Material Kabel</td>
-          <td>Meter</td>
-          <td><b>15 m</b><div class="item-meta">dari rekor 100m</div></td>
-          <td>
-            <div class="stock-bar-wrap"><div class="stock-bar crit" style="width:15%"></div></div>
-            <span class="badge crit" style="margin-top:4px;display:inline-block">15% — Kritis</span>
+          <td colspan="7" style="text-align:center;padding:40px;color:#888780">
+            <div style="font-size:28px;margin-bottom:8px">📦</div>
+            <div style="font-weight:700;color:#5F5E5A">Belum ada data inventory</div>
+            <div class="item-meta" style="margin-top:4px">Klik “Tambah / Restock Barang” untuk mulai menambahkan barang.</div>
           </td>
-          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
-          <td><button class="btn small" onclick="openAddItemModal('Kabel UTP Cat6')">+ Stok</button></td>
-        </tr>
-        <tr>
-          <td><div class="item-name item-clickable" onclick="openStockCard('Konektor RJ45')">Konektor RJ45</div><div class="item-meta">PN: CON-RJ45-CAT6</div></td>
-          <td>Aksesoris</td>
-          <td>Pcs</td>
-          <td><b>8 pcs</b><div class="item-meta">dari rekor 50 pcs</div></td>
-          <td>
-            <div class="stock-bar-wrap"><div class="stock-bar warn" style="width:16%"></div></div>
-            <span class="badge warn" style="margin-top:4px;display:inline-block">16% — Rendah</span>
-          </td>
-          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
-          <td><button class="btn small" onclick="openAddItemModal('Konektor RJ45')">+ Stok</button></td>
-        </tr>
-        <tr>
-          <td><div class="item-name item-clickable" onclick="openStockCard('Router Mikrotik RB750')">Router Mikrotik RB750</div><div class="item-meta">PN: MTK-RB750 · SN: 4 unit tersedia</div></td>
-          <td>Perangkat Jaringan</td>
-          <td>Pcs</td>
-          <td><b>4 pcs</b><div class="item-meta">dari rekor 20 pcs</div></td>
-          <td>
-            <div class="stock-bar-wrap"><div class="stock-bar warn" style="width:20%"></div></div>
-            <span class="badge warn" style="margin-top:4px;display:inline-block">20% — Rendah</span>
-          </td>
-          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
-          <td><button class="btn small" onclick="openAddItemModal('Router Mikrotik RB750')">+ Stok</button></td>
-        </tr>
-        <tr>
-          <td><div class="item-name item-clickable" onclick="openStockCard('Switch 8 Port TP-Link')">Switch 8 Port TP-Link</div><div class="item-meta">PN: TPL-SW08</div></td>
-          <td>Perangkat Jaringan</td>
-          <td>Pcs</td>
-          <td><b>22 pcs</b><div class="item-meta">dari rekor 30 pcs</div></td>
-          <td>
-            <div class="stock-bar-wrap"><div class="stock-bar ok" style="width:73%"></div></div>
-            <span class="badge ok" style="margin-top:4px;display:inline-block">73% — Aman</span>
-          </td>
-          <td><div class="qr-icon" title="Belum ada barcode" style="background:#FCEBD8;color:#B25A16">＋</div></td>
-          <td><button class="btn small" onclick="openAddItemModal('Switch 8 Port TP-Link')">+ Stok</button></td>
-        </tr>
-        <tr>
-          <td><div class="item-name item-clickable" onclick="openStockCard('Isolasi Listrik')">Isolasi Listrik</div><div class="item-meta">PN: ISO-BLK-20M</div></td>
-          <td>Aksesoris</td>
-          <td>Pcs</td>
-          <td><b>45 pcs</b><div class="item-meta">dari rekor 50 pcs</div></td>
-          <td>
-            <div class="stock-bar-wrap"><div class="stock-bar ok" style="width:90%"></div></div>
-            <span class="badge ok" style="margin-top:4px;display:inline-block">90% — Aman</span>
-          </td>
-          <td><div class="qr-icon" title="Sudah ada barcode">▦</div></td>
-          <td><button class="btn small" onclick="openAddItemModal('Isolasi Listrik')">+ Stok</button></td>
         </tr>
       </tbody>
     </table>
@@ -359,49 +307,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         </thead>
         <tbody>
           <tr>
-            <td>06 Jul 2026, 14:32</td>
-            <td><span class="log-type-badge out">⬇ Keluar (Request)</span></td>
-            <td>Kabel UTP Cat6</td>
-            <td class="qty-neg">−30 m</td>
-            <td>15 m</td>
-            <td>WO-2026-0512</td>
-            <td>Budi Santoso</td>
-          </tr>
-          <tr>
-            <td>06 Jul 2026, 09:10</td>
-            <td><span class="log-type-badge in">⬆ Masuk (Restock)</span></td>
-            <td>Kabel UTP Cat6</td>
-            <td class="qty-pos">+100 m</td>
-            <td>45 m</td>
-            <td>Restock #12</td>
-            <td>Admin Eka</td>
-          </tr>
-          <tr>
-            <td>05 Jul 2026, 16:45</td>
-            <td><span class="log-type-badge return">↩ Masuk (Return)</span></td>
-            <td>Konektor RJ45</td>
-            <td class="qty-pos">+3 pcs</td>
-            <td>8 pcs</td>
-            <td>WO-2026-0498</td>
-            <td>Farel Agi</td>
-          </tr>
-          <tr>
-            <td>05 Jul 2026, 11:20</td>
-            <td><span class="log-type-badge out">⬇ Keluar (Request)</span></td>
-            <td>Router Mikrotik RB750</td>
-            <td class="qty-neg">−2 pcs</td>
-            <td>4 pcs</td>
-            <td>WO-2026-0498</td>
-            <td>Farel Agi</td>
-          </tr>
-          <tr>
-            <td>04 Jul 2026, 08:55</td>
-            <td><span class="log-type-badge in">⬆ Masuk (Restock)</span></td>
-            <td>Router Mikrotik RB750</td>
-            <td class="qty-pos">+6 pcs</td>
-            <td>6 pcs</td>
-            <td>Restock #11</td>
-            <td>Admin Eka</td>
+            <td colspan="7" style="text-align:center;padding:40px;color:#888780">
+              <div style="font-size:28px;margin-bottom:8px">📋</div>
+              <div style="font-weight:700;color:#5F5E5A">Belum ada transaksi stok</div>
+              <div class="item-meta" style="margin-top:4px">Riwayat barang masuk, keluar, dan pengembalian akan tampil di sini.</div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -425,20 +335,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </thead>
           <tbody>
             <tr>
-              <td>01 Jun 2026</td>
-              <td>18 barang</td>
-              <td><span class="badge ok">15 sesuai</span></td>
-              <td><span class="badge warn">3 selisih</span></td>
-              <td>Admin Eka</td>
-              <td><button class="btn small" onclick="showToast('📄 Lihat detail opname 1 Juni')">Lihat Detail</button></td>
-            </tr>
-            <tr>
-              <td>02 Mei 2026</td>
-              <td>16 barang</td>
-              <td><span class="badge ok">16 sesuai</span></td>
-              <td><span class="badge ok">0 selisih</span></td>
-              <td>Admin Eka</td>
-              <td><button class="btn small" onclick="showToast('📄 Lihat detail opname 2 Mei')">Lihat Detail</button></td>
+              <td colspan="6" style="text-align:center;padding:36px;color:#888780">
+                <div style="font-weight:700;color:#5F5E5A">Belum pernah melakukan stock opname</div>
+                <div class="item-meta" style="margin-top:4px">Riwayat opname akan tampil setelah sesi pertama diselesaikan.</div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -460,39 +360,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </thead>
           <tbody id="opname-items-body">
             <tr>
-              <td><div class="item-name">Kabel UTP Cat6</div><div class="item-meta">Meter</div></td>
-              <td><b>15</b> m</td>
-              <td><input type="number" class="opname-input" data-item="Kabel UTP Cat6" data-system="15" value="15" oninput="calcOpnameDiff(this)"/></td>
-              <td class="opname-diff" id="diff-kabel">0</td>
-              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
-            </tr>
-            <tr>
-              <td><div class="item-name">Konektor RJ45</div><div class="item-meta">Pcs</div></td>
-              <td><b>8</b> pcs</td>
-              <td><input type="number" class="opname-input" data-item="Konektor RJ45" data-system="8" value="8" oninput="calcOpnameDiff(this)"/></td>
-              <td class="opname-diff" id="diff-konektor">0</td>
-              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
-            </tr>
-            <tr>
-              <td><div class="item-name">Router Mikrotik RB750</div><div class="item-meta">Pcs</div></td>
-              <td><b>4</b> pcs</td>
-              <td><input type="number" class="opname-input" data-item="Router Mikrotik RB750" data-system="4" value="4" oninput="calcOpnameDiff(this)"/></td>
-              <td class="opname-diff" id="diff-router">0</td>
-              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
-            </tr>
-            <tr>
-              <td><div class="item-name">Switch 8 Port TP-Link</div><div class="item-meta">Pcs</div></td>
-              <td><b>22</b> pcs</td>
-              <td><input type="number" class="opname-input" data-item="Switch 8 Port TP-Link" data-system="22" value="22" oninput="calcOpnameDiff(this)"/></td>
-              <td class="opname-diff" id="diff-switch">0</td>
-              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
-            </tr>
-            <tr>
-              <td><div class="item-name">Isolasi Listrik</div><div class="item-meta">Pcs</div></td>
-              <td><b>45</b> pcs</td>
-              <td><input type="number" class="opname-input" data-item="Isolasi Listrik" data-system="45" value="45" oninput="calcOpnameDiff(this)"/></td>
-              <td class="opname-diff" id="diff-isolasi">0</td>
-              <td><input type="text" class="opname-note" placeholder="opsional..."/></td>
+              <td colspan="5" style="text-align:center;padding:36px;color:#888780">
+                Belum ada barang untuk direkonsiliasi.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -505,9 +375,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <div style="font-size:16px;font-weight:800;margin-bottom:4px">Opname Selesai Disimpan</div>
           <div style="font-size:12.5px;color:#888780;margin-bottom:18px">Stok sistem sudah disesuaikan dengan hasil fisik. Semua selisih tercatat di Log Stok.</div>
           <div class="opname-summary-stats">
-            <div class="oss-stat"><div class="oss-val">5</div><div class="oss-label">Barang Dicek</div></div>
-            <div class="oss-stat ok"><div class="oss-val" id="oss-sesuai">3</div><div class="oss-label">Sesuai</div></div>
-            <div class="oss-stat warn"><div class="oss-val" id="oss-selisih">2</div><div class="oss-label">Ada Selisih</div></div>
+            <div class="oss-stat"><div class="oss-val">0</div><div class="oss-label">Barang Dicek</div></div>
+            <div class="oss-stat ok"><div class="oss-val" id="oss-sesuai">0</div><div class="oss-label">Sesuai</div></div>
+            <div class="oss-stat warn"><div class="oss-val" id="oss-selisih">0</div><div class="oss-label">Ada Selisih</div></div>
           </div>
           <button class="btn" onclick="backToOpnameStart()" style="margin-top:16px">← Kembali ke Riwayat Opname</button>
         </div>
@@ -523,7 +393,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="container">
     <div class="tech-card">
       <div class="tech-title">📋 Form Material Request</div>
-      <div class="tech-sub">WO-2026-0512 · Scan barcode barang untuk request material</div>
+      <div class="tech-sub">Scan barcode barang untuk request material</div>
 
       <div class="scan-camera-box" onclick="simulateScan()">
         <div class="scan-frame"><div class="scan-line"></div></div>
@@ -571,7 +441,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
       <div class="cart-list" id="cart-list">
         <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;margin-bottom:8px">Item yang akan direquest</div>
-        <div style="text-align:center;color:#888780;font-size:12px;padding:16px 0" id="cart-empty">Belum ada item discan</div>
+        <div style="text-align:center;color:#888780;font-size:12px;padding:16px 0" id="cart-empty">Belum ada item direquest</div>
       </div>
 
       <button class="btn primary" style="width:100%;margin-top:16px;justify-content:center" onclick="submitRequest()">📤 Submit Material Request</button>
@@ -585,60 +455,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="modal-header">
       <div class="modal-header-icon">⚠️</div>
       <div>
-        <div class="modal-header-title">5 Barang Mendekati Stok Minimum</div>
+        <div class="modal-header-title">Belum Ada Peringatan Stok</div>
         <div class="modal-header-sub">Berdasarkan threshold kategori masing-masing</div>
       </div>
     </div>
     <div class="modal-body">
-      <div class="low-stock-item">
-        <div>
-          <div class="ls-name">Kabel UTP Cat6</div>
-          <div class="ls-cat">Material Kabel · threshold 20%</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ls-pct">15%</div>
-          <div class="ls-qty">15m / 100m</div>
-        </div>
-      </div>
-      <div class="low-stock-item">
-        <div>
-          <div class="ls-name">Konektor RJ45</div>
-          <div class="ls-cat">Aksesoris · threshold 25%</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ls-pct">16%</div>
-          <div class="ls-qty">8 / 50 pcs</div>
-        </div>
-      </div>
-      <div class="low-stock-item">
-        <div>
-          <div class="ls-name">Router Mikrotik RB750</div>
-          <div class="ls-cat">Perangkat Jaringan · threshold 30%</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ls-pct">20%</div>
-          <div class="ls-qty">4 / 20 pcs</div>
-        </div>
-      </div>
-      <div class="low-stock-item">
-        <div>
-          <div class="ls-name">Baut Bracket 10mm</div>
-          <div class="ls-cat">Aksesoris · threshold 25%</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ls-pct">18%</div>
-          <div class="ls-qty">9 / 50 pcs</div>
-        </div>
-      </div>
-      <div class="low-stock-item">
-        <div>
-          <div class="ls-name">Patch Cord 1m</div>
-          <div class="ls-cat">Material Kabel · threshold 20%</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ls-pct">12%</div>
-          <div class="ls-qty">6 / 50 pcs</div>
-        </div>
+      <div style="text-align:center;padding:24px;color:#888780">
+        Belum ada data stok rendah.
       </div>
     </div>
     <div class="modal-footer">
@@ -721,45 +544,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="modal-box stock-card-modal">
     <div class="sc-header-info">
       <div>
-        <div class="sc-name" id="sc-name">Kabel UTP Cat6</div>
-        <div class="sc-meta" id="sc-meta">PN: CBL-UTP6-BLK · Material Kabel</div>
+        <div class="sc-name" id="sc-name">Belum ada barang</div>
+        <div class="sc-meta" id="sc-meta">Detail barang akan tampil setelah data tersedia</div>
       </div>
       <div class="sc-current-stock">
         <div class="sc-current-stock-label">Stok Saat Ini</div>
-        <div class="sc-current-stock-val" id="sc-current-val">15 m</div>
+        <div class="sc-current-stock-val" id="sc-current-val">0</div>
       </div>
     </div>
     <div class="sc-timeline" id="sc-timeline">
-      <div class="sc-timeline-item">
-        <div class="sc-dot out">⬇</div>
-        <div class="sc-content">
-          <div class="sc-title-row">
-            <div class="sc-desc">Keluar — Request Material</div>
-            <div class="sc-qty" style="color:#A32E24">−30 m</div>
-          </div>
-          <div class="sc-sub">06 Jul 2026, 14:32 · WO-2026-0512 · oleh Budi Santoso · saldo: 15m</div>
-        </div>
-      </div>
-      <div class="sc-timeline-item">
-        <div class="sc-dot in">⬆</div>
-        <div class="sc-content">
-          <div class="sc-title-row">
-            <div class="sc-desc">Masuk — Restock</div>
-            <div class="sc-qty" style="color:#3B6D11">+100 m</div>
-          </div>
-          <div class="sc-sub">06 Jul 2026, 09:10 · Restock #12 · oleh Admin Eka · saldo: 45m</div>
-        </div>
-      </div>
-      <div class="sc-timeline-item">
-        <div class="sc-dot out">⬇</div>
-        <div class="sc-content">
-          <div class="sc-title-row">
-            <div class="sc-desc">Keluar — Request Material</div>
-            <div class="sc-qty" style="color:#A32E24">−15 m</div>
-          </div>
-          <div class="sc-sub">28 Jun 2026, 10:05 · WO-2026-0470 · oleh Farel Agi · saldo: −55m (rekor tertinggi sebelumnya 100m)</div>
-        </div>
-      </div>
+      <div style="text-align:center;padding:30px;color:#888780">Belum ada riwayat stok.</div>
     </div>
     <div class="modal-footer">
       <button class="btn small" onclick="showToast('📊 Export riwayat barang ini disimulasikan')">⬇️ Export Riwayat</button>
@@ -837,11 +631,7 @@ function backToOpnameStart(){
 }
 
 // ═══ Popup low stock — simulasi muncul otomatis sekali saat load ═══
-window.addEventListener('load', ()=>{
-  setTimeout(()=>{
-    document.getElementById('low-stock-modal').classList.add('show');
-  }, 600);
-});
+// Popup stok rendah dinonaktifkan sampai data inventory tersedia.
 function closeLowStockModal(){
   document.getElementById('low-stock-modal').classList.remove('show');
 }
@@ -899,16 +689,14 @@ function submitAddItem(){
 }
 
 // ═══ Technician scan simulation ═══
-const scanItems = [
-  {name:'Kabel UTP Cat6', pn:'CBL-UTP6-BLK', stock:15, unit:'meter'},
-  {name:'Konektor RJ45', pn:'CON-RJ45-CAT6', stock:8, unit:'pcs'},
-  {name:'Router Mikrotik RB750', pn:'MTK-RB750', stock:4, unit:'pcs'},
-  {name:'Switch 8 Port TP-Link', pn:'TPL-SW08', stock:22, unit:'pcs'},
-  {name:'Isolasi Listrik', pn:'ISO-BLK-20M', stock:45, unit:'pcs'},
-];
+const scanItems = [];
 let scanIdx = 0;
 
 function simulateScan(){
+  if(scanItems.length === 0){
+    showToast('ℹ️ Belum ada data barang untuk dipindai');
+    return;
+  }
   // Setiap scan ke-4 disimulasikan sebagai barcode tidak dikenali
   if(scanIdx>0 && scanIdx % 4 === 3){
     scanIdx++;
