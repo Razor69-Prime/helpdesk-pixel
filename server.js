@@ -1336,93 +1336,6 @@ app.get('/track/:token', (req, res) => {
     res.redirect('/?track=' + req.params.token);
   }
 });
-app.get('*',            (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
-
-// ══════════════════════════════════════════
-//  AUTO-DELETE ATTACHMENT (14 hari)
-//  File fisik dihapus, metadata tetap ada
-// ══════════════════════════════════════════
-const ATTACH_EXPIRE_DAYS = 14;
-
-async function cleanExpiredAttachments() {
-  try {
-    const now      = new Date();
-    const tickets  = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
-    let   changed  = false;
-    let   deleted  = 0;
-
-    tickets.forEach(ticket => {
-      (ticket.invoices || []).forEach(inv => {
-        // skip jika sudah ditandai expired atau tidak punya file_url lokal
-        if (inv.file_deleted) return;
-        if (!inv.file_url || !inv.uploaded_at) return;
-
-        const uploadedAt = new Date(inv.uploaded_at);
-        const ageMs      = now - uploadedAt;
-        const ageDays    = ageMs / (1000 * 60 * 60 * 24);
-
-        if (ageDays >= ATTACH_EXPIRE_DAYS) {
-          // Hapus file fisik
-          const filename  = inv.file_url.replace('/uploads/', '');
-          const filepath  = path.join(UPLOADS_DIR, filename);
-          if (fs.existsSync(filepath)) {
-            try {
-              fs.unlinkSync(filepath);
-              deleted++;
-              console.log(`🗑️  Auto-delete: ${filename} (${Math.floor(ageDays)} hari)`);
-            } catch(e) {
-              console.error(`⚠️  Gagal hapus file: ${filename}`, e.message);
-            }
-          }
-          // Tandai di metadata — file sudah dihapus, data tetap ada
-          inv.file_deleted    = true;
-          inv.file_deleted_at = now.toISOString();
-          inv.file_url        = null;   // clear url, metadata lain tetap
-          changed = true;
-        }
-      });
-    });
-
-    if (changed) {
-      fs.writeFileSync(TICKETS_FILE, JSON.stringify(tickets, null, 2));
-      console.log(`✅ Auto-delete selesai: ${deleted} file dihapus`);
-    }
-  } catch(e) {
-    console.error('❌ Auto-delete error:', e.message);
-  }
-}
-
-// ══════════════════════════════════════════
-//  NOTIFICATIONS
-// ══════════════════════════════════════════
-app.get('/api/notifications', requireAuth, async (req, res) => {
-  try {
-    const notifs = await db.getNotificationsForUser(req.session.user);
-    // Tandai is_read per user berdasarkan read_by array
-    const withReadState = notifs.map(n => ({
-      ...n,
-      is_read: Array.isArray(n.read_by) && n.read_by.includes(req.session.user.id)
-    }));
-    res.json(withReadState);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
-  try {
-    await db.markNotificationRead(req.params.id, req.session.user.id);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
-  try {
-    await db.markAllNotificationsRead(req.session.user);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-
-
 // ══════════════════════════════════════════
 //  INVENTORY
 // ══════════════════════════════════════════
@@ -1533,6 +1446,94 @@ app.post('/api/inventory/opname', requireRole('admin','manager'), async (req,res
     res.json({ok:true,item_count:lines.length,matched_count:matched,difference_count:different});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
+
+
+app.get('*',            (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
+
+// ══════════════════════════════════════════
+//  AUTO-DELETE ATTACHMENT (14 hari)
+//  File fisik dihapus, metadata tetap ada
+// ══════════════════════════════════════════
+const ATTACH_EXPIRE_DAYS = 14;
+
+async function cleanExpiredAttachments() {
+  try {
+    const now      = new Date();
+    const tickets  = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
+    let   changed  = false;
+    let   deleted  = 0;
+
+    tickets.forEach(ticket => {
+      (ticket.invoices || []).forEach(inv => {
+        // skip jika sudah ditandai expired atau tidak punya file_url lokal
+        if (inv.file_deleted) return;
+        if (!inv.file_url || !inv.uploaded_at) return;
+
+        const uploadedAt = new Date(inv.uploaded_at);
+        const ageMs      = now - uploadedAt;
+        const ageDays    = ageMs / (1000 * 60 * 60 * 24);
+
+        if (ageDays >= ATTACH_EXPIRE_DAYS) {
+          // Hapus file fisik
+          const filename  = inv.file_url.replace('/uploads/', '');
+          const filepath  = path.join(UPLOADS_DIR, filename);
+          if (fs.existsSync(filepath)) {
+            try {
+              fs.unlinkSync(filepath);
+              deleted++;
+              console.log(`🗑️  Auto-delete: ${filename} (${Math.floor(ageDays)} hari)`);
+            } catch(e) {
+              console.error(`⚠️  Gagal hapus file: ${filename}`, e.message);
+            }
+          }
+          // Tandai di metadata — file sudah dihapus, data tetap ada
+          inv.file_deleted    = true;
+          inv.file_deleted_at = now.toISOString();
+          inv.file_url        = null;   // clear url, metadata lain tetap
+          changed = true;
+        }
+      });
+    });
+
+    if (changed) {
+      fs.writeFileSync(TICKETS_FILE, JSON.stringify(tickets, null, 2));
+      console.log(`✅ Auto-delete selesai: ${deleted} file dihapus`);
+    }
+  } catch(e) {
+    console.error('❌ Auto-delete error:', e.message);
+  }
+}
+
+// ══════════════════════════════════════════
+//  NOTIFICATIONS
+// ══════════════════════════════════════════
+app.get('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const notifs = await db.getNotificationsForUser(req.session.user);
+    // Tandai is_read per user berdasarkan read_by array
+    const withReadState = notifs.map(n => ({
+      ...n,
+      is_read: Array.isArray(n.read_by) && n.read_by.includes(req.session.user.id)
+    }));
+    res.json(withReadState);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
+  try {
+    await db.markNotificationRead(req.params.id, req.session.user.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
+  try {
+    await db.markAllNotificationsRead(req.session.user);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 
 // Helper dipakai di seluruh route lain untuk membuat notifikasi baru
 async function createNotification({ type, text, target_role, target_user_id, ref_id, created_by }) {
