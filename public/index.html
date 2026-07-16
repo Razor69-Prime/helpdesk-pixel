@@ -3754,7 +3754,7 @@ function renderDashSubInvoice(data){
   const mKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const monthTargets=salesTargets.filter(t=>t.year_month===mKey);
   const targetTotal=monthTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
-  if(el('di-target')) el('di-target').textContent=fmtFull(targetTotal)||'—';
+  if(el('di-target')) el('di-target').textContent=fmtFull(Math.round(targetTotal))||'—';
   if(el('di-achievement')) el('di-achievement').textContent=targetTotal?Math.round(total/targetTotal*100)+'%':'—';
 
   // Reuse charts
@@ -4556,7 +4556,7 @@ function renderDashTargetMetrics(data, salesMap){
   const totalRealisasi=Object.values(salesMap).reduce((s,v)=>s+v.total,0);
   const achievement=totalTarget>0?Math.round(totalRealisasi/totalTarget*100):null;
 
-  document.getElementById('dm-target-total').textContent=totalTarget?fmtFull(totalTarget):'Rp 0';
+  document.getElementById('dm-target-total').textContent=totalTarget?fmtFull(Math.round(totalTarget)):'Rp 0';
   document.getElementById('dm-realisasi-total').textContent=totalRealisasi?fmtFull(totalRealisasi):'Rp 0';
   const achEl=document.getElementById('dm-achievement');
   const achSubEl=document.getElementById('dm-achievement-sub');
