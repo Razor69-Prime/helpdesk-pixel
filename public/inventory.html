@@ -8,7 +8,7 @@
 </style>
 </head>
 <body>
-<div class="app-bar"><div class="app-title">📦 Inventory Asset</div><div class="mode-switch"><button class="mode-btn active" onclick="switchView('admin',this)">👤 Admin</button><button class="mode-btn" onclick="switchView('technician',this)">👷 Teknisi (Scan)</button></div></div>
+<div class="app-bar"><div class="app-title">📦 Inventory Asset <span id="db-status" style="font-size:11px;margin-left:8px;color:#888780">● Mengecek database...</span></div><div class="mode-switch"><button class="mode-btn active" onclick="switchView('admin',this)">👤 Admin</button><button class="mode-btn" onclick="switchView('technician',this)">👷 Teknisi (Scan)</button></div></div>
 <div id="page-admin" class="page active"><div class="container">
 <div class="toolbar"><div><div class="page-heading">Inventory Asset</div><div class="page-sub">Kelola stok barang & material — gudang pusat</div></div><button class="btn primary" onclick="openItemModal()">➕ Tambah / Restock Barang</button></div>
 <div class="sub-tabs"><button class="sub-tab-btn active" onclick="switchSub('barang',this)">📦 Daftar Barang</button><button class="sub-tab-btn" onclick="switchSub('log',this)">📋 Log Stok</button><button class="sub-tab-btn" onclick="switchSub('opname',this)">🔍 Rekonsiliasi Stok</button></div>
@@ -43,7 +43,19 @@ function switchView(v,b){document.querySelectorAll('.page').forEach(x=>x.classLi
 function switchSub(v,b){document.querySelectorAll('.inv-sub-page').forEach(x=>x.classList.remove('active'));document.getElementById('sub-'+v).classList.add('active');document.querySelectorAll('.sub-tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
 function level(i){const s=Number(i.stock),m=Number(i.min_stock);if(s<=m)return['crit','Kritis'];if(m>0&&s<=m*1.5)return['warn','Rendah'];return['ok','Aman']}
 function render(){document.getElementById('s-total').textContent=items.length;let ok=0,w=0,c=0;items.forEach(i=>{const l=level(i)[0];l==='ok'?ok++:l==='warn'?w++:c++});document.getElementById('s-ok').textContent=ok;document.getElementById('s-warn').textContent=w;document.getElementById('s-crit').textContent=c;document.getElementById('items-body').innerHTML=items.length?items.map(i=>{const l=level(i);return`<tr><td><div class="item-name">${esc(i.name)}</div><div class="item-meta">PN: ${esc(i.product_number||'-')}</div></td><td>${esc(i.category)}</td><td>${esc(i.unit)}</td><td><b>${Number(i.stock)} ${esc(i.unit)}</b></td><td><span class="badge ${l[0]}">${l[1]}</span></td><td>${esc(i.barcode||'-')}</td><td><button class="btn" onclick="openRestock('${i.id}')">+ Stok</button></td></tr>`}).join(''):`<tr><td colspan="7" class="empty">📦<br><b>Belum ada data inventory</b><br>Klik Tambah / Restock Barang untuk mulai.</td></tr>`;document.getElementById('logs-body').innerHTML=logs.length?logs.map(l=>`<tr><td>${new Date(l.created_at).toLocaleString('id-ID')}</td><td>${esc(l.transaction_type)}</td><td>${esc(l.inventory_items?.name||'-')}</td><td>${Number(l.qty)>0?'+':''}${Number(l.qty)} ${esc(l.inventory_items?.unit||'')}</td><td>${Number(l.balance_after)}</td><td>${esc(l.reference||'-')}</td><td>${esc(l.created_by||'-')}</td></tr>`).join(''):`<tr><td colspan="7" class="empty">📋<br>Belum ada transaksi stok</td></tr>`;document.getElementById('opname-body').innerHTML=items.length?items.map(i=>`<tr data-id="${i.id}" data-system="${Number(i.stock)}"><td><b>${esc(i.name)}</b></td><td>${Number(i.stock)} ${esc(i.unit)}</td><td><input class="physical" type="number" min="0" value="${Number(i.stock)}" oninput="calcDiff(this)" style="width:80px;padding:6px"></td><td class="diff">0</td><td><input class="note" placeholder="opsional" style="padding:6px;width:100%"></td></tr>`).join(''):`<tr><td colspan="5" class="empty">Belum ada barang untuk direkonsiliasi.</td></tr>`}
-async function load(){try{[items,logs]=await Promise.all([api('/api/inventory/items'),api('/api/inventory/logs')]);render()}catch(e){toast('⚠️ '+e.message)}}
+async function load(){
+  const status=document.getElementById('db-status');
+  try{
+    await api('/api/inventory/health');
+    if(status){status.textContent='● Supabase terhubung';status.style.color='#3B6D11'}
+    [items,logs]=await Promise.all([api('/api/inventory/items'),api('/api/inventory/logs')]);
+    render();
+  }catch(e){
+    if(status){status.textContent='● Database tidak terhubung';status.style.color='#A32E24'}
+    toast('⚠️ '+e.message);
+    throw e;
+  }
+}
 function openItemModal(){document.getElementById('item-id').value='';document.getElementById('modal-title').textContent='Tambah Barang';['item-name','item-pn','item-barcode','restock-reference'].forEach(id=>document.getElementById(id).value='');document.getElementById('item-qty').value=0;document.getElementById('item-min').value=0;document.getElementById('reference-group').style.display='none';document.getElementById('qty-label').textContent='Stok Awal';document.getElementById('item-modal').classList.add('show')}
 function openRestock(id){const i=items.find(x=>x.id===id);document.getElementById('item-id').value=id;document.getElementById('modal-title').textContent='Restock — '+i.name;document.getElementById('item-name').value=i.name;document.getElementById('item-pn').value=i.product_number||'';document.getElementById('item-barcode').value=i.barcode||'';document.getElementById('item-category').value=i.category;document.getElementById('item-unit').value=i.unit;document.getElementById('item-qty').value=1;document.getElementById('item-min').value=i.min_stock||0;document.getElementById('reference-group').style.display='block';document.getElementById('qty-label').textContent='Qty Ditambahkan';document.getElementById('item-modal').classList.add('show')}
 function closeModal(){document.getElementById('item-modal').classList.remove('show')}
@@ -65,11 +77,13 @@ async function saveItem(event){
       if(qty<=0)throw new Error('Qty restock harus lebih dari 0.');
       await api('/api/inventory/items/'+encodeURIComponent(id)+'/restock',{method:'POST',body:JSON.stringify({qty,reference:document.getElementById('restock-reference').value.trim()})});
     }else{
-      await api('/api/inventory/items',{method:'POST',body:JSON.stringify({name,product_number:document.getElementById('item-pn').value.trim(),barcode:document.getElementById('item-barcode').value.trim(),category:document.getElementById('item-category').value,unit:document.getElementById('item-unit').value,qty,min_stock:minStock})});
+      const saved=await api('/api/inventory/items',{method:'POST',body:JSON.stringify({name,product_number:document.getElementById('item-pn').value.trim(),barcode:document.getElementById('item-barcode').value.trim(),category:document.getElementById('item-category').value,unit:document.getElementById('item-unit').value,qty,min_stock:minStock})});
+      if(!saved?.item?.id)throw new Error('Server tidak mengonfirmasi penyimpanan ke Supabase.');
     }
-    closeModal();
-    toast('✅ Data inventory tersimpan');
     await load();
+    if(!id && !items.some(x=>x.name===name))throw new Error('Data belum muncul kembali dari database setelah disimpan.');
+    closeModal();
+    toast('✅ Data inventory tersimpan di Supabase');
   }catch(e){
     console.error('Inventory save error:',e);
     toast('⚠️ '+(e.message||'Data gagal disimpan'));

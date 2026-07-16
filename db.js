@@ -632,55 +632,68 @@ async function deleteMRForm(id) {
 // ─────────────────────────────────────────
 //  INVENTORY
 // ─────────────────────────────────────────
+function requireInventorySupabase() {
+  if (!USE_SUPABASE) {
+    throw new Error('Supabase belum aktif pada server. Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia di Vercel Environment Variables.');
+  }
+}
+
+async function getInventoryHealth() {
+  requireInventorySupabase();
+  const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
+  return { connected: true, table: 'inventory_items', sample_count: Array.isArray(rows) ? rows.length : 0 };
+}
+
 async function getInventoryItems() {
-  if (!USE_SUPABASE) return [];
+  requireInventorySupabase();
   return await sbFetch('GET', '/inventory_items?is_active=is.true&order=name.asc') || [];
 }
 async function getInventoryItem(id) {
-  if (!USE_SUPABASE) return null;
+  requireInventorySupabase();
   const rows = await sbFetch('GET', `/inventory_items?id=eq.${id}&limit=1`);
   return rows?.[0] || null;
 }
 async function insertInventoryItem(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
+  requireInventorySupabase();
   const rows = await sbFetch('POST', '/inventory_items', entry);
-  return rows?.[0] || entry;
+  if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
+  return rows[0];
 }
 async function updateInventoryItem(id, data) {
   const patch = { ...data, updated_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return { id, ...patch };
+  requireInventorySupabase();
   const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${id}`, patch);
   return rows?.[0] || { id, ...patch };
 }
 async function getInventoryTransactions() {
-  if (!USE_SUPABASE) return [];
+  requireInventorySupabase();
   return await sbFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
 }
 async function insertInventoryTransaction(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
+  requireInventorySupabase();
   const rows = await sbFetch('POST', '/inventory_transactions', entry);
   return rows?.[0] || entry;
 }
 async function getInventoryOpnames() {
-  if (!USE_SUPABASE) return [];
+  requireInventorySupabase();
   return await sbFetch('GET', '/inventory_opnames?order=created_at.desc&limit=50') || [];
 }
 async function insertInventoryOpname(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
+  requireInventorySupabase();
   const rows = await sbFetch('POST', '/inventory_opnames', entry);
   return rows?.[0] || entry;
 }
 async function updateInventoryOpname(id, data) {
-  if (!USE_SUPABASE) return { id, ...data };
+  requireInventorySupabase();
   const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${id}`, data);
   return rows?.[0] || { id, ...data };
 }
 async function insertInventoryOpnameItem(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
+  requireInventorySupabase();
   const rows = await sbFetch('POST', '/inventory_opname_items', entry);
   return rows?.[0] || entry;
 }
@@ -705,7 +718,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
+  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
   getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem
 };

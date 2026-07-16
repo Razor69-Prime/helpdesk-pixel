@@ -1426,6 +1426,15 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
 // ══════════════════════════════════════════
 //  INVENTORY
 // ══════════════════════════════════════════
+app.get('/api/inventory/health', requireAuth, async (req,res) => {
+  try {
+    const health = await db.getInventoryHealth();
+    res.json({ ok:true, ...health });
+  } catch(e) {
+    res.status(503).json({ ok:false, error:e.message });
+  }
+});
+
 app.get('/api/inventory/items', requireAuth, async (req,res) => {
   try { res.json(await db.getInventoryItems()); }
   catch(e){ res.status(500).json({error:e.message}); }
@@ -1461,8 +1470,10 @@ app.post('/api/inventory/items', requireRole('admin','manager'), async (req,res)
       item_id:item.id, transaction_type:'RESTOCK', qty, balance_after:qty,
       reference:'Stok awal', notes:'Barang baru', created_by:req.session.user.name
     });
+    const persisted = await db.getInventoryItem(item.id);
+    if(!persisted) throw new Error('Barang tidak ditemukan kembali setelah disimpan ke Supabase.');
     logActivity(req,'inventory','TAMBAH BARANG',`${name} · stok awal ${qty}`);
-    res.json(item);
+    res.status(201).json({ ok:true, item:persisted });
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
