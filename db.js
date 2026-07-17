@@ -667,11 +667,27 @@ async function generateInventorySku(category, subcategory) {
 }
 async function deleteInventoryItem(id, actor='System') {
   requireInventorySupabase();
-  const item = await getInventoryItem(id);
-  if (!item) throw new Error('Barang tidak ditemukan.');
-  const stock = Number(item.stock || 0);
-  if (stock !== 0) await insertInventoryTransaction({ item_id:id, transaction_type:'DELETE_ITEM', qty:-stock, balance_after:0, reference:'Hapus Inventory', notes:'Dihapus oleh Super Admin', created_by:actor });
-  return await updateInventoryItem(id, { stock:0, is_active:false });
+  const result = await sbFetch(
+    'POST',
+    '/rpc/inventory_soft_delete',
+    { p_item_id: id, p_actor: actor },
+    { Prefer: 'return=representation' }
+  );
+
+  const deleted = Array.isArray(result) ? result[0] : result;
+  if (!deleted || deleted.ok !== true) {
+    throw new Error(deleted?.error || 'Supabase tidak mengonfirmasi penghapusan barang.');
+  }
+
+  const stillActive = await sbFetch(
+    'GET',
+    `/inventory_items?id=eq.${encodeURIComponent(id)}&is_active=is.true&select=id&limit=1`
+  );
+  if (Array.isArray(stillActive) && stillActive.length > 0) {
+    throw new Error('Barang masih aktif setelah proses hapus. Silakan ulangi.');
+  }
+
+  return deleted;
 }
 async function updateInventoryItem(id, data) {
   const patch = { ...data, updated_at: new Date().toISOString() };

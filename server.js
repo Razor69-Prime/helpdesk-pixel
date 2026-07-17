@@ -1596,11 +1596,16 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
 });
 
 app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_delete'), async (req,res) => {
-  try{
-    const result=await db.deleteInventoryItem(req.params.id,req.session.user.name);
-    logActivity(req,'inventory','HAPUS BARANG',`${result.name||req.params.id} · stok dinolkan`);
-    res.json({ok:true,item:result});
-  }catch(e){res.status(500).json({error:e.message})}
+  try {
+    const result = await db.deleteInventoryItem(req.params.id, req.session.user.name);
+    logActivity(req, 'inventory', 'HAPUS BARANG', `${result.name || req.params.id} · stok dinolkan dan item dinonaktifkan`);
+    res.json({ ok:true, item:result });
+  } catch (e) {
+    console.error('[Inventory Delete]', e);
+    const message = String(e.message || e);
+    const status = message.includes('Barang tidak ditemukan') ? 404 : 500;
+    res.status(status).json({ error:message });
+  }
 });
 
 app.post('/api/inventory/items/:id/restock', requireInventoryPermission('inventory_manage'), async (req,res) => {
