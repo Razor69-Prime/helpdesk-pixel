@@ -1007,14 +1007,29 @@ app.get('/api/material-requests', requireRole('superadmin','accounting','manager
 });
 
 // ══════════════════════════════════════════
-//  MATERIAL REQUEST FORM (akses semua role)
+//  MATERIAL REQUEST FORM
 // ══════════════════════════════════════════
-app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
+function hasMaterialRequestAccess(req, permission){
+  const user=req.session?.user||{};
+  if(user.role==='superadmin') return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  const configured=custom.some(x=>String(x).startsWith('material_request_'));
+  if(configured) return custom.includes(permission);
+  return true; // kompatibel dengan akses default sebelum PXL-REV-0021
+}
+function requireMaterialRequestPermission(permission){
+  return (req,res,next)=>{
+    if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+    if(!hasMaterialRequestAccess(req,permission)) return res.status(403).json({error:'Anda tidak memiliki akses fitur Material Request ini.'});
+    next();
+  };
+}
+app.get('/api/material-requests-form', requireMaterialRequestPermission('material_request_view'), async (req,res)=>{
   try{ res.json(await db.getMRForms()); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
+app.post('/api/material-requests-form', requireMaterialRequestPermission('material_request_create'), async (req,res)=>{
   let entry=null;
   try{
     const items=Array.isArray(req.body.items)?req.body.items:[];
@@ -1033,17 +1048,18 @@ app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
   }
 });
 
-app.patch('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
+app.patch('/api/material-requests-form/:id', requireMaterialRequestPermission('material_request_edit'), async (req,res)=>{
   try{
     const entry=await db.updateMRForm(req.params.id, req.body);
     res.json(entry);
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
+app.delete('/api/material-requests-form/:id', requireRole('superadmin'), async (req,res)=>{
   try{
-    await db.deleteMRForm(req.params.id);
-    res.json({ok:true});
+    const result=await db.deleteMRFormWithInventoryRestore(req.params.id,req.session.user.name);
+    logActivity(req,'material','HAPUS MR FORM',`ID: ${req.params.id} · restore ${result.restored_items||0} item Inventory`);
+    res.json(result);
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 

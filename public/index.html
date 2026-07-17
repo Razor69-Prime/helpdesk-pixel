@@ -918,10 +918,10 @@ input[type=file]{padding:7px 11px;cursor:pointer}
             <div style="font-size:11px;font-weight:700;margin-bottom:7px">AMBIL ITEM DARI INVENTORY</div>
             <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
               <button type="button" class="btn primary sm" onclick="openMRBarcodeScanner()">📷 Scan Barcode</button>
-              <input id="mr-sku-input" placeholder="Ketik / scan SKU lalu Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addMRItemBySku()}" style="flex:1;min-width:210px"/>
-              <button type="button" class="btn sm" onclick="addMRItemBySku()">➕ Tambah SKU</button>
+              <input id="mr-sku-input" placeholder="Cari nama item, SKU, barcode, atau product number" oninput="renderMRSearchSuggestions(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();addMRItemBySku()}" autocomplete="off" style="flex:1;min-width:210px"/>
+              <button type="button" class="btn sm" onclick="addMRItemBySku()">➕ Tambah Item</button>
             </div>
-            <div id="mr-inventory-status" style="font-size:11px;color:var(--muted);margin-top:6px">Pilih WO, lalu scan barcode atau masukkan SKU barang.</div>
+            <div id="mr-search-results" style="display:none;margin-top:7px;border:1px solid var(--border);border-radius:8px;background:var(--surface);max-height:220px;overflow:auto"></div><div id="mr-inventory-status" style="font-size:11px;color:var(--muted);margin-top:6px">Pilih WO, lalu cari nama item atau scan barcode/SKU.</div>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px" id="mr-items-table">
@@ -2145,7 +2145,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div>
+      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
     <hr class="divider"/>
@@ -3474,6 +3474,12 @@ const INVENTORY_PERMISSIONS=[
   {id:'inventory_barcode',label:'📷 Scan Barcode'},
   {id:'inventory_opname',label:'🔍 Rekonsiliasi Stok'}
 ];
+const MATERIAL_REQUEST_PERMISSIONS=[
+  {id:'material_request_view',label:'📋 Lihat Material Request'},
+  {id:'material_request_create',label:'➕ Buat Material Request'},
+  {id:'material_request_edit',label:'✏️ Edit / Pengembalian'},
+  {id:'material_request_barcode',label:'📷 Scan Barcode Material'}
+];
 
 // Default menu per role
 function getDefaultMenus(role){
@@ -3502,16 +3508,22 @@ function buildMenuCheckboxes(currentMenus){
       <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
       ${m.label}
     </label>`).join('');
+  const mrBox=document.getElementById('material-request-permission-checkboxes');
+  if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+      <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+      ${m.label}
+    </label>`).join('');
 }
 
 function getCheckedMenus(){
-  return [...ALL_MENUS,...INVENTORY_PERMISSIONS].map(m=>m.id).filter(id=>
+  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].map(m=>m.id).filter(id=>
     document.querySelector(`[data-menu="${id}"]`)?.checked
   );
 }
 
 function setAllMenus(val){
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=val;
   });
@@ -3521,9 +3533,10 @@ function resetMenuToRole(){
   const role=document.getElementById('edit-role').value;
   const defaults=getDefaultMenus(role);
   const invDefaults=role==='technician'?['inventory_view','inventory_barcode']:['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS].forEach(m=>{
+  const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
-    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id);
+    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id);
   });
 }
 
@@ -8267,6 +8280,15 @@ function exportMaterialExcel(){
 }
 
 /* ══ MATERIAL REQUEST FORM (MR) ═════════════════════════════ */
+function hasMRPermission(permission){
+  if(!currentUser) return false;
+  if(currentUser.role==='superadmin') return true;
+  const custom=Array.isArray(currentUser.custom_menus)?currentUser.custom_menus:[];
+  const configured=custom.some(x=>String(x).startsWith('material_request_'));
+  if(configured) return custom.includes(permission);
+  return true;
+}
+
 let mrData=[];        // data MR dari server
 let mrEditId=null;    // id MR yang sedang diedit
 let mrItemCount=0;
@@ -8293,6 +8315,8 @@ async function loadMaterialRequests(){
 }
 
 function showMRForm(editId=null){
+  if(editId && !hasMRPermission('material_request_edit')){alert('Anda tidak memiliki akses edit Material Request.');return;}
+  if(!editId && !hasMRPermission('material_request_create')){alert('Anda tidak memiliki akses membuat Material Request.');return;}
   mrEditId=editId;
   mrItemCount=0;
   document.getElementById('mr-items-body').innerHTML='';
@@ -8478,10 +8502,22 @@ async function loadMRInventoryItems(){
     if(status)status.textContent='Gagal mengambil Inventory: '+e.message;
   }
 }
-function findMRInventory(code){
-  const q=String(code||'').trim().toLowerCase();
-  return mrInventoryItems.find(i=>[i.sku,i.barcode].some(v=>String(v||'').trim().toLowerCase()===q));
+function mrInventorySearchText(i){return [i.name,i.sku,i.barcode,i.product_number,i.category,i.subcategory].map(v=>String(v||'').toLowerCase()).join(' ')}
+function findMRInventoryMatches(code){
+  const q=String(code||'').trim().toLowerCase();if(!q)return[];
+  const exact=mrInventoryItems.filter(i=>[i.sku,i.barcode,i.product_number,i.name].some(v=>String(v||'').trim().toLowerCase()===q));
+  if(exact.length)return exact;
+  return mrInventoryItems.filter(i=>mrInventorySearchText(i).includes(q)).slice(0,20);
 }
+function findMRInventory(code){const matches=findMRInventoryMatches(code);return matches.length===1?matches[0]:null}
+function renderMRSearchSuggestions(value){
+  const box=document.getElementById('mr-search-results');if(!box)return;
+  const q=String(value||'').trim();if(!q){box.style.display='none';box.innerHTML='';return}
+  const matches=findMRInventoryMatches(q);
+  box.innerHTML=matches.length?matches.slice(0,10).map(i=>`<div onclick="selectMRSearchItem('${i.id}')" style="padding:9px 11px;border-bottom:1px solid var(--border);cursor:pointer"><b>${String(i.name||'').replace(/</g,'&lt;')}</b><div style="font-size:10px;color:var(--muted)">SKU: ${i.sku||'-'} · Barcode: ${i.barcode||'-'} · Stok: ${Number(i.stock)} ${i.unit||'pcs'}</div></div>`).join(''):'<div style="padding:10px;color:var(--muted)">Item tidak ditemukan.</div>';
+  box.style.display='block';
+}
+function selectMRSearchItem(id){const item=mrInventoryItems.find(i=>String(i.id)===String(id));if(!item)return;addMRInventoryItem(item);const input=document.getElementById('mr-sku-input');input.value='';document.getElementById('mr-search-results').style.display='none';input.focus()}
 function addMRInventoryItem(item){
   if(!item)return false;
   const stock=Number(item.stock)||0;
@@ -8490,28 +8526,21 @@ function addMRInventoryItem(item){
   if(existing){
     const qtyInput=existing.querySelector('.mr-qout');
     const current=Number(qtyInput?.value)||0;
-    if(current>=stock){
-      document.getElementById('mr-inventory-status').textContent=`⚠️ Qty ${item.name} sudah mencapai stok tersedia (${stock} ${item.unit||'pcs'}).`;
-      return false;
-    }
-    qtyInput.value=current+1;
-    qtyInput.dispatchEvent(new Event('change',{bubbles:true}));
-    document.getElementById('mr-inventory-status').textContent=`✅ ${item.name} ditambah. Qty sekarang ${current+1}.`;
-    return true;
+    if(current>=stock){document.getElementById('mr-inventory-status').textContent=`⚠️ Qty ${item.name} sudah mencapai stok tersedia (${stock} ${item.unit||'pcs'}).`;return false;}
+    qtyInput.value=current+1;qtyInput.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('mr-inventory-status').textContent=`✅ ${item.name} ditambah. Qty sekarang ${current+1}.`;return true;
   }
-  const blank=[...document.querySelectorAll('#mr-items-body tr')].find(r=>!r.dataset.inventoryId&&!r.querySelector('.mr-name')?.value.trim());
-  if(blank)blank.remove();
-  addMRItemRow({inventory_item_id:item.id,sku:item.sku,name:item.name,qty_out:1,unit:item.unit,stock:item.stock},true);
-  document.getElementById('mr-inventory-status').textContent=`✅ ${item.name} ditambahkan. Qty sekarang 1.`;
-  return true;
+  const blank=[...document.querySelectorAll('#mr-items-body tr')].find(r=>!r.dataset.inventoryId&&!r.querySelector('.mr-name')?.value.trim());if(blank)blank.remove();
+  addMRItemRow({inventory_item_id:item.id,sku:item.sku,name:item.name,qty_out:1,unit:item.unit,stock:item.stock},true);document.getElementById('mr-inventory-status').textContent=`✅ ${item.name} ditambahkan. Qty sekarang 1.`;return true;
 }
 function addMRItemBySku(){
-  const input=document.getElementById('mr-sku-input');
-  const item=findMRInventory(input.value);
-  if(!item){document.getElementById('mr-inventory-status').textContent='SKU/Barcode tidak ditemukan di Inventory.';input.select();return;}
-  addMRInventoryItem(item);input.value='';input.focus();
+  const input=document.getElementById('mr-sku-input');const matches=findMRInventoryMatches(input.value);
+  if(!matches.length){document.getElementById('mr-inventory-status').textContent='Nama/SKU/Barcode/Product Number tidak ditemukan di Inventory.';input.select();return}
+  if(matches.length>1){renderMRSearchSuggestions(input.value);document.getElementById('mr-inventory-status').textContent=`Ditemukan ${matches.length} item. Pilih salah satu dari daftar.`;return}
+  addMRInventoryItem(matches[0]);input.value='';document.getElementById('mr-search-results').style.display='none';input.focus();
 }
+
 async function openMRBarcodeScanner(){
+  if(!hasMRPermission('material_request_barcode')){alert('Anda tidak memiliki akses scan barcode Material Request.');return;}
   if(!mrInventoryItems.length)await loadMRInventoryItems();
   document.getElementById('mr-barcode-modal').classList.add('show');
   const manual=document.getElementById('mr-manual-barcode');
@@ -8560,7 +8589,7 @@ function handleMRBarcode(value,options={}){
   const status=document.getElementById('mr-scan-status');
   if(!code){status.textContent='Barcode/SKU belum diisi.';manual.focus();return false;}
   const item=findMRInventory(code);
-  if(!item){status.textContent='❌ Barcode/SKU tidak ditemukan: '+code;manual.value='';manual.focus();return false;}
+  if(!item){status.textContent='❌ Nama/SKU/Barcode/Product Number tidak ditemukan: '+code;manual.value='';manual.focus();return false;}
   const added=addMRInventoryItem(item);
   if(added){
     mrScannerTotalScans++;
@@ -8658,14 +8687,28 @@ function renderMRList(){
           ${isMRForm?`<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${m.status==='taken'?'var(--amber)':m.status==='returned'?'var(--green)':'var(--muted)'}18;color:${m.status==='taken'?'var(--amber)':m.status==='returned'?'var(--green)':'var(--muted)'}">${m.status==='taken'?'📦 Diambil':m.status==='returned'?'✅ Dikembalikan':'Draft'}</span>`:''}
           ${isMRForm?`
           <button class="btn sm" onclick="exportMRPDF('${m.id}')">📄 PDF</button>
-          ${m.status==='taken'
+          ${hasMRPermission('material_request_edit')?(m.status==='taken'
             ?`<button class="btn sm" style="background:var(--teal)18;color:var(--teal);border-color:var(--teal)" onclick="showMRForm('${m.id}')">✏️ Update Pengembalian</button>`
-            :`<button class="btn sm" onclick="showMRForm('${m.id}')">✏️ Edit</button>`
-          }`:''}
+            :`<button class="btn sm" onclick="showMRForm('${m.id}')">✏️ Edit</button>`):''}
+          ${currentUser.role==='superadmin'?`<button class="btn sm danger" onclick="deleteMRFormRecord('${m.id}')">🗑️ Hapus</button>`:''}
+          `:''}
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+async function deleteMRFormRecord(id){
+  if(currentUser.role!=='superadmin'){alert('Hapus Material Request hanya untuk Super Admin.');return;}
+  const mr=mrData.find(x=>x.id===id);
+  const label=mr?.wo_number?` untuk WO ${mr.wo_number}`:'';
+  if(!confirm(`Hapus Material Request${label}? Stok Inventory yang pernah dikeluarkan akan dikembalikan otomatis.`)) return;
+  try{
+    const result=await api('DELETE','/material-requests-form/'+id);
+    mrData=mrData.filter(x=>x.id!==id);
+    renderMRList();
+    alert(`Material Request berhasil dihapus. ${result.restored_items||0} item Inventory dikembalikan.`);
+  }catch(e){alert('Gagal menghapus Material Request: '+e.message);}
 }
 
 function exportMRPDF(id){

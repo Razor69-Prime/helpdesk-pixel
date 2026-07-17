@@ -1,0 +1,17 @@
+PXL-REV-0022 VERIFICATION
+
+Pemeriksaan yang dilakukan:
+- node --check server.js: LULUS
+- node --check db.js: LULUS
+- JavaScript inline public/index.html: LULUS
+- JavaScript inline public/inventory.html: LULUS
+- Paket mengandung source kumulatif REV-0018 sampai REV-0022.
+- SQL kumulatif mengandung perubahan REV-0019 dan REV-0021 yang dibutuhkan.
+
+Skenario yang perlu diuji pada environment pengguna:
+1. Scan barcode pabrikan yang belum terdaftar -> form item baru terbuka.
+2. Simpan tanpa klik Generate SKU -> SKU dibuat backend dan data tersimpan.
+3. Cari Inventory menggunakan sebagian nama item.
+4. Cari Material Request menggunakan sebagian nama item dan pilih hasil.
+5. Scan barcode item yang sama beberapa kali pada Material Request -> qty bertambah.
+6. Hapus Material Request sebagai Super Admin -> stok kembali.

@@ -627,6 +627,16 @@ async function deleteMRForm(id) {
   if (!USE_SUPABASE) return;
   await sbFetch('DELETE', `/material_request_forms?id=eq.${id}`);
 }
+async function deleteMRFormWithInventoryRestore(id, actor='System') {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_delete_material_request', {
+    p_request_id: id,
+    p_actor: actor || 'System'
+  }, { Prefer: 'return=representation' });
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.ok !== true) throw new Error(row?.error || 'Penghapusan Material Request tidak dikonfirmasi database.');
+  return row;
+}
 
 
 // ─────────────────────────────────────────
@@ -805,7 +815,7 @@ module.exports = {
   getSuppliers, insertSupplier, updateSupplier, deleteSupplier,
   insertMaterialRequest, getMaterialRequests,
   // MR Form
-  getMRForms, insertMRForm, updateMRForm, deleteMRForm, issueInventoryForMR,
+  getMRForms, insertMRForm, updateMRForm, deleteMRForm, deleteMRFormWithInventoryRestore, issueInventoryForMR,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getInventoryCategories,
