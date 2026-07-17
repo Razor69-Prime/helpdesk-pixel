@@ -26,7 +26,9 @@
 <div class="modal-overlay" id="scan-modal"><div class="modal-box" style="max-width:620px"><div class="modal-header">Scan Barcode Inventory</div><div class="modal-body"><div class="scan-video-wrap"><video id="scan-video" playsinline muted></video><div class="scan-guide"></div></div><div id="scan-status" class="scan-status">Menyiapkan kamera...</div><div class="form-group" style="margin-top:14px"><label>Input Barcode Manual / Scanner USB</label><input id="manual-barcode" placeholder="Scan atau ketik barcode lalu tekan Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();handleBarcodeValue(this.value)}"/></div></div><div class="modal-footer"><button class="btn" onclick="closeScanner()">Tutup</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script>
-let items=[],logs=[],cart=[],importPreviewRows=[],scannerStream=null,scannerRunning=false,scanPurpose='request';const token=localStorage.getItem('pixel_token')||'';
+let items=[],logs=[],cart=[],importPreviewRows=[],scannerStream=null,scannerRunning=false,scanPurpose='request';
+let inventoryAccess={view:false,manage:false,import_export:false,barcode:false,opname:false,delete:false};
+const token=localStorage.getItem('pixel_token')||'';
 async function api(url,opt={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15000);
@@ -53,8 +55,16 @@ async function load(){
   try{
     await api('/api/inventory/health');
     if(status){status.textContent='● Supabase terhubung';status.style.color='#3B6D11'}
-    [items,logs]=await Promise.all([api('/api/inventory/items'),api('/api/inventory/logs')]);
+    const loaded=await Promise.all([
+      api('/api/inventory/items'),
+      api('/api/inventory/logs'),
+      api('/api/inventory/access')
+    ]);
+    items=loaded[0];
+    logs=loaded[1];
+    inventoryAccess={...inventoryAccess,...(loaded[2]||{})};
     render();
+    applyInventoryAccess();
   }catch(e){
     if(status){status.textContent='● Database tidak terhubung';status.style.color='#A32E24'}
     toast('⚠️ '+e.message);
