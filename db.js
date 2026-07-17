@@ -691,6 +691,15 @@ async function updateInventoryOpname(id, data) {
   const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${id}`, data, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...data };
 }
+
+async function importInventoryCutoff(rows, actor) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_apply_cutoff', {
+    p_rows: rows,
+    p_actor: actor || 'System'
+  }, { Prefer: 'return=representation' });
+  return result;
+}
 async function insertInventoryOpnameItem(data) {
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
   requireInventorySupabase();
@@ -720,5 +729,6 @@ module.exports = {
   getProjects, insertProject, updateProject, deleteProject,
   getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
   getInventoryTransactions, insertInventoryTransaction,
-  getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem
+  getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem,
+  importInventoryCutoff
 };

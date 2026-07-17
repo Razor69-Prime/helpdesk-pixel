@@ -3,6 +3,7 @@ const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
 const crypto   = require('crypto');
+const XLSX     = require('xlsx');
 const cfg      = require('./config');
 const db       = require('./db');
 
@@ -49,6 +50,18 @@ const upload = multer({
   fileFilter: (_,file,cb) => {
     ['.jpg','.jpeg','.png','.pdf'].includes(path.extname(file.originalname).toLowerCase())
       ? cb(null,true) : cb(new Error('Format tidak didukung.'));
+  }
+});
+
+
+// Upload khusus file Excel Inventory (disimpan di memory, maksimum 5 MB)
+const inventoryExcelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (['.xlsx', '.xls'].includes(ext)) return cb(null, true);
+    cb(new Error('File Inventory harus berformat .xlsx atau .xls.'));
   }
 });
 
@@ -1346,6 +1359,147 @@ app.get('/api/inventory/health', async (req,res) => {
   } catch(e) {
     res.status(503).json({ ok:false, error:e.message });
   }
+});
+
+
+app.get('/api/inventory/template.xlsx', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      ['Nama Barang','Product Number','Barcode','Kategori','Satuan','Stok Cut Off','Minimum Stok'],
+      ['Contoh Kabel UTP','CBL-001','899000000001','Material Kabel','meter',100,20]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:28},{wch:20},{wch:20},{wch:22},{wch:12},{wch:15},{wch:15}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Template Inventory');
+    const guide = XLSX.utils.aoa_to_sheet([
+      ['PETUNJUK IMPORT CUT OFF INVENTORY'],
+      ['1. Jangan mengubah nama header pada baris pertama.'],
+      ['2. Nama Barang dan Stok Cut Off wajib diisi.'],
+      ['3. Product Number dan Barcode harus unik bila diisi.'],
+      ['4. Barang lama dicocokkan berdasarkan Product Number, lalu Barcode, lalu Nama Barang.'],
+      ['5. Stok Cut Off menjadi saldo terbaru dan selisihnya dicatat di Log Stok.'],
+      ['6. Seluruh file diproses sebagai satu transaksi: jika satu baris gagal, semua dibatalkan.']
+    ]);
+    guide['!cols'] = [{wch:95}];
+    XLSX.utils.book_append_sheet(wb, guide, 'Petunjuk');
+    const out = XLSX.write(wb, { type:'buffer', bookType:'xlsx' });
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition','attachment; filename="template-import-inventory.xlsx"');
+    res.send(out);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/inventory/export.xlsx', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const [items, logs] = await Promise.all([db.getInventoryItems(), db.getInventoryTransactions()]);
+    const wb = XLSX.utils.book_new();
+    const itemRows = items.map(i => ({
+      'Nama Barang': i.name,
+      'Product Number': i.product_number || '',
+      'Barcode': i.barcode || '',
+      'Kategori': i.category || '',
+      'Satuan': i.unit || '',
+      'Stok Saat Ini': Number(i.stock || 0),
+      'Minimum Stok': Number(i.min_stock || 0),
+      'Status': Number(i.stock || 0) <= Number(i.min_stock || 0) ? 'Kritis' : (Number(i.min_stock || 0) > 0 && Number(i.stock || 0) <= Number(i.min_stock || 0) * 1.5 ? 'Rendah' : 'Aman'),
+      'Tanggal Export': new Date().toLocaleString('id-ID')
+    }));
+    const wsItems = XLSX.utils.json_to_sheet(itemRows.length ? itemRows : [{ 'Nama Barang':'', 'Product Number':'', 'Barcode':'', 'Kategori':'', 'Satuan':'', 'Stok Saat Ini':'', 'Minimum Stok':'', 'Status':'', 'Tanggal Export':new Date().toLocaleString('id-ID') }]);
+    wsItems['!cols'] = [{wch:30},{wch:20},{wch:20},{wch:22},{wch:12},{wch:15},{wch:15},{wch:12},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, wsItems, 'Stok Inventory');
+
+    const logRows = logs.map(l => ({
+      'Tanggal': l.created_at ? new Date(l.created_at).toLocaleString('id-ID') : '',
+      'Jenis': l.transaction_type,
+      'Barang': l.inventory_items?.name || '',
+      'Qty': Number(l.qty || 0),
+      'Satuan': l.inventory_items?.unit || '',
+      'Saldo Setelah': Number(l.balance_after || 0),
+      'Referensi': l.reference || '',
+      'Catatan': l.notes || '',
+      'Oleh': l.created_by || ''
+    }));
+    const wsLogs = XLSX.utils.json_to_sheet(logRows.length ? logRows : [{Tanggal:'',Jenis:'',Barang:'',Qty:'',Satuan:'','Saldo Setelah':'',Referensi:'',Catatan:'',Oleh:''}]);
+    wsLogs['!cols'] = [{wch:22},{wch:16},{wch:30},{wch:12},{wch:12},{wch:16},{wch:24},{wch:30},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, wsLogs, 'Log Stok');
+
+    const out = XLSX.write(wb, { type:'buffer', bookType:'xlsx' });
+    const stamp = new Date().toISOString().slice(0,10);
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition',`attachment; filename="inventory-${stamp}.xlsx"`);
+    res.send(out);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/inventory/import/preview', requireRole('admin','manager'), inventoryExcelUpload.single('file'), async (req,res) => {
+  try {
+    if(!req.file) return res.status(400).json({error:'Pilih file Excel terlebih dahulu.'});
+    const wb = XLSX.read(req.file.buffer, {type:'buffer', cellDates:true});
+    const first = wb.SheetNames[0];
+    if(!first) return res.status(400).json({error:'Workbook tidak memiliki sheet.'});
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[first], {defval:'', raw:true});
+    if(!raw.length) return res.status(400).json({error:'File Excel tidak memiliki data.'});
+    const pick = (row, names) => {
+      const keys = Object.keys(row);
+      for(const name of names){
+        const found = keys.find(k => String(k).trim().toLowerCase() === name.toLowerCase());
+        if(found !== undefined) return row[found];
+      }
+      return '';
+    };
+    const parseExcelNumber = value => {
+      if(typeof value === 'number') return value;
+      let text=String(value??'').trim();
+      if(!text) return 0;
+      text=text.replace(/\s/g,'');
+      if(text.includes('.') && text.includes(',')) text=text.replace(/\./g,'').replace(',','.');
+      else if(text.includes(',')) text=text.replace(',','.');
+      return Number(text);
+    };
+    const rows = raw.map((r, idx) => ({
+      row_number: idx + 2,
+      name: String(pick(r,['Nama Barang','name'])).trim(),
+      product_number: String(pick(r,['Product Number','SKU','product_number'])).trim(),
+      barcode: String(pick(r,['Barcode','barcode'])).trim(),
+      category: String(pick(r,['Kategori','category'])).trim() || 'Aksesoris',
+      unit: String(pick(r,['Satuan','unit'])).trim().toLowerCase() || 'pcs',
+      stock: parseExcelNumber(pick(r,['Stok Cut Off','Stok Saat Ini','stock'])),
+      min_stock: parseExcelNumber(pick(r,['Minimum Stok','min_stock']))
+    }));
+    const errors=[];
+    const pnSeen=new Set(), bcSeen=new Set(), identitySeen=new Set();
+    for(const row of rows){
+      if(!row.name) errors.push(`Baris ${row.row_number}: Nama Barang wajib diisi.`);
+      if(!Number.isFinite(row.stock) || row.stock < 0) errors.push(`Baris ${row.row_number}: Stok Cut Off tidak valid.`);
+      if(!Number.isFinite(row.min_stock) || row.min_stock < 0) errors.push(`Baris ${row.row_number}: Minimum Stok tidak valid.`);
+      if(row.product_number){
+        const key=row.product_number.toLowerCase();
+        if(pnSeen.has(key)) errors.push(`Baris ${row.row_number}: Product Number duplikat dalam file.`);
+        pnSeen.add(key);
+      }
+      if(row.barcode){
+        const key=row.barcode.toLowerCase();
+        if(bcSeen.has(key)) errors.push(`Baris ${row.row_number}: Barcode duplikat dalam file.`);
+        bcSeen.add(key);
+      }
+      const identity=(row.product_number||row.barcode||row.name).toLowerCase();
+      if(identitySeen.has(identity)) errors.push(`Baris ${row.row_number}: Barang yang sama muncul lebih dari sekali dalam file.`);
+      identitySeen.add(identity);
+    }
+    res.json({ok:errors.length===0, sheet:first, row_count:rows.length, rows, errors});
+  } catch(e) { res.status(400).json({error:e.message}); }
+});
+
+app.post('/api/inventory/import/commit', requireRole('admin','manager'), async (req,res) => {
+  try {
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+    if(!rows.length) return res.status(400).json({error:'Tidak ada data import untuk diproses.'});
+    if(rows.length > 3000) return res.status(400).json({error:'Maksimum 3.000 baris per import.'});
+    const result = await db.importInventoryCutoff(rows, req.session.user.name);
+    logActivity(req,'inventory','IMPORT CUT OFF EXCEL',`${rows.length} baris`);
+    res.json({ok:true, result});
+  } catch(e) { res.status(400).json({error:e.message}); }
 });
 
 app.get('/api/inventory/items', requireAuth, async (req,res) => {
