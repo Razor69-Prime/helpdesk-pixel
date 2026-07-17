@@ -914,6 +914,15 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           <div id="mr-use-ret-notice" style="font-size:11px;color:var(--amber);margin-bottom:8px;display:none">
             ⚠️ Kolom Pemakaian &amp; Pengembalian terkunci — tersedia setelah pengambilan disubmit
           </div>
+          <div id="mr-inventory-picker" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;margin-bottom:7px">AMBIL ITEM DARI INVENTORY</div>
+            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+              <button type="button" class="btn primary sm" onclick="openMRBarcodeScanner()">📷 Scan Barcode</button>
+              <input id="mr-sku-input" placeholder="Ketik / scan SKU lalu Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addMRItemBySku()}" style="flex:1;min-width:210px"/>
+              <button type="button" class="btn sm" onclick="addMRItemBySku()">➕ Tambah SKU</button>
+            </div>
+            <div id="mr-inventory-status" style="font-size:11px;color:var(--muted);margin-top:6px">Pilih WO, lalu scan barcode atau masukkan SKU barang.</div>
+          </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px" id="mr-items-table">
               <thead>
@@ -946,7 +955,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-size:16px;font-weight:600">📦 Inventory Asset</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Kelola stok barang, log stok, rekonsiliasi, dan simulasi scan teknisi</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Kelola stok barang, log stok, dan rekonsiliasi inventory</div>
         </div>
       </div>
       <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
@@ -7632,6 +7641,8 @@ async function submitPR(){
 
   if(!outlet){errEl.textContent='Pilih outlet terlebih dahulu.';errEl.style.display='block';return;}
   if(!items.length){errEl.textContent='Minimal 1 item harus diisi.';errEl.style.display='block';return;}
+  const invalidStock=items.find(x=>x.inventory_item_id&&x.qty_out<=0);
+  if(invalidStock){errEl.textContent='Jumlah pengambilan item Inventory harus lebih dari 0.';errEl.style.display='block';return;}
 
   const payload={
     pr_number: document.getElementById('pr-no').value,
@@ -8259,6 +8270,9 @@ function exportMaterialExcel(){
 let mrData=[];        // data MR dari server
 let mrEditId=null;    // id MR yang sedang diedit
 let mrItemCount=0;
+let mrInventoryItems=[];
+let mrScannerStream=null;
+let mrScannerRunning=false;
 
 async function loadMaterialRequestsFull(){
   // Load dua sumber: MR baru (material_requests_form) + MR lama (material_requests)
@@ -8283,6 +8297,7 @@ function showMRForm(editId=null){
   document.getElementById('mr-date-out').value=today;
   document.getElementById('mr-date-return').value='';
   document.getElementById('mr-technician').value=currentUser.name||'';
+  loadMRInventoryItems();
 
   // Populate WO dropdown
   const woSel=document.getElementById('mr-wo');
@@ -8379,26 +8394,44 @@ async function loadMRItemsFromTicket(ticketId, locked=false){
 }
 
 function addMRItemRow(item=null, locked=false){
+  const inventoryId=item?.inventory_item_id||item?.item_id||'';
+  if(inventoryId){
+    const existing=[...document.querySelectorAll('#mr-items-body tr')].find(r=>r.dataset.inventoryId===String(inventoryId));
+    if(existing){
+      const q=existing.querySelector('.mr-qout');q.value=(parseFloat(q.value)||0)+(parseFloat(item?.qty_out||item?.qty||1)||1);
+      document.getElementById('mr-inventory-status').textContent='Qty '+(item?.sku||'item')+' ditambahkan.';
+      return existing;
+    }
+  }
   mrItemCount++;
   const n=mrItemCount;
   const tr=document.createElement('tr');
   tr.id='mr-item-'+n;
+  tr.dataset.inventoryId=inventoryId;
+  tr.dataset.sku=item?.sku||'';
+  tr.dataset.stock=item?.stock??'';
+  tr.dataset.unit=item?.unit||'pcs';
   const name=item?.name||'';
   const qout=item?.qty_out||item?.qty||'';
   const quse=item?.qty_use||'';
   const qret=item?.qty_return||'';
+  const linked=!!inventoryId;
   const lockedStyle=locked
     ?'width:100%;font-size:12px;text-align:center;border:none;background:var(--surface2);color:var(--muted);cursor:not-allowed'
     :'width:100%;font-size:12px;text-align:center;border:none;background:transparent';
   tr.innerHTML=`
     <td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:12px">${n}</td>
-    <td style="padding:4px;border:1px solid var(--border)"><input type="text" class="mr-name" value="${name}" placeholder="Nama material..." style="width:100%;font-size:12px;border:none;background:transparent"/></td>
-    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qout" value="${qout}" min="0" placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
+    <td style="padding:4px;border:1px solid var(--border)">
+      <input type="text" class="mr-name" value="${name.replace(/"/g,'&quot;')}" placeholder="Nama material..." ${linked?'readonly':''} style="width:100%;font-size:12px;border:none;background:${linked?'var(--surface2)':'transparent'}"/>
+      ${linked?`<div style="font-size:10px;color:var(--muted);padding:2px 3px">SKU: ${item.sku||'-'} · Stok: ${Number(item.stock)} ${item.unit||'pcs'}</div>`:''}
+    </td>
+    <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qout" value="${qout}" min="0" ${linked?`max="${Number(item.stock)}"`:''} placeholder="0" style="width:100%;font-size:12px;text-align:center;border:none;background:transparent"/></td>
     <td style="padding:4px;border:1px solid var(--border);background:${locked?'var(--surface2)':''}"><input type="number" class="mr-quse" value="${quse}" min="0" placeholder="${locked?'-':'0'}" ${locked?'readonly disabled':''} style="${lockedStyle}"/></td>
     <td style="padding:4px;border:1px solid var(--border);background:${locked?'var(--surface2)':''}"><input type="number" class="mr-qret" value="${qret}" min="0" placeholder="${locked?'-':'0'}" ${locked?'readonly disabled':''} style="${lockedStyle}"/></td>
     <td style="padding:4px;border:1px solid var(--border);text-align:center"><button class="btn danger sm" onclick="removeMRItemRow(${n})">✕</button></td>
   `;
   document.getElementById('mr-items-body').appendChild(tr);
+  return tr;
 }
 
 function removeMRItemRow(n){
@@ -8417,13 +8450,72 @@ function getMRItems(){
     if(!name) return;
     items.push({
       no: idx+1,
+      inventory_item_id:tr.dataset.inventoryId||null,
+      sku:tr.dataset.sku||null,
+      unit:tr.dataset.unit||'pcs',
       name,
-      qty_out:  parseFloat(tr.querySelector('.mr-qout')?.value)||0,
-      qty_use:  parseFloat(tr.querySelector('.mr-quse')?.value)||0,
-      qty_return: parseFloat(tr.querySelector('.mr-qret')?.value)||0,
+      qty_out:parseFloat(tr.querySelector('.mr-qout')?.value)||0,
+      qty_use:parseFloat(tr.querySelector('.mr-quse')?.value)||0,
+      qty_return:parseFloat(tr.querySelector('.mr-qret')?.value)||0,
     });
   });
   return items;
+}
+
+async function loadMRInventoryItems(){
+  try{
+    mrInventoryItems=await api('GET','/inventory/items');
+    const status=document.getElementById('mr-inventory-status');
+    if(status)status.textContent=`${mrInventoryItems.length} item inventory siap dipindai.`;
+  }catch(e){
+    mrInventoryItems=[];
+    const status=document.getElementById('mr-inventory-status');
+    if(status)status.textContent='Gagal mengambil Inventory: '+e.message;
+  }
+}
+function findMRInventory(code){
+  const q=String(code||'').trim().toLowerCase();
+  return mrInventoryItems.find(i=>[i.sku,i.barcode].some(v=>String(v||'').trim().toLowerCase()===q));
+}
+function addMRInventoryItem(item){
+  if(!item)return;
+  if(Number(item.stock)<=0){document.getElementById('mr-inventory-status').textContent=`Stok ${item.name} habis.`;return;}
+  const blank=[...document.querySelectorAll('#mr-items-body tr')].find(r=>!r.dataset.inventoryId&&!r.querySelector('.mr-name')?.value.trim());
+  if(blank)blank.remove();
+  addMRItemRow({inventory_item_id:item.id,sku:item.sku,name:item.name,qty_out:1,unit:item.unit,stock:item.stock},true);
+  document.getElementById('mr-inventory-status').textContent=`✅ ${item.name} ditambahkan dari Inventory.`;
+}
+function addMRItemBySku(){
+  const input=document.getElementById('mr-sku-input');
+  const item=findMRInventory(input.value);
+  if(!item){document.getElementById('mr-inventory-status').textContent='SKU/Barcode tidak ditemukan di Inventory.';input.select();return;}
+  addMRInventoryItem(item);input.value='';input.focus();
+}
+async function openMRBarcodeScanner(){
+  if(!mrInventoryItems.length)await loadMRInventoryItems();
+  document.getElementById('mr-barcode-modal').classList.add('show');
+  document.getElementById('mr-manual-barcode').value='';
+  const status=document.getElementById('mr-scan-status');status.textContent='Menyiapkan kamera...';
+  const video=document.getElementById('mr-scan-video');
+  try{
+    mrScannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    video.srcObject=mrScannerStream;await video.play();
+    if(!('BarcodeDetector' in window)){status.textContent='Deteksi kamera tidak didukung browser ini. Gunakan scanner USB atau input SKU manual.';return;}
+    const formats=await BarcodeDetector.getSupportedFormats();
+    const preferred=['code_128','ean_13','ean_8','qr_code','upc_a','upc_e'].filter(x=>formats.includes(x));
+    const detector=new BarcodeDetector(preferred.length?{formats:preferred}:undefined);mrScannerRunning=true;status.textContent='Arahkan barcode SKU ke kotak.';
+    const detect=async()=>{if(!mrScannerRunning)return;try{const codes=await detector.detect(video);if(codes?.length){handleMRBarcode(codes[0].rawValue);return}}catch(_){}requestAnimationFrame(detect)};detect();
+  }catch(e){status.textContent='Kamera tidak dapat dibuka. Gunakan scanner USB atau input manual.';document.getElementById('mr-manual-barcode').focus();}
+}
+function closeMRBarcodeScanner(){
+  mrScannerRunning=false;if(mrScannerStream){mrScannerStream.getTracks().forEach(t=>t.stop());mrScannerStream=null;}
+  const video=document.getElementById('mr-scan-video');if(video){video.pause();video.srcObject=null;}
+  document.getElementById('mr-barcode-modal').classList.remove('show');
+}
+function handleMRBarcode(value){
+  const item=findMRInventory(value);
+  if(!item){document.getElementById('mr-scan-status').textContent='Barcode/SKU tidak ditemukan: '+value;document.getElementById('mr-manual-barcode').select();return;}
+  addMRInventoryItem(item);closeMRBarcodeScanner();
 }
 
 async function submitMR(){
@@ -9367,5 +9459,22 @@ function exportExcel(){
   XLSX.writeFile(wb,'laporan_helpdesk_'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'.xlsx');
 }
 </script>
+
+<div class="modal-overlay" id="mr-barcode-modal" onclick="if(event.target===this)closeMRBarcodeScanner()">
+  <div class="modal" style="max-width:620px">
+    <button class="modal-close" onclick="closeMRBarcodeScanner()">✕</button>
+    <div class="modal-title">📷 Scan Barcode Inventory</div>
+    <div class="modal-sub">Scan barcode yang nilainya sama dengan SKU Inventory.</div>
+    <div>
+      <div style="background:#111;border-radius:12px;overflow:hidden;position:relative;min-height:280px;display:flex;align-items:center;justify-content:center">
+        <video id="mr-scan-video" playsinline muted style="width:100%;max-height:420px"></video>
+        <div style="position:absolute;width:68%;height:40%;border:3px solid #E07B39;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.25);pointer-events:none"></div>
+      </div>
+      <div id="mr-scan-status" style="font-size:12px;color:var(--muted);margin-top:9px;text-align:center">Menyiapkan kamera...</div>
+      <div class="form-group" style="margin-top:14px"><label>Scanner USB / Input Manual</label><input id="mr-manual-barcode" placeholder="Scan atau ketik barcode/SKU lalu tekan Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();handleMRBarcode(this.value)}"/></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn" onclick="closeMRBarcodeScanner()">Tutup</button></div>
+  </div>
+</div>
 </body>
 </html>

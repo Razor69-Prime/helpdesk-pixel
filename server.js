@@ -1015,11 +1015,22 @@ app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
 });
 
 app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
+  let entry=null;
   try{
-    const entry=await db.insertMRForm({...req.body, created_by:req.session.user.name});
-    logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number}`);
+    const items=Array.isArray(req.body.items)?req.body.items:[];
+    entry=await db.insertMRForm({...req.body, items, created_by:req.session.user.name});
+    const linkedItems=items.filter(i=>i.inventory_item_id&&Number(i.qty_out)>0);
+    if(linkedItems.length){
+      await db.issueInventoryForMR(entry.id, linkedItems, req.session.user.name, req.body.wo_number||'');
+    }
+    logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number} · ${linkedItems.length} item Inventory`);
     res.status(201).json(entry);
-  }catch(e){ res.status(500).json({error:e.message}); }
+  }catch(e){
+    if(entry?.id){try{await db.deleteMRForm(entry.id);}catch(_){}}
+    const message=String(e.message||e);
+    const status=/stok|tidak ditemukan|jumlah/i.test(message)?400:500;
+    res.status(status).json({error:message});
+  }
 });
 
 app.patch('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
@@ -1581,7 +1592,7 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
       unit: String(req.body.unit||'pcs'),
       stock: qty,
       min_stock: Number(req.body.min_stock||0),
-      barcode: String(req.body.barcode||'').trim() || `PXL-INV-${Date.now()}`,
+      barcode: String(req.body.barcode||'').trim() || sku,
       is_active: true
     });
     if(qty > 0) await db.insertInventoryTransaction({

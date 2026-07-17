@@ -1,0 +1,17 @@
+PXL-REV-0016 Verification
+
+Pemeriksaan yang dilakukan:
+1. node --check server.js: LULUS
+2. node --check db.js: LULUS
+3. Ekstraksi dan node --check JavaScript inline public/index.html: LULUS
+4. Ekstraksi dan node --check JavaScript inline public/inventory.html: LULUS
+5. Route POST /api/material-requests-form memanggil issueInventoryForMR: ADA
+6. db.js mengekspor issueInventoryForMR: ADA
+7. SQL RPC inventory_issue_material_request tersedia dan memakai SELECT ... FOR UPDATE: ADA
+8. Scanner Teknisi di halaman Inventory dihapus: TERVERIFIKASI
+9. Scanner Barcode/SKU tersedia pada Form Material Request: TERVERIFIKASI
+10. Barcode barang baru fallback ke SKU pada backend: TERVERIFIKASI
+
+Batas pengecekan:
+- Transaksi Supabase nyata baru dapat diuji setelah file SQL dijalankan pada project Supabase pengguna.
+- Kamera fisik baru dapat diuji pada browser HTTPS dengan izin kamera.

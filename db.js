@@ -638,6 +638,19 @@ function requireInventorySupabase() {
   }
 }
 
+async function issueInventoryForMR(requestId, items, actor, woNumber) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_issue_material_request', {
+    p_request_id: requestId,
+    p_items: items,
+    p_actor: actor || 'System',
+    p_wo_number: woNumber || ''
+  }, { Prefer: 'return=representation' });
+  const output = Array.isArray(result) ? result[0] : result;
+  if (!output || output.ok !== true) throw new Error(output?.error || 'Inventory tidak mengonfirmasi pengeluaran material.');
+  return output;
+}
+
 async function getInventoryHealth() {
   requireInventorySupabase();
   const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
@@ -753,7 +766,7 @@ module.exports = {
   getSuppliers, insertSupplier, updateSupplier, deleteSupplier,
   insertMaterialRequest, getMaterialRequests,
   // MR Form
-  getMRForms, insertMRForm, updateMRForm, deleteMRForm,
+  getMRForms, insertMRForm, updateMRForm, deleteMRForm, issueInventoryForMR,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
