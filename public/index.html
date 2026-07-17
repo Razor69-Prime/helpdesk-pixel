@@ -2136,7 +2136,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
     <hr class="divider"/>
@@ -3456,6 +3456,14 @@ const ALL_MENUS=[
   {id:'pr',      label:'📝 Purchase Request'},
   {id:'projects',label:'📁 Project Tracker'},
   {id:'supplier',label:'🏪 Master Supplier'},
+
+];
+const INVENTORY_PERMISSIONS=[
+  {id:'inventory_view',label:'📦 Lihat Inventory'},
+  {id:'inventory_manage',label:'➕ Tambah & Restock'},
+  {id:'inventory_import_export',label:'📊 Import & Export Excel'},
+  {id:'inventory_barcode',label:'📷 Scan Barcode'},
+  {id:'inventory_opname',label:'🔍 Rekonsiliasi Stok'}
 ];
 
 // Default menu per role
@@ -3479,16 +3487,22 @@ function buildMenuCheckboxes(currentMenus){
       <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
       ${m.label}
     </label>`).join('');
+  const invBox=document.getElementById('inventory-permission-checkboxes');
+  if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+      <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
+      ${m.label}
+    </label>`).join('');
 }
 
 function getCheckedMenus(){
-  return ALL_MENUS.map(m=>m.id).filter(id=>
+  return [...ALL_MENUS,...INVENTORY_PERMISSIONS].map(m=>m.id).filter(id=>
     document.querySelector(`[data-menu="${id}"]`)?.checked
   );
 }
 
 function setAllMenus(val){
-  ALL_MENUS.forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=val;
   });
@@ -3497,9 +3511,10 @@ function setAllMenus(val){
 function resetMenuToRole(){
   const role=document.getElementById('edit-role').value;
   const defaults=getDefaultMenus(role);
-  ALL_MENUS.forEach(m=>{
+  const invDefaults=role==='technician'?['inventory_view','inventory_barcode']:['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
-    if(el) el.checked=defaults.includes(m.id);
+    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id);
   });
 }
 

@@ -660,6 +660,19 @@ async function insertInventoryItem(data) {
   if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
   return rows[0];
 }
+async function generateInventorySku(category, subcategory) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_next_sku', { p_category: category, p_subcategory: subcategory }, { Prefer: 'return=representation' });
+  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
+}
+async function deleteInventoryItem(id, actor='System') {
+  requireInventorySupabase();
+  const item = await getInventoryItem(id);
+  if (!item) throw new Error('Barang tidak ditemukan.');
+  const stock = Number(item.stock || 0);
+  if (stock !== 0) await insertInventoryTransaction({ item_id:id, transaction_type:'DELETE_ITEM', qty:-stock, balance_after:0, reference:'Hapus Inventory', notes:'Dihapus oleh Super Admin', created_by:actor });
+  return await updateInventoryItem(id, { stock:0, is_active:false });
+}
 async function updateInventoryItem(id, data) {
   const patch = { ...data, updated_at: new Date().toISOString() };
   requireInventorySupabase();
@@ -727,7 +740,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
+  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
   getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem,
   importInventoryCutoff

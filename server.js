@@ -1352,6 +1352,30 @@ app.get('/track/:token', (req, res) => {
 // ══════════════════════════════════════════
 //  INVENTORY
 // ══════════════════════════════════════════
+// Hak akses fitur Inventory disimpan bersama custom_menus agar kompatibel dengan Manajemen Akun.
+function hasInventoryAccess(req, permission) {
+  const user=req.session?.user||{};
+  if(user.role==='superadmin') return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  const configured=custom.some(x=>String(x).startsWith('inventory_'));
+  if(configured) return custom.includes(permission);
+  const defaults={
+    inventory_view:['technician','admin','manager'],
+    inventory_manage:['admin','manager'],
+    inventory_import_export:['admin','manager'],
+    inventory_barcode:['technician','admin','manager'],
+    inventory_opname:['admin','manager']
+  };
+  return (defaults[permission]||[]).includes(user.role);
+}
+function requireInventoryPermission(permission){
+  return (req,res,next)=>{
+    if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+    if(permission==='inventory_delete' && req.session.user.role!=='superadmin') return res.status(403).json({error:'Hapus inventory hanya untuk Super Admin.'});
+    if(!hasInventoryAccess(req,permission)) return res.status(403).json({error:'Anda tidak memiliki akses fitur Inventory ini.'});
+    next();
+  };
+}
 app.get('/api/inventory/health', async (req,res) => {
   try {
     const health = await db.getInventoryHealth();
@@ -1361,25 +1385,45 @@ app.get('/api/inventory/health', async (req,res) => {
   }
 });
 
+app.get('/api/inventory/access', requireAuth, (req,res) => {
+  res.json({
+    view:hasInventoryAccess(req,'inventory_view'),
+    manage:hasInventoryAccess(req,'inventory_manage'),
+    import_export:hasInventoryAccess(req,'inventory_import_export'),
+    barcode:hasInventoryAccess(req,'inventory_barcode'),
+    opname:hasInventoryAccess(req,'inventory_opname'),
+    delete:req.session.user.role==='superadmin'
+  });
+});
+app.get('/api/inventory/sku-preview', requireInventoryPermission('inventory_manage'), async (req,res) => {
+  try{
+    const category=String(req.query.category||'').trim();
+    const subcategory=String(req.query.subcategory||'').trim();
+    if(!category||!subcategory)return res.status(400).json({error:'Kategori dan Sub Kategori wajib diisi.'});
+    res.json({sku:await db.generateInventorySku(category,subcategory)});
+  }catch(e){res.status(500).json({error:e.message})}
+});
 
-app.get('/api/inventory/template.xlsx', requireRole('admin','manager'), async (req,res) => {
+
+app.get('/api/inventory/template.xlsx', requireInventoryPermission('inventory_import_export'), async (req,res) => {
   try {
     const wb = XLSX.utils.book_new();
     const rows = [
-      ['Nama Barang','Product Number','Barcode','Kategori','Satuan','Stok Cut Off','Minimum Stok'],
-      ['Contoh Kabel UTP','CBL-001','899000000001','Material Kabel','meter',100,20]
+      ['Nama Barang','SKU','Product Number','Barcode','Kategori','Sub Kategori','Satuan','Stok Cut Off','Minimum Stok'],
+      ['Contoh Kabel UTP','','CBL-001','899000000001','Material Kabel','Kabel LAN','meter',100,20]
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:28},{wch:20},{wch:20},{wch:22},{wch:12},{wch:15},{wch:15}];
+    ws['!cols'] = [{wch:28},{wch:18},{wch:20},{wch:20},{wch:22},{wch:18},{wch:12},{wch:15},{wch:15}];
     XLSX.utils.book_append_sheet(wb, ws, 'Template Inventory');
     const guide = XLSX.utils.aoa_to_sheet([
       ['PETUNJUK IMPORT CUT OFF INVENTORY'],
       ['1. Jangan mengubah nama header pada baris pertama.'],
       ['2. Nama Barang dan Stok Cut Off wajib diisi.'],
-      ['3. Product Number dan Barcode harus unik bila diisi.'],
-      ['4. Barang lama dicocokkan berdasarkan Product Number, lalu Barcode, lalu Nama Barang.'],
-      ['5. Stok Cut Off menjadi saldo terbaru dan selisihnya dicatat di Log Stok.'],
-      ['6. Seluruh file diproses sebagai satu transaksi: jika satu baris gagal, semua dibatalkan.']
+      ['3. SKU boleh dikosongkan agar dibuat otomatis dari Kategori dan Sub Kategori.'],
+      ['4. Product Number dan Barcode harus unik bila diisi.'],
+      ['5. Barang lama dicocokkan berdasarkan Product Number, lalu Barcode, lalu Nama Barang.'],
+      ['6. Stok Cut Off menjadi saldo terbaru dan selisihnya dicatat di Log Stok.'],
+      ['7. Seluruh file diproses sebagai satu transaksi: jika satu baris gagal, semua dibatalkan.']
     ]);
     guide['!cols'] = [{wch:95}];
     XLSX.utils.book_append_sheet(wb, guide, 'Petunjuk');
@@ -1390,15 +1434,17 @@ app.get('/api/inventory/template.xlsx', requireRole('admin','manager'), async (r
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.get('/api/inventory/export.xlsx', requireRole('admin','manager'), async (req,res) => {
+app.get('/api/inventory/export.xlsx', requireInventoryPermission('inventory_import_export'), async (req,res) => {
   try {
     const [items, logs] = await Promise.all([db.getInventoryItems(), db.getInventoryTransactions()]);
     const wb = XLSX.utils.book_new();
     const itemRows = items.map(i => ({
       'Nama Barang': i.name,
+      'SKU': i.sku || '',
       'Product Number': i.product_number || '',
       'Barcode': i.barcode || '',
       'Kategori': i.category || '',
+      'Sub Kategori': i.subcategory || '',
       'Satuan': i.unit || '',
       'Stok Saat Ini': Number(i.stock || 0),
       'Minimum Stok': Number(i.min_stock || 0),
@@ -1432,7 +1478,7 @@ app.get('/api/inventory/export.xlsx', requireRole('admin','manager'), async (req
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/inventory/import/preview', requireRole('admin','manager'), inventoryExcelUpload.single('file'), async (req,res) => {
+app.post('/api/inventory/import/preview', requireInventoryPermission('inventory_import_export'), inventoryExcelUpload.single('file'), async (req,res) => {
   try {
     if(!req.file) return res.status(400).json({error:'Pilih file Excel terlebih dahulu.'});
     const wb = XLSX.read(req.file.buffer, {type:'buffer', cellDates:true});
@@ -1460,9 +1506,11 @@ app.post('/api/inventory/import/preview', requireRole('admin','manager'), invent
     const rows = raw.map((r, idx) => ({
       row_number: idx + 2,
       name: String(pick(r,['Nama Barang','name'])).trim(),
+      sku: String(pick(r,['SKU','sku'])).trim(),
       product_number: String(pick(r,['Product Number','SKU','product_number'])).trim(),
       barcode: String(pick(r,['Barcode','barcode'])).trim(),
       category: String(pick(r,['Kategori','category'])).trim() || 'Aksesoris',
+      subcategory: String(pick(r,['Sub Kategori','Subkategori','subcategory'])).trim() || 'Umum',
       unit: String(pick(r,['Satuan','unit'])).trim().toLowerCase() || 'pcs',
       stock: parseExcelNumber(pick(r,['Stok Cut Off','Stok Saat Ini','stock'])),
       min_stock: parseExcelNumber(pick(r,['Minimum Stok','min_stock']))
@@ -1491,7 +1539,7 @@ app.post('/api/inventory/import/preview', requireRole('admin','manager'), invent
   } catch(e) { res.status(400).json({error:e.message}); }
 });
 
-app.post('/api/inventory/import/commit', requireRole('admin','manager'), async (req,res) => {
+app.post('/api/inventory/import/commit', requireInventoryPermission('inventory_import_export'), async (req,res) => {
   try {
     const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
     if(!rows.length) return res.status(400).json({error:'Tidak ada data import untuk diproses.'});
@@ -1517,16 +1565,19 @@ app.get('/api/inventory/opnames', requireAuth, async (req,res) => {
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/inventory/items', requireRole('admin','manager'), async (req,res) => {
+app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'), async (req,res) => {
   try {
     const name = String(req.body.name||'').trim();
     const qty = Number(req.body.qty||0);
     if(!name) return res.status(400).json({error:'Nama barang wajib diisi.'});
     if(qty < 0) return res.status(400).json({error:'Qty tidak boleh negatif.'});
+    const sku = String(req.body.sku||'').trim() || await db.generateInventorySku(String(req.body.category||'Aksesoris'),String(req.body.subcategory||'Umum'));
     const item = await db.insertInventoryItem({
       name,
+      sku,
       product_number: String(req.body.product_number||'').trim() || null,
       category: String(req.body.category||'Aksesoris'),
+      subcategory: String(req.body.subcategory||'Umum'),
       unit: String(req.body.unit||'pcs'),
       stock: qty,
       min_stock: Number(req.body.min_stock||0),
@@ -1544,7 +1595,15 @@ app.post('/api/inventory/items', requireRole('admin','manager'), async (req,res)
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/inventory/items/:id/restock', requireRole('admin','manager'), async (req,res) => {
+app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_delete'), async (req,res) => {
+  try{
+    const result=await db.deleteInventoryItem(req.params.id,req.session.user.name);
+    logActivity(req,'inventory','HAPUS BARANG',`${result.name||req.params.id} · stok dinolkan`);
+    res.json({ok:true,item:result});
+  }catch(e){res.status(500).json({error:e.message})}
+});
+
+app.post('/api/inventory/items/:id/restock', requireInventoryPermission('inventory_manage'), async (req,res) => {
   try {
     const qty = Number(req.body.qty||0);
     if(qty <= 0) return res.status(400).json({error:'Qty restock harus lebih dari 0.'});
@@ -1578,7 +1637,7 @@ app.post('/api/inventory/request', requireAuth, async (req,res) => {
   } catch(e){ res.status(400).json({error:e.message}); }
 });
 
-app.post('/api/inventory/opname', requireRole('admin','manager'), async (req,res) => {
+app.post('/api/inventory/opname', requireInventoryPermission('inventory_opname'), async (req,res) => {
   try {
     const lines=Array.isArray(req.body.items)?req.body.items:[];
     if(!lines.length) return res.status(400).json({error:'Tidak ada barang untuk opname.'});
