@@ -728,6 +728,25 @@ async function updateInventoryItem(id, data) {
   const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${id}`, patch, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...patch };
 }
+
+async function restockInventoryBatch(itemId, qty, serialNumbers, reference, actor) {
+  requireInventorySupabase();
+  const result = await sbFetch(
+    'POST',
+    '/rpc/inventory_restock_batch',
+    {
+      p_item_id: itemId,
+      p_qty: Number(qty || 0),
+      p_serial_numbers: Array.isArray(serialNumbers) ? serialNumbers : [],
+      p_reference: reference || 'Restock',
+      p_actor: actor || 'System'
+    },
+    { Prefer: 'return=representation' }
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.ok !== true) throw new Error(row?.error || 'Restock gagal diproses.');
+  return row;
+}
 async function getInventoryTransactions() {
   requireInventorySupabase();
   return await sbFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
@@ -792,7 +811,8 @@ module.exports = {
   getInventoryCategories,
   generateInventoryBarcode,
   findInventoryItemByCode,
-  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
+  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
+  restockInventoryBatch, generateInventorySku, deleteInventoryItem,
   getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem,
   importInventoryCutoff

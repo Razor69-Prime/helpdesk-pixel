@@ -1,0 +1,9 @@
+VERIFICATION PXL-REV-0020 CUMULATIVE
+
+- server.js: node --check PASSED
+- db.js: node --check PASSED
+- REV-0018 factory barcode scan marker found in public/inventory.html
+- REV-0019 restock scan and serial tracking files included
+- REV-0020 material request scan counter logic found in public/index.html
+- SQL file included: PXL-REV-0019-inventory-restock-scan-serial.sql
+- No new npm dependency required

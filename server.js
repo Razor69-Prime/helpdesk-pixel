@@ -1603,6 +1603,8 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
     const category = String(req.body.category||'').trim();
     const subcategory = String(req.body.subcategory||'').trim();
     if(!category || !subcategory) return res.status(400).json({error:'Kategori dan subkategori wajib dipilih.'});
+    const trackingMode = String(req.body.tracking_mode||'quantity') === 'serial' ? 'serial' : 'quantity';
+    if(trackingMode === 'serial' && qty > 0) return res.status(400).json({error:'Stok awal barang serial harus 0. Tambahkan unit melalui Restock dan scan SN satu per satu.'});
     const suppliedBarcode = String(req.body.barcode||'').trim();
     if(suppliedBarcode && !/^\d{8,14}$/.test(suppliedBarcode)) return res.status(400).json({error:'Barcode harus berupa angka 8–14 digit.'});
     if(suppliedBarcode){
@@ -1618,6 +1620,7 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
       category,
       subcategory,
       unit: String(req.body.unit||'pcs'),
+      tracking_mode: trackingMode,
       stock: qty,
       min_stock: Number(req.body.min_stock||0),
       barcode,
@@ -1644,6 +1647,30 @@ app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_del
     const message = String(e.message || e);
     const status = message.includes('Barang tidak ditemukan') ? 404 : 500;
     res.status(status).json({ error:message });
+  }
+});
+
+
+app.post('/api/inventory/items/:id/restock-batch', requireInventoryPermission('inventory_manage'), async (req,res) => {
+  try {
+    const item = await db.getInventoryItem(req.params.id);
+    if(!item) return res.status(404).json({error:'Barang tidak ditemukan.'});
+    const serialNumbers = Array.isArray(req.body.serial_numbers)
+      ? req.body.serial_numbers.map(v=>String(v||'').trim()).filter(Boolean)
+      : [];
+    const qty = item.tracking_mode === 'serial' ? serialNumbers.length : Number(req.body.qty||0);
+    if(qty <= 0) return res.status(400).json({error:'Qty restock harus lebih dari 0.'});
+    if(item.tracking_mode === 'serial' && serialNumbers.length !== new Set(serialNumbers.map(v=>v.toLowerCase())).size){
+      return res.status(400).json({error:'Terdapat Serial Number duplikat dalam sesi scan.'});
+    }
+    const result = await db.restockInventoryBatch(
+      item.id, qty, serialNumbers, String(req.body.reference||'Restock').trim(), req.session.user.name
+    );
+    logActivity(req,'inventory','RESTOCK BATCH',`${item.name} +${qty} ${item.unit}`);
+    res.json(result);
+  } catch(e){
+    console.error('[Inventory Restock Batch]', e);
+    res.status(400).json({error:e.message});
   }
 });
 
