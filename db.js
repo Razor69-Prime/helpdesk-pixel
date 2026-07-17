@@ -651,6 +651,26 @@ async function issueInventoryForMR(requestId, items, actor, woNumber) {
   return output;
 }
 
+async function getInventoryCategories() {
+  requireInventorySupabase();
+  const categories = await sbFetch('GET', '/inventory_categories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  const subcategories = await sbFetch('GET', '/inventory_subcategories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  return categories.map(c => ({
+    id:c.id, name:c.name, code:c.code,
+    subcategories: subcategories.filter(sc => sc.category_id === c.id).map(sc => ({id:sc.id,name:sc.name,code:sc.code}))
+  }));
+}
+async function generateInventoryBarcode() {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_next_barcode', {}, { Prefer:'return=representation' });
+  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
+}
+async function findInventoryItemByCode(code) {
+  requireInventorySupabase();
+  const q = encodeURIComponent(String(code || '').trim());
+  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q})&is_active=is.true&limit=1`);
+  return rows?.[0] || null;
+}
 async function getInventoryHealth() {
   requireInventorySupabase();
   const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
@@ -769,6 +789,9 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm, issueInventoryForMR,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
+  getInventoryCategories,
+  generateInventoryBarcode,
+  findInventoryItemByCode,
   getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
   getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem,

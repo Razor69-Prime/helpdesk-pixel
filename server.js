@@ -1406,6 +1406,24 @@ app.get('/api/inventory/access', requireAuth, (req,res) => {
     delete:req.session.user.role==='superadmin'
   });
 });
+app.get('/api/inventory/categories', requireAuth, async (req,res) => {
+  try { res.json(await db.getInventoryCategories()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/inventory/barcode-next', requireInventoryPermission('inventory_manage'), async (req,res) => {
+  try { res.json({barcode:await db.generateInventoryBarcode()}); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/inventory/lookup', requireAuth, async (req,res) => {
+  try {
+    const code=String(req.query.code||'').trim();
+    if(!code) return res.status(400).json({error:'Kode barcode/SKU wajib diisi.'});
+    res.json({item:await db.findInventoryItemByCode(code)});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.get('/api/inventory/sku-preview', requireInventoryPermission('inventory_manage'), async (req,res) => {
   try{
     const category=String(req.query.category||'').trim();
@@ -1582,17 +1600,27 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
     const qty = Number(req.body.qty||0);
     if(!name) return res.status(400).json({error:'Nama barang wajib diisi.'});
     if(qty < 0) return res.status(400).json({error:'Qty tidak boleh negatif.'});
-    const sku = String(req.body.sku||'').trim() || await db.generateInventorySku(String(req.body.category||'Aksesoris'),String(req.body.subcategory||'Umum'));
+    const category = String(req.body.category||'').trim();
+    const subcategory = String(req.body.subcategory||'').trim();
+    if(!category || !subcategory) return res.status(400).json({error:'Kategori dan subkategori wajib dipilih.'});
+    const suppliedBarcode = String(req.body.barcode||'').trim();
+    if(suppliedBarcode && !/^\d{8,14}$/.test(suppliedBarcode)) return res.status(400).json({error:'Barcode harus berupa angka 8–14 digit.'});
+    if(suppliedBarcode){
+      const duplicate = await db.findInventoryItemByCode(suppliedBarcode);
+      if(duplicate) return res.status(409).json({error:`Barcode sudah digunakan oleh ${duplicate.name} (${duplicate.sku}).`});
+    }
+    const sku = String(req.body.sku||'').trim() || await db.generateInventorySku(category,subcategory);
+    const barcode = suppliedBarcode || await db.generateInventoryBarcode();
     const item = await db.insertInventoryItem({
       name,
       sku,
       product_number: String(req.body.product_number||'').trim() || null,
-      category: String(req.body.category||'Aksesoris'),
-      subcategory: String(req.body.subcategory||'Umum'),
+      category,
+      subcategory,
       unit: String(req.body.unit||'pcs'),
       stock: qty,
       min_stock: Number(req.body.min_stock||0),
-      barcode: String(req.body.barcode||'').trim() || sku,
+      barcode,
       is_active: true
     });
     if(qty > 0) await db.insertInventoryTransaction({

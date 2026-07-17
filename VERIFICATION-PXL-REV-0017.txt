@@ -1,0 +1,17 @@
+PXL-REV-0017 - Verification
+
+Pemeriksaan yang dijalankan:
+1. node --check server.js: PASS
+2. node --check db.js: PASS
+3. JavaScript inline public/inventory.html diekstrak lalu node --check: PASS
+4. Endpoint tersedia:
+   - GET /api/inventory/categories
+   - GET /api/inventory/barcode-next
+   - GET /api/inventory/lookup?code=
+5. Insert item memvalidasi barcode angka 8-14 digit, mencegah duplikat, dan membuat barcode otomatis jika kosong.
+6. Daftar item memiliki Lihat/Print, Download SVG, dan Print Label.
+7. Dropdown subkategori mengikuti main kategori.
+8. Lookup barcode/SKU mengisi data item lama otomatis; barcode baru tetap meminta kategori/subkategori sebelum SKU dibuat.
+
+Batas pemeriksaan:
+Koneksi live ke project Supabase/Vercel tidak dijalankan dari lingkungan build. Pengujian akhir dilakukan setelah SQL dan file diterapkan pada project pengguna.
