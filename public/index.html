@@ -9204,12 +9204,15 @@ async function submitMaterialAndFinish(){
   try{
     // Simpan material+jasa request (jika ada)
     if(materialUsed && (materials.length || jasa.length)){
-      await api('POST','/material-requests',{
+      const mrResult=await api('POST','/material-requests',{
         ticket_id: ticketId,
         materials,
         jasa,
         notes: document.getElementById('material-notes').value.trim()||null
       });
+      if(mrResult?.warning){
+        alert('⚠️ '+mrResult.warning);
+      }
     }
     // Material/jasa sudah tersimpan → lanjut ke modal TTD sebelum tiket benar-benar selesai
     closeMaterialModal();

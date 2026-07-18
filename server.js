@@ -971,6 +971,7 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
     if (!ticket) return res.status(404).json({ error: 'Tiket/WO tidak ditemukan.' });
 
     const mrItems = [];
+    const unregisteredMaterials = [];
     for (const m of matArr) {
       const query = String(m.barcode || m.sku || m.product_number || m.name || '').trim();
       const qty = Number(m.qty);
@@ -979,7 +980,22 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
       }
       const inv = await db.findInventoryItemByCode(query);
       if (!inv) {
-        return res.status(400).json({ error: `Material "${query}" belum terdaftar di Inventory. Daftarkan item terlebih dahulu atau gunakan nama/SKU/barcode yang sama persis.` });
+        const pendingItem = {
+          inventory_item_id: null,
+          name: String(m.name || query).trim(),
+          sku: m.sku ? String(m.sku).trim() : null,
+          barcode: m.barcode ? String(m.barcode).trim() : null,
+          product_number: m.product_number ? String(m.product_number).trim() : null,
+          unit: m.unit || 'pcs',
+          qty_out: qty,
+          qty_use: qty,
+          qty_return: 0,
+          item_type: 'unregistered_material',
+          inventory_status: 'pending_registration'
+        };
+        mrItems.push(pendingItem);
+        unregisteredMaterials.push(pendingItem);
+        continue;
       }
       mrItems.push({
         inventory_item_id: inv.id,
@@ -1039,7 +1055,33 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
       ref_id: entry.id,
       created_by: req.session.user.name,
     });
-    res.status(201).json(entry);
+
+    if (unregisteredMaterials.length) {
+      const escapeHtml = value => String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+      const itemSummary = unregisteredMaterials
+        .map(item => `${escapeHtml(item.name)} (${Number(item.qty_out)} ${escapeHtml(item.unit)})`)
+        .join(', ');
+      const notificationText = `<b>Item Inventory belum terdaftar</b> pada ${escapeHtml(ticket.wo_number || ticket_id)}: ${itemSummary}. Mohon daftarkan item ke Inventory.`;
+      await Promise.all([
+        createNotification({ type: 'inventory', text: notificationText, target_role: 'admin', ref_id: entry.id, created_by: req.session.user.name }),
+        createNotification({ type: 'inventory', text: notificationText, target_role: 'superadmin', ref_id: entry.id, created_by: req.session.user.name })
+      ]);
+    }
+
+    res.status(201).json({
+      ...entry,
+      warning: unregisteredMaterials.length
+        ? `${unregisteredMaterials.length} material belum terdaftar di Inventory. Pekerjaan tetap dapat diselesaikan dan Admin sudah diberi notifikasi.`
+        : null,
+      unregistered_materials: unregisteredMaterials.map(item => ({
+        name: item.name,
+        barcode: item.barcode,
+        sku: item.sku,
+        product_number: item.product_number,
+        qty: item.qty_out,
+        unit: item.unit
+      }))
+    });
   } catch (e) {
     if (entry?.id) { try { await db.deleteMRFormWithInventoryRestore(entry.id, req.session.user?.name || 'System'); } catch (_) { try { await db.deleteMRForm(entry.id); } catch (_) {} } }
     const message = String(e.message || e);

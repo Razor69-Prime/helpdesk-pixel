@@ -1,0 +1,12 @@
+PXL-REV-0028 Verification
+
+PASS - server.js: node --check
+PASS - db.js: node --check
+PASS - seluruh inline JavaScript public/index.html: node --check
+PASS - material tidak terdaftar masuk ke MR tanpa inventory_item_id
+PASS - pengurangan stok hanya berjalan untuk item yang memiliki inventory_item_id
+PASS - notifikasi dibuat untuk role admin dan superadmin
+PASS - respons API membawa warning dan daftar unregistered_materials
+PASS - frontend menampilkan warning lalu tetap melanjutkan ke modal tanda tangan
+
+Catatan: koneksi Supabase production perlu diuji setelah deployment karena environment production tidak tersedia pada proses pemeriksaan lokal ini.
