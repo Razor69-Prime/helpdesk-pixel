@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- PXL-REV-0033: grouped navigation package path fix -->
+
 <html lang="id">
 <head>
 <meta charset="UTF-8"/>
@@ -77,11 +79,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
 .sidebar-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:8px 8px 4px;margin-top:4px}
 .sidebar-section:first-child{margin-top:0}
+.sidebar-section-line{height:1px;background:var(--border);margin:5px 8px 2px}
 .app-content{flex:1;min-width:0;padding:20px 28px;overflow-y:auto;overflow-x:hidden}
 @media(max-width:700px) and (min-width:601px){
   .sidebar{width:52px;padding:8px 4px}
   .sidebar .nav-btn span.nav-label{display:none}
   .sidebar .nav-btn{justify-content:center;padding:10px}
+  .sidebar .sidebar-section,.sidebar .sidebar-section-line{display:none}
   .app-content{padding:16px 12px}
 }
 .nav-btn{width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--muted);border-radius:var(--radius-sm);transition:all .15s;display:flex;align-items:center;justify-content:flex-start;gap:8px;text-align:left;white-space:nowrap}
@@ -403,7 +407,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     white-space:nowrap;
   }
   .sidebar .nav-btn span.nav-label{display:block!important;font-size:9px}
-  .sidebar .nav-sep{display:none}
+  .sidebar .nav-sep,.sidebar .sidebar-section,.sidebar .sidebar-section-line{display:none}
   .app-content{padding-bottom:16px!important}
 
   /* ── Topbar ── */
@@ -2715,13 +2719,31 @@ function buildNav(){
   // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
   if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
 
-  document.getElementById('main-nav').innerHTML=tabs.map((t,i)=>{
-    // pisahkan emoji icon dari label teks
-    const match=t.label.match(/^(\S+)\s(.+)$/);
-    const icon=match?match[1]:t.label;
-    const text=match?match[2]:t.label;
-    return`<button class="nav-btn${i===0?' active':''}" onclick="switchTab('${t.id}',this)">${icon} <span class="nav-label">${text}</span></button>`;
-  }).join('');
+  const NAV_GROUPS=[
+    {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
+    {label:'Operasional Teknisi', ids:['report','tickets','materials']},
+    {label:'Sales & Proyek', ids:['sales','kunjungan','projects']},
+    {label:'Keuangan & Pengadaan', ids:['invoice','pr','supplier']},
+    {label:'Gudang', ids:['inventory']},
+    {label:'Administrasi', ids:['archive','users','actlog']},
+  ];
+
+  const visibleById=new Map(tabs.map(t=>[t.id,t]));
+  let firstButton=true;
+  const navHtml=[];
+  NAV_GROUPS.forEach(group=>{
+    const groupTabs=group.ids.map(id=>visibleById.get(id)).filter(Boolean);
+    if(!groupTabs.length) return;
+    navHtml.push(`<div class="sidebar-section">${group.label}</div>`);
+    groupTabs.forEach(t=>{
+      const match=t.label.match(/^(\S+)\s(.+)$/);
+      const icon=match?match[1]:t.label;
+      const text=match?match[2]:t.label;
+      navHtml.push(`<button class="nav-btn${firstButton?' active':''}" onclick="switchTab('${t.id}',this)">${icon} <span class="nav-label">${text}</span></button>`);
+      firstButton=false;
+    });
+  });
+  document.getElementById('main-nav').innerHTML=navHtml.join('');
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   if(tabs.length) document.getElementById('tab-'+tabs[0].id).classList.add('active');
 }
