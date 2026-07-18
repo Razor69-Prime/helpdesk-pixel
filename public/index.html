@@ -2358,6 +2358,50 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
 </div>
 
+
+<!-- MR SIGNATURE MODAL -->
+<div class="modal-overlay" id="mr-sign-modal" onclick="if(event.target===this)closeMRSignModal()">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeMRSignModal()">✕</button>
+    <div class="modal-title" id="mr-sign-title">✍️ Tanda Tangan Material Request</div>
+    <div class="modal-sub" id="mr-sign-sub"></div>
+    <input type="hidden" id="mr-sign-role"/>
+    <hr class="divider"/>
+    <div id="mr-sign-existing" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Tanda tangan dari profil akun Anda:</div>
+      <div style="border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff;text-align:center;margin-bottom:12px">
+        <img id="mr-sign-existing-img" style="max-height:80px;max-width:100%"/>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button type="button" class="btn sm" onclick="switchMRSignDraw()" style="font-size:11px">✏️ Gambar TTD baru</button>
+        <button type="button" class="btn sm" onclick="switchMRSignUpload()" style="font-size:11px">📷 Upload TTD lain</button>
+      </div>
+    </div>
+    <div id="mr-sign-draw" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Gambar tanda tangan Anda:</div>
+      <div style="border:2px solid var(--border);border-radius:8px;background:#fafafa;cursor:crosshair;touch-action:none;min-height:140px">
+        <canvas id="mr-sign-canvas" width="420" height="140" style="width:100%;height:140px;display:block;border-radius:8px;background:transparent"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button type="button" class="btn sm" onclick="clearMRSignCanvas()">🗑️ Hapus</button>
+        <span style="font-size:11px;color:var(--muted)">Gunakan mouse atau jari</span>
+      </div>
+    </div>
+    <div id="mr-sign-upload" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Upload gambar tanda tangan (PNG/JPG):</div>
+      <input type="file" id="mr-sign-upload-file" accept="image/png,image/jpeg" onchange="previewMRSignUpload(this)"/>
+      <div id="mr-sign-upload-preview" style="margin-top:8px;display:none">
+        <img id="mr-sign-upload-img" style="max-height:80px;border:1px solid var(--border);border-radius:6px;padding:4px;background:#fff"/>
+      </div>
+    </div>
+    <div id="mr-sign-error" style="font-size:12px;color:var(--red);margin-top:8px;display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button type="button" class="btn" onclick="closeMRSignModal()">Batal</button>
+      <button type="button" class="btn primary" onclick="confirmMRSignature()">✅ Konfirmasi Tanda Tangan</button>
+    </div>
+  </div>
+</div>
+
 <!-- ASSIGN TEKNISI MODAL -->
 <div class="modal-overlay" id="assign-modal" onclick="if(event.target===this)closeAssignModal()">
   <div class="modal">
@@ -8541,7 +8585,7 @@ function addMRItemBySku(){
 
 async function openMRBarcodeScanner(){
   if(!hasMRPermission('material_request_barcode')){alert('Anda tidak memiliki akses scan barcode Material Request.');return;}
-  if(!mrInventoryItems.length)await loadMRInventoryItems();
+  await loadMRInventoryItems();
   document.getElementById('mr-barcode-modal').classList.add('show');
   const manual=document.getElementById('mr-manual-barcode');
   manual.value='';
@@ -8553,7 +8597,7 @@ async function openMRBarcodeScanner(){
     video.srcObject=mrScannerStream;await video.play();
     if(!('BarcodeDetector' in window)){status.textContent='Kamera tidak didukung. Scanner USB tetap dapat langsung scan berulang pada kolom di bawah.';manual.focus();return;}
     const formats=await BarcodeDetector.getSupportedFormats();
-    const preferred=['code_128','ean_13','ean_8','qr_code','upc_a','upc_e'].filter(x=>formats.includes(x));
+    const preferred=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','code_93','codabar','itf','data_matrix','pdf417','aztec','qr_code'].filter(x=>formats.includes(x));
     mrScannerDetector=new BarcodeDetector(preferred.length?{formats:preferred}:undefined);
     mrScannerRunning=true;status.textContent='Siap scan berulang. Jauhkan barcode sesaat sebelum scan item yang sama lagi.';
     const detect=async()=>{
@@ -8583,19 +8627,38 @@ function closeMRBarcodeScanner(){
   const video=document.getElementById('mr-scan-video');if(video){video.pause();video.srcObject=null;}
   document.getElementById('mr-barcode-modal').classList.remove('show');
 }
-function handleMRBarcode(value,options={}){
-  const code=String(value||'').trim();
+function normalizeMRScannedCode(value){
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g,'')
+    .replace(/[０-９]/g,ch=>String(ch.charCodeAt(0)-0xFF10))
+    .trim();
+}
+async function handleMRBarcode(value,options={}){
+  const code=normalizeMRScannedCode(value);
   const manual=document.getElementById('mr-manual-barcode');
   const status=document.getElementById('mr-scan-status');
   if(!code){status.textContent='Barcode/SKU belum diisi.';manual.focus();return false;}
-  const item=findMRInventory(code);
-  if(!item){status.textContent='❌ Nama/SKU/Barcode/Product Number tidak ditemukan: '+code;manual.value='';manual.focus();return false;}
+  status.textContent='Mencari barcode: '+code+' ...';
+  let item=null;
+  try{
+    const result=await api('GET','/inventory/lookup?code='+encodeURIComponent(code));
+    item=result?.item||null;
+  }catch(e){
+    status.textContent='❌ Gagal mengecek barcode: '+e.message;
+    manual.select();manual.focus();return false;
+  }
+  if(!item){
+    await loadMRInventoryItems();
+    item=findMRInventory(code);
+  }
+  if(!item){status.textContent='❌ Barcode/SKU tidak terdaftar: '+code;manual.value='';manual.focus();return false;}
+  if(!mrInventoryItems.some(i=>String(i.id)===String(item.id)))mrInventoryItems.push(item);
   const added=addMRInventoryItem(item);
   if(added){
     mrScannerTotalScans++;
     const row=[...document.querySelectorAll('#mr-items-body tr')].find(r=>r.dataset.inventoryId===String(item.id));
     const qty=Number(row?.querySelector('.mr-qout')?.value)||0;
-    status.textContent=`✅ ${item.name} · Qty ${qty} · Total scan sesi ${mrScannerTotalScans}. Siap scan berikutnya.`;
+    status.textContent=`✅ ${item.name} · Kode ${code} · Qty ${qty} · Total scan sesi ${mrScannerTotalScans}.`;
   }else{
     status.textContent=document.getElementById('mr-inventory-status').textContent;
   }
@@ -8604,7 +8667,64 @@ function handleMRBarcode(value,options={}){
   return added;
 }
 
-async function submitMR(){
+
+
+/* ══ MATERIAL REQUEST SIGNATURE ══ */
+let mrPendingSignature=null;
+let _mrSignCanvas=null,_mrSignCtx=null,_mrSignDrawing=false,_mrSignHasData=false;
+function openMRSignModal(role){
+  mrPendingSignature=null;
+  document.getElementById('mr-sign-role').value=role;
+  document.getElementById('mr-sign-title').textContent=role==='technician'?'✍️ Tanda Tangan Teknisi':'✍️ Tanda Tangan PIC Material Request';
+  document.getElementById('mr-sign-sub').textContent=role==='technician'?'Diperlukan saat menyelesaikan pengembalian material.':'Diperlukan saat menyimpan pengambilan material.';
+  document.getElementById('mr-sign-error').style.display='none';
+  document.getElementById('mr-sign-upload-file').value='';
+  document.getElementById('mr-sign-upload-preview').style.display='none';
+  const hasSig=currentUser.signature_url&&currentUser.signature_url.length>10&&currentUser.signature_url!=='null';
+  if(hasSig){
+    document.getElementById('mr-sign-existing-img').src=currentUser.signature_url;
+    document.getElementById('mr-sign-existing').style.display='block';
+    document.getElementById('mr-sign-draw').style.display='none';
+    document.getElementById('mr-sign-upload').style.display='none';
+  }else{
+    document.getElementById('mr-sign-existing').style.display='none';
+    document.getElementById('mr-sign-upload').style.display='none';
+    document.getElementById('mr-sign-draw').style.display='block';
+  }
+  document.getElementById('mr-sign-modal').classList.add('show');
+  setTimeout(initMRSignCanvas,150);
+}
+function closeMRSignModal(){document.getElementById('mr-sign-modal').classList.remove('show');}
+function switchMRSignDraw(){document.getElementById('mr-sign-draw').style.display='block';document.getElementById('mr-sign-upload').style.display='none';setTimeout(initMRSignCanvas,100);}
+function switchMRSignUpload(){document.getElementById('mr-sign-draw').style.display='none';document.getElementById('mr-sign-upload').style.display='block';}
+function initMRSignCanvas(){
+  const c=document.getElementById('mr-sign-canvas');if(!c)return;
+  const rect=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  c.width=Math.max(420,Math.round(rect.width*dpr));c.height=Math.round(140*dpr);
+  _mrSignCanvas=c;_mrSignCtx=c.getContext('2d');_mrSignCtx.scale(dpr,dpr);_mrSignCtx.lineWidth=2;_mrSignCtx.lineCap='round';_mrSignCtx.strokeStyle='#111';_mrSignHasData=false;
+  const point=e=>{const r=c.getBoundingClientRect();const t=e.touches?.[0]||e;return{x:t.clientX-r.left,y:t.clientY-r.top}};
+  c.onmousedown=c.ontouchstart=e=>{e.preventDefault();_mrSignDrawing=true;const p=point(e);_mrSignCtx.beginPath();_mrSignCtx.moveTo(p.x,p.y)};
+  c.onmousemove=c.ontouchmove=e=>{if(!_mrSignDrawing)return;e.preventDefault();const p=point(e);_mrSignCtx.lineTo(p.x,p.y);_mrSignCtx.stroke();_mrSignHasData=true};
+  const stop=()=>{_mrSignDrawing=false};c.onmouseup=stop;c.onmouseleave=stop;c.ontouchend=stop;
+}
+function clearMRSignCanvas(){if(!_mrSignCanvas||!_mrSignCtx)return;_mrSignCtx.clearRect(0,0,_mrSignCanvas.width,_mrSignCanvas.height);_mrSignHasData=false;}
+function previewMRSignUpload(input){const f=input.files?.[0];if(!f)return;const r=new FileReader();r.onload=e=>{document.getElementById('mr-sign-upload-img').src=e.target.result;document.getElementById('mr-sign-upload-preview').style.display='block'};r.readAsDataURL(f);}
+function getMRSignature(){
+  const uploadVisible=document.getElementById('mr-sign-upload').style.display!=='none';
+  const upload=document.getElementById('mr-sign-upload-img');if(uploadVisible&&upload.src?.startsWith('data:'))return upload.src;
+  const drawVisible=document.getElementById('mr-sign-draw').style.display!=='none';
+  if(drawVisible&&_mrSignHasData&&_mrSignCanvas){
+    const out=document.createElement('canvas');out.width=420;out.height=140;const ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.drawImage(_mrSignCanvas,0,0,_mrSignCanvas.width,_mrSignCanvas.height,0,0,out.width,out.height);return out.toDataURL('image/png');
+  }
+  if(currentUser.signature_url&&currentUser.signature_url.startsWith('data:'))return currentUser.signature_url;
+  return null;
+}
+async function confirmMRSignature(){
+  const err=document.getElementById('mr-sign-error');const sig=getMRSignature();
+  if(!sig){err.textContent='Tanda tangan wajib diisi.';err.style.display='block';return;}
+  mrPendingSignature=sig;closeMRSignModal();await submitMR(true);
+}
+async function submitMR(skipSignature=false){
   const errEl=document.getElementById('mr-form-error');
   errEl.style.display='none';
   const woSel=document.getElementById('mr-wo');
@@ -8617,6 +8737,14 @@ async function submitMR(){
   // Determine status
   const isUpdateMode=mrEditId&&(mrData.find(x=>x.id===mrEditId)?.status==='taken');
   const newStatus=isUpdateMode?'returned':'taken';
+  const existingMR=mrEditId?mrData.find(x=>x.id===mrEditId):null;
+  const signRole=isUpdateMode?'technician':'requester';
+  const existingSignature=signRole==='technician'?existingMR?.technician_signature:existingMR?.requester_signature;
+  if(!skipSignature&&!existingSignature){
+    openMRSignModal(signRole);
+    return;
+  }
+  const signature=mrPendingSignature||existingSignature||null;
 
   const payload={
     ticket_id:    ticketId,
@@ -8628,6 +8756,17 @@ async function submitMR(){
     date_return:  document.getElementById('mr-date-return').value||null,
     items,
     status:       newStatus,
+    ...(signRole==='requester'&&signature?{
+      requester_signature:signature,
+      requester_signed_by:currentUser.name,
+      requester_signed_at:new Date().toISOString(),
+      ...(String(document.getElementById('mr-technician').value||'').trim().toLowerCase()===String(currentUser.name||'').trim().toLowerCase()?{technician_signature:signature,technician_signed_by:currentUser.name,technician_signed_at:new Date().toISOString()}:{}),
+    }:{}),
+    ...(signRole==='technician'&&signature?{
+      technician_signature:signature,
+      technician_signed_by:currentUser.name,
+      technician_signed_at:new Date().toISOString(),
+    }:{}),
   };
 
   try{
@@ -8639,6 +8778,7 @@ async function submitMR(){
       result=await api('POST','/material-requests-form', payload);
       mrData.unshift(result);
     }
+    mrPendingSignature=null;
     cancelMRForm();
     renderMRList();
   }catch(e){
@@ -8826,13 +8966,15 @@ function exportMRPDF(id){
   // ── Footer TTD ──
   const sigW=CW/3;
   const sigLabels=['PIC MATERIAL REQUEST','MATERIAL PREPARED','TEKNISI'];
-  const sigNames=[mr.created_by||'-','',mr.technician||'-'];
+  const sigNames=[mr.requester_signed_by||mr.created_by||'-',mr.prepared_by||'',mr.technician_signed_by||mr.technician||'-'];
+  const sigImages=[mr.requester_signature||null,mr.prepared_signature||null,mr.technician_signature||null];
   const sigY=Math.max(y, PH-30);
 
   sigLabels.forEach((lbl,i)=>{
     const sx=ML+i*sigW;
     doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,0,0);
     doc.text(lbl,sx+sigW/2,sigY,{align:'center'});
+    if(sigImages[i]&&String(sigImages[i]).startsWith('data:')){try{doc.addImage(sigImages[i],'PNG',sx+8,sigY+2,sigW-16,10);}catch(_){}}
     doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
     doc.line(sx+4,sigY+14,sx+sigW-4,sigY+14);
     doc.setFont('helvetica','normal');doc.setFontSize(7);

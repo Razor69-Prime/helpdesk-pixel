@@ -1,0 +1,9 @@
+VERIFICATION PXL-REV-0024
+- server.js: node --check PASSED
+- db.js: node --check PASSED
+- inline JavaScript public/index.html: node --check PASSED
+- SQL hanya menambah kolom pada material_request_forms
+- Endpoint POST/PATCH MR sudah meneruskan payload sehingga kolom signature tersimpan
+- Signature requester diwajibkan saat create
+- Signature technician diwajibkan saat status taken diubah menjadi returned
+- PDF MR membaca requester_signature dan technician_signature
