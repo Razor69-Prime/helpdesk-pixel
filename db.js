@@ -623,6 +623,26 @@ async function updateMRForm(id, data) {
   const rows = await sbFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
   return rows?.[0] || { id, ...data };
 }
+async function updateMRUsageAndReturn(id, data, actor='System') {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_update_material_request_usage', {
+    p_request_id: id,
+    p_items: Array.isArray(data.items) ? data.items : [],
+    p_actor: actor || 'System',
+    p_date_return: data.date_return || null,
+    p_technician: data.technician || actor || 'System',
+    p_technician_signature: data.technician_signature || null,
+    p_technician_signed_by: data.technician_signed_by || null,
+    p_technician_signed_at: data.technician_signed_at || null,
+    p_prepared_by: data.prepared_by || null,
+    p_prepared_at: data.prepared_at || null
+  }, { Prefer: 'return=representation' });
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.ok !== true) throw new Error(row?.error || 'Update pemakaian dan pengembalian tidak dikonfirmasi database.');
+  const rows = await sbFetch('GET', `/material_request_forms?id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows?.[0] || { id, ...data, items: row.items, status: 'returned' };
+}
+
 async function deleteMRForm(id) {
   if (!USE_SUPABASE) return;
   await sbFetch('DELETE', `/material_request_forms?id=eq.${id}`);
@@ -815,7 +835,7 @@ module.exports = {
   getSuppliers, insertSupplier, updateSupplier, deleteSupplier,
   insertMaterialRequest, getMaterialRequests,
   // MR Form
-  getMRForms, insertMRForm, updateMRForm, deleteMRForm, deleteMRFormWithInventoryRestore, issueInventoryForMR,
+  getMRForms, insertMRForm, updateMRForm, updateMRUsageAndReturn, deleteMRForm, deleteMRFormWithInventoryRestore, issueInventoryForMR,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getInventoryCategories,

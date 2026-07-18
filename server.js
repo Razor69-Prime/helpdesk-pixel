@@ -1024,6 +1024,13 @@ function requireMaterialRequestPermission(permission){
     next();
   };
 }
+app.get('/api/material-requests-form/preparers', requireAuth, async (req,res)=>{
+  try{
+    const users=await db.getUsers();
+    res.json((users||[]).filter(u=>u.is_active!==false&&['admin','accounting','manager'].includes(u.role)).map(u=>({id:u.id,name:u.name,role:u.role})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get('/api/material-requests-form', requireMaterialRequestPermission('material_request_view'), async (req,res)=>{
   try{ res.json(await db.getMRForms()); }
   catch(e){ res.status(500).json({error:e.message}); }
@@ -1050,9 +1057,14 @@ app.post('/api/material-requests-form', requireMaterialRequestPermission('materi
 
 app.patch('/api/material-requests-form/:id', requireMaterialRequestPermission('material_request_edit'), async (req,res)=>{
   try{
-    const entry=await db.updateMRForm(req.params.id, req.body);
+    const items=Array.isArray(req.body.items)?req.body.items:[];
+    const entry=await db.updateMRUsageAndReturn(req.params.id,{...req.body,items},req.session.user.name);
+    logActivity(req,'material','UPDATE PEMAKAIAN/PENGEMBALIAN MR',`ID: ${req.params.id} · ${items.length} item`);
     res.json(entry);
-  }catch(e){ res.status(500).json({error:e.message}); }
+  }catch(e){
+    const message=String(e.message||e);
+    res.status(/pemakaian|pengambilan|stok|item/i.test(message)?400:500).json({error:message});
+  }
 });
 
 app.delete('/api/material-requests-form/:id', requireRole('superadmin'), async (req,res)=>{
@@ -1246,14 +1258,22 @@ app.get('/api/sales-visits/pipeline-dates', requireAuth, (req, res) => {
 // ══════════════════════════════════════════
 //  JOB STAGES (per teknisi dalam tim)
 // ══════════════════════════════════════════
-app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req, res) => {
+app.post('/api/tickets/:id/stage', requireRole('technician','admin','operator'), async (req, res) => {
   try {
-    const { stage, lat, lng, tech_signature, customer_signature } = req.body;
+    const { stage, lat, lng, tech_signature, customer_signature, signature_bypass, signature_bypass_reason } = req.body;
     const VALID = ['berangkat','tiba','selesai'];
     if (!VALID.includes(stage)) return res.status(400).json({ error: 'Stage tidak valid.' });
 
     const now      = new Date().toISOString();
     const userName = req.session.user.name;
+    const userRole = String(req.session.user.role||'').toLowerCase();
+    const bypassRequested = !!signature_bypass;
+    const bypassAllowed = userRole === 'operator' || userRole === 'superadmin';
+    if (stage === 'selesai') {
+      if (bypassRequested && !bypassAllowed) return res.status(403).json({ error: 'Bypass tanda tangan hanya untuk Operator dan Super Admin.' });
+      if (bypassRequested && !String(signature_bypass_reason||'').trim()) return res.status(400).json({ error: 'Alasan bypass tanda tangan wajib diisi.' });
+      if (!bypassRequested && (!tech_signature || !customer_signature)) return res.status(400).json({ error: 'Tanda tangan Teknisi dan Customer wajib diisi.' });
+    }
 
     // ambil semua tiket lalu cari berdasarkan id + membership
     const allTickets = await db.getTickets(null);
@@ -1313,8 +1333,21 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
     if (newStatus) {
       const ticketPatch = { status: newStatus };
       if (stage === 'selesai') {
-        if (tech_signature)     ticketPatch.tech_signature     = tech_signature;
-        if (customer_signature) ticketPatch.customer_signature = customer_signature;
+        if (bypassRequested) {
+          ticketPatch.tech_signature = null;
+          ticketPatch.customer_signature = null;
+          ticketPatch.signature_bypass = true;
+          ticketPatch.signature_bypass_reason = String(signature_bypass_reason||'').trim();
+          ticketPatch.signature_bypassed_by = userName;
+          ticketPatch.signature_bypassed_at = now;
+        } else {
+          ticketPatch.tech_signature = tech_signature;
+          ticketPatch.customer_signature = customer_signature;
+          ticketPatch.signature_bypass = false;
+          ticketPatch.signature_bypass_reason = null;
+          ticketPatch.signature_bypassed_by = null;
+          ticketPatch.signature_bypassed_at = null;
+        }
       }
       await db.updateTicket(req.params.id, ticketPatch);
       await db.insertStatusHistory({
@@ -1363,6 +1396,10 @@ app.get('/api/track/:token', async (req, res) => {
       job_stages: job_stages || [],
       tech_signature: ticket.tech_signature || null,
       customer_signature: ticket.customer_signature || null,
+      signature_bypass: !!ticket.signature_bypass,
+      signature_bypass_reason: ticket.signature_bypass_reason || null,
+      signature_bypassed_by: ticket.signature_bypassed_by || null,
+      signature_bypassed_at: ticket.signature_bypassed_at || null,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

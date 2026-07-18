@@ -1,0 +1,14 @@
+PXL-REV-0026 VERIFICATION
+
+- server.js: node --check PASSED
+- db.js: node --check PASSED
+- Inline JavaScript public/index.html: node --check PASSED
+- SQL includes all REV-0025 Material Request changes: VERIFIED
+- SQL adds ticket signature and bypass columns: VERIFIED
+- Backend validates both signatures for normal accounts: VERIFIED
+- Backend bypass limited to operator and superadmin: VERIFIED
+- Bypass reason is mandatory: VERIFIED
+- PDF displays signature or bypass information: VERIFIED
+- No new npm dependency: VERIFIED
+
+Catatan: koneksi aktual Supabase/Vercel hanya dapat diuji setelah SQL dan source diterapkan pada project pengguna.
