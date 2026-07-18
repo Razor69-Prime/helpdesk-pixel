@@ -1,0 +1,7 @@
+PXL-REV-0034 Verification
+- Source berasal dari PXL-REV-0033 public/index.html.
+- Struktur ZIP mempertahankan path public/index.html.
+- Hak akses buildNav tidak diubah.
+- Accordion hanya membungkus menu yang sudah lolos filter role/custom_menus.
+- Kategori aktif dibuka otomatis.
+- Mobile dan compact sidebar memaksa isi grup tetap terlihat.

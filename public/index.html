@@ -80,12 +80,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .sidebar-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:8px 8px 4px;margin-top:4px}
 .sidebar-section:first-child{margin-top:0}
 .sidebar-section-line{height:1px;background:var(--border);margin:5px 8px 2px}
+.sidebar-group{width:100%}
+.sidebar-group-toggle{width:100%;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:9px 8px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;text-align:left;border-radius:var(--radius-sm)}
+.sidebar-group-toggle:hover{background:var(--surface2);color:var(--text)}
+.sidebar-group-arrow{font-size:11px;transition:transform .18s ease;flex-shrink:0}
+.sidebar-group.collapsed .sidebar-group-arrow{transform:rotate(-90deg)}
+.sidebar-group-content{display:flex;flex-direction:column;gap:2px}
+.sidebar-group.collapsed .sidebar-group-content{display:none}
+.sidebar-group.has-active>.sidebar-group-toggle{color:var(--accent)}
 .app-content{flex:1;min-width:0;padding:20px 28px;overflow-y:auto;overflow-x:hidden}
 @media(max-width:700px) and (min-width:601px){
   .sidebar{width:52px;padding:8px 4px}
   .sidebar .nav-btn span.nav-label{display:none}
   .sidebar .nav-btn{justify-content:center;padding:10px}
   .sidebar .sidebar-section,.sidebar .sidebar-section-line{display:none}
+  .sidebar-group-toggle{display:none}
+  .sidebar-group-content,.sidebar-group.collapsed .sidebar-group-content{display:flex}
   .app-content{padding:16px 12px}
 }
 .nav-btn{width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--muted);border-radius:var(--radius-sm);transition:all .15s;display:flex;align-items:center;justify-content:flex-start;gap:8px;text-align:left;white-space:nowrap}
@@ -393,6 +403,9 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     scrollbar-width:none;
   }
   .sidebar #main-nav{display:flex;flex-direction:row;gap:2px;width:max-content}
+  .sidebar-group{display:flex;flex-direction:row;width:auto}
+  .sidebar-group-toggle{display:none}
+  .sidebar-group-content,.sidebar-group.collapsed .sidebar-group-content{display:flex;flex-direction:row;gap:2px}
   .sidebar::-webkit-scrollbar{display:none}
   .sidebar .nav-btn{
     flex-shrink:0;
@@ -2730,22 +2743,64 @@ function buildNav(){
 
   const visibleById=new Map(tabs.map(t=>[t.id,t]));
   let firstButton=true;
+  let firstVisibleGroup=true;
   const navHtml=[];
-  NAV_GROUPS.forEach(group=>{
+  const savedState=getNavGroupState();
+  NAV_GROUPS.forEach((group,groupIndex)=>{
     const groupTabs=group.ids.map(id=>visibleById.get(id)).filter(Boolean);
     if(!groupTabs.length) return;
-    navHtml.push(`<div class="sidebar-section">${group.label}</div>`);
+    const groupKey='nav-group-'+groupIndex;
+    const savedOpen=Object.prototype.hasOwnProperty.call(savedState,groupKey)?savedState[groupKey]:firstVisibleGroup;
+    navHtml.push(`<div class="sidebar-group${savedOpen?'':' collapsed'}" data-nav-group="${groupKey}">`);
+    navHtml.push(`<button type="button" class="sidebar-group-toggle" onclick="toggleNavGroup('${groupKey}')" aria-expanded="${savedOpen?'true':'false'}"><span>${group.label}</span><span class="sidebar-group-arrow">▾</span></button>`);
+    navHtml.push('<div class="sidebar-group-content">');
     groupTabs.forEach(t=>{
       const match=t.label.match(/^(\S+)\s(.+)$/);
       const icon=match?match[1]:t.label;
       const text=match?match[2]:t.label;
-      navHtml.push(`<button class="nav-btn${firstButton?' active':''}" onclick="switchTab('${t.id}',this)">${icon} <span class="nav-label">${text}</span></button>`);
+      navHtml.push(`<button class="nav-btn${firstButton?' active':''}" data-tab-id="${t.id}" onclick="switchTab('${t.id}',this)">${icon} <span class="nav-label">${text}</span></button>`);
       firstButton=false;
     });
+    navHtml.push('</div></div>');
+    firstVisibleGroup=false;
   });
   document.getElementById('main-nav').innerHTML=navHtml.join('');
+  syncActiveNavGroup();
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   if(tabs.length) document.getElementById('tab-'+tabs[0].id).classList.add('active');
+}
+
+function getNavGroupState(){
+  try{ return JSON.parse(localStorage.getItem('pxl-nav-group-state')||'{}')||{}; }catch(_){ return {}; }
+}
+function saveNavGroupState(){
+  const state={};
+  document.querySelectorAll('.sidebar-group[data-nav-group]').forEach(group=>{
+    state[group.dataset.navGroup]=!group.classList.contains('collapsed');
+  });
+  try{ localStorage.setItem('pxl-nav-group-state',JSON.stringify(state)); }catch(_){}
+}
+function setNavGroupOpen(group,open){
+  if(!group) return;
+  group.classList.toggle('collapsed',!open);
+  const toggle=group.querySelector('.sidebar-group-toggle');
+  if(toggle) toggle.setAttribute('aria-expanded',open?'true':'false');
+}
+function toggleNavGroup(groupKey){
+  const group=document.querySelector(`.sidebar-group[data-nav-group="${groupKey}"]`);
+  if(!group) return;
+  setNavGroupOpen(group,group.classList.contains('collapsed'));
+  saveNavGroupState();
+}
+function syncActiveNavGroup(){
+  document.querySelectorAll('.sidebar-group').forEach(group=>group.classList.remove('has-active'));
+  const active=document.querySelector('.sidebar .nav-btn.active');
+  const group=active&&active.closest('.sidebar-group');
+  if(group){
+    group.classList.add('has-active');
+    setNavGroupOpen(group,true);
+    saveNavGroupState();
+  }
 }
 
 /* ══ TABS ════════════════════════════════ */
@@ -2754,6 +2809,7 @@ function switchTab(tab,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
+  syncActiveNavGroup();
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
