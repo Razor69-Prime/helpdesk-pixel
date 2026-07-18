@@ -1,0 +1,9 @@
+PXL-REV-0032 Verification
+
+- public/index.html JavaScript: PASS (node --check)
+- server.js: PASS (node --check, tidak diubah)
+- db.js: PASS (node --check, tidak diubah)
+- buildNav tetap memakai aturan role dan custom_menus lama.
+- Role Teknisi tetap tidak dapat melihat Inventory.
+- Mobile sidebar menyembunyikan label grup agar navigasi horizontal tetap ringkas.
+- Tidak ada SQL atau perubahan database.
