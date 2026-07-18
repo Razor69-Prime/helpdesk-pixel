@@ -957,6 +957,7 @@ app.delete('/api/projects/:id', requireRole('superadmin','admin'), async (req,re
 
 // POST — teknisi submit material saat selesaikan tiket
 app.post('/api/material-requests', requireAuth, async (req, res) => {
+  let entry = null;
   try {
     const { ticket_id, materials, jasa, notes } = req.body;
     const matArr  = Array.isArray(materials) ? materials : [];
@@ -964,46 +965,98 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
     if (!ticket_id || (!matArr.length && !jasaArr.length)) {
       return res.status(400).json({ error: 'ticket_id wajib diisi dan minimal 1 material atau 1 jasa.' });
     }
-    // Validasi tiap material
-    for (const m of matArr) {
-      if (!m.name || !m.qty || Number(m.qty) <= 0) {
-        return res.status(400).json({ error: 'Setiap material wajib punya nama dan jumlah > 0.' });
-      }
-    }
-    // Validasi tiap jasa
-    for (const j of jasaArr) {
-      if (!j.name || !j.qty || Number(j.qty) <= 0) {
-        return res.status(400).json({ error: 'Setiap jasa wajib punya nama dan jumlah > 0.' });
-      }
-    }
-    // Ambil wo_number untuk referensi cepat
+
     const tickets = await db.getTickets(null, true);
     const ticket = tickets.find(t => t.id === ticket_id);
+    if (!ticket) return res.status(404).json({ error: 'Tiket/WO tidak ditemukan.' });
 
-    const entry = await db.insertMaterialRequest({
+    const mrItems = [];
+    for (const m of matArr) {
+      const query = String(m.barcode || m.sku || m.product_number || m.name || '').trim();
+      const qty = Number(m.qty);
+      if (!query || !Number.isFinite(qty) || qty <= 0) {
+        return res.status(400).json({ error: 'Setiap material wajib memiliki nama/SKU/barcode dan jumlah > 0.' });
+      }
+      const inv = await db.findInventoryItemByCode(query);
+      if (!inv) {
+        return res.status(400).json({ error: `Material "${query}" belum terdaftar di Inventory. Daftarkan item terlebih dahulu atau gunakan nama/SKU/barcode yang sama persis.` });
+      }
+      mrItems.push({
+        inventory_item_id: inv.id,
+        name: inv.name,
+        sku: inv.sku || null,
+        barcode: inv.barcode || null,
+        product_number: inv.product_number || null,
+        unit: inv.unit || m.unit || 'pcs',
+        qty_out: qty,
+        qty_use: qty,
+        qty_return: 0,
+        item_type: 'material'
+      });
+    }
+
+    for (const j of jasaArr) {
+      const qty = Number(j.qty);
+      if (!j.name || !Number.isFinite(qty) || qty <= 0) {
+        return res.status(400).json({ error: 'Setiap jasa wajib mempunyai nama dan jumlah > 0.' });
+      }
+      mrItems.push({
+        inventory_item_id: null,
+        name: String(j.name).trim(),
+        unit: j.unit || 'jasa',
+        qty_out: qty,
+        qty_use: qty,
+        qty_return: 0,
+        item_type: 'service'
+      });
+    }
+
+    const now = new Date().toISOString();
+    entry = await db.insertMRForm({
       ticket_id,
-      wo_number:  ticket?.wo_number || null,
+      wo_number: ticket.wo_number || null,
+      project_name: ticket.project_name || ticket.description || ticket.customer_name || null,
+      requester: req.session.user.name,
       technician: req.session.user.name,
-      materials:  matArr,
-      jasa:       jasaArr,
-      notes
+      created_by: req.session.user.name,
+      date_out: now.slice(0, 10),
+      date_return: now.slice(0, 10),
+      items: mrItems,
+      notes: notes || null,
+      status: 'returned'
     });
-    logActivity(req, 'ticket', 'REQUEST MATERIAL/JASA', `WO: ${ticket?.wo_number||ticket_id} · ${matArr.length} material, ${jasaArr.length} jasa`);
+
+    const linkedItems = mrItems.filter(i => i.inventory_item_id && Number(i.qty_out) > 0);
+    if (linkedItems.length) {
+      await db.issueInventoryForMR(entry.id, linkedItems, req.session.user.name, ticket.wo_number || '');
+    }
+
+    logActivity(req, 'ticket', 'PAKAI MATERIAL SAAT SELESAI', `WO: ${ticket.wo_number || ticket_id} · ${linkedItems.length} item Inventory, ${jasaArr.length} jasa`);
     createNotification({
       type: 'mr',
-      text: `<b>Material Request baru</b> untuk ${ticket?.wo_number||ticket_id} oleh ${req.session.user.name}`,
+      text: `<b>Material terpakai</b> untuk ${ticket.wo_number || ticket_id} oleh ${req.session.user.name}`,
       target_role: 'superadmin',
       ref_id: entry.id,
       created_by: req.session.user.name,
     });
     res.status(201).json(entry);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    if (entry?.id) { try { await db.deleteMRFormWithInventoryRestore(entry.id, req.session.user?.name || 'System'); } catch (_) { try { await db.deleteMRForm(entry.id); } catch (_) {} } }
+    const message = String(e.message || e);
+    res.status(/stok|inventory|material|tiket/i.test(message) ? 400 : 500).json({ error: message });
+  }
 });
 
 // GET — hanya superadmin, akunting, manager (data mentah)
 app.get('/api/material-requests', requireRole('superadmin','accounting','manager'), async (req, res) => {
-  try { res.json(await db.getMaterialRequests()); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  try {
+    const forms = await db.getMRForms();
+    res.json((forms || []).map(f => ({
+      ...f,
+      materials: (Array.isArray(f.items) ? f.items : []).filter(i => i.item_type !== 'service').map(i => ({ name:i.name, qty:i.qty_use ?? i.qty_out ?? 0, unit:i.unit || 'pcs', sku:i.sku, barcode:i.barcode })),
+      jasa: (Array.isArray(f.items) ? f.items : []).filter(i => i.item_type === 'service').map(i => ({ name:i.name, qty:i.qty_use ?? i.qty_out ?? 0, unit:i.unit || 'jasa' }))
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════

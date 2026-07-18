@@ -8566,7 +8566,7 @@ function addMRItemRow(item=null, locked=false){
   tr.innerHTML=`
     <td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:12px">${n}</td>
     <td style="padding:4px;border:1px solid var(--border)">
-      <input type="text" class="mr-name" value="${name.replace(/"/g,'&quot;')}" placeholder="Nama material..." ${linked?'readonly':''} style="width:100%;font-size:12px;border:none;background:${linked?'var(--surface2)':'transparent'}"/>
+      <input type="text" class="mr-name" value="${name.replace(/"/g,'&quot;')}" placeholder="Nama item / SKU / barcode..." ${linked?'readonly':''} style="width:100%;font-size:12px;border:none;background:${linked?'var(--surface2)':'transparent'}"/>
       ${linked?`<div style="font-size:10px;color:var(--muted);padding:2px 3px">SKU: ${item.sku||'-'} · Stok: ${Number(item.stock)} ${item.unit||'pcs'}</div>`:''}
     </td>
     <td style="padding:4px;border:1px solid var(--border)"><input type="number" class="mr-qout" value="${qout}" min="0" ${linked?`max="${Number(item.stock)}"`:''} ${!locked&&item?'readonly':''} placeholder="0" oninput="recalcMRReturn(this.closest('tr'))" style="width:100%;font-size:12px;text-align:center;border:none;background:${!locked&&item?'var(--surface2)':'transparent'}"/></td>
@@ -9114,7 +9114,7 @@ function addMaterialRow(){
   row.id='mat-row-'+id;
   row.style.cssText='display:flex;gap:8px;margin-bottom:8px;align-items:flex-start';
   row.innerHTML=`
-    <input type="text" class="mat-name" placeholder="Nama material..." style="flex:2"/>
+    <input type="text" class="mat-name" placeholder="Nama item / SKU / barcode..." style="flex:2"/>
     <input type="number" class="mat-qty" placeholder="Qty" min="0" step="0.01" style="flex:1;max-width:80px"/>
     <input type="text" class="mat-unit" placeholder="Satuan" style="flex:1;max-width:90px"/>
     <button type="button" class="btn danger sm" onclick="removeMaterialRow(${id})" style="flex-shrink:0">✕</button>

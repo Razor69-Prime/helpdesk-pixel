@@ -697,8 +697,10 @@ async function generateInventoryBarcode() {
 }
 async function findInventoryItemByCode(code) {
   requireInventorySupabase();
-  const q = encodeURIComponent(String(code || '').trim());
-  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q})&is_active=is.true&limit=1`);
+  const raw = String(code || '').trim();
+  if (!raw) return null;
+  const q = encodeURIComponent(raw);
+  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q},product_number.eq.${q},name.eq.${q})&is_active=is.true&limit=1`);
   return rows?.[0] || null;
 }
 async function getInventoryHealth() {

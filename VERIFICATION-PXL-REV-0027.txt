@@ -1,0 +1,10 @@
+PXL-REV-0027 Verification
+- node --check server.js: PASS
+- node --check db.js: PASS
+- inline JavaScript public/index.html: PASS
+- POST /api/material-requests memakai insertMRForm: PASS
+- GET /api/material-requests memakai getMRForms: PASS
+- pengurangan stok memakai issueInventoryForMR: PASS
+- rollback record MR saat pengurangan stok gagal: PASS
+
+Catatan: Koneksi langsung ke Supabase project pengguna tidak diuji dari lingkungan ini. Pengujian integrasi dilakukan setelah file diterapkan pada project pengguna.
