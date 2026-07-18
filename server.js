@@ -1032,7 +1032,6 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
       ticket_id,
       wo_number: ticket.wo_number || null,
       project_name: ticket.project_name || ticket.description || ticket.customer_name || null,
-      requester: req.session.user.name,
       technician: req.session.user.name,
       created_by: req.session.user.name,
       date_out: now.slice(0, 10),

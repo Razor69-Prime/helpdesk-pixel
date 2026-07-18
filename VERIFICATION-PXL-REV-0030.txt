@@ -1,0 +1,13 @@
+PXL-REV-0030 VERIFICATION
+
+PASS - node --check db.js
+PASS - node --check server.js
+PASS - seluruh inline JavaScript public/index.html lolos node --check
+PASS - field requester tidak lagi dikirim pada payload penyelesaian tiket
+PASS - field notes tetap disaring
+PASS - fallback PGRST204 hanya menangani field material_request_forms yang benar-benar ada di payload
+PASS - fallback memiliki batas maksimal 20 percobaan untuk mencegah infinite loop
+PASS - pengurangan stok dijalankan setelah insert Material Request berhasil
+
+Catatan:
+Pemeriksaan koneksi langsung ke Supabase production tidak dilakukan dari lingkungan ini. Pengujian akhir harus dilakukan pada project Supabase/Vercel pengguna.

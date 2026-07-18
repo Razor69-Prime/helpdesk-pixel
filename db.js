@@ -612,20 +612,50 @@ async function getMRForms() {
   if (!USE_SUPABASE) return [];
   return await sbFetch('GET', '/material_request_forms?order=created_at.desc') || [];
 }
+function getMissingPostgrestColumn(error) {
+  const raw = String(error?.message || error || '');
+  // PGRST204: Could not find the 'column_name' column of 'table_name' in the schema cache
+  const match = raw.match(/Could not find the ['"]([^'"]+)['"] column of ['"]material_request_forms['"]/i);
+  return match ? match[1] : null;
+}
+
+async function writeMRFormWithSchemaFallback(method, path, payload) {
+  const safePayload = { ...(payload || {}) };
+  const ignoredFields = [];
+  // Hindari loop tanpa batas bila schema database sangat berbeda.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      const rows = await sbFetch(method, path, safePayload);
+      if (ignoredFields.length) {
+        console.warn('[Material Request] Field tidak tersedia pada schema dan diabaikan:', ignoredFields.join(', '));
+      }
+      return { rows, savedPayload: safePayload, ignoredFields };
+    } catch (error) {
+      const missingColumn = getMissingPostgrestColumn(error);
+      if (!missingColumn || !Object.prototype.hasOwnProperty.call(safePayload, missingColumn)) throw error;
+      delete safePayload[missingColumn];
+      ignoredFields.push(missingColumn);
+    }
+  }
+  throw new Error('Payload Material Request tidak dapat disesuaikan dengan schema database setelah 20 percobaan.');
+}
+
 async function insertMRForm(data) {
-  // material_request_forms pada database aktif tidak memiliki kolom `notes`.
-  // Hapus field tersebut sebelum request PostgREST agar submit teknisi tidak gagal PGRST204.
   const safeData = { ...(data || {}) };
   delete safeData.notes;
+  delete safeData.requester; // database aktif memakai created_by sebagai PIC/pemohon
   const entry = { id: require('crypto').randomUUID(), ...safeData, created_at: new Date().toISOString() };
   if (!USE_SUPABASE) return entry;
-  const rows = await sbFetch('POST', '/material_request_forms', entry);
-  return rows?.[0] || entry;
+  const result = await writeMRFormWithSchemaFallback('POST', '/material_request_forms', entry);
+  return result.rows?.[0] || result.savedPayload;
 }
 async function updateMRForm(id, data) {
-  if (!USE_SUPABASE) return { id, ...data };
-  const rows = await sbFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
-  return rows?.[0] || { id, ...data };
+  const safeData = { ...(data || {}) };
+  delete safeData.notes;
+  delete safeData.requester;
+  if (!USE_SUPABASE) return { id, ...safeData };
+  const result = await writeMRFormWithSchemaFallback('PATCH', `/material_request_forms?id=eq.${id}`, safeData);
+  return result.rows?.[0] || { id, ...result.savedPayload };
 }
 async function updateMRUsageAndReturn(id, data, actor='System') {
   requireInventorySupabase();
