@@ -236,13 +236,23 @@ async function insertNotification(data) {
 
 async function getNotificationsForUser(user) {
   if (!USE_SUPABASE) return [];
-  // Ambil notif yang: target_user_id = user.id, ATAU target_role = user.role, ATAU target_role null (broadcast)
-  // Dipecah jadi query terpisah (lebih aman daripada .or() PostgREST yang rawan salah escape)
-  const [byUser, byRole] = await Promise.all([
+  const rawRole = String(user.role || '').trim();
+  const normalizedRole = rawRole.toLowerCase().replace(/[\s_-]+/g, '');
+  const roleAliases = new Set([rawRole, rawRole.toLowerCase()]);
+  if (normalizedRole === 'superadmin') {
+    ['superadmin', 'super_admin', 'super admin', 'Super Admin'].forEach(role => roleAliases.add(role));
+  } else if (normalizedRole === 'admin') {
+    ['admin', 'Admin'].forEach(role => roleAliases.add(role));
+  }
+
+  const roleQueries = [...roleAliases].filter(Boolean).map(role =>
+    sbFetch('GET', `/notifications?target_role=eq.${encodeURIComponent(role)}&order=created_at.desc&limit=50`)
+  );
+  const [byUser, ...byRoleGroups] = await Promise.all([
     sbFetch('GET', `/notifications?target_user_id=eq.${user.id}&order=created_at.desc&limit=50`),
-    sbFetch('GET', `/notifications?target_role=eq.${user.role}&order=created_at.desc&limit=50`),
+    ...roleQueries
   ]);
-  const combined = [...(byUser || []), ...(byRole || [])];
+  const combined = [...(byUser || []), ...byRoleGroups.flatMap(rows => rows || [])];
   // Dedupe berdasarkan id, lalu urutkan terbaru dulu
   const uniqueMap = new Map();
   combined.forEach(n => uniqueMap.set(n.id, n));

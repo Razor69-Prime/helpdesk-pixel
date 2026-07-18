@@ -1,0 +1,6 @@
+PXL-REV-0031 verification
+- server.js: node --check PASS
+- db.js: node --check PASS
+- Notification recipient matching: normalized roles + direct target_user_id
+- Existing role-targeted notifications: backward compatible aliases
+- SQL changes: none

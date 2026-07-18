@@ -1060,10 +1060,16 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
         .map(item => `${escapeHtml(item.name)} (${Number(item.qty_out)} ${escapeHtml(item.unit)})`)
         .join(', ');
       const notificationText = `<b>Item Inventory belum terdaftar</b> pada ${escapeHtml(ticket.wo_number || ticket_id)}: ${itemSummary}. Mohon daftarkan item ke Inventory.`;
-      await Promise.all([
-        createNotification({ type: 'inventory', text: notificationText, target_role: 'admin', ref_id: entry.id, created_by: req.session.user.name }),
-        createNotification({ type: 'inventory', text: notificationText, target_role: 'superadmin', ref_id: entry.id, created_by: req.session.user.name })
-      ]);
+      const notifResult = await notifyUsersByRoles({
+        roles: ['admin', 'superadmin'],
+        type: 'inventory',
+        text: notificationText,
+        ref_id: entry.id,
+        created_by: req.session.user.name
+      });
+      if (!notifResult.sent) {
+        console.warn('Tidak ada akun Admin/Super Admin aktif yang menerima notifikasi item Inventory belum terdaftar.');
+      }
     }
 
     res.status(201).json({
@@ -1967,6 +1973,41 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
 });
 
 
+
+// Normalisasi role agar Admin, admin, Super Admin, super_admin, dan superadmin terbaca sama.
+function normalizeRoleName(role) {
+  return String(role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+// Kirim langsung ke ID setiap user target agar notifikasi tidak bergantung pada format nama role.
+async function notifyUsersByRoles({ roles, type, text, ref_id, created_by }) {
+  const wanted = new Set((roles || []).map(normalizeRoleName));
+  const users = await db.getUsers();
+  const recipients = (users || []).filter(user => {
+    const role = normalizeRoleName(user.role);
+    const active = user.is_active !== false && user.active !== false && user.status !== 'inactive';
+    return active && wanted.has(role);
+  });
+
+  const uniqueRecipients = [...new Map(recipients.map(user => [user.id, user])).values()];
+  const results = await Promise.allSettled(uniqueRecipients.map(user =>
+    db.insertNotification({
+      type,
+      text,
+      target_role: null,
+      target_user_id: user.id,
+      ref_id: ref_id || null,
+      created_by: created_by || null
+    })
+  ));
+
+  const failed = results.filter(result => result.status === 'rejected');
+  failed.forEach(result => console.error('Gagal mengirim notifikasi langsung:', result.reason?.message || result.reason));
+  return { sent: results.length - failed.length, failed: failed.length, recipients: uniqueRecipients.length };
+}
 
 // Helper dipakai di seluruh route lain untuk membuat notifikasi baru
 async function createNotification({ type, text, target_role, target_user_id, ref_id, created_by }) {
