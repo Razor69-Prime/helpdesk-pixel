@@ -1,0 +1,14 @@
+VERIFICATION PXL-REV-0029
+
+PASS - node --check server.js
+PASS - node --check db.js
+PASS - seluruh inline JavaScript public/index.html lolos node --check
+PASS - payload penyelesaian tiket tidak lagi mengirim notes ke material_request_forms
+PASS - insertMRForm menyaring notes sebagai pengaman untuk seluruh jalur pembuatan Material Request
+PASS - default menu Teknisi tidak berisi Inventory
+PASS - custom menu Inventory dipaksa tidak aktif untuk role Teknisi
+PASS - API pengelolaan Inventory menolak role Teknisi
+
+Catatan:
+- Endpoint lookup/list Inventory untuk Form Material Request tetap tersedia bagi user login supaya teknisi dapat mencari material saat menyelesaikan pekerjaan.
+- Pengujian koneksi Supabase production harus dilakukan setelah deploy karena runtime ini tidak memiliki kredensial project pengguna.

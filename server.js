@@ -1038,7 +1038,6 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
       date_out: now.slice(0, 10),
       date_return: now.slice(0, 10),
       items: mrItems,
-      notes: notes || null,
       status: 'returned'
     });
 
@@ -1514,15 +1513,18 @@ app.get('/track/:token', (req, res) => {
 // Hak akses fitur Inventory disimpan bersama custom_menus agar kompatibel dengan Manajemen Akun.
 function hasInventoryAccess(req, permission) {
   const user=req.session?.user||{};
+  // Teknisi memakai data Inventory hanya melalui Form Material Request,
+  // tetapi tidak memiliki akses ke modul Inventory Asset maupun aksi pengelolaannya.
+  if(user.role==='technician') return false;
   if(user.role==='superadmin') return true;
   const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
   const configured=custom.some(x=>String(x).startsWith('inventory_'));
   if(configured) return custom.includes(permission);
   const defaults={
-    inventory_view:['technician','admin','manager'],
+    inventory_view:['admin','manager'],
     inventory_manage:['admin','manager'],
     inventory_import_export:['admin','manager'],
-    inventory_barcode:['technician','admin','manager'],
+    inventory_barcode:['admin','manager'],
     inventory_opname:['admin','manager']
   };
   return (defaults[permission]||[]).includes(user.role);

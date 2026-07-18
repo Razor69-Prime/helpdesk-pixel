@@ -613,7 +613,11 @@ async function getMRForms() {
   return await sbFetch('GET', '/material_request_forms?order=created_at.desc') || [];
 }
 async function insertMRForm(data) {
-  const entry = { id: require('crypto').randomUUID(), ...data, created_at: new Date().toISOString() };
+  // material_request_forms pada database aktif tidak memiliki kolom `notes`.
+  // Hapus field tersebut sebelum request PostgREST agar submit teknisi tidak gagal PGRST204.
+  const safeData = { ...(data || {}) };
+  delete safeData.notes;
+  const entry = { id: require('crypto').randomUUID(), ...safeData, created_at: new Date().toISOString() };
   if (!USE_SUPABASE) return entry;
   const rows = await sbFetch('POST', '/material_request_forms', entry);
   return rows?.[0] || entry;

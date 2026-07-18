@@ -2697,7 +2697,7 @@ function buildNav(){
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
-    {id:'inventory', label:'📦 Inventory Asset', show: role==='technician'||role==='admin'||isManager||isSuperAdmin},
+    {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
@@ -2712,6 +2712,8 @@ function buildNav(){
   } else {
     tabs=ALL_TAB_DEFS.filter(t=>t.show);
   }
+  // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
+  if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
 
   document.getElementById('main-nav').innerHTML=tabs.map((t,i)=>{
     // pisahkan emoji icon dari label teks
@@ -3560,7 +3562,7 @@ const MATERIAL_REQUEST_PERMISSIONS=[
 // Default menu per role
 function getDefaultMenus(role){
   switch(role){
-    case 'technician': return['report','tickets','materials','inventory'];
+    case 'technician': return['report','tickets','materials'];
     case 'operator':   return['report','tickets','kunjungan','materials'];
     case 'accounting': return['tickets','invoice','materials'];
     case 'manager':    return['dashboard','tickets','invoice','kpi','materials','inventory'];
@@ -3608,7 +3610,7 @@ function setAllMenus(val){
 function resetMenuToRole(){
   const role=document.getElementById('edit-role').value;
   const defaults=getDefaultMenus(role);
-  const invDefaults=role==='technician'?['inventory_view','inventory_barcode']:['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
+  const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
   [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
@@ -3641,6 +3643,14 @@ function openEditModal(userId){
   const currentMenus=Array.isArray(u.custom_menus)&&u.custom_menus.length>0
     ? u.custom_menus : getDefaultMenus(u.role);
   buildMenuCheckboxes(currentMenus);
+  if(u.role==='technician'){
+    document.querySelectorAll('[data-menu="inventory"],[data-menu^="inventory_"]').forEach(el=>{
+      el.checked=false;
+      el.disabled=true;
+      const label=el.closest('label');
+      if(label){label.style.opacity='.45';label.title='Teknisi menggunakan Inventory melalui Material Request, tanpa akses modul Inventory Asset.';}
+    });
+  }
   // load signature preview if exists
   document.getElementById('edit-signature-file').value='';
   document.getElementById('edit-signature-url').value=u.signature_url||'';
@@ -3696,7 +3706,10 @@ async function saveEditUser(){
   if(!name){errEl.textContent='Nama tidak boleh kosong.';errEl.style.display='block';return;}
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
-    const checkedMenus=getCheckedMenus();
+    let checkedMenus=getCheckedMenus();
+    if(role==='technician'){
+      checkedMenus=checkedMenus.filter(m=>m!=='inventory'&&!String(m).startsWith('inventory_'));
+    }
     const defaultMenus=getDefaultMenus(role);
     // Simpan custom_menus hanya jika berbeda dari default role
     // Collect PR roles
