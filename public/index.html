@@ -567,6 +567,11 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <!-- CONTENT -->
     <div class="app-content" id="app-content">
 
+    <!-- TAB: CRM / SALES ORDER -->
+    <div id="tab-crm" class="tab-content" style="padding:0">
+      <iframe id="crm-frame" title="CRM Pixel Solusindo" style="width:100%;height:calc(100vh - 70px);border:0;background:var(--bg)" loading="lazy"></iframe>
+    </div>
+
     <!-- TAB: INPUT LAPORAN -->
     <div id="tab-report" class="tab-content">
       <div id="alert-success" class="alert success">✅ Laporan berhasil disimpan!</div>
@@ -2669,6 +2674,7 @@ function showApp(){
   });
   if(canAssign) loadTechnicianDropdown();
   buildNav();
+  installUniversalReportButtons();
   if(currentUser.role!=='accounting'&&currentUser.role!=='manager') startGPS();
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
@@ -2717,6 +2723,7 @@ function buildNav(){
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
+    {id:'crm',       label:'🤝 CRM & Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'||role==='technician'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
@@ -2735,7 +2742,7 @@ function buildNav(){
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','materials']},
-    {label:'Sales & Proyek', ids:['sales','kunjungan','projects']},
+    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm']},
     {label:'Keuangan & Pengadaan', ids:['invoice','pr','supplier']},
     {label:'Gudang', ids:['inventory']},
     {label:'Administrasi', ids:['archive','users','actlog']},
@@ -2810,6 +2817,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html';frame.dataset.loaded='1';} }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -3164,7 +3172,7 @@ function renderTickets(){
       if(inv.file_deleted){
         return`<span class="invoice-chip" style="opacity:.5;cursor:default;background:var(--surface2);color:var(--muted);border-color:var(--border)" title="File dihapus otomatis setelah 14 hari">🗑️ ${inv.original_name} — File Sudah Melewati Batas 14 Hari, silahkan kontak Akunting untuk file yang Anda butuhkan</span>`;
       }
-      return`<a class="invoice-chip" href="${inv.file_url}" target="_blank">${isPDF?'📑':'🖼️'} ${inv.original_name}${delBtn}</a>`;
+      return`<a class="invoice-chip" data-invoice-id="${inv.id}" href="${inv.file_url}" target="_blank">${isPDF?'📑':'🖼️'} ${inv.original_name}${delBtn}</a>`;
     }).join(''):'';
 
     // invoice summary: total + sales PIC — hanya admin & akunting
@@ -3620,6 +3628,7 @@ const ALL_MENUS=[
   {id:'inventory',label:'📦 Inventory Asset'},
   {id:'pr',      label:'📝 Purchase Request'},
   {id:'projects',label:'📁 Project Tracker'},
+  {id:'crm',label:'🤝 CRM & Sales Order'},
   {id:'supplier',label:'🏪 Master Supplier'},
 
 ];
@@ -3653,23 +3662,29 @@ function getDefaultMenus(role){
 
 function buildMenuCheckboxes(currentMenus){
   const box=document.getElementById('menu-checkboxes');
-  box.innerHTML=ALL_MENUS.map(m=>`
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
-      <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
-      ${m.label}
-    </label>`).join('');
+  const groups=[
+    {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
+    {label:'Operasional Teknisi',ids:['report','tickets','materials']},
+    {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','crm']},
+    {label:'Keuangan & Pengadaan',ids:['invoice','pr','supplier']},
+    {label:'Gudang',ids:['inventory']},
+    {label:'Administrasi',ids:['archive','users','actlog']}
+  ];
+  box.style.display='block';
+  box.innerHTML=groups.map(g=>{
+    const menus=g.ids.map(id=>ALL_MENUS.find(m=>m.id===id)).filter(Boolean);
+    if(!menus.length)return'';
+    return `<div style="margin-bottom:12px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+      <div style="padding:8px 10px;background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">${g.label}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px">${menus.map(m=>`
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
+          <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}
+        </label>`).join('')}</div></div>`;
+  }).join('');
   const invBox=document.getElementById('inventory-permission-checkboxes');
-  if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
-      <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
-      ${m.label}
-    </label>`).join('');
+  if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const mrBox=document.getElementById('material-request-permission-checkboxes');
-  if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
-      <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>
-      ${m.label}
-    </label>`).join('');
+  if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
 }
 
 function getCheckedMenus(){
@@ -5483,7 +5498,7 @@ function renderArchive(){
       if(inv.file_deleted){
         return`<span class="invoice-chip" style="opacity:.5;cursor:default;background:var(--surface2);color:var(--muted);border-color:var(--border)">🗑️ ${inv.original_name} — File Sudah Melewati Batas 14 Hari, silahkan kontak Akunting untuk file yang Anda butuhkan</span>`;
       }
-      return`<a class="invoice-chip" href="${inv.file_url}" target="_blank">${isPDF?'📑':'🖼️'} ${inv.original_name}</a>`;
+      return`<a class="invoice-chip" data-invoice-id="${inv.id}" href="${inv.file_url}" target="_blank">${isPDF?'📑':'🖼️'} ${inv.original_name}</a>`;
     }).join('');
 
     const restoreBtn=isAdmin?`<button class="btn sm" style="background:var(--amber-bg);color:var(--amber);border-color:#FAC775;font-size:11px" onclick="unarsipkanTiket('${t.id}')">↩ Restore</button>`:'';

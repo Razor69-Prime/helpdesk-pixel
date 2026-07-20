@@ -1,0 +1,30 @@
+PXL-REV-0035 - LANGKAH IMPLEMENTASI
+
+1. Backup source production PXL-REV-0034 dan database Supabase.
+2. Buka Supabase Dashboard > SQL Editor.
+3. Jalankan seluruh isi PXL-REV-0035-MIGRATION.sql.
+4. Extract ZIP ke root project:
+   C:\Users\ASUSvivobook\helpdesk-pixel
+5. Pastikan file package.json dan package-lock.json ikut tertimpa.
+6. Jalankan npm install.
+7. Jalankan npm start untuk uji lokal.
+8. Uji menu CRM & Sales Order, report PDF/Excel, serta invoice PDF.
+9. Commit dan push.
+
+GIT
+cd C:\Users\ASUSvivobook\helpdesk-pixel
+git add db.js server.js report-service.js package.json package-lock.json public/index.html public/crm.html public/report-center-mockup.html public/assets/invoice-logo.png public/assets/invoice-signature.png PXL-REV-0035-MIGRATION.sql README-PXL-REV-0035.txt INSTALL-PXL-REV-0035.txt VERIFICATION-PXL-REV-0035.txt
+git commit -m "PXL-REV-0035 feat(crm): add cumulative CRM SO WO MR invoice and reports"
+git push origin main
+
+URUTAN UJI
+- Buat Customer.
+- Buat SO dan pastikan nomor otomatis.
+- Buat WO auto dan WO manual.
+- Buat MR dari SO.
+- Verifikasi serta sign teknisi.
+- Ajukan tambahan material.
+- Approval internal dan customer.
+- Generate invoice.
+- Buka PDF invoice.
+- Export PDF/Excel dari modul.

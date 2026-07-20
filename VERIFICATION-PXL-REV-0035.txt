@@ -1,0 +1,18 @@
+PXL-REV-0035 - HASIL VERIFIKASI
+
+[OK] server.js syntax valid
+[OK] db.js syntax valid
+[OK] report-service.js syntax valid
+[OK] JavaScript inline public/index.html valid
+[OK] JavaScript inline public/crm.html valid
+[OK] Report API diletakkan sebelum SPA wildcard route
+[OK] ZIP tidak memuat .git
+[OK] ZIP tidak memuat .env/.env.local
+[OK] SQL memakai IF NOT EXISTS / ADD COLUMN IF NOT EXISTS
+[OK] Nomor SO tidak memiliki endpoint DELETE
+[OK] WO manual divalidasi wajib dan unik
+[OK] MR memerlukan tanda tangan teknisi
+[OK] Tambahan material tidak memiliki upload foto
+[OK] Invoice tambahan hanya mengambil AMR status approved
+
+Belum diuji langsung terhadap Supabase production atau deployment Vercel.

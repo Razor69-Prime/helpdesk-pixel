@@ -3,9 +3,9 @@ const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
 const crypto   = require('crypto');
-const XLSX     = require('xlsx');
 const cfg      = require('./config');
 const db       = require('./db');
+const reportSvc = require('./report-service');
 
 const app  = express();
 const PORT = cfg.PORT;
@@ -50,18 +50,6 @@ const upload = multer({
   fileFilter: (_,file,cb) => {
     ['.jpg','.jpeg','.png','.pdf'].includes(path.extname(file.originalname).toLowerCase())
       ? cb(null,true) : cb(new Error('Format tidak didukung.'));
-  }
-});
-
-
-// Upload khusus file Excel Inventory (disimpan di memory, maksimum 5 MB)
-const inventoryExcelUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    if (['.xlsx', '.xls'].includes(ext)) return cb(null, true);
-    cb(new Error('File Inventory harus berformat .xlsx atau .xls.'));
   }
 });
 
@@ -957,7 +945,6 @@ app.delete('/api/projects/:id', requireRole('superadmin','admin'), async (req,re
 
 // POST — teknisi submit material saat selesaikan tiket
 app.post('/api/material-requests', requireAuth, async (req, res) => {
-  let entry = null;
   try {
     const { ticket_id, materials, jasa, notes } = req.body;
     const matArr  = Array.isArray(materials) ? materials : [];
@@ -965,212 +952,75 @@ app.post('/api/material-requests', requireAuth, async (req, res) => {
     if (!ticket_id || (!matArr.length && !jasaArr.length)) {
       return res.status(400).json({ error: 'ticket_id wajib diisi dan minimal 1 material atau 1 jasa.' });
     }
-
+    // Validasi tiap material
+    for (const m of matArr) {
+      if (!m.name || !m.qty || Number(m.qty) <= 0) {
+        return res.status(400).json({ error: 'Setiap material wajib punya nama dan jumlah > 0.' });
+      }
+    }
+    // Validasi tiap jasa
+    for (const j of jasaArr) {
+      if (!j.name || !j.qty || Number(j.qty) <= 0) {
+        return res.status(400).json({ error: 'Setiap jasa wajib punya nama dan jumlah > 0.' });
+      }
+    }
+    // Ambil wo_number untuk referensi cepat
     const tickets = await db.getTickets(null, true);
     const ticket = tickets.find(t => t.id === ticket_id);
-    if (!ticket) return res.status(404).json({ error: 'Tiket/WO tidak ditemukan.' });
 
-    const mrItems = [];
-    const unregisteredMaterials = [];
-    for (const m of matArr) {
-      const query = String(m.barcode || m.sku || m.product_number || m.name || '').trim();
-      const qty = Number(m.qty);
-      if (!query || !Number.isFinite(qty) || qty <= 0) {
-        return res.status(400).json({ error: 'Setiap material wajib memiliki nama/SKU/barcode dan jumlah > 0.' });
-      }
-      const inv = await db.findInventoryItemByCode(query);
-      if (!inv) {
-        const pendingItem = {
-          inventory_item_id: null,
-          name: String(m.name || query).trim(),
-          sku: m.sku ? String(m.sku).trim() : null,
-          barcode: m.barcode ? String(m.barcode).trim() : null,
-          product_number: m.product_number ? String(m.product_number).trim() : null,
-          unit: m.unit || 'pcs',
-          qty_out: qty,
-          qty_use: qty,
-          qty_return: 0,
-          item_type: 'unregistered_material',
-          inventory_status: 'pending_registration'
-        };
-        mrItems.push(pendingItem);
-        unregisteredMaterials.push(pendingItem);
-        continue;
-      }
-      mrItems.push({
-        inventory_item_id: inv.id,
-        name: inv.name,
-        sku: inv.sku || null,
-        barcode: inv.barcode || null,
-        product_number: inv.product_number || null,
-        unit: inv.unit || m.unit || 'pcs',
-        qty_out: qty,
-        qty_use: qty,
-        qty_return: 0,
-        item_type: 'material'
-      });
-    }
-
-    for (const j of jasaArr) {
-      const qty = Number(j.qty);
-      if (!j.name || !Number.isFinite(qty) || qty <= 0) {
-        return res.status(400).json({ error: 'Setiap jasa wajib mempunyai nama dan jumlah > 0.' });
-      }
-      mrItems.push({
-        inventory_item_id: null,
-        name: String(j.name).trim(),
-        unit: j.unit || 'jasa',
-        qty_out: qty,
-        qty_use: qty,
-        qty_return: 0,
-        item_type: 'service'
-      });
-    }
-
-    const now = new Date().toISOString();
-    entry = await db.insertMRForm({
+    const entry = await db.insertMaterialRequest({
       ticket_id,
-      wo_number: ticket.wo_number || null,
-      project_name: ticket.project_name || ticket.description || ticket.customer_name || null,
+      wo_number:  ticket?.wo_number || null,
       technician: req.session.user.name,
-      created_by: req.session.user.name,
-      date_out: now.slice(0, 10),
-      date_return: now.slice(0, 10),
-      items: mrItems,
-      status: 'returned'
+      materials:  matArr,
+      jasa:       jasaArr,
+      notes
     });
-
-    const linkedItems = mrItems.filter(i => i.inventory_item_id && Number(i.qty_out) > 0);
-    if (linkedItems.length) {
-      await db.issueInventoryForMR(entry.id, linkedItems, req.session.user.name, ticket.wo_number || '');
-    }
-
-    logActivity(req, 'ticket', 'PAKAI MATERIAL SAAT SELESAI', `WO: ${ticket.wo_number || ticket_id} · ${linkedItems.length} item Inventory, ${jasaArr.length} jasa`);
+    logActivity(req, 'ticket', 'REQUEST MATERIAL/JASA', `WO: ${ticket?.wo_number||ticket_id} · ${matArr.length} material, ${jasaArr.length} jasa`);
     createNotification({
       type: 'mr',
-      text: `<b>Material terpakai</b> untuk ${ticket.wo_number || ticket_id} oleh ${req.session.user.name}`,
+      text: `<b>Material Request baru</b> untuk ${ticket?.wo_number||ticket_id} oleh ${req.session.user.name}`,
       target_role: 'superadmin',
       ref_id: entry.id,
       created_by: req.session.user.name,
     });
-
-    if (unregisteredMaterials.length) {
-      const escapeHtml = value => String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-      const itemSummary = unregisteredMaterials
-        .map(item => `${escapeHtml(item.name)} (${Number(item.qty_out)} ${escapeHtml(item.unit)})`)
-        .join(', ');
-      const notificationText = `<b>Item Inventory belum terdaftar</b> pada ${escapeHtml(ticket.wo_number || ticket_id)}: ${itemSummary}. Mohon daftarkan item ke Inventory.`;
-      const notifResult = await notifyUsersByRoles({
-        roles: ['admin', 'superadmin'],
-        type: 'inventory',
-        text: notificationText,
-        ref_id: entry.id,
-        created_by: req.session.user.name
-      });
-      if (!notifResult.sent) {
-        console.warn('Tidak ada akun Admin/Super Admin aktif yang menerima notifikasi item Inventory belum terdaftar.');
-      }
-    }
-
-    res.status(201).json({
-      ...entry,
-      warning: unregisteredMaterials.length
-        ? `${unregisteredMaterials.length} material belum terdaftar di Inventory. Pekerjaan tetap dapat diselesaikan dan Admin sudah diberi notifikasi.`
-        : null,
-      unregistered_materials: unregisteredMaterials.map(item => ({
-        name: item.name,
-        barcode: item.barcode,
-        sku: item.sku,
-        product_number: item.product_number,
-        qty: item.qty_out,
-        unit: item.unit
-      }))
-    });
-  } catch (e) {
-    if (entry?.id) { try { await db.deleteMRFormWithInventoryRestore(entry.id, req.session.user?.name || 'System'); } catch (_) { try { await db.deleteMRForm(entry.id); } catch (_) {} } }
-    const message = String(e.message || e);
-    res.status(/stok|inventory|material|tiket/i.test(message) ? 400 : 500).json({ error: message });
-  }
+    res.status(201).json(entry);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET — hanya superadmin, akunting, manager (data mentah)
 app.get('/api/material-requests', requireRole('superadmin','accounting','manager'), async (req, res) => {
-  try {
-    const forms = await db.getMRForms();
-    res.json((forms || []).map(f => ({
-      ...f,
-      materials: (Array.isArray(f.items) ? f.items : []).filter(i => i.item_type !== 'service').map(i => ({ name:i.name, qty:i.qty_use ?? i.qty_out ?? 0, unit:i.unit || 'pcs', sku:i.sku, barcode:i.barcode })),
-      jasa: (Array.isArray(f.items) ? f.items : []).filter(i => i.item_type === 'service').map(i => ({ name:i.name, qty:i.qty_use ?? i.qty_out ?? 0, unit:i.unit || 'jasa' }))
-    })));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await db.getMaterialRequests()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════
-//  MATERIAL REQUEST FORM
+//  MATERIAL REQUEST FORM (akses semua role)
 // ══════════════════════════════════════════
-function hasMaterialRequestAccess(req, permission){
-  const user=req.session?.user||{};
-  if(user.role==='superadmin') return true;
-  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
-  const configured=custom.some(x=>String(x).startsWith('material_request_'));
-  if(configured) return custom.includes(permission);
-  return true; // kompatibel dengan akses default sebelum PXL-REV-0021
-}
-function requireMaterialRequestPermission(permission){
-  return (req,res,next)=>{
-    if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
-    if(!hasMaterialRequestAccess(req,permission)) return res.status(403).json({error:'Anda tidak memiliki akses fitur Material Request ini.'});
-    next();
-  };
-}
-app.get('/api/material-requests-form/preparers', requireAuth, async (req,res)=>{
-  try{
-    const users=await db.getUsers();
-    res.json((users||[]).filter(u=>u.is_active!==false&&['admin','accounting','manager'].includes(u.role)).map(u=>({id:u.id,name:u.name,role:u.role})));
-  }catch(e){res.status(500).json({error:e.message});}
-});
-
-app.get('/api/material-requests-form', requireMaterialRequestPermission('material_request_view'), async (req,res)=>{
+app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
   try{ res.json(await db.getMRForms()); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/material-requests-form', requireMaterialRequestPermission('material_request_create'), async (req,res)=>{
-  let entry=null;
+app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
   try{
-    const items=Array.isArray(req.body.items)?req.body.items:[];
-    entry=await db.insertMRForm({...req.body, items, created_by:req.session.user.name});
-    const linkedItems=items.filter(i=>i.inventory_item_id&&Number(i.qty_out)>0);
-    if(linkedItems.length){
-      await db.issueInventoryForMR(entry.id, linkedItems, req.session.user.name, req.body.wo_number||'');
-    }
-    logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number} · ${linkedItems.length} item Inventory`);
+    const entry=await db.insertMRForm({...req.body, created_by:req.session.user.name});
+    logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number}`);
     res.status(201).json(entry);
-  }catch(e){
-    if(entry?.id){try{await db.deleteMRForm(entry.id);}catch(_){}}
-    const message=String(e.message||e);
-    const status=/stok|tidak ditemukan|jumlah/i.test(message)?400:500;
-    res.status(status).json({error:message});
-  }
+  }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.patch('/api/material-requests-form/:id', requireMaterialRequestPermission('material_request_edit'), async (req,res)=>{
+app.patch('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
   try{
-    const items=Array.isArray(req.body.items)?req.body.items:[];
-    const entry=await db.updateMRUsageAndReturn(req.params.id,{...req.body,items},req.session.user.name);
-    logActivity(req,'material','UPDATE PEMAKAIAN/PENGEMBALIAN MR',`ID: ${req.params.id} · ${items.length} item`);
+    const entry=await db.updateMRForm(req.params.id, req.body);
     res.json(entry);
-  }catch(e){
-    const message=String(e.message||e);
-    res.status(/pemakaian|pengambilan|stok|item/i.test(message)?400:500).json({error:message});
-  }
+  }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/material-requests-form/:id', requireRole('superadmin'), async (req,res)=>{
+app.delete('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
   try{
-    const result=await db.deleteMRFormWithInventoryRestore(req.params.id,req.session.user.name);
-    logActivity(req,'material','HAPUS MR FORM',`ID: ${req.params.id} · restore ${result.restored_items||0} item Inventory`);
-    res.json(result);
+    await db.deleteMRForm(req.params.id);
+    res.json({ok:true});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -1357,22 +1207,14 @@ app.get('/api/sales-visits/pipeline-dates', requireAuth, (req, res) => {
 // ══════════════════════════════════════════
 //  JOB STAGES (per teknisi dalam tim)
 // ══════════════════════════════════════════
-app.post('/api/tickets/:id/stage', requireRole('technician','admin','operator'), async (req, res) => {
+app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req, res) => {
   try {
-    const { stage, lat, lng, tech_signature, customer_signature, signature_bypass, signature_bypass_reason } = req.body;
+    const { stage, lat, lng, tech_signature, customer_signature } = req.body;
     const VALID = ['berangkat','tiba','selesai'];
     if (!VALID.includes(stage)) return res.status(400).json({ error: 'Stage tidak valid.' });
 
     const now      = new Date().toISOString();
     const userName = req.session.user.name;
-    const userRole = String(req.session.user.role||'').toLowerCase();
-    const bypassRequested = !!signature_bypass;
-    const bypassAllowed = userRole === 'operator' || userRole === 'superadmin';
-    if (stage === 'selesai') {
-      if (bypassRequested && !bypassAllowed) return res.status(403).json({ error: 'Bypass tanda tangan hanya untuk Operator dan Super Admin.' });
-      if (bypassRequested && !String(signature_bypass_reason||'').trim()) return res.status(400).json({ error: 'Alasan bypass tanda tangan wajib diisi.' });
-      if (!bypassRequested && (!tech_signature || !customer_signature)) return res.status(400).json({ error: 'Tanda tangan Teknisi dan Customer wajib diisi.' });
-    }
 
     // ambil semua tiket lalu cari berdasarkan id + membership
     const allTickets = await db.getTickets(null);
@@ -1432,21 +1274,8 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin','operator'),
     if (newStatus) {
       const ticketPatch = { status: newStatus };
       if (stage === 'selesai') {
-        if (bypassRequested) {
-          ticketPatch.tech_signature = null;
-          ticketPatch.customer_signature = null;
-          ticketPatch.signature_bypass = true;
-          ticketPatch.signature_bypass_reason = String(signature_bypass_reason||'').trim();
-          ticketPatch.signature_bypassed_by = userName;
-          ticketPatch.signature_bypassed_at = now;
-        } else {
-          ticketPatch.tech_signature = tech_signature;
-          ticketPatch.customer_signature = customer_signature;
-          ticketPatch.signature_bypass = false;
-          ticketPatch.signature_bypass_reason = null;
-          ticketPatch.signature_bypassed_by = null;
-          ticketPatch.signature_bypassed_at = null;
-        }
+        if (tech_signature)     ticketPatch.tech_signature     = tech_signature;
+        if (customer_signature) ticketPatch.customer_signature = customer_signature;
       }
       await db.updateTicket(req.params.id, ticketPatch);
       await db.insertStatusHistory({
@@ -1495,10 +1324,6 @@ app.get('/api/track/:token', async (req, res) => {
       job_stages: job_stages || [],
       tech_signature: ticket.tech_signature || null,
       customer_signature: ticket.customer_signature || null,
-      signature_bypass: !!ticket.signature_bypass,
-      signature_bypass_reason: ticket.signature_bypass_reason || null,
-      signature_bypassed_by: ticket.signature_bypassed_by || null,
-      signature_bypassed_at: ticket.signature_bypassed_at || null,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1512,382 +1337,36 @@ app.get('/track/:token', (req, res) => {
     res.redirect('/?track=' + req.params.token);
   }
 });
+
+
 // ══════════════════════════════════════════
-//  INVENTORY
+// CRM + SALES ORDER FLOW — PXL-REV-0035 CUMULATIVE
 // ══════════════════════════════════════════
-// Hak akses fitur Inventory disimpan bersama custom_menus agar kompatibel dengan Manajemen Akun.
-function hasInventoryAccess(req, permission) {
-  const user=req.session?.user||{};
-  // Teknisi memakai data Inventory hanya melalui Form Material Request,
-  // tetapi tidak memiliki akses ke modul Inventory Asset maupun aksi pengelolaannya.
-  if(user.role==='technician') return false;
-  if(user.role==='superadmin') return true;
-  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
-  const configured=custom.some(x=>String(x).startsWith('inventory_'));
-  if(configured) return custom.includes(permission);
-  const defaults={
-    inventory_view:['admin','manager'],
-    inventory_manage:['admin','manager'],
-    inventory_import_export:['admin','manager'],
-    inventory_barcode:['admin','manager'],
-    inventory_opname:['admin','manager']
-  };
-  return (defaults[permission]||[]).includes(user.role);
-}
-function requireInventoryPermission(permission){
-  return (req,res,next)=>{
-    if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
-    if(permission==='inventory_delete' && req.session.user.role!=='superadmin') return res.status(403).json({error:'Hapus inventory hanya untuk Super Admin.'});
-    if(!hasInventoryAccess(req,permission)) return res.status(403).json({error:'Anda tidak memiliki akses fitur Inventory ini.'});
-    next();
-  };
-}
-app.get('/api/inventory/health', async (req,res) => {
-  try {
-    const health = await db.getInventoryHealth();
-    res.json({ ok:true, ...health });
-  } catch(e) {
-    res.status(503).json({ ok:false, error:e.message });
-  }
-});
+const CRM_WRITE_ROLES=['sales','manager','admin','superadmin'];
+app.get('/api/crm/report',requireAuth,async(req,res)=>{try{res.json(await db.getCrmReport())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/customers',requireAuth,async(req,res)=>{try{res.json(await db.getCrmCustomers())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/customers',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.name)return res.status(400).json({error:'Nama customer wajib diisi'});const x=await db.insertCrmCustomer({...req.body,created_by:req.session.user.name});logActivity(req,'crm','BUAT CUSTOMER',x.name);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.patch('/api/crm/customers/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{res.json(await db.updateCrmCustomer(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 
-app.get('/api/inventory/access', requireAuth, (req,res) => {
-  res.json({
-    view:hasInventoryAccess(req,'inventory_view'),
-    manage:hasInventoryAccess(req,'inventory_manage'),
-    import_export:hasInventoryAccess(req,'inventory_import_export'),
-    barcode:hasInventoryAccess(req,'inventory_barcode'),
-    opname:hasInventoryAccess(req,'inventory_opname'),
-    delete:req.session.user.role==='superadmin'
-  });
-});
-app.get('/api/inventory/categories', requireAuth, async (req,res) => {
-  try { res.json(await db.getInventoryCategories()); }
-  catch(e){ res.status(500).json({error:e.message}); }
-});
+app.get('/api/sales-orders',requireAuth,async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
-app.get('/api/inventory/barcode-next', requireInventoryPermission('inventory_manage'), async (req,res) => {
-  try { res.json({barcode:await db.generateInventoryBarcode()}); }
-  catch(e){ res.status(500).json({error:e.message}); }
-});
+app.get('/api/crm/work-orders',requireAuth,async(req,res)=>{try{res.json(await db.getCrmWorkOrders())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.sales_order_id)return res.status(400).json({error:'sales_order_id wajib diisi'});const x=await db.insertCrmWorkOrder({...req.body,created_by:req.session.user.name});logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
+app.patch('/api/crm/work-orders/:id',requireAuth,async(req,res)=>{try{res.json(await db.updateCrmWorkOrder(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 
-app.get('/api/inventory/lookup', requireAuth, async (req,res) => {
-  try {
-    const code=String(req.query.code||'').trim();
-    if(!code) return res.status(400).json({error:'Kode barcode/SKU wajib diisi.'});
-    res.json({item:await db.findInventoryItemByCode(code)});
-  } catch(e){ res.status(500).json({error:e.message}); }
-});
+app.get('/api/crm/material-requests',requireAuth,async(req,res)=>{try{res.json(await db.getCrmMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/material-requests/from-so/:soId',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const items=(so.items||[]).filter(x=>(x.item_type||'item')!=='service');const x=await db.insertCrmMaterialRequest({sales_order_id:so.id,so_number:so.so_number,work_order_id:req.body.work_order_id||null,wo_number:req.body.wo_number||null,customer_name:so.customer_name,items,technician:req.body.technician||null,created_by:req.session.user.name});logActivity(req,'mr','BUAT MR DARI SO',x.mr_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/material-requests/:id/verify',requireRole('technician','manager','admin','superadmin'),async(req,res)=>{try{if(!req.body.technician_signature)return res.status(400).json({error:'Tanda tangan teknisi wajib diisi'});const x=await db.updateCrmMaterialRequest(req.params.id,{status:'verified_signed',technician:req.session.user.name,technician_note:req.body.technician_note||null,technician_signature:req.body.technician_signature,verified_at:new Date().toISOString(),verified_items:req.body.items||null});logActivity(req,'mr','VERIFIKASI & SIGN TEKNISI',x.mr_number||req.params.id);res.json(x)}catch(e){res.status(500).json({error:e.message})}});
 
-app.get('/api/inventory/sku-preview', requireInventoryPermission('inventory_manage'), async (req,res) => {
-  try{
-    const category=String(req.query.category||'').trim();
-    const subcategory=String(req.query.subcategory||'').trim();
-    if(!category||!subcategory)return res.status(400).json({error:'Kategori dan Sub Kategori wajib diisi.'});
-    res.json({sku:await db.generateInventorySku(category,subcategory)});
-  }catch(e){res.status(500).json({error:e.message})}
-});
+app.get('/api/crm/additional-materials',requireAuth,async(req,res)=>{try{res.json(await db.getAdditionalMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/additional-materials',requireRole('technician','manager','admin','superadmin'),async(req,res)=>{try{if(!req.body.work_order_id||!Array.isArray(req.body.items)||!req.body.items.length)return res.status(400).json({error:'WO dan item tambahan wajib diisi'});const x=await db.insertAdditionalMaterialRequest({...req.body,requested_by:req.session.user.name});logActivity(req,'amr','AJUKAN TAMBAHAN MATERIAL',x.amr_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/additional-materials/:id/internal-approve',requireRole('manager','admin','superadmin'),async(req,res)=>{try{res.json(await db.updateAdditionalMaterialRequest(req.params.id,{status:'waiting_customer_approval',internal_approved_by:req.session.user.name,internal_approved_at:new Date().toISOString()}))}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/additional-materials/:id/customer-approve',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.customer_approval_name)return res.status(400).json({error:'Nama pemberi persetujuan customer wajib diisi'});res.json(await db.updateAdditionalMaterialRequest(req.params.id,{status:'approved',customer_approval_name:req.body.customer_approval_name,customer_approved_at:new Date().toISOString()}))}catch(e){res.status(500).json({error:e.message})}});
 
-
-app.get('/api/inventory/template.xlsx', requireInventoryPermission('inventory_import_export'), async (req,res) => {
-  try {
-    const wb = XLSX.utils.book_new();
-    const rows = [
-      ['Nama Barang','SKU','Product Number','Barcode','Kategori','Sub Kategori','Satuan','Stok Cut Off','Minimum Stok'],
-      ['Contoh Kabel UTP','','CBL-001','899000000001','Material Kabel','Kabel LAN','meter',100,20]
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:28},{wch:18},{wch:20},{wch:20},{wch:22},{wch:18},{wch:12},{wch:15},{wch:15}];
-    XLSX.utils.book_append_sheet(wb, ws, 'Template Inventory');
-    const guide = XLSX.utils.aoa_to_sheet([
-      ['PETUNJUK IMPORT CUT OFF INVENTORY'],
-      ['1. Jangan mengubah nama header pada baris pertama.'],
-      ['2. Nama Barang dan Stok Cut Off wajib diisi.'],
-      ['3. SKU boleh dikosongkan agar dibuat otomatis dari Kategori dan Sub Kategori.'],
-      ['4. Product Number dan Barcode harus unik bila diisi.'],
-      ['5. Barang lama dicocokkan berdasarkan Product Number, lalu Barcode, lalu Nama Barang.'],
-      ['6. Stok Cut Off menjadi saldo terbaru dan selisihnya dicatat di Log Stok.'],
-      ['7. Seluruh file diproses sebagai satu transaksi: jika satu baris gagal, semua dibatalkan.']
-    ]);
-    guide['!cols'] = [{wch:95}];
-    XLSX.utils.book_append_sheet(wb, guide, 'Petunjuk');
-    const out = XLSX.write(wb, { type:'buffer', bookType:'xlsx' });
-    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition','attachment; filename="template-import-inventory.xlsx"');
-    res.send(out);
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-
-app.get('/api/inventory/export.xlsx', requireInventoryPermission('inventory_import_export'), async (req,res) => {
-  try {
-    const [items, logs] = await Promise.all([db.getInventoryItems(), db.getInventoryTransactions()]);
-    const wb = XLSX.utils.book_new();
-    const itemRows = items.map(i => ({
-      'Nama Barang': i.name,
-      'SKU': i.sku || '',
-      'Product Number': i.product_number || '',
-      'Barcode': i.barcode || '',
-      'Kategori': i.category || '',
-      'Sub Kategori': i.subcategory || '',
-      'Satuan': i.unit || '',
-      'Stok Saat Ini': Number(i.stock || 0),
-      'Minimum Stok': Number(i.min_stock || 0),
-      'Status': Number(i.stock || 0) <= Number(i.min_stock || 0) ? 'Kritis' : (Number(i.min_stock || 0) > 0 && Number(i.stock || 0) <= Number(i.min_stock || 0) * 1.5 ? 'Rendah' : 'Aman'),
-      'Tanggal Export': new Date().toLocaleString('id-ID')
-    }));
-    const wsItems = XLSX.utils.json_to_sheet(itemRows.length ? itemRows : [{ 'Nama Barang':'', 'Product Number':'', 'Barcode':'', 'Kategori':'', 'Satuan':'', 'Stok Saat Ini':'', 'Minimum Stok':'', 'Status':'', 'Tanggal Export':new Date().toLocaleString('id-ID') }]);
-    wsItems['!cols'] = [{wch:30},{wch:20},{wch:20},{wch:22},{wch:12},{wch:15},{wch:15},{wch:12},{wch:22}];
-    XLSX.utils.book_append_sheet(wb, wsItems, 'Stok Inventory');
-
-    const logRows = logs.map(l => ({
-      'Tanggal': l.created_at ? new Date(l.created_at).toLocaleString('id-ID') : '',
-      'Jenis': l.transaction_type,
-      'Barang': l.inventory_items?.name || '',
-      'Qty': Number(l.qty || 0),
-      'Satuan': l.inventory_items?.unit || '',
-      'Saldo Setelah': Number(l.balance_after || 0),
-      'Referensi': l.reference || '',
-      'Catatan': l.notes || '',
-      'Oleh': l.created_by || ''
-    }));
-    const wsLogs = XLSX.utils.json_to_sheet(logRows.length ? logRows : [{Tanggal:'',Jenis:'',Barang:'',Qty:'',Satuan:'','Saldo Setelah':'',Referensi:'',Catatan:'',Oleh:''}]);
-    wsLogs['!cols'] = [{wch:22},{wch:16},{wch:30},{wch:12},{wch:12},{wch:16},{wch:24},{wch:30},{wch:20}];
-    XLSX.utils.book_append_sheet(wb, wsLogs, 'Log Stok');
-
-    const out = XLSX.write(wb, { type:'buffer', bookType:'xlsx' });
-    const stamp = new Date().toISOString().slice(0,10);
-    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition',`attachment; filename="inventory-${stamp}.xlsx"`);
-    res.send(out);
-  } catch(e) { res.status(500).json({error:e.message}); }
-});
-
-app.post('/api/inventory/import/preview', requireInventoryPermission('inventory_import_export'), inventoryExcelUpload.single('file'), async (req,res) => {
-  try {
-    if(!req.file) return res.status(400).json({error:'Pilih file Excel terlebih dahulu.'});
-    const wb = XLSX.read(req.file.buffer, {type:'buffer', cellDates:true});
-    const first = wb.SheetNames[0];
-    if(!first) return res.status(400).json({error:'Workbook tidak memiliki sheet.'});
-    const raw = XLSX.utils.sheet_to_json(wb.Sheets[first], {defval:'', raw:true});
-    if(!raw.length) return res.status(400).json({error:'File Excel tidak memiliki data.'});
-    const pick = (row, names) => {
-      const keys = Object.keys(row);
-      for(const name of names){
-        const found = keys.find(k => String(k).trim().toLowerCase() === name.toLowerCase());
-        if(found !== undefined) return row[found];
-      }
-      return '';
-    };
-    const parseExcelNumber = value => {
-      if(typeof value === 'number') return value;
-      let text=String(value??'').trim();
-      if(!text) return 0;
-      text=text.replace(/\s/g,'');
-      if(text.includes('.') && text.includes(',')) text=text.replace(/\./g,'').replace(',','.');
-      else if(text.includes(',')) text=text.replace(',','.');
-      return Number(text);
-    };
-    const rows = raw.map((r, idx) => ({
-      row_number: idx + 2,
-      name: String(pick(r,['Nama Barang','name'])).trim(),
-      sku: String(pick(r,['SKU','sku'])).trim(),
-      product_number: String(pick(r,['Product Number','SKU','product_number'])).trim(),
-      barcode: String(pick(r,['Barcode','barcode'])).trim(),
-      category: String(pick(r,['Kategori','category'])).trim() || 'Aksesoris',
-      subcategory: String(pick(r,['Sub Kategori','Subkategori','subcategory'])).trim() || 'Umum',
-      unit: String(pick(r,['Satuan','unit'])).trim().toLowerCase() || 'pcs',
-      stock: parseExcelNumber(pick(r,['Stok Cut Off','Stok Saat Ini','stock'])),
-      min_stock: parseExcelNumber(pick(r,['Minimum Stok','min_stock']))
-    }));
-    const errors=[];
-    const pnSeen=new Set(), bcSeen=new Set(), identitySeen=new Set();
-    for(const row of rows){
-      if(!row.name) errors.push(`Baris ${row.row_number}: Nama Barang wajib diisi.`);
-      if(!Number.isFinite(row.stock) || row.stock < 0) errors.push(`Baris ${row.row_number}: Stok Cut Off tidak valid.`);
-      if(!Number.isFinite(row.min_stock) || row.min_stock < 0) errors.push(`Baris ${row.row_number}: Minimum Stok tidak valid.`);
-      if(row.product_number){
-        const key=row.product_number.toLowerCase();
-        if(pnSeen.has(key)) errors.push(`Baris ${row.row_number}: Product Number duplikat dalam file.`);
-        pnSeen.add(key);
-      }
-      if(row.barcode){
-        const key=row.barcode.toLowerCase();
-        if(bcSeen.has(key)) errors.push(`Baris ${row.row_number}: Barcode duplikat dalam file.`);
-        bcSeen.add(key);
-      }
-      const identity=(row.product_number||row.barcode||row.name).toLowerCase();
-      if(identitySeen.has(identity)) errors.push(`Baris ${row.row_number}: Barang yang sama muncul lebih dari sekali dalam file.`);
-      identitySeen.add(identity);
-    }
-    res.json({ok:errors.length===0, sheet:first, row_count:rows.length, rows, errors});
-  } catch(e) { res.status(400).json({error:e.message}); }
-});
-
-app.post('/api/inventory/import/commit', requireInventoryPermission('inventory_import_export'), async (req,res) => {
-  try {
-    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
-    if(!rows.length) return res.status(400).json({error:'Tidak ada data import untuk diproses.'});
-    if(rows.length > 3000) return res.status(400).json({error:'Maksimum 3.000 baris per import.'});
-    const result = await db.importInventoryCutoff(rows, req.session.user.name);
-    logActivity(req,'inventory','IMPORT CUT OFF EXCEL',`${rows.length} baris`);
-    res.json({ok:true, result});
-  } catch(e) { res.status(400).json({error:e.message}); }
-});
-
-app.get('/api/inventory/items', requireAuth, async (req,res) => {
-  try { res.json(await db.getInventoryItems()); }
-  catch(e){ res.status(500).json({error:e.message}); }
-});
-
-app.get('/api/inventory/logs', requireAuth, async (req,res) => {
-  try { res.json(await db.getInventoryTransactions()); }
-  catch(e){ res.status(500).json({error:e.message}); }
-});
-
-app.get('/api/inventory/opnames', requireAuth, async (req,res) => {
-  try { res.json(await db.getInventoryOpnames()); }
-  catch(e){ res.status(500).json({error:e.message}); }
-});
-
-app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'), async (req,res) => {
-  try {
-    const name = String(req.body.name||'').trim();
-    const qty = Number(req.body.qty||0);
-    if(!name) return res.status(400).json({error:'Nama barang wajib diisi.'});
-    if(qty < 0) return res.status(400).json({error:'Qty tidak boleh negatif.'});
-    const category = String(req.body.category||'').trim();
-    const subcategory = String(req.body.subcategory||'').trim();
-    if(!category || !subcategory) return res.status(400).json({error:'Kategori dan subkategori wajib dipilih.'});
-    const trackingMode = String(req.body.tracking_mode||'quantity') === 'serial' ? 'serial' : 'quantity';
-    if(trackingMode === 'serial' && qty > 0) return res.status(400).json({error:'Stok awal barang serial harus 0. Tambahkan unit melalui Restock dan scan SN satu per satu.'});
-    const suppliedBarcode = String(req.body.barcode||'').trim();
-    if(suppliedBarcode && !/^\d{8,14}$/.test(suppliedBarcode)) return res.status(400).json({error:'Barcode harus berupa angka 8–14 digit.'});
-    if(suppliedBarcode){
-      const duplicate = await db.findInventoryItemByCode(suppliedBarcode);
-      if(duplicate) return res.status(409).json({error:`Barcode sudah digunakan oleh ${duplicate.name} (${duplicate.sku}).`});
-    }
-    const sku = String(req.body.sku||'').trim() || await db.generateInventorySku(category,subcategory);
-    const barcode = suppliedBarcode || await db.generateInventoryBarcode();
-    const item = await db.insertInventoryItem({
-      name,
-      sku,
-      product_number: String(req.body.product_number||'').trim() || null,
-      category,
-      subcategory,
-      unit: String(req.body.unit||'pcs'),
-      tracking_mode: trackingMode,
-      stock: qty,
-      min_stock: Number(req.body.min_stock||0),
-      barcode,
-      is_active: true
-    });
-    if(qty > 0) await db.insertInventoryTransaction({
-      item_id:item.id, transaction_type:'RESTOCK', qty, balance_after:qty,
-      reference:'Stok awal', notes:'Barang baru', created_by:req.session.user.name
-    });
-    const persisted = await db.getInventoryItem(item.id);
-    if(!persisted) throw new Error('Barang tidak ditemukan kembali setelah disimpan ke Supabase.');
-    logActivity(req,'inventory','TAMBAH BARANG',`${name} · stok awal ${qty}`);
-    res.status(201).json({ ok:true, item:persisted });
-  } catch(e){ res.status(500).json({error:e.message}); }
-});
-
-app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_delete'), async (req,res) => {
-  try {
-    const result = await db.deleteInventoryItem(req.params.id, req.session.user.name);
-    logActivity(req, 'inventory', 'HAPUS BARANG', `${result.name || req.params.id} · stok dinolkan dan item dinonaktifkan`);
-    res.json({ ok:true, item:result });
-  } catch (e) {
-    console.error('[Inventory Delete]', e);
-    const message = String(e.message || e);
-    const status = message.includes('Barang tidak ditemukan') ? 404 : 500;
-    res.status(status).json({ error:message });
-  }
-});
-
-
-app.post('/api/inventory/items/:id/restock-batch', requireInventoryPermission('inventory_manage'), async (req,res) => {
-  try {
-    const item = await db.getInventoryItem(req.params.id);
-    if(!item) return res.status(404).json({error:'Barang tidak ditemukan.'});
-    const serialNumbers = Array.isArray(req.body.serial_numbers)
-      ? req.body.serial_numbers.map(v=>String(v||'').trim()).filter(Boolean)
-      : [];
-    const qty = item.tracking_mode === 'serial' ? serialNumbers.length : Number(req.body.qty||0);
-    if(qty <= 0) return res.status(400).json({error:'Qty restock harus lebih dari 0.'});
-    if(item.tracking_mode === 'serial' && serialNumbers.length !== new Set(serialNumbers.map(v=>v.toLowerCase())).size){
-      return res.status(400).json({error:'Terdapat Serial Number duplikat dalam sesi scan.'});
-    }
-    const result = await db.restockInventoryBatch(
-      item.id, qty, serialNumbers, String(req.body.reference||'Restock').trim(), req.session.user.name
-    );
-    logActivity(req,'inventory','RESTOCK BATCH',`${item.name} +${qty} ${item.unit}`);
-    res.json(result);
-  } catch(e){
-    console.error('[Inventory Restock Batch]', e);
-    res.status(400).json({error:e.message});
-  }
-});
-
-app.post('/api/inventory/items/:id/restock', requireInventoryPermission('inventory_manage'), async (req,res) => {
-  try {
-    const qty = Number(req.body.qty||0);
-    if(qty <= 0) return res.status(400).json({error:'Qty restock harus lebih dari 0.'});
-    const item = await db.getInventoryItem(req.params.id);
-    if(!item) return res.status(404).json({error:'Barang tidak ditemukan.'});
-    const balance = Number(item.stock||0) + qty;
-    const updated = await db.updateInventoryItem(item.id,{stock:balance});
-    await db.insertInventoryTransaction({item_id:item.id,transaction_type:'RESTOCK',qty,balance_after:balance,reference:req.body.reference||'Restock',notes:req.body.notes||null,created_by:req.session.user.name});
-    logActivity(req,'inventory','RESTOCK',`${item.name} +${qty} ${item.unit}`);
-    res.json(updated);
-  } catch(e){ res.status(500).json({error:e.message}); }
-});
-
-app.post('/api/inventory/request', requireAuth, async (req,res) => {
-  try {
-    const items = Array.isArray(req.body.items) ? req.body.items : [];
-    if(!items.length) return res.status(400).json({error:'Minimal satu barang harus dipilih.'});
-    const results=[];
-    for(const line of items){
-      const item=await db.getInventoryItem(line.item_id);
-      const qty=Number(line.qty||0);
-      if(!item || qty<=0) throw new Error('Data barang request tidak valid.');
-      if(Number(item.stock||0)<qty) throw new Error(`Stok ${item.name} tidak mencukupi.`);
-      const balance=Number(item.stock)-qty;
-      await db.updateInventoryItem(item.id,{stock:balance});
-      await db.insertInventoryTransaction({item_id:item.id,transaction_type:'REQUEST',qty:-qty,balance_after:balance,reference:req.body.reference||null,notes:req.body.notes||null,created_by:req.session.user.name});
-      results.push({id:item.id,name:item.name,stock:balance});
-    }
-    logActivity(req,'inventory','MATERIAL REQUEST',`${items.length} item · ${req.body.reference||'-'}`);
-    res.json({ok:true,items:results});
-  } catch(e){ res.status(400).json({error:e.message}); }
-});
-
-app.post('/api/inventory/opname', requireInventoryPermission('inventory_opname'), async (req,res) => {
-  try {
-    const lines=Array.isArray(req.body.items)?req.body.items:[];
-    if(!lines.length) return res.status(400).json({error:'Tidak ada barang untuk opname.'});
-    let matched=0,different=0;
-    const opname=await db.insertInventoryOpname({item_count:lines.length,matched_count:0,difference_count:0,created_by:req.session.user.name,notes:req.body.notes||null});
-    for(const line of lines){
-      const item=await db.getInventoryItem(line.item_id);
-      if(!item) continue;
-      const system=Number(item.stock||0), physical=Number(line.physical_stock||0), diff=physical-system;
-      diff===0?matched++:different++;
-      await db.insertInventoryOpnameItem({opname_id:opname.id,item_id:item.id,system_stock:system,physical_stock:physical,difference:diff,notes:line.notes||null});
-      if(diff!==0){
-        await db.updateInventoryItem(item.id,{stock:physical});
-        await db.insertInventoryTransaction({item_id:item.id,transaction_type:'OPNAME',qty:diff,balance_after:physical,reference:`Opname ${opname.id}`,notes:line.notes||null,created_by:req.session.user.name});
-      }
-    }
-    await db.updateInventoryOpname(opname.id,{matched_count:matched,difference_count:different});
-    logActivity(req,'inventory','STOCK OPNAME',`${lines.length} item · ${different} selisih`);
-    res.json({ok:true,item_count:lines.length,matched_count:matched,difference_count:different});
-  } catch(e){ res.status(500).json({error:e.message}); }
-});
-
-
-app.get('*',            (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('/api/crm/invoices',requireAuth,async(req,res)=>{try{res.json(await db.getCrmInvoices())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/invoices/from-so/:soId',requireRole('accounting','manager','admin','superadmin'),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const amrs=(await db.getAdditionalMaterialRequests()).filter(x=>x.sales_order_id===so.id&&x.status==='approved');const additional=amrs.flatMap(x=>(x.items||[]).map(i=>({...i,amr_number:x.amr_number})));const base=Number(so.total_amount||0),extra=additional.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const grand=base+extra,downPayment=Number(req.body.down_payment||0),redemption=Number(req.body.redemption||0);const x=await db.insertCrmInvoice({sales_order_id:so.id,so_number:so.so_number,customer_id:so.customer_id||null,customer_name:so.customer_name,work_order_ids:req.body.work_order_ids||[],items:so.items||[],additional_items:additional,base_total:base,additional_total:extra,grand_total:grand,invoice_date:req.body.invoice_date||new Date().toISOString().slice(0,10),due_date:req.body.due_date||null,down_payment:downPayment,redemption,balance_due:Math.max(0,grand-downPayment-redemption),payment_method:req.body.payment_method||'CASH & TRANSFER BANK',remark:req.body.remark||null,billing_address:req.body.billing_address||null,created_by:req.session.user.name});for(const a of amrs)await db.updateAdditionalMaterialRequest(a.id,{status:'invoiced',invoice_id:x.id});logActivity(req,'invoice','BUAT INVOICE DARI SO',x.invoice_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 
 // ══════════════════════════════════════════
 //  AUTO-DELETE ATTACHMENT (14 hari)
@@ -1972,43 +1451,6 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-
-
-// Normalisasi role agar Admin, admin, Super Admin, super_admin, dan superadmin terbaca sama.
-function normalizeRoleName(role) {
-  return String(role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '');
-}
-
-// Kirim langsung ke ID setiap user target agar notifikasi tidak bergantung pada format nama role.
-async function notifyUsersByRoles({ roles, type, text, ref_id, created_by }) {
-  const wanted = new Set((roles || []).map(normalizeRoleName));
-  const users = await db.getUsers();
-  const recipients = (users || []).filter(user => {
-    const role = normalizeRoleName(user.role);
-    const active = user.is_active !== false && user.active !== false && user.status !== 'inactive';
-    return active && wanted.has(role);
-  });
-
-  const uniqueRecipients = [...new Map(recipients.map(user => [user.id, user])).values()];
-  const results = await Promise.allSettled(uniqueRecipients.map(user =>
-    db.insertNotification({
-      type,
-      text,
-      target_role: null,
-      target_user_id: user.id,
-      ref_id: ref_id || null,
-      created_by: created_by || null
-    })
-  ));
-
-  const failed = results.filter(result => result.status === 'rejected');
-  failed.forEach(result => console.error('Gagal mengirim notifikasi langsung:', result.reason?.message || result.reason));
-  return { sent: results.length - failed.length, failed: failed.length, recipients: uniqueRecipients.length };
-}
-
 // Helper dipakai di seluruh route lain untuk membuat notifikasi baru
 async function createNotification({ type, text, target_role, target_user_id, ref_id, created_by }) {
   try {
@@ -2018,8 +1460,65 @@ async function createNotification({ type, text, target_role, target_user_id, ref
   }
 }
 
+
+// ─────────────────────────────────────────
+// UNIVERSAL REPORTS + INVOICE PDF TEMPLATE
+// PXL-REV-0035 CUMULATIVE
+// ─────────────────────────────────────────
+async function getReportRows(moduleName){
+  const crm=await db.getCrmReport();
+  const modules={
+    dashboard:[{...crm.counts,revenue:crm.revenue,pipeline:crm.pipeline}],
+    report:crm.tickets,
+    tickets:crm.tickets,
+    invoice:[...(crm.invoices||[]), ...((await db.getStandaloneInvoices())||[])],
+    kpi:[{module:'KPI',tickets:crm.counts.tickets,invoices:crm.counts.invoices,revenue:crm.revenue}],
+    sales:crm.sales_orders,
+    kunjungan:crm.visits,
+    archive:await db.getArchivedTickets(),
+    users:await db.getUsers(),
+    actlog:await db.getLogs(),
+    materials:await db.getMRForms(),
+    inventory:[{keterangan:'Inventory menggunakan halaman inventory.html/Supabase langsung. Export detail tetap tersedia dari tombol Export Excel pada modul Inventory.'}],
+    pr:await db.getPurchaseRequests(),
+    projects:crm.projects,
+    crm:[...(crm.customers||[]),...(crm.sales_orders||[]),...(crm.work_orders||[])],
+    supplier:await db.getSuppliers()
+  };
+  if(!(moduleName in modules)) throw new Error('Module report tidak dikenal');
+  return modules[moduleName]||[];
+}
+app.get('/api/reports/:module.:format', requireAuth, async(req,res)=>{
+  try{
+    const rows=await getReportRows(req.params.module);
+    const title=`Report ${req.params.module}`;
+    if(req.params.format==='xlsx') return reportSvc.writeExcel(res,title,rows);
+    if(req.params.format==='pdf') return reportSvc.writePdf(res,title,rows);
+    res.status(400).json({error:'Format report harus pdf atau xlsx'});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/invoices/:id/template.pdf', requireAuth, async(req,res)=>{
+  try{
+    const id=req.params.id;
+    const crm=(await db.getCrmInvoices()).find(x=>String(x.id)===id||String(x.invoice_number)===id);
+    if(crm) return reportSvc.invoicePdf(res,crm);
+    const standalone=(await db.getStandaloneInvoices()).find(x=>String(x.id)===id);
+    if(standalone) return reportSvc.invoicePdf(res,{...standalone,invoice_number:standalone.invoice_number||standalone.original_name,customer_name:standalone.customer_name||'Customer'});
+    const tickets=await db.getTickets(null,true);
+    for(const t of tickets){
+      const invs=await db.getInvoicesByTicket(t.id);
+      const inv=(invs||[]).find(x=>String(x.id)===id);
+      if(inv) return reportSvc.invoicePdf(res,{...inv,invoice_number:inv.invoice_number||inv.original_name,customer_name:t.customer_name,description:inv.description||`Invoice WO ${t.wo_number||'-'}`});
+    }
+    res.status(404).json({error:'Invoice tidak ditemukan'});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+// SPA fallback harus berada setelah seluruh route API/report.
+app.get('*', (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
+
 app.listen(PORT, () => {
-  console.log(`\n✅ Helpdesk Pixel v5.2 → http://localhost:${PORT}`);
+  console.log(`\n✅ Helpdesk Pixel v5.3 → http://localhost:${PORT}`);
   console.log(`💾 Mode: ${db.USE_SUPABASE ? 'Supabase' : 'Local JSON'}`);
   console.log(`🗑️  Auto-delete invoice attachment: ${ATTACH_EXPIRE_DAYS} hari\n`);
 

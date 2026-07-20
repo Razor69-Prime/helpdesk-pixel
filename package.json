@@ -7,11 +7,12 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
-    "xlsx": "^0.18.5"
+    "pdfkit": "^0.19.1"
   },
   "engines": {
     "node": ">=18.0.0"

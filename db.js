@@ -236,23 +236,13 @@ async function insertNotification(data) {
 
 async function getNotificationsForUser(user) {
   if (!USE_SUPABASE) return [];
-  const rawRole = String(user.role || '').trim();
-  const normalizedRole = rawRole.toLowerCase().replace(/[\s_-]+/g, '');
-  const roleAliases = new Set([rawRole, rawRole.toLowerCase()]);
-  if (normalizedRole === 'superadmin') {
-    ['superadmin', 'super_admin', 'super admin', 'Super Admin'].forEach(role => roleAliases.add(role));
-  } else if (normalizedRole === 'admin') {
-    ['admin', 'Admin'].forEach(role => roleAliases.add(role));
-  }
-
-  const roleQueries = [...roleAliases].filter(Boolean).map(role =>
-    sbFetch('GET', `/notifications?target_role=eq.${encodeURIComponent(role)}&order=created_at.desc&limit=50`)
-  );
-  const [byUser, ...byRoleGroups] = await Promise.all([
+  // Ambil notif yang: target_user_id = user.id, ATAU target_role = user.role, ATAU target_role null (broadcast)
+  // Dipecah jadi query terpisah (lebih aman daripada .or() PostgREST yang rawan salah escape)
+  const [byUser, byRole] = await Promise.all([
     sbFetch('GET', `/notifications?target_user_id=eq.${user.id}&order=created_at.desc&limit=50`),
-    ...roleQueries
+    sbFetch('GET', `/notifications?target_role=eq.${user.role}&order=created_at.desc&limit=50`),
   ]);
-  const combined = [...(byUser || []), ...byRoleGroups.flatMap(rows => rows || [])];
+  const combined = [...(byUser || []), ...(byRole || [])];
   // Dedupe berdasarkan id, lalu urutkan terbaru dulu
   const uniqueMap = new Map();
   combined.forEach(n => uniqueMap.set(n.id, n));
@@ -622,246 +612,99 @@ async function getMRForms() {
   if (!USE_SUPABASE) return [];
   return await sbFetch('GET', '/material_request_forms?order=created_at.desc') || [];
 }
-function getMissingPostgrestColumn(error) {
-  const raw = String(error?.message || error || '');
-  // PGRST204: Could not find the 'column_name' column of 'table_name' in the schema cache
-  const match = raw.match(/Could not find the ['"]([^'"]+)['"] column of ['"]material_request_forms['"]/i);
-  return match ? match[1] : null;
-}
-
-async function writeMRFormWithSchemaFallback(method, path, payload) {
-  const safePayload = { ...(payload || {}) };
-  const ignoredFields = [];
-  // Hindari loop tanpa batas bila schema database sangat berbeda.
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    try {
-      const rows = await sbFetch(method, path, safePayload);
-      if (ignoredFields.length) {
-        console.warn('[Material Request] Field tidak tersedia pada schema dan diabaikan:', ignoredFields.join(', '));
-      }
-      return { rows, savedPayload: safePayload, ignoredFields };
-    } catch (error) {
-      const missingColumn = getMissingPostgrestColumn(error);
-      if (!missingColumn || !Object.prototype.hasOwnProperty.call(safePayload, missingColumn)) throw error;
-      delete safePayload[missingColumn];
-      ignoredFields.push(missingColumn);
-    }
-  }
-  throw new Error('Payload Material Request tidak dapat disesuaikan dengan schema database setelah 20 percobaan.');
-}
-
 async function insertMRForm(data) {
-  const safeData = { ...(data || {}) };
-  delete safeData.notes;
-  delete safeData.requester; // database aktif memakai created_by sebagai PIC/pemohon
-  const entry = { id: require('crypto').randomUUID(), ...safeData, created_at: new Date().toISOString() };
+  const entry = { id: require('crypto').randomUUID(), ...data, created_at: new Date().toISOString() };
   if (!USE_SUPABASE) return entry;
-  const result = await writeMRFormWithSchemaFallback('POST', '/material_request_forms', entry);
-  return result.rows?.[0] || result.savedPayload;
+  const rows = await sbFetch('POST', '/material_request_forms', entry);
+  return rows?.[0] || entry;
 }
 async function updateMRForm(id, data) {
-  const safeData = { ...(data || {}) };
-  delete safeData.notes;
-  delete safeData.requester;
-  if (!USE_SUPABASE) return { id, ...safeData };
-  const result = await writeMRFormWithSchemaFallback('PATCH', `/material_request_forms?id=eq.${id}`, safeData);
-  return result.rows?.[0] || { id, ...result.savedPayload };
+  if (!USE_SUPABASE) return { id, ...data };
+  const rows = await sbFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
+  return rows?.[0] || { id, ...data };
 }
-async function updateMRUsageAndReturn(id, data, actor='System') {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_update_material_request_usage', {
-    p_request_id: id,
-    p_items: Array.isArray(data.items) ? data.items : [],
-    p_actor: actor || 'System',
-    p_date_return: data.date_return || null,
-    p_technician: data.technician || actor || 'System',
-    p_technician_signature: data.technician_signature || null,
-    p_technician_signed_by: data.technician_signed_by || null,
-    p_technician_signed_at: data.technician_signed_at || null,
-    p_prepared_by: data.prepared_by || null,
-    p_prepared_at: data.prepared_at || null
-  }, { Prefer: 'return=representation' });
-  const row = Array.isArray(result) ? result[0] : result;
-  if (!row || row.ok !== true) throw new Error(row?.error || 'Update pemakaian dan pengembalian tidak dikonfirmasi database.');
-  const rows = await sbFetch('GET', `/material_request_forms?id=eq.${encodeURIComponent(id)}&limit=1`);
-  return rows?.[0] || { id, ...data, items: row.items, status: 'returned' };
-}
-
 async function deleteMRForm(id) {
   if (!USE_SUPABASE) return;
   await sbFetch('DELETE', `/material_request_forms?id=eq.${id}`);
 }
-async function deleteMRFormWithInventoryRestore(id, actor='System') {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_delete_material_request', {
-    p_request_id: id,
-    p_actor: actor || 'System'
-  }, { Prefer: 'return=representation' });
-  const row = Array.isArray(result) ? result[0] : result;
-  if (!row || row.ok !== true) throw new Error(row?.error || 'Penghapusan Material Request tidak dikonfirmasi database.');
-  return row;
-}
 
 
 // ─────────────────────────────────────────
-//  INVENTORY
+// CRM / SALES ORDER / WO / INVOICE FLOW
+// PXL-REV-0039
 // ─────────────────────────────────────────
-function requireInventorySupabase() {
-  if (!USE_SUPABASE) {
-    throw new Error('Supabase belum aktif pada server. Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia di Vercel Environment Variables.');
-  }
+const CRM_FILES = {
+  customers: path.join(__dirname,'data','crm_customers.json'),
+  sales_orders: path.join(__dirname,'data','sales_orders.json'),
+  work_orders: path.join(__dirname,'data','crm_work_orders.json'),
+  crm_material_requests: path.join(__dirname,'data','crm_material_requests.json'),
+  additional_material_requests: path.join(__dirname,'data','additional_material_requests.json'),
+  crm_invoices: path.join(__dirname,'data','crm_invoices.json')
+};
+function readJsonFile(file){ try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return []} }
+function writeJsonFile(file,data){ fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,JSON.stringify(data,null,2)); }
+function nextDocNo(prefix,rows,field){
+  const year=new Date().getFullYear();
+  const re=new RegExp(`^${prefix}-${year}-(\\d+)$`);
+  const max=rows.reduce((m,r)=>{const x=String(r[field]||'').match(re);return x?Math.max(m,Number(x[1])):m},0);
+  return `${prefix}-${year}-${String(max+1).padStart(6,'0')}`;
 }
-
-async function issueInventoryForMR(requestId, items, actor, woNumber) {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_issue_material_request', {
-    p_request_id: requestId,
-    p_items: items,
-    p_actor: actor || 'System',
-    p_wo_number: woNumber || ''
-  }, { Prefer: 'return=representation' });
-  const output = Array.isArray(result) ? result[0] : result;
-  if (!output || output.ok !== true) throw new Error(output?.error || 'Inventory tidak mengonfirmasi pengeluaran material.');
-  return output;
+async function listEntity(table,localKey,order='created_at.desc'){
+  if(!USE_SUPABASE) return readJsonFile(CRM_FILES[localKey]).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  return await sbFetch('GET',`/${table}?order=${order}`)||[];
 }
-
-async function getInventoryCategories() {
-  requireInventorySupabase();
-  const categories = await sbFetch('GET', '/inventory_categories?is_active=is.true&order=sort_order.asc,name.asc') || [];
-  const subcategories = await sbFetch('GET', '/inventory_subcategories?is_active=is.true&order=sort_order.asc,name.asc') || [];
-  return categories.map(c => ({
-    id:c.id, name:c.name, code:c.code,
-    subcategories: subcategories.filter(sc => sc.category_id === c.id).map(sc => ({id:sc.id,name:sc.name,code:sc.code}))
-  }));
+async function insertEntity(table,localKey,data){
+  const entry={id:crypto.randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES[localKey]);rows.unshift(entry);writeJsonFile(CRM_FILES[localKey],rows);return entry;}
+  const rows=await sbFetch('POST',`/${table}`,entry);return rows?.[0]||entry;
 }
-async function generateInventoryBarcode() {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_next_barcode', {}, { Prefer:'return=representation' });
-  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
+async function updateEntity(table,localKey,id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES[localKey]);const i=rows.findIndex(x=>x.id===id);if(i<0)throw new Error('Data tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES[localKey],rows);return rows[i];}
+  const rows=await sbFetch('PATCH',`/${table}?id=eq.${id}`,data);return rows?.[0]||{id,...data};
 }
-async function findInventoryItemByCode(code) {
-  requireInventorySupabase();
-  const raw = String(code || '').trim();
-  if (!raw) return null;
-  const q = encodeURIComponent(raw);
-  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q},product_number.eq.${q},name.eq.${q})&is_active=is.true&limit=1`);
-  return rows?.[0] || null;
+async function getCrmCustomers(){return listEntity('crm_customers','customers','name.asc')}
+async function insertCrmCustomer(data){return insertEntity('crm_customers','customers',data)}
+async function updateCrmCustomer(id,data){return updateEntity('crm_customers','customers',id,data)}
+async function getSalesOrders(){return listEntity('sales_orders','sales_orders')}
+async function insertSalesOrder(data){
+  const rows=await getSalesOrders();
+  return insertEntity('sales_orders','sales_orders',{...data,so_number:nextDocNo('SO',rows,'so_number'),status:data.status||'draft',revision_no:0,is_deleted:false,history:data.history||[]});
 }
-async function getInventoryHealth() {
-  requireInventorySupabase();
-  const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
-  return { connected: true, table: 'inventory_items', sample_count: Array.isArray(rows) ? rows.length : 0 };
+async function updateSalesOrder(id,data){return updateEntity('sales_orders','sales_orders',id,data)}
+async function getCrmWorkOrders(){return listEntity('crm_work_orders','work_orders')}
+async function insertCrmWorkOrder(data){
+  const rows=await getCrmWorkOrders();
+  const wo_number=data.number_source==='manual'?String(data.wo_number||'').trim():nextDocNo('WO',rows,'wo_number');
+  if(!wo_number) throw new Error('Nomor WO manual wajib diisi');
+  if(rows.some(x=>String(x.wo_number).toLowerCase()===wo_number.toLowerCase())) throw new Error('Nomor WO sudah digunakan');
+  return insertEntity('crm_work_orders','work_orders',{...data,wo_number,status:data.status||'draft'});
 }
-
-async function getInventoryItems() {
-  requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_items?is_active=is.true&order=name.asc') || [];
+async function updateCrmWorkOrder(id,data){return updateEntity('crm_work_orders','work_orders',id,data)}
+async function getCrmMaterialRequests(){return listEntity('crm_material_requests','crm_material_requests')}
+async function insertCrmMaterialRequest(data){
+  const rows=await getCrmMaterialRequests();
+  return insertEntity('crm_material_requests','crm_material_requests',{...data,mr_number:nextDocNo('MR',rows,'mr_number'),status:'waiting_technician_verification'});
 }
-async function getInventoryItem(id) {
-  requireInventorySupabase();
-  const rows = await sbFetch('GET', `/inventory_items?id=eq.${id}&limit=1`);
-  return rows?.[0] || null;
+async function updateCrmMaterialRequest(id,data){return updateEntity('crm_material_requests','crm_material_requests',id,data)}
+async function getAdditionalMaterialRequests(){return listEntity('additional_material_requests','additional_material_requests')}
+async function insertAdditionalMaterialRequest(data){
+  const rows=await getAdditionalMaterialRequests();
+  return insertEntity('additional_material_requests','additional_material_requests',{...data,amr_number:nextDocNo('AMR',rows,'amr_number'),status:'waiting_internal_approval'});
 }
-async function insertInventoryItem(data) {
-  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
-  if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
-  return rows[0];
+async function updateAdditionalMaterialRequest(id,data){return updateEntity('additional_material_requests','additional_material_requests',id,data)}
+async function getCrmInvoices(){return listEntity('crm_invoices','crm_invoices')}
+async function insertCrmInvoice(data){
+  const rows=await getCrmInvoices();
+  return insertEntity('crm_invoices','crm_invoices',{...data,invoice_number:nextDocNo('INV',rows,'invoice_number'),status:data.status||'draft'});
 }
-async function generateInventorySku(category, subcategory) {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_next_sku', { p_category: category, p_subcategory: subcategory }, { Prefer: 'return=representation' });
-  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
-}
-async function deleteInventoryItem(id, actor='System') {
-  requireInventorySupabase();
-  const result = await sbFetch(
-    'POST',
-    '/rpc/inventory_soft_delete',
-    { p_item_id: id, p_actor: actor },
-    { Prefer: 'return=representation' }
-  );
-
-  const deleted = Array.isArray(result) ? result[0] : result;
-  if (!deleted || deleted.ok !== true) {
-    throw new Error(deleted?.error || 'Supabase tidak mengonfirmasi penghapusan barang.');
-  }
-
-  const stillActive = await sbFetch(
-    'GET',
-    `/inventory_items?id=eq.${encodeURIComponent(id)}&is_active=is.true&select=id&limit=1`
-  );
-  if (Array.isArray(stillActive) && stillActive.length > 0) {
-    throw new Error('Barang masih aktif setelah proses hapus. Silakan ulangi.');
-  }
-
-  return deleted;
-}
-async function updateInventoryItem(id, data) {
-  const patch = { ...data, updated_at: new Date().toISOString() };
-  requireInventorySupabase();
-  const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${id}`, patch, { Prefer: 'return=representation' });
-  return rows?.[0] || { id, ...patch };
-}
-
-async function restockInventoryBatch(itemId, qty, serialNumbers, reference, actor) {
-  requireInventorySupabase();
-  const result = await sbFetch(
-    'POST',
-    '/rpc/inventory_restock_batch',
-    {
-      p_item_id: itemId,
-      p_qty: Number(qty || 0),
-      p_serial_numbers: Array.isArray(serialNumbers) ? serialNumbers : [],
-      p_reference: reference || 'Restock',
-      p_actor: actor || 'System'
-    },
-    { Prefer: 'return=representation' }
-  );
-  const row = Array.isArray(result) ? result[0] : result;
-  if (!row || row.ok !== true) throw new Error(row?.error || 'Restock gagal diproses.');
-  return row;
-}
-async function getInventoryTransactions() {
-  requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
-}
-async function insertInventoryTransaction(data) {
-  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_transactions', entry, { Prefer: 'return=representation' });
-  return rows?.[0] || entry;
-}
-async function getInventoryOpnames() {
-  requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_opnames?order=created_at.desc&limit=50') || [];
-}
-async function insertInventoryOpname(data) {
-  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_opnames', entry, { Prefer: 'return=representation' });
-  return rows?.[0] || entry;
-}
-async function updateInventoryOpname(id, data) {
-  requireInventorySupabase();
-  const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${id}`, data, { Prefer: 'return=representation' });
-  return rows?.[0] || { id, ...data };
-}
-
-async function importInventoryCutoff(rows, actor) {
-  requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_apply_cutoff', {
-    p_rows: rows,
-    p_actor: actor || 'System'
-  }, { Prefer: 'return=representation' });
-  return result;
-}
-async function insertInventoryOpnameItem(data) {
-  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  requireInventorySupabase();
-  const rows = await sbFetch('POST', '/inventory_opname_items', entry, { Prefer: 'return=representation' });
-  return rows?.[0] || entry;
+async function getCrmReport(){
+  const [customers,sos,wos,mrs,amrs,invoices,projects,visits,tickets]=await Promise.all([
+    getCrmCustomers(),getSalesOrders(),getCrmWorkOrders(),getCrmMaterialRequests(),getAdditionalMaterialRequests(),getCrmInvoices(),getProjects(),getSalesVisits(),getTickets(null,true)
+  ]);
+  const revenue=invoices.reduce((s,x)=>s+Number(x.grand_total||x.total_amount||0),0);
+  const pipeline=sos.filter(x=>!['completed','void','cancelled'].includes(x.status)).reduce((s,x)=>s+Number(x.total_amount||0),0);
+  return {counts:{customers:customers.length,sales_orders:sos.length,work_orders:wos.length,material_requests:mrs.length,additional_material_requests:amrs.length,invoices:invoices.length,projects:projects.length,visits:visits.length,tickets:tickets.length},revenue,pipeline,customers,sales_orders:sos,work_orders:wos,material_requests:mrs,additional_material_requests:amrs,invoices,projects,visits,tickets};
 }
 
 module.exports = {
@@ -881,15 +724,13 @@ module.exports = {
   getSuppliers, insertSupplier, updateSupplier, deleteSupplier,
   insertMaterialRequest, getMaterialRequests,
   // MR Form
-  getMRForms, insertMRForm, updateMRForm, updateMRUsageAndReturn, deleteMRForm, deleteMRFormWithInventoryRestore, issueInventoryForMR,
+  getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getInventoryCategories,
-  generateInventoryBarcode,
-  findInventoryItemByCode,
-  getInventoryHealth, getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem,
-  restockInventoryBatch, generateInventorySku, deleteInventoryItem,
-  getInventoryTransactions, insertInventoryTransaction,
-  getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem,
-  importInventoryCutoff
+  getCrmCustomers, insertCrmCustomer, updateCrmCustomer,
+  getSalesOrders, insertSalesOrder, updateSalesOrder,
+  getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,
+  getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
+  getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
+  getCrmInvoices, insertCrmInvoice, getCrmReport
 };
