@@ -1,0 +1,10 @@
+PXL-REV-0039 Verification
+- Cumulative source files included
+- public/index.html included
+- public/crm.html included
+- CRM buildNav force included
+- CRM static fallback included
+- CRM checklist fallback included
+- revision-check.html included
+- vercel no-cache headers included
+- SQL migration included from REV-0037

@@ -560,8 +560,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
   <div id="app-body">
     <!-- SIDEBAR -->
-    <div class="sidebar" id="main-sidebar"><div style="font-size:9px;color:var(--muted);padding:2px 8px 8px">PXL-REV-0037</div>
+    <div class="sidebar" id="main-sidebar"><div id="pxl-revision-marker" style="font-size:9px;color:#E07B39;padding:2px 8px 8px;font-weight:800">PXL-REV-0039 • CRM ACTIVE</div>
       <div id="main-nav"></div>
+      <div id="crm-static-fallback" style="display:none;padding:3px 0 8px">
+        <button type="button" class="nav-btn" data-tab-id="crm-fallback" onclick="switchTab('crm',this)">
+          🤝 <span class="nav-label">CRM & Sales Order</span>
+        </button>
+      </div>
     </div>
 
     <!-- CONTENT -->
@@ -2737,6 +2742,12 @@ function buildNav(){
   } else {
     tabs=ALL_TAB_DEFS.filter(t=>t.show);
   }
+  // PXL-REV-0039: CRM wajib tersedia untuk role yang diizinkan, terlepas dari custom_menus lama.
+  const crmAllowed=['superadmin','admin','manager','sales','accounting','technician'].includes(role);
+  if(crmAllowed && !tabs.some(t=>t.id==='crm')){
+    const crmDef=ALL_TAB_DEFS.find(t=>t.id==='crm');
+    if(crmDef) tabs.push({...crmDef,show:true});
+  }
   // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
   if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
 
@@ -2844,7 +2855,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0036';frame.dataset.loaded='1';} }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0039';frame.dataset.loaded='1';} }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -9993,6 +10004,65 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'Laporan Tiket');
   XLSX.writeFile(wb,'laporan_helpdesk_'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'.xlsx');
 }
+
+
+/* PXL-REV-0039 — DEPLOYMENT-PROOF CRM FALLBACK */
+function pxlRoleNormalized(){
+  return String(window.currentUser?.role||'').toLowerCase().replace(/[\s_-]/g,'');
+}
+function pxlShowPermanentCrmFallback(){
+  const allowed=['superadmin','admin','manager','sales','accounting','technician'].includes(pxlRoleNormalized());
+  const fallback=document.getElementById('crm-static-fallback');
+  if(fallback) fallback.style.display=allowed?'block':'none';
+
+  const dynamic=document.querySelector('#main-nav [data-tab-id="crm"]');
+  if(dynamic && fallback) fallback.style.display='none';
+
+  const salesGroup=[...document.querySelectorAll('#main-nav .sidebar-group')].find(g=>{
+    const text=g.querySelector('.sidebar-group-toggle span')?.textContent||'';
+    return /sales.*proyek/i.test(text);
+  });
+  if(salesGroup){
+    salesGroup.classList.remove('collapsed');
+    salesGroup.querySelector('.sidebar-group-toggle')?.setAttribute('aria-expanded','true');
+  }
+}
+function pxlForceCrmChecklist(){
+  const box=document.getElementById('menu-checkboxes');
+  if(!box) return;
+  let checkbox=box.querySelector('input[data-menu="crm"]');
+  if(!checkbox){
+    const label=document.createElement('label');
+    label.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)';
+    label.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)">🤝 CRM & Sales Order';
+    box.appendChild(label);
+    checkbox=label.querySelector('input');
+  }
+  const role=String(document.getElementById('edit-role')?.value||'').toLowerCase().replace(/[\s_-]/g,'');
+  if(role==='superadmin'){
+    document.querySelectorAll('#menu-checkboxes input[type="checkbox"]').forEach(cb=>{
+      cb.checked=true;
+      cb.disabled=true;
+    });
+  }
+}
+window.addEventListener('load',()=>{
+  // Hapus service worker lama agar index terbaru tidak tertahan cache PWA.
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations()
+      .then(regs=>Promise.all(regs.map(r=>r.unregister())))
+      .catch(()=>{});
+  }
+  pxlShowPermanentCrmFallback();
+  pxlForceCrmChecklist();
+  setTimeout(pxlShowPermanentCrmFallback,500);
+  setTimeout(pxlShowPermanentCrmFallback,1500);
+});
+setInterval(()=>{
+  pxlShowPermanentCrmFallback();
+  pxlForceCrmChecklist();
+},1500);
+
 </script>
 
 <div class="modal-overlay" id="mr-barcode-modal" onclick="if(event.target===this)closeMRBarcodeScanner()">
