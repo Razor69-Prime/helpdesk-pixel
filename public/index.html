@@ -2720,7 +2720,7 @@ function buildNav(){
   const isSuperAdmin=role==='superadmin';
   const ALL_TAB_DEFS=[
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
-    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
+    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
@@ -2752,6 +2752,12 @@ function buildNav(){
   if(crmAllowed && !tabs.some(t=>t.id==='crm')){
     const crmDef=ALL_TAB_DEFS.find(t=>t.id==='crm');
     if(crmDef) tabs.push({...crmDef,show:true});
+  }
+
+  // PXL-REV-0047: seluruh akun Sales selalu mendapat akses pembuatan WO/Input Laporan, meski custom_menus lama belum memuatnya.
+  if(role==='sales' && !tabs.some(t=>t.id==='report')){
+    const reportDef=ALL_TAB_DEFS.find(t=>t.id==='report');
+    if(reportDef) tabs.push({...reportDef,show:true});
   }
 
   const soAllowed=['superadmin','admin','manager','sales','accounting'].includes(role);

@@ -391,7 +391,7 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator'), async (req, res) => {
+app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), async (req, res) => {
   try {
     const now   = new Date().toISOString();
     const token = crypto.randomBytes(14).toString('hex');
@@ -399,7 +399,7 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
 
     // Build technicians array (max 2)
     let technicians = [];
-    if (['admin','superadmin','manager','operator'].includes(role)) {
+    if (['admin','superadmin','manager','operator','sales'].includes(role)) {
       // admin/superadmin/manager/operator assign: ambil dari assigned_to
       const raw = req.body.assigned_to;
       if (Array.isArray(raw)) {
@@ -1354,7 +1354,7 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{tr
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/work-orders',requireAuth,async(req,res)=>{try{res.json(await db.getCrmWorkOrders())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.sales_order_id)return res.status(400).json({error:'sales_order_id wajib diisi'});const x=await db.insertCrmWorkOrder({...req.body,created_by:req.session.user.name});logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
+app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const payload={...req.body,sales_order_id:req.body.sales_order_id||null,so_number:req.body.so_number||null,created_by:req.session.user.name};const x=await db.insertCrmWorkOrder(payload);logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
 app.patch('/api/crm/work-orders/:id',requireAuth,async(req,res)=>{try{res.json(await db.updateCrmWorkOrder(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/material-requests',requireAuth,async(req,res)=>{try{res.json(await db.getCrmMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});
