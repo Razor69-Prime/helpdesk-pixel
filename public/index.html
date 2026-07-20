@@ -560,7 +560,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
   <div id="app-body">
     <!-- SIDEBAR -->
-    <div class="sidebar" id="main-sidebar"><div id="pxl-revision-marker" style="font-size:9px;color:#E07B39;padding:2px 8px 8px;font-weight:800">PXL-REV-0043 • CRM / PROJECT TRACKER / SALES ORDER</div>
+    <div class="sidebar" id="main-sidebar"><div id="pxl-revision-marker" style="font-size:9px;color:#E07B39;padding:2px 8px 8px;font-weight:800">PXL-REV-0045 • CRM / PROJECT TRACKER / SALES ORDER</div>
       <div id="main-nav"></div>
       <div id="crm-static-fallback" style="display:none;padding:3px 0 8px">
         <button type="button" class="nav-btn" data-tab-id="crm-fallback" onclick="switchTab('crm',this)">🤝 <span class="nav-label">CRM</span></button>
@@ -2868,14 +2868,20 @@ function syncActiveNavGroup(){
 }
 
 /* ══ TABS ════════════════════════════════ */
+function sendModuleToken(frame){
+  try{
+    const token=localStorage.getItem('pixel_token')||'';
+    if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:'PXL_AUTH_TOKEN',token},window.location.origin);
+  }catch(_){}
+}
 function switchTab(tab,btn){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0042';frame.dataset.loaded='1';} }
-  if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.src='/sales-order.html?v=PXL-REV-0042';frame.dataset.loaded='1';} }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-REV-0045';frame.dataset.loaded='1';}else sendModuleToken(frame); }
+  if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0045';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
