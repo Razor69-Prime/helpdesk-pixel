@@ -564,7 +564,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
       <div id="main-nav"></div>
       <div id="crm-static-fallback" style="display:none;padding:3px 0 8px">
         <button type="button" class="nav-btn" data-tab-id="crm-fallback" onclick="switchTab('crm',this)">
-          🤝 <span class="nav-label">CRM & Sales Order</span>
+          🤝 <span class="nav-label">CRM</span>
         </button>
       </div>
     </div>
@@ -2729,7 +2729,7 @@ function buildNav(){
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
-    {id:'crm',       label:'🤝 CRM & Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'||role==='technician'},
+    {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'||role==='technician'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
@@ -2810,7 +2810,7 @@ function ensureCrmMenuVisible(){
   const btn=document.createElement('button');
   btn.className='nav-btn';
   btn.dataset.tabId='crm';
-  btn.innerHTML='🤝 <span class="nav-label">CRM & Sales Order</span>';
+  btn.innerHTML='🤝 <span class="nav-label">CRM</span>';
   btn.addEventListener('click',()=>switchTab('crm',btn));
   content.appendChild(btn);
 }
@@ -2855,7 +2855,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0039';frame.dataset.loaded='1';} }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0041';frame.dataset.loaded='1';} }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -3666,7 +3666,7 @@ const ALL_MENUS=[
   {id:'inventory',label:'📦 Inventory Asset'},
   {id:'pr',      label:'📝 Purchase Request'},
   {id:'projects',label:'📁 Project Tracker'},
-  {id:'crm',label:'🤝 CRM & Sales Order'},
+  {id:'crm',label:'🤝 CRM'},
   {id:'supplier',label:'🏪 Master Supplier'},
 
 ];
@@ -3734,7 +3734,7 @@ function ensureCrmChecklist(){
   if(!box || box.querySelector('[data-menu="crm"]')) return;
   const wrap=document.createElement('label');
   wrap.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)';
-  wrap.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)"/>🤝 CRM & Sales Order';
+  wrap.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)"/>🤝 CRM';
   box.appendChild(wrap);
 }
 
@@ -10034,7 +10034,7 @@ function pxlForceCrmChecklist(){
   if(!checkbox){
     const label=document.createElement('label');
     label.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)';
-    label.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)">🤝 CRM & Sales Order';
+    label.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)">🤝 CRM';
     box.appendChild(label);
     checkbox=label.querySelector('input');
   }
