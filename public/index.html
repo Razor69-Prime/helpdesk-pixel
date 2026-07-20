@@ -2700,7 +2700,8 @@ function showApp(){
 }
 
 function buildNav(){
-  const role=currentUser.role;
+  const role=String(currentUser.role||'').toLowerCase().replace(/[ _-]/g,'');
+  currentUser.role=role;
   const isManager=role==='manager';
   const custom=currentUser.custom_menus; // array or undefined
 
@@ -2730,7 +2731,7 @@ function buildNav(){
   let tabs;
   if(isSuperAdmin){
     // superadmin selalu dapat semua tab, tidak bisa dibatasi custom menu
-    tabs=ALL_TAB_DEFS; // semua show=true karena isSuperAdmin di semua kondisi
+    tabs=ALL_TAB_DEFS.map(t=>({...t,show:true})); // Super Admin selalu melihat semua menu
   } else if(hasCustom){
     tabs=ALL_TAB_DEFS.filter(t=>custom.includes(t.id)||(isManager&&t.id==='dashboard'));
   } else {
@@ -2817,7 +2818,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html';frame.dataset.loaded='1';} }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0036';frame.dataset.loaded='1';} }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -3648,6 +3649,7 @@ const MATERIAL_REQUEST_PERMISSIONS=[
 
 // Default menu per role
 function getDefaultMenus(role){
+  role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
   switch(role){
     case 'technician': return['report','tickets','materials'];
     case 'operator':   return['report','tickets','kunjungan','materials'];
@@ -3660,8 +3662,10 @@ function getDefaultMenus(role){
   }
 }
 
-function buildMenuCheckboxes(currentMenus){
+function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const box=document.getElementById('menu-checkboxes');
+  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].map(m=>m.id);
+  if(forceSuperAdmin) currentMenus=allPermissionIds;
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
     {label:'Operasional Teknisi',ids:['report','tickets','materials']},
@@ -3678,13 +3682,13 @@ function buildMenuCheckboxes(currentMenus){
       <div style="padding:8px 10px;background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">${g.label}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px">${menus.map(m=>`
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
-          <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}
+          <input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}
         </label>`).join('')}</div></div>`;
   }).join('');
   const invBox=document.getElementById('inventory-permission-checkboxes');
-  if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+  if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const mrBox=document.getElementById('material-request-permission-checkboxes');
-  if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+  if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
 }
 
 function getCheckedMenus(){
@@ -3701,7 +3705,7 @@ function setAllMenus(val){
 }
 
 function resetMenuToRole(){
-  const role=document.getElementById('edit-role').value;
+  const role=String(document.getElementById('edit-role').value||'').toLowerCase().replace(/[ _-]/g,'');
   const defaults=getDefaultMenus(role);
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
@@ -3713,6 +3717,8 @@ function resetMenuToRole(){
 
 function openEditModal(userId){
   const u=allUsers.find(u=>u.id===userId);
+  if(!u) return;
+  u.role=String(u.role||'').toLowerCase().replace(/[ _-]/g,'');
   if(!u) return;
   document.getElementById('edit-user-id').value=u.id;
   document.getElementById('edit-user-subtitle').textContent=`@${u.username}`;
@@ -3735,7 +3741,14 @@ function openEditModal(userId){
   // populate menu checkboxes
   const currentMenus=Array.isArray(u.custom_menus)&&u.custom_menus.length>0
     ? u.custom_menus : getDefaultMenus(u.role);
-  buildMenuCheckboxes(currentMenus);
+  buildMenuCheckboxes(currentMenus, u.role==='superadmin');
+  const menuBox=document.getElementById('menu-checkboxes');
+  if(menuBox && u.role==='superadmin'){
+    const info=document.createElement('div');
+    info.style.cssText='margin-bottom:10px;padding:9px 11px;border-radius:8px;background:#F3E8FF;color:#5B21B6;font-size:12px;font-weight:700';
+    info.textContent='Super Admin selalu memiliki akses penuh. Semua menu dan permission wajib aktif dan tidak dapat dinonaktifkan.';
+    menuBox.prepend(info);
+  }
   if(u.role==='technician'){
     document.querySelectorAll('[data-menu="inventory"],[data-menu^="inventory_"]').forEach(el=>{
       el.checked=false;
@@ -3790,7 +3803,7 @@ async function saveEditUser(){
   const id=document.getElementById('edit-user-id').value;
   const username=document.getElementById('edit-username').value.trim();
   const name=document.getElementById('edit-name').value.trim();
-  const role=document.getElementById('edit-role').value;
+  const role=String(document.getElementById('edit-role').value||'').toLowerCase().replace(/[ _-]/g,'');
   const password=document.getElementById('edit-password').value;
   const errEl=document.getElementById('edit-error');
   errEl.style.display='none';
@@ -3799,7 +3812,9 @@ async function saveEditUser(){
   if(!name){errEl.textContent='Nama tidak boleh kosong.';errEl.style.display='block';return;}
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
-    let checkedMenus=getCheckedMenus();
+    let checkedMenus=role==='superadmin'
+      ? [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].map(m=>m.id)
+      : getCheckedMenus();
     if(role==='technician'){
       checkedMenus=checkedMenus.filter(m=>m!=='inventory'&&!String(m).startsWith('inventory_'));
     }
@@ -3819,7 +3834,7 @@ async function saveEditUser(){
     if(document.getElementById('edit-extra-technician').checked) extraRoles.push('technician');
     const patch={
       username, name, role,
-      custom_menus: isSameAsDefault ? [] : checkedMenus,
+      custom_menus: role==='superadmin' ? [] : (isSameAsDefault ? [] : checkedMenus),
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
       extra_roles: extraRoles,

@@ -1,0 +1,9 @@
+PXL-REV-0036 Verification
+
+[OK] Menu definition CRM tersedia.
+[OK] Tab CRM tersedia.
+[OK] CRM berada pada grup Sales & Proyek.
+[OK] Checklist CRM berada pada grup Sales, CRM & Proyek.
+[OK] Super Admin mengabaikan custom_menus.
+[OK] Semua checklist Super Admin dicentang dan dikunci.
+[OK] JavaScript public/index.html lolos node --check.
