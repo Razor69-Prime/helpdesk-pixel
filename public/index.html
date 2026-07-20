@@ -560,7 +560,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
   <div id="app-body">
     <!-- SIDEBAR -->
-    <div class="sidebar" id="main-sidebar">
+    <div class="sidebar" id="main-sidebar"><div style="font-size:9px;color:var(--muted);padding:2px 8px 8px">PXL-REV-0037</div>
       <div id="main-nav"></div>
     </div>
 
@@ -2776,6 +2776,32 @@ function buildNav(){
   syncActiveNavGroup();
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   if(tabs.length) document.getElementById('tab-'+tabs[0].id).classList.add('active');
+  ensureCrmMenuVisible();
+}
+
+function ensureCrmMenuVisible(){
+  const role=String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'');
+  const allowed=['superadmin','admin','manager','sales','accounting','technician'].includes(role);
+  if(!allowed) return;
+  const nav=document.getElementById('main-nav');
+  if(!nav || nav.querySelector('[data-tab-id="crm"]')) return;
+  let group=[...nav.querySelectorAll('.sidebar-group')].find(g=>{
+    const title=g.querySelector('.sidebar-group-toggle span');
+    return title && /sales/i.test(title.textContent||'');
+  });
+  if(!group){
+    group=document.createElement('div');
+    group.className='sidebar-group';
+    group.innerHTML='<button type="button" class="sidebar-group-toggle" aria-expanded="true"><span>Sales & Proyek</span><span class="sidebar-group-arrow">▾</span></button><div class="sidebar-group-content"></div>';
+    nav.appendChild(group);
+  }
+  const content=group.querySelector('.sidebar-group-content')||group;
+  const btn=document.createElement('button');
+  btn.className='nav-btn';
+  btn.dataset.tabId='crm';
+  btn.innerHTML='🤝 <span class="nav-label">CRM & Sales Order</span>';
+  btn.addEventListener('click',()=>switchTab('crm',btn));
+  content.appendChild(btn);
 }
 
 function getNavGroupState(){
@@ -3655,7 +3681,7 @@ function getDefaultMenus(role){
     case 'operator':   return['report','tickets','kunjungan','materials'];
     case 'accounting': return['tickets','invoice','materials'];
     case 'manager':    return['dashboard','tickets','invoice','kpi','materials','inventory'];
-    case 'sales':      return['kunjungan','projects','materials'];
+    case 'sales':      return['kunjungan','projects','crm','materials'];
     case 'admin':      return ALL_MENUS.map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id); // full access
     default:           return[];
@@ -3689,6 +3715,16 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const mrBox=document.getElementById('material-request-permission-checkboxes');
   if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+}
+
+
+function ensureCrmChecklist(){
+  const box=document.getElementById('menu-checkboxes');
+  if(!box || box.querySelector('[data-menu="crm"]')) return;
+  const wrap=document.createElement('label');
+  wrap.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)';
+  wrap.innerHTML='<input type="checkbox" data-menu="crm" checked style="width:14px;height:14px;accent-color:var(--accent)"/>🤝 CRM & Sales Order';
+  box.appendChild(wrap);
 }
 
 function getCheckedMenus(){
@@ -3742,6 +3778,7 @@ function openEditModal(userId){
   const currentMenus=Array.isArray(u.custom_menus)&&u.custom_menus.length>0
     ? u.custom_menus : getDefaultMenus(u.role);
   buildMenuCheckboxes(currentMenus, u.role==='superadmin');
+  ensureCrmChecklist();
   const menuBox=document.getElementById('menu-checkboxes');
   if(menuBox && u.role==='superadmin'){
     const info=document.createElement('div');

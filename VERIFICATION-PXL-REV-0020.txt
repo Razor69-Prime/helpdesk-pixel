@@ -1,0 +1,15 @@
+PXL-REV-0020 - VERIFICATION
+
+PASS: server.js node --check
+PASS: db.js node --check
+PASS: JavaScript inline public/index.html node --check
+PASS: item yang sama dicari berdasarkan inventory_item_id
+PASS: scan berulang menambah .mr-qout pada baris yang sama
+PASS: qty dicegah melebihi item.stock
+PASS: scanner modal tidak ditutup setelah scan berhasil
+PASS: input manual dibersihkan dan difokuskan kembali
+PASS: deteksi kamera menggunakan re-arm setelah barcode tidak terlihat beberapa frame
+
+Catatan:
+- Pengujian kamera fisik tetap dilakukan pada perangkat pengguna karena container tidak memiliki kamera.
+- Pengujian koneksi Supabase tetap dilakukan pada environment project pengguna.

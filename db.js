@@ -639,7 +639,10 @@ const CRM_FILES = {
   work_orders: path.join(__dirname,'data','crm_work_orders.json'),
   crm_material_requests: path.join(__dirname,'data','crm_material_requests.json'),
   additional_material_requests: path.join(__dirname,'data','additional_material_requests.json'),
-  crm_invoices: path.join(__dirname,'data','crm_invoices.json')
+  crm_invoices: path.join(__dirname,'data','crm_invoices.json'),
+  customer_import_staging: path.join(__dirname,'data','crm_customer_import_staging.json'),
+  whatsapp_templates: path.join(__dirname,'data','crm_whatsapp_templates.json'),
+  communication_history: path.join(__dirname,'data','crm_communication_history.json')
 };
 function readJsonFile(file){ try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return []} }
 function writeJsonFile(file,data){ fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,JSON.stringify(data,null,2)); }
@@ -698,6 +701,15 @@ async function insertCrmInvoice(data){
   const rows=await getCrmInvoices();
   return insertEntity('crm_invoices','crm_invoices',{...data,invoice_number:nextDocNo('INV',rows,'invoice_number'),status:data.status||'draft'});
 }
+
+async function getCustomerImportStaging(){return listEntity('crm_customer_import_staging','customer_import_staging')}
+async function insertCustomerImportStaging(data){return insertEntity('crm_customer_import_staging','customer_import_staging',data)}
+async function updateCustomerImportStaging(id,data){return updateEntity('crm_customer_import_staging','customer_import_staging',id,data)}
+async function getWhatsappTemplates(){return listEntity('crm_whatsapp_templates','whatsapp_templates','template_name.asc')}
+async function insertWhatsappTemplate(data){return insertEntity('crm_whatsapp_templates','whatsapp_templates',data)}
+async function getCommunicationHistory(){return listEntity('crm_communication_history','communication_history')}
+async function insertCommunicationHistory(data){return insertEntity('crm_communication_history','communication_history',data)}
+
 async function getCrmReport(){
   const [customers,sos,wos,mrs,amrs,invoices,projects,visits,tickets]=await Promise.all([
     getCrmCustomers(),getSalesOrders(),getCrmWorkOrders(),getCrmMaterialRequests(),getAdditionalMaterialRequests(),getCrmInvoices(),getProjects(),getSalesVisits(),getTickets(null,true)
@@ -732,5 +744,5 @@ module.exports = {
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
-  getCrmInvoices, insertCrmInvoice, getCrmReport
+  getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getCrmReport
 };

@@ -1,0 +1,14 @@
+PXL-REV-0025 Verification
+
+1. server.js: node --check PASSED
+2. db.js: node --check PASSED
+3. JavaScript public/index.html: node --check PASSED
+4. Formula frontend verified: qty_return = max(0, qty_out - qty_use)
+5. Initial pengambilan verified: qty_return stored as 0 until update pemakaian
+6. Backend PATCH uses RPC inventory_update_material_request_usage
+7. SQL RPC locks Material Request and Inventory rows before changing stock
+8. Material Prepare endpoint filters active roles: admin, accounting, manager
+9. Technician and PIC values are derived from the logged-in account
+10. No new npm dependency
+
+Catatan: koneksi nyata ke Supabase hanya dapat diuji setelah SQL dijalankan pada project pengguna.
