@@ -28,7 +28,7 @@
 <section class="page" id="customer360"><div class="toolbar"><div><h2>Customer 360</h2><div class="sub">Pusat ringkasan customer dengan tautan ke modul lama terkait.</div></div><button class="btn wa" id="wa360Btn" onclick="openCustomer360Whatsapp()">WhatsApp Customer</button></div><div class="card"><label>Pilih Customer</label><select id="c360Select" onchange="renderCustomer360()"></select></div><div id="c360Content" style="margin-top:12px"></div></section>
 </div><div id="msg"></div>
 <script>
-const token=localStorage.getItem('token')||localStorage.getItem('pxl_token')||'';
+const token=localStorage.getItem('pixel_token')||localStorage.getItem('token')||localStorage.getItem('pxl_token')||'';
 const H=()=>({'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})});
 let D={customers:[],communications:[],sales_orders:[],work_orders:[],material_requests:[],invoices:[],projects:[],visits:[],tickets:[],counts:{}};
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
