@@ -560,21 +560,25 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
   <div id="app-body">
     <!-- SIDEBAR -->
-    <div class="sidebar" id="main-sidebar"><div id="pxl-revision-marker" style="font-size:9px;color:#E07B39;padding:2px 8px 8px;font-weight:800">PXL-REV-0039 • CRM ACTIVE</div>
+    <div class="sidebar" id="main-sidebar"><div id="pxl-revision-marker" style="font-size:9px;color:#E07B39;padding:2px 8px 8px;font-weight:800">PXL-REV-0043 • CRM / PROJECT TRACKER / SALES ORDER</div>
       <div id="main-nav"></div>
       <div id="crm-static-fallback" style="display:none;padding:3px 0 8px">
-        <button type="button" class="nav-btn" data-tab-id="crm-fallback" onclick="switchTab('crm',this)">
-          🤝 <span class="nav-label">CRM</span>
-        </button>
+        <button type="button" class="nav-btn" data-tab-id="crm-fallback" onclick="switchTab('crm',this)">🤝 <span class="nav-label">CRM</span></button>
+        <button type="button" class="nav-btn" data-tab-id="sales-order-fallback" onclick="switchTab('sales_order',this)">🧾 <span class="nav-label">Sales Order</span></button>
       </div>
     </div>
 
     <!-- CONTENT -->
     <div class="app-content" id="app-content">
 
-    <!-- TAB: CRM / SALES ORDER -->
+    <!-- TAB: CRM -->
     <div id="tab-crm" class="tab-content" style="padding:0">
       <iframe id="crm-frame" title="CRM Pixel Solusindo" style="width:100%;height:calc(100vh - 70px);border:0;background:var(--bg)" loading="lazy"></iframe>
+    </div>
+
+    <!-- TAB: SALES ORDER -->
+    <div id="tab-sales_order" class="tab-content" style="padding:0">
+      <iframe id="sales-order-frame" title="Sales Order Pixel Solusindo" style="width:100%;height:calc(100vh - 70px);border:0;background:var(--bg)" loading="lazy"></iframe>
     </div>
 
     <!-- TAB: INPUT LAPORAN -->
@@ -2730,6 +2734,7 @@ function buildNav(){
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'||role==='technician'},
+    {id:'sales_order',label:'🧾 Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
@@ -2748,13 +2753,19 @@ function buildNav(){
     const crmDef=ALL_TAB_DEFS.find(t=>t.id==='crm');
     if(crmDef) tabs.push({...crmDef,show:true});
   }
+
+  const soAllowed=['superadmin','admin','manager','sales','accounting'].includes(role);
+  if(soAllowed && !tabs.some(t=>t.id==='sales_order')){
+    const soDef=ALL_TAB_DEFS.find(t=>t.id==='sales_order');
+    if(soDef) tabs.push({...soDef,show:true});
+  }
   // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
   if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
 
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','materials']},
-    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm']},
+    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm','sales_order']},
     {label:'Keuangan & Pengadaan', ids:['invoice','pr','supplier']},
     {label:'Gudang', ids:['inventory']},
     {label:'Administrasi', ids:['archive','users','actlog']},
@@ -2813,6 +2824,14 @@ function ensureCrmMenuVisible(){
   btn.innerHTML='🤝 <span class="nav-label">CRM</span>';
   btn.addEventListener('click',()=>switchTab('crm',btn));
   content.appendChild(btn);
+  if(['superadmin','admin','manager','sales','accounting'].includes(role) && !nav.querySelector('[data-tab-id="sales_order"]')){
+    const soBtn=document.createElement('button');
+    soBtn.className='nav-btn';
+    soBtn.dataset.tabId='sales_order';
+    soBtn.innerHTML='🧾 <span class="nav-label">Sales Order</span>';
+    soBtn.addEventListener('click',()=>switchTab('sales_order',soBtn));
+    content.appendChild(soBtn);
+  }
 }
 
 function getNavGroupState(){
@@ -2855,7 +2874,8 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0041';frame.dataset.loaded='1';} }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.src='/crm.html?v=PXL-REV-0042';frame.dataset.loaded='1';} }
+  if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.src='/sales-order.html?v=PXL-REV-0042';frame.dataset.loaded='1';} }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -3667,6 +3687,7 @@ const ALL_MENUS=[
   {id:'pr',      label:'📝 Purchase Request'},
   {id:'projects',label:'📁 Project Tracker'},
   {id:'crm',label:'🤝 CRM'},
+  {id:'sales_order',label:'🧾 Sales Order'},
   {id:'supplier',label:'🏪 Master Supplier'},
 
 ];
@@ -3692,7 +3713,7 @@ function getDefaultMenus(role){
     case 'operator':   return['report','tickets','kunjungan','materials'];
     case 'accounting': return['tickets','invoice','materials'];
     case 'manager':    return['dashboard','tickets','invoice','kpi','materials','inventory'];
-    case 'sales':      return['kunjungan','projects','crm','materials'];
+    case 'sales':      return['kunjungan','projects','crm','sales_order','materials'];
     case 'admin':      return ALL_MENUS.map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id); // full access
     default:           return[];
@@ -3706,7 +3727,7 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
     {label:'Operasional Teknisi',ids:['report','tickets','materials']},
-    {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','crm']},
+    {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','crm','sales_order']},
     {label:'Keuangan & Pengadaan',ids:['invoice','pr','supplier']},
     {label:'Gudang',ids:['inventory']},
     {label:'Administrasi',ids:['archive','users','actlog']}
