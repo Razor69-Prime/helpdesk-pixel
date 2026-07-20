@@ -666,9 +666,22 @@ async function updateEntity(table,localKey,id,patch){
   if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES[localKey]);const i=rows.findIndex(x=>x.id===id);if(i<0)throw new Error('Data tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES[localKey],rows);return rows[i];}
   const rows=await sbFetch('PATCH',`/${table}?id=eq.${id}`,data);return rows?.[0]||{id,...data};
 }
+async function deleteEntity(table,localKey,id){
+  if(!USE_SUPABASE){
+    const rows=readJsonFile(CRM_FILES[localKey]);
+    const i=rows.findIndex(x=>x.id===id);
+    if(i<0) throw new Error('Data tidak ditemukan');
+    const [deleted]=rows.splice(i,1);
+    writeJsonFile(CRM_FILES[localKey],rows);
+    return deleted;
+  }
+  const rows=await sbFetch('DELETE',`/${table}?id=eq.${id}`);
+  return rows?.[0]||{id};
+}
 async function getCrmCustomers(){return listEntity('crm_customers','customers','name.asc')}
 async function insertCrmCustomer(data){return insertEntity('crm_customers','customers',data)}
 async function updateCrmCustomer(id,data){return updateEntity('crm_customers','customers',id,data)}
+async function deleteCrmCustomer(id){return deleteEntity('crm_customers','customers',id)}
 async function getSalesOrders(){return listEntity('sales_orders','sales_orders')}
 async function insertSalesOrder(data){
   const rows=await getSalesOrders();
@@ -739,7 +752,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getCrmCustomers, insertCrmCustomer, updateCrmCustomer,
+  getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
   getSalesOrders, insertSalesOrder, updateSalesOrder,
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
