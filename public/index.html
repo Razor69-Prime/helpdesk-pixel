@@ -2714,8 +2714,8 @@ function buildNav(){
   const isManager=role==='manager';
   const custom=currentUser.custom_menus; // array or undefined
 
-  // Jika custom_menus diset → gunakan itu, else default per role
-  const hasCustom=Array.isArray(custom)&&custom.length>0;
+  // PXL-REV-0048: default role selalu aktif; custom_menus hanya menambah akses.
+  const customMenus=Array.isArray(custom)?custom:[];
 
   const isSuperAdmin=role==='superadmin';
   const ALL_TAB_DEFS=[
@@ -2733,7 +2733,7 @@ function buildNav(){
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
-    {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'||role==='technician'},
+    {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'sales_order',label:'🧾 Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
@@ -2742,19 +2742,14 @@ function buildNav(){
   if(isSuperAdmin){
     // superadmin selalu dapat semua tab, tidak bisa dibatasi custom menu
     tabs=ALL_TAB_DEFS.map(t=>({...t,show:true})); // Super Admin selalu melihat semua menu
-  } else if(hasCustom){
-    tabs=ALL_TAB_DEFS.filter(t=>custom.includes(t.id)||(isManager&&t.id==='dashboard'));
   } else {
-    tabs=ALL_TAB_DEFS.filter(t=>t.show);
-  }
-  // PXL-REV-0039: CRM wajib tersedia untuk role yang diizinkan, terlepas dari custom_menus lama.
-  const crmAllowed=['superadmin','admin','manager','sales','accounting','technician'].includes(role);
-  if(crmAllowed && !tabs.some(t=>t.id==='crm')){
-    const crmDef=ALL_TAB_DEFS.find(t=>t.id==='crm');
-    if(crmDef) tabs.push({...crmDef,show:true});
+    const defaults=getDefaultMenus(role);
+    const forbidden=getForbiddenMenus(role);
+    const effective=[...new Set([...defaults,...customMenus])].filter(id=>!forbidden.includes(id));
+    tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id));
   }
 
-  // PXL-REV-0047: seluruh akun Sales selalu mendapat akses pembuatan WO/Input Laporan, meski custom_menus lama belum memuatnya.
+  // PXL-REV-0048: seluruh akun Sales selalu mendapat akses pembuatan WO/Input Laporan, meski custom_menus lama belum memuatnya.
   if(role==='sales' && !tabs.some(t=>t.id==='report')){
     const reportDef=ALL_TAB_DEFS.find(t=>t.id==='report');
     if(reportDef) tabs.push({...reportDef,show:true});
@@ -3717,19 +3712,37 @@ const MATERIAL_REQUEST_PERMISSIONS=[
   {id:'material_request_barcode',label:'📷 Scan Barcode Material'}
 ];
 
-// Default menu per role
+// Default menu per role/divisi. Default tidak dapat dicabut oleh custom access.
 function getDefaultMenus(role){
   role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
   switch(role){
-    case 'technician': return['report','tickets','materials'];
-    case 'operator':   return['report','tickets','kunjungan','materials'];
-    case 'accounting': return['tickets','invoice','materials'];
-    case 'manager':    return['dashboard','tickets','invoice','kpi','materials','inventory'];
-    case 'sales':      return['kunjungan','projects','crm','sales_order','materials'];
-    case 'admin':      return ALL_MENUS.map(m=>m.id);
-    case 'superadmin': return ALL_MENUS.map(m=>m.id); // full access
-    default:           return[];
+    case 'technician': return ['report','tickets','materials'];
+    case 'operator':   return ['report','tickets','kunjungan','materials'];
+    case 'accounting': return ['tickets','invoice','archive','materials','pr','supplier'];
+    case 'manager':    return ['dashboard','report','tickets','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
+    case 'sales':      return ['report','tickets','kpi','kunjungan','projects','crm','sales_order','materials'];
+    case 'admin':      return ALL_MENUS.filter(m=>m.id!=='actlog').map(m=>m.id);
+    case 'superadmin': return ALL_MENUS.map(m=>m.id);
+    default:           return [];
   }
+}
+
+// Modul sensitif yang tetap terkunci walaupun dicentang melalui custom access.
+function getForbiddenMenus(role){
+  role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(role==='technician') return ['invoice','sales','crm','sales_order','projects','archive','users','actlog','pr','supplier'];
+  if(role==='sales') return ['users','actlog'];
+  if(role==='accounting') return ['users','actlog'];
+  if(role==='operator') return ['invoice','sales','crm','sales_order','users','actlog','supplier'];
+  return [];
+}
+
+function getEffectiveMenus(role, customMenus){
+  if(String(role||'').toLowerCase()==='superadmin') return ALL_MENUS.map(m=>m.id);
+  const defaults=getDefaultMenus(role);
+  const custom=Array.isArray(customMenus)?customMenus:[];
+  const forbidden=getForbiddenMenus(role);
+  return [...new Set([...defaults,...custom])].filter(id=>!forbidden.includes(id));
 }
 
 function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
@@ -3819,8 +3832,7 @@ function openEditModal(userId){
   const superOpt=document.getElementById('edit-role-superadmin');
   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
   // populate menu checkboxes
-  const currentMenus=Array.isArray(u.custom_menus)&&u.custom_menus.length>0
-    ? u.custom_menus : getDefaultMenus(u.role);
+  const currentMenus=getEffectiveMenus(u.role,u.custom_menus);
   buildMenuCheckboxes(currentMenus, u.role==='superadmin');
   ensureCrmChecklist();
   const menuBox=document.getElementById('menu-checkboxes');
@@ -3830,14 +3842,21 @@ function openEditModal(userId){
     info.textContent='Super Admin selalu memiliki akses penuh. Semua menu dan permission wajib aktif dan tidak dapat dinonaktifkan.';
     menuBox.prepend(info);
   }
-  if(u.role==='technician'){
-    document.querySelectorAll('[data-menu="inventory"],[data-menu^="inventory_"]').forEach(el=>{
-      el.checked=false;
-      el.disabled=true;
-      const label=el.closest('label');
-      if(label){label.style.opacity='.45';label.title='Teknisi menggunakan Inventory melalui Material Request, tanpa akses modul Inventory Asset.';}
-    });
-  }
+  // Default divisi selalu aktif dan tidak dapat dicabut. Custom access hanya menambah menu.
+  const defaultsLocked=getDefaultMenus(u.role);
+  const forbiddenLocked=getForbiddenMenus(u.role);
+  document.querySelectorAll('#menu-checkboxes [data-menu],#inventory-permission-checkboxes [data-menu],#material-request-permission-checkboxes [data-menu]').forEach(el=>{
+    const id=el.dataset.menu;
+    const label=el.closest('label');
+    if(defaultsLocked.includes(id)){
+      el.checked=true; el.disabled=true;
+      if(label){label.title='Akses default divisi dan tidak dapat dinonaktifkan.';}
+    }
+    if(forbiddenLocked.includes(id) || (u.role==='technician' && (id==='inventory'||String(id).startsWith('inventory_')))){
+      el.checked=false; el.disabled=true;
+      if(label){label.style.opacity='.45';label.title='Modul sensitif dikunci untuk divisi ini.';}
+    }
+  });
   // load signature preview if exists
   document.getElementById('edit-signature-file').value='';
   document.getElementById('edit-signature-url').value=u.signature_url||'';
@@ -3896,9 +3915,9 @@ async function saveEditUser(){
     let checkedMenus=role==='superadmin'
       ? [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS].map(m=>m.id)
       : getCheckedMenus();
-    if(role==='technician'){
-      checkedMenus=checkedMenus.filter(m=>m!=='inventory'&&!String(m).startsWith('inventory_'));
-    }
+    const forbiddenMenus=getForbiddenMenus(role);
+    if(role==='technician') forbiddenMenus.push('inventory',...INVENTORY_PERMISSIONS.map(x=>x.id));
+    checkedMenus=checkedMenus.filter(m=>!forbiddenMenus.includes(m));
     const defaultMenus=getDefaultMenus(role);
     // Simpan custom_menus hanya jika berbeda dari default role
     // Collect PR roles
@@ -3915,7 +3934,7 @@ async function saveEditUser(){
     if(document.getElementById('edit-extra-technician').checked) extraRoles.push('technician');
     const patch={
       username, name, role,
-      custom_menus: role==='superadmin' ? [] : (isSameAsDefault ? [] : checkedMenus),
+      custom_menus: role==='superadmin' ? [] : checkedMenus.filter(m=>!defaultMenus.includes(m)),
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
       extra_roles: extraRoles,

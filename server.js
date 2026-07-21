@@ -119,6 +119,19 @@ function requireRole(...roles) {
   };
 }
 
+// PXL-REV-0048: proteksi backend untuk modul sensitif per divisi.
+function denyRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.session.user.role === 'superadmin') return next();
+    if (roles.includes(req.session.user.role)) return res.status(403).json({ error: 'Akses modul tidak tersedia untuk divisi Anda.' });
+    next();
+  };
+}
+const CRM_READ_ROLES=['sales','admin','manager','accounting','superadmin'];
+const SO_READ_ROLES=['sales','admin','manager','accounting','superadmin'];
+const INVOICE_READ_ROLES=['accounting','admin','manager','superadmin'];
+
 function trackExpiry(t) { return new Date(new Date(t.created_at).getTime() + cfg.TRACK_DAYS * 864e5); }
 function isExpired(t)   { return new Date() > trackExpiry(t); }
 
@@ -644,12 +657,12 @@ app.delete('/api/tickets/:id/invoice/:invId', requireRole('accounting','admin'),
 //  INVOICE TANPA WO (STANDALONE)
 //  Hanya untuk akun yang di-checklist admin: allow_invoice_no_wo = true
 // ══════════════════════════════════════════
-app.get('/api/invoices/standalone', requireAuth, async (req, res) => {
+app.get('/api/invoices/standalone', requireRole(...INVOICE_READ_ROLES), async (req, res) => {
   try { res.json(await db.getStandaloneInvoices()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/invoices/standalone', requireAuth, upload.single('file'), async (req, res) => {
+app.post('/api/invoices/standalone', requireRole('accounting','admin','manager','superadmin'), upload.single('file'), async (req, res) => {
   try {
     if (req.session.user.allow_invoice_no_wo !== true) {
       return res.status(403).json({ error: 'Anda tidak memiliki izin upload invoice tanpa WO.' });
@@ -1343,13 +1356,13 @@ app.get('/track/:token', (req, res) => {
 // CRM + SALES ORDER FLOW — PXL-REV-0035 CUMULATIVE
 // ══════════════════════════════════════════
 const CRM_WRITE_ROLES=['sales','manager','admin','superadmin'];
-app.get('/api/crm/report',requireAuth,async(req,res)=>{try{res.json(await db.getCrmReport())}catch(e){res.status(500).json({error:e.message})}});
-app.get('/api/crm/customers',requireAuth,async(req,res)=>{try{res.json(await db.getCrmCustomers())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/report',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmReport())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/customers',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmCustomers())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/customers',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.name)return res.status(400).json({error:'Nama customer wajib diisi'});const x=await db.insertCrmCustomer({...req.body,created_by:req.session.user.name});logActivity(req,'crm','BUAT CUSTOMER',x.name);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.patch('/api/crm/customers/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{res.json(await db.updateCrmCustomer(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{try{const deleted=await db.deleteCrmCustomer(req.params.id);logActivity(req,'crm','HAPUS CUSTOMER',deleted?.name||req.params.id);res.json({ok:true,deleted})}catch(e){const status=/foreign key|constraint|reference/i.test(String(e.message))?409:500;res.status(status).json({error:status===409?'Customer masih terhubung dengan data lain dan belum dapat dihapus.':e.message})}});
 
-app.get('/api/sales-orders',requireAuth,async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
@@ -1368,14 +1381,14 @@ app.post('/api/crm/additional-materials/:id/customer-approve',requireRole(...CRM
 
 
 function normalizeWaNumber(v){const d=String(v||'').replace(/\D/g,'');if(!d)return'';if(d.startsWith('62'))return d;if(d.startsWith('0'))return '62'+d.slice(1);return '62'+d;}
-app.get('/api/crm/whatsapp-templates',requireAuth,async(req,res)=>{try{res.json(await db.getWhatsappTemplates())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/communications',requireAuth,async(req,res)=>{try{if(!req.body.customer_id||!req.body.channel)return res.status(400).json({error:'Customer dan channel wajib'});const x=await db.insertCommunicationHistory({...req.body,created_by:req.session.user.name,communication_at:new Date().toISOString()});await db.updateCrmCustomer(req.body.customer_id,{last_communication_at:x.communication_at,last_communication_channel:req.body.channel,next_follow_up_at:req.body.next_follow_up_at||null});res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
-app.get('/api/crm/communications/all',requireAuth,async(req,res)=>{try{res.json(await db.getCommunicationHistory())}catch(e){res.status(500).json({error:e.message})}});
-app.get('/api/crm/communications/:customerId',requireAuth,async(req,res)=>{try{const rows=await db.getCommunicationHistory();res.json(rows.filter(x=>x.customer_id===req.params.customerId))}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/whatsapp-templates',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getWhatsappTemplates())}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/communications',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{if(!req.body.customer_id||!req.body.channel)return res.status(400).json({error:'Customer dan channel wajib'});const x=await db.insertCommunicationHistory({...req.body,created_by:req.session.user.name,communication_at:new Date().toISOString()});await db.updateCrmCustomer(req.body.customer_id,{last_communication_at:x.communication_at,last_communication_channel:req.body.channel,next_follow_up_at:req.body.next_follow_up_at||null});res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/communications/all',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCommunicationHistory())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/communications/:customerId',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{const rows=await db.getCommunicationHistory();res.json(rows.filter(x=>x.customer_id===req.params.customerId))}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/customer-import/staging',requireRole('admin','superadmin'),async(req,res)=>{try{const rows=Array.isArray(req.body)?req.body:[req.body];const out=[];for(const r of rows){out.push(await db.insertCustomerImportStaging({...r,normalized_phone:normalizeWaNumber(r.phone),import_status:'pending'}))}res.status(201).json(out)}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/customer-import/:id/commit',requireRole('admin','superadmin'),async(req,res)=>{try{const rows=await db.getCustomerImportStaging();const r=rows.find(x=>x.id===req.params.id);if(!r)return res.status(404).json({error:'Data staging tidak ditemukan'});const customers=await db.getCrmCustomers();let c=customers.find(x=>(r.legacy_customer_id&&x.legacy_customer_id===r.legacy_customer_id&&x.source_name===r.source_name)||(r.normalized_phone&&x.normalized_phone===r.normalized_phone));if(c)c=await db.updateCrmCustomer(c.id,{name:r.name,type:r.type,sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address});else c=await db.insertCrmCustomer({name:r.name,type:r.type||'B2B',sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address,legacy_customer_id:r.legacy_customer_id,source_name:r.source_name||'existing_customer',status:'active',created_by:req.session.user.name});await db.updateCustomerImportStaging(r.id,{import_status:'imported',matched_customer_id:c.id});res.json(c)}catch(e){res.status(500).json({error:e.message})}});
 
-app.get('/api/crm/invoices',requireAuth,async(req,res)=>{try{res.json(await db.getCrmInvoices())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/crm/invoices',requireRole(...INVOICE_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmInvoices())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/invoices/from-so/:soId',requireRole('accounting','manager','admin','superadmin'),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const amrs=(await db.getAdditionalMaterialRequests()).filter(x=>x.sales_order_id===so.id&&x.status==='approved');const additional=amrs.flatMap(x=>(x.items||[]).map(i=>({...i,amr_number:x.amr_number})));const base=Number(so.total_amount||0),extra=additional.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const grand=base+extra,downPayment=Number(req.body.down_payment||0),redemption=Number(req.body.redemption||0);const x=await db.insertCrmInvoice({sales_order_id:so.id,so_number:so.so_number,customer_id:so.customer_id||null,customer_name:so.customer_name,work_order_ids:req.body.work_order_ids||[],items:so.items||[],additional_items:additional,base_total:base,additional_total:extra,grand_total:grand,invoice_date:req.body.invoice_date||new Date().toISOString().slice(0,10),due_date:req.body.due_date||null,down_payment:downPayment,redemption,balance_due:Math.max(0,grand-downPayment-redemption),payment_method:req.body.payment_method||'CASH & TRANSFER BANK',remark:req.body.remark||null,billing_address:req.body.billing_address||null,created_by:req.session.user.name});for(const a of amrs)await db.updateAdditionalMaterialRequest(a.id,{status:'invoiced',invoice_id:x.id});logActivity(req,'invoice','BUAT INVOICE DARI SO',x.invoice_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 
 // ══════════════════════════════════════════
