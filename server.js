@@ -3,6 +3,7 @@ const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
 const crypto   = require('crypto');
+const ExcelJS  = require('exceljs');
 const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
@@ -53,14 +54,27 @@ const upload = multer({
   }
 });
 
+
+// PXL-REV-0050 — upload khusus workbook Inventory.
+// ExcelJS membaca .xlsx; file lama .xls perlu disimpan ulang sebagai .xlsx.
+const inventoryExcelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (ext === '.xlsx') return cb(null, true);
+    cb(new Error('File Inventory harus berformat .xlsx. Untuk file .xls, buka lalu Save As menjadi .xlsx.'));
+  }
+});
+
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = cfg.SESSION_SECRET;
 
 // ── JWT Session Middleware ──
 // Token dikirim via Authorization header dari frontend (localStorage)
 // Bekerja sempurna di Vercel serverless tanpa cookie issue
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 app.use((req, res, next) => {
   req.session = { user: null };
@@ -1483,6 +1497,431 @@ async function createNotification({ type, text, target_role, target_user_id, ref
   }
 }
 
+
+
+// ══════════════════════════════════════════
+//  INVENTORY — PXL-REV-0050
+//  Memulihkan API Inventory yang sempat hilang dari server cumulative CRM/RBAC.
+// ══════════════════════════════════════════
+function hasInventoryAccess(req, permission) {
+  const user = req.session?.user || {};
+  const role = String(user.role || '').toLowerCase().replace(/[ _-]/g, '');
+  if (role === 'superadmin') return true;
+  // Sesuai RBAC PXL-REV-0048/0049: teknisi tidak dapat membuka modul Inventory.
+  if (role === 'technician') return false;
+
+  const custom = Array.isArray(user.custom_menus) ? user.custom_menus : [];
+  const defaults = {
+    inventory_view: ['admin', 'manager'],
+    inventory_manage: ['admin', 'manager'],
+    inventory_import_export: ['admin', 'manager'],
+    inventory_barcode: ['admin', 'manager'],
+    inventory_opname: ['admin', 'manager']
+  };
+  // Opsi B: default divisi + custom access sebagai tambahan.
+  if ((defaults[permission] || []).includes(role)) return true;
+  if (custom.includes(permission)) return true;
+  if (permission === 'inventory_view' && custom.includes('inventory')) return true;
+  return false;
+}
+
+function requireInventoryPermission(permission) {
+  return (req, res, next) => {
+    if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (permission === 'inventory_delete' && String(req.session.user.role) !== 'superadmin') {
+      return res.status(403).json({ error: 'Hapus inventory hanya untuk Super Admin.' });
+    }
+    if (!hasInventoryAccess(req, permission)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses fitur Inventory ini.' });
+    }
+    next();
+  };
+}
+
+function inventoryCellValue(cell) {
+  const value = cell?.value;
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    if (Object.prototype.hasOwnProperty.call(value, 'result')) return value.result ?? '';
+    if (Array.isArray(value.richText)) return value.richText.map(x => x.text || '').join('');
+    if (Object.prototype.hasOwnProperty.call(value, 'text')) return value.text ?? '';
+    if (Object.prototype.hasOwnProperty.call(value, 'hyperlink')) return value.text || value.hyperlink || '';
+  }
+  return value;
+}
+
+function inventoryParseNumber(value) {
+  if (typeof value === 'number') return value;
+  let text = String(value ?? '').trim().replace(/\s/g, '');
+  if (!text) return 0;
+  if (text.includes('.') && text.includes(',')) text = text.replace(/\./g, '').replace(',', '.');
+  else if (text.includes(',')) text = text.replace(',', '.');
+  return Number(text);
+}
+
+function inventorySheetToRows(worksheet) {
+  const headerMap = new Map();
+  worksheet.getRow(1).eachCell({ includeEmpty: false }, (cell, col) => {
+    const key = String(inventoryCellValue(cell) || '').trim().toLowerCase();
+    if (key) headerMap.set(key, col);
+  });
+  const findCol = names => {
+    for (const name of names) {
+      const col = headerMap.get(String(name).toLowerCase());
+      if (col) return col;
+    }
+    return null;
+  };
+  const cols = {
+    name: findCol(['Nama Barang', 'name']),
+    sku: findCol(['SKU', 'sku']),
+    product_number: findCol(['Product Number', 'product_number']),
+    barcode: findCol(['Barcode', 'barcode']),
+    category: findCol(['Kategori', 'category']),
+    subcategory: findCol(['Sub Kategori', 'Subkategori', 'subcategory']),
+    unit: findCol(['Satuan', 'unit']),
+    stock: findCol(['Stok Cut Off', 'Stok Saat Ini', 'stock']),
+    min_stock: findCol(['Minimum Stok', 'min_stock'])
+  };
+  if (!cols.name || !cols.stock) {
+    throw new Error('Header wajib Nama Barang dan Stok Cut Off tidak ditemukan pada sheet pertama.');
+  }
+  const get = (row, col) => col ? inventoryCellValue(row.getCell(col)) : '';
+  const rows = [];
+  for (let rowNumber = 2; rowNumber <= worksheet.actualRowCount; rowNumber++) {
+    const row = worksheet.getRow(rowNumber);
+    const rawName = String(get(row, cols.name) ?? '').trim();
+    const rawStock = get(row, cols.stock);
+    const hasAny = rawName || String(rawStock ?? '').trim() || Object.values(cols).some(col => col && String(get(row, col) ?? '').trim());
+    if (!hasAny) continue;
+    rows.push({
+      row_number: rowNumber,
+      name: rawName,
+      sku: String(get(row, cols.sku) ?? '').trim(),
+      product_number: String(get(row, cols.product_number) ?? '').trim(),
+      barcode: String(get(row, cols.barcode) ?? '').trim(),
+      category: String(get(row, cols.category) ?? '').trim() || 'Belum Dikategorikan',
+      subcategory: String(get(row, cols.subcategory) ?? '').trim() || 'Umum',
+      unit: String(get(row, cols.unit) ?? '').trim().toLowerCase() || 'pcs',
+      stock: inventoryParseNumber(rawStock),
+      min_stock: inventoryParseNumber(get(row, cols.min_stock))
+    });
+  }
+  return rows;
+}
+
+app.get('/api/inventory/health', async (req, res) => {
+  try {
+    const health = await db.getInventoryHealth();
+    res.json({ ok: true, ...health });
+  } catch (e) {
+    console.error('[Inventory Health]', e.message);
+    res.status(503).json({
+      ok: false,
+      error: e.message,
+      hint: 'Pastikan route Inventory sudah terdeploy dan SQL PXL-REV-0050 telah dijalankan di Supabase.'
+    });
+  }
+});
+
+app.get('/api/inventory/access', requireAuth, (req, res) => {
+  res.json({
+    view: hasInventoryAccess(req, 'inventory_view'),
+    manage: hasInventoryAccess(req, 'inventory_manage'),
+    import_export: hasInventoryAccess(req, 'inventory_import_export'),
+    barcode: hasInventoryAccess(req, 'inventory_barcode'),
+    opname: hasInventoryAccess(req, 'inventory_opname'),
+    delete: String(req.session.user.role) === 'superadmin'
+  });
+});
+
+app.get('/api/inventory/categories', requireInventoryPermission('inventory_view'), async (req, res) => {
+  try { res.json(await db.getInventoryCategories()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/barcode-next', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try { res.json({ barcode: await db.generateInventoryBarcode() }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/lookup', requireInventoryPermission('inventory_view'), async (req, res) => {
+  try {
+    const code = String(req.query.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'Kode barcode/SKU wajib diisi.' });
+    res.json({ item: await db.findInventoryItemByCode(code) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/sku-preview', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try {
+    const category = String(req.query.category || '').trim();
+    const subcategory = String(req.query.subcategory || '').trim();
+    if (!category || !subcategory) return res.status(400).json({ error: 'Kategori dan Sub Kategori wajib diisi.' });
+    res.json({ sku: await db.generateInventorySku(category, subcategory) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/template.xlsx', requireInventoryPermission('inventory_import_export'), async (req, res) => {
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Pixel Solusindo';
+    const ws = wb.addWorksheet('Template Inventory', { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = [
+      { header: 'Nama Barang', key: 'name', width: 36 },
+      { header: 'SKU', key: 'sku', width: 18 },
+      { header: 'Product Number', key: 'product_number', width: 22 },
+      { header: 'Barcode', key: 'barcode', width: 20 },
+      { header: 'Kategori', key: 'category', width: 24 },
+      { header: 'Sub Kategori', key: 'subcategory', width: 28 },
+      { header: 'Satuan', key: 'unit', width: 14 },
+      { header: 'Stok Cut Off', key: 'stock', width: 16 },
+      { header: 'Minimum Stok', key: 'min_stock', width: 16 }
+    ];
+    ws.addRow({
+      name: 'Contoh Kabel UTP', sku: '', product_number: 'CBL-001', barcode: '',
+      category: 'Material Kabel', subcategory: 'Kabel LAN', unit: 'meter', stock: 100, min_stock: 20
+    });
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE07B39' } };
+    ws.autoFilter = 'A1:I1';
+
+    const guide = wb.addWorksheet('Petunjuk');
+    [
+      'PETUNJUK IMPORT CUT OFF INVENTORY',
+      '1. Jangan mengubah nama header pada baris pertama.',
+      '2. Nama Barang dan Stok Cut Off wajib diisi.',
+      '3. SKU dan Barcode boleh dikosongkan agar dibuat otomatis.',
+      '4. Barang dicocokkan berdasarkan SKU, Product Number, Barcode, lalu Nama Barang.',
+      '5. Kategori dan Sub Kategori akan disimpan serta ditambahkan ke master kategori.',
+      '6. Stok Cut Off menjadi saldo terbaru dan selisih dicatat pada Log Stok.',
+      '7. Maksimum 3.000 baris per import.'
+    ].forEach(text => guide.addRow([text]));
+    guide.getColumn(1).width = 100;
+    guide.getRow(1).font = { bold: true };
+
+    const out = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="template-import-inventory.xlsx"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(Buffer.from(out));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/export.xlsx', requireInventoryPermission('inventory_import_export'), async (req, res) => {
+  try {
+    const [items, logs] = await Promise.all([db.getInventoryItems(), db.getInventoryTransactions()]);
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Pixel Solusindo';
+    const ws = wb.addWorksheet('Stok Inventory', { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = [
+      { header: 'Nama Barang', key: 'name', width: 36 },
+      { header: 'SKU', key: 'sku', width: 18 },
+      { header: 'Product Number', key: 'product_number', width: 22 },
+      { header: 'Barcode', key: 'barcode', width: 20 },
+      { header: 'Kategori', key: 'category', width: 24 },
+      { header: 'Sub Kategori', key: 'subcategory', width: 28 },
+      { header: 'Satuan', key: 'unit', width: 14 },
+      { header: 'Stok Saat Ini', key: 'stock', width: 16 },
+      { header: 'Minimum Stok', key: 'min_stock', width: 16 },
+      { header: 'Status', key: 'status', width: 14 }
+    ];
+    for (const i of items) {
+      const stock = Number(i.stock || 0), min = Number(i.min_stock || 0);
+      ws.addRow({
+        name: i.name, sku: i.sku || '', product_number: i.product_number || '', barcode: i.barcode || '',
+        category: i.category || '', subcategory: i.subcategory || '', unit: i.unit || '', stock, min_stock: min,
+        status: stock <= min ? 'Kritis' : (min > 0 && stock <= min * 1.5 ? 'Rendah' : 'Aman')
+      });
+    }
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE07B39' } };
+    ws.autoFilter = 'A1:J1';
+
+    const logWs = wb.addWorksheet('Log Stok', { views: [{ state: 'frozen', ySplit: 1 }] });
+    logWs.columns = [
+      { header: 'Tanggal', key: 'date', width: 22 }, { header: 'Jenis', key: 'type', width: 16 },
+      { header: 'Barang', key: 'item', width: 34 }, { header: 'Qty', key: 'qty', width: 12 },
+      { header: 'Satuan', key: 'unit', width: 12 }, { header: 'Saldo Setelah', key: 'balance', width: 16 },
+      { header: 'Referensi', key: 'reference', width: 26 }, { header: 'Catatan', key: 'notes', width: 34 },
+      { header: 'Oleh', key: 'actor', width: 22 }
+    ];
+    for (const l of logs) {
+      logWs.addRow({
+        date: l.created_at ? new Date(l.created_at).toLocaleString('id-ID') : '', type: l.transaction_type || '',
+        item: l.inventory_items?.name || '', qty: Number(l.qty || 0), unit: l.inventory_items?.unit || '',
+        balance: Number(l.balance_after || 0), reference: l.reference || '', notes: l.notes || '', actor: l.created_by || ''
+      });
+    }
+    logWs.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    logWs.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE07B39' } };
+
+    const out = await wb.xlsx.writeBuffer();
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="inventory-${stamp}.xlsx"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(Buffer.from(out));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/inventory/import/preview', requireInventoryPermission('inventory_import_export'), inventoryExcelUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Pilih file Excel terlebih dahulu.' });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(req.file.buffer);
+    const worksheet = wb.worksheets[0];
+    if (!worksheet) return res.status(400).json({ error: 'Workbook tidak memiliki sheet.' });
+    const rows = inventorySheetToRows(worksheet);
+    if (!rows.length) return res.status(400).json({ error: 'File Excel tidak memiliki data.' });
+
+    const errors = [];
+    const skuSeen = new Set(), pnSeen = new Set(), bcSeen = new Set(), identitySeen = new Set();
+    for (const row of rows) {
+      if (!row.name) errors.push(`Baris ${row.row_number}: Nama Barang wajib diisi.`);
+      if (!Number.isFinite(row.stock) || row.stock < 0) errors.push(`Baris ${row.row_number}: Stok Cut Off tidak valid.`);
+      if (!Number.isFinite(row.min_stock) || row.min_stock < 0) errors.push(`Baris ${row.row_number}: Minimum Stok tidak valid.`);
+      for (const [field, seen, label] of [['sku', skuSeen, 'SKU'], ['product_number', pnSeen, 'Product Number'], ['barcode', bcSeen, 'Barcode']]) {
+        if (!row[field]) continue;
+        const key = row[field].toLowerCase();
+        if (seen.has(key)) errors.push(`Baris ${row.row_number}: ${label} duplikat dalam file.`);
+        seen.add(key);
+      }
+      const identity = (row.sku || row.product_number || row.barcode || row.name).toLowerCase();
+      if (identitySeen.has(identity)) errors.push(`Baris ${row.row_number}: Barang yang sama muncul lebih dari sekali dalam file.`);
+      identitySeen.add(identity);
+    }
+    res.json({ ok: errors.length === 0, sheet: worksheet.name, row_count: rows.length, rows, errors });
+  } catch (e) {
+    console.error('[Inventory Import Preview]', e);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/inventory/import/commit', requireInventoryPermission('inventory_import_export'), async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+    if (!rows.length) return res.status(400).json({ error: 'Tidak ada data import untuk diproses.' });
+    if (rows.length > 3000) return res.status(400).json({ error: 'Maksimum 3.000 baris per import.' });
+    const result = await db.importInventoryCutoff(rows, req.session.user.name);
+    logActivity(req, 'inventory', 'IMPORT CUT OFF EXCEL', `${rows.length} baris`);
+    res.json({ ok: true, result });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.get('/api/inventory/items', requireInventoryPermission('inventory_view'), async (req, res) => {
+  try { res.json(await db.getInventoryItems()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/inventory/logs', requireInventoryPermission('inventory_view'), async (req, res) => {
+  try { res.json(await db.getInventoryTransactions()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/inventory/opnames', requireInventoryPermission('inventory_view'), async (req, res) => {
+  try { res.json(await db.getInventoryOpnames()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const qty = Number(req.body.qty || 0);
+    if (!name) return res.status(400).json({ error: 'Nama barang wajib diisi.' });
+    if (qty < 0) return res.status(400).json({ error: 'Qty tidak boleh negatif.' });
+    const category = String(req.body.category || '').trim();
+    const subcategory = String(req.body.subcategory || '').trim();
+    if (!category || !subcategory) return res.status(400).json({ error: 'Kategori dan subkategori wajib dipilih.' });
+    const trackingMode = String(req.body.tracking_mode || 'quantity') === 'serial' ? 'serial' : 'quantity';
+    if (trackingMode === 'serial' && qty > 0) return res.status(400).json({ error: 'Stok awal barang serial harus 0. Tambahkan melalui Restock.' });
+    const suppliedBarcode = String(req.body.barcode || '').trim();
+    if (suppliedBarcode && !/^[A-Za-z0-9._-]{4,40}$/.test(suppliedBarcode)) return res.status(400).json({ error: 'Format barcode tidak valid.' });
+    if (suppliedBarcode) {
+      const duplicate = await db.findInventoryItemByCode(suppliedBarcode);
+      if (duplicate) return res.status(409).json({ error: `Barcode sudah digunakan oleh ${duplicate.name} (${duplicate.sku || '-'}).` });
+    }
+    const sku = String(req.body.sku || '').trim() || await db.generateInventorySku(category, subcategory);
+    const barcode = suppliedBarcode || await db.generateInventoryBarcode();
+    const item = await db.insertInventoryItem({
+      name, sku, product_number: String(req.body.product_number || '').trim() || null,
+      category, subcategory, unit: String(req.body.unit || 'pcs'), tracking_mode: trackingMode,
+      stock: qty, min_stock: Number(req.body.min_stock || 0), barcode, is_active: true
+    });
+    if (qty > 0) await db.insertInventoryTransaction({
+      item_id: item.id, transaction_type: 'RESTOCK', qty, balance_after: qty,
+      reference: 'Stok awal', notes: 'Barang baru', created_by: req.session.user.name
+    });
+    const persisted = await db.getInventoryItem(item.id);
+    if (!persisted) throw new Error('Barang tidak ditemukan kembali setelah disimpan ke Supabase.');
+    logActivity(req, 'inventory', 'TAMBAH BARANG', `${name} · stok awal ${qty}`);
+    res.status(201).json({ ok: true, item: persisted });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_delete'), async (req, res) => {
+  try {
+    const result = await db.deleteInventoryItem(req.params.id, req.session.user.name);
+    logActivity(req, 'inventory', 'HAPUS BARANG', `${result.name || req.params.id} · stok dinolkan dan item dinonaktifkan`);
+    res.json({ ok: true, item: result });
+  } catch (e) {
+    const message = String(e.message || e);
+    res.status(message.includes('Barang tidak ditemukan') ? 404 : 500).json({ error: message });
+  }
+});
+
+app.post('/api/inventory/items/:id/restock-batch', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try {
+    const item = await db.getInventoryItem(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Barang tidak ditemukan.' });
+    const serialNumbers = Array.isArray(req.body.serial_numbers)
+      ? req.body.serial_numbers.map(v => String(v || '').trim()).filter(Boolean) : [];
+    const qty = item.tracking_mode === 'serial' ? serialNumbers.length : Number(req.body.qty || 0);
+    if (qty <= 0) return res.status(400).json({ error: 'Qty restock harus lebih dari 0.' });
+    const result = await db.restockInventoryBatch(item.id, qty, serialNumbers, String(req.body.reference || 'Restock').trim(), req.session.user.name);
+    logActivity(req, 'inventory', 'RESTOCK BATCH', `${item.name} +${qty} ${item.unit}`);
+    res.json(result);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/inventory/items/:id/restock', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try {
+    const qty = Number(req.body.qty || 0);
+    if (qty <= 0) return res.status(400).json({ error: 'Qty restock harus lebih dari 0.' });
+    const item = await db.getInventoryItem(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Barang tidak ditemukan.' });
+    const balance = Number(item.stock || 0) + qty;
+    const updated = await db.updateInventoryItem(item.id, { stock: balance });
+    await db.insertInventoryTransaction({
+      item_id: item.id, transaction_type: 'RESTOCK', qty, balance_after: balance,
+      reference: req.body.reference || 'Restock', notes: req.body.notes || null, created_by: req.session.user.name
+    });
+    logActivity(req, 'inventory', 'RESTOCK', `${item.name} +${qty} ${item.unit}`);
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/inventory/opname', requireInventoryPermission('inventory_opname'), async (req, res) => {
+  try {
+    const lines = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!lines.length) return res.status(400).json({ error: 'Tidak ada barang untuk opname.' });
+    let matched = 0, different = 0;
+    const opname = await db.insertInventoryOpname({ item_count: lines.length, matched_count: 0, difference_count: 0, created_by: req.session.user.name, notes: req.body.notes || null });
+    for (const line of lines) {
+      const item = await db.getInventoryItem(line.item_id);
+      if (!item) continue;
+      const system = Number(item.stock || 0), physical = Number(line.physical_stock || 0), diff = physical - system;
+      diff === 0 ? matched++ : different++;
+      await db.insertInventoryOpnameItem({ opname_id: opname.id, item_id: item.id, system_stock: system, physical_stock: physical, difference: diff, notes: line.notes || null });
+      if (diff !== 0) {
+        await db.updateInventoryItem(item.id, { stock: physical });
+        await db.insertInventoryTransaction({ item_id: item.id, transaction_type: 'OPNAME', qty: diff, balance_after: physical, reference: `Opname ${opname.id}`, notes: line.notes || null, created_by: req.session.user.name });
+      }
+    }
+    await db.updateInventoryOpname(opname.id, { matched_count: matched, difference_count: different });
+    logActivity(req, 'inventory', 'STOCK OPNAME', `${lines.length} item · ${different} selisih`);
+    res.json({ ok: true, item_count: lines.length, matched_count: matched, difference_count: different });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─────────────────────────────────────────
 // UNIVERSAL REPORTS + INVOICE PDF TEMPLATE

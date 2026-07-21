@@ -629,6 +629,125 @@ async function deleteMRForm(id) {
 }
 
 
+
+
+// ─────────────────────────────────────────
+//  INVENTORY — PXL-REV-0050
+// ─────────────────────────────────────────
+function requireInventorySupabase() {
+  if (!USE_SUPABASE) {
+    throw new Error('Supabase belum aktif. Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia di Vercel Environment Variables.');
+  }
+}
+
+async function getInventoryCategories() {
+  requireInventorySupabase();
+  const categories = await sbFetch('GET', '/inventory_categories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  const subcategories = await sbFetch('GET', '/inventory_subcategories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  return categories.map(c => ({
+    id: c.id, name: c.name, code: c.code,
+    subcategories: subcategories.filter(sc => sc.category_id === c.id).map(sc => ({ id: sc.id, name: sc.name, code: sc.code }))
+  }));
+}
+async function generateInventoryBarcode() {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_next_barcode', {}, { Prefer: 'return=representation' });
+  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
+}
+async function findInventoryItemByCode(code) {
+  requireInventorySupabase();
+  const q = encodeURIComponent(String(code || '').trim());
+  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q},product_number.eq.${q})&is_active=is.true&limit=1`);
+  return rows?.[0] || null;
+}
+async function getInventoryHealth() {
+  requireInventorySupabase();
+  const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
+  return { connected: true, table: 'inventory_items', sample_count: Array.isArray(rows) ? rows.length : 0 };
+}
+async function getInventoryItems() {
+  requireInventorySupabase();
+  return await sbFetch('GET', '/inventory_items?is_active=is.true&order=name.asc') || [];
+}
+async function getInventoryItem(id) {
+  requireInventorySupabase();
+  const rows = await sbFetch('GET', `/inventory_items?id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows?.[0] || null;
+}
+async function insertInventoryItem(data) {
+  requireInventorySupabase();
+  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const rows = await sbFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
+  if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
+  return rows[0];
+}
+async function updateInventoryItem(id, data) {
+  requireInventorySupabase();
+  const patch = { ...data, updated_at: new Date().toISOString() };
+  const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${encodeURIComponent(id)}`, patch, { Prefer: 'return=representation' });
+  return rows?.[0] || { id, ...patch };
+}
+async function generateInventorySku(category, subcategory) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_next_sku', { p_category: category, p_subcategory: subcategory }, { Prefer: 'return=representation' });
+  return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
+}
+async function deleteInventoryItem(id, actor = 'System') {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_soft_delete', { p_item_id: id, p_actor: actor }, { Prefer: 'return=representation' });
+  const deleted = Array.isArray(result) ? result[0] : result;
+  if (!deleted || deleted.ok !== true) throw new Error(deleted?.error || 'Supabase tidak mengonfirmasi penghapusan barang.');
+  return deleted;
+}
+async function restockInventoryBatch(itemId, qty, serialNumbers, reference, actor) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_restock_batch', {
+    p_item_id: itemId, p_qty: Number(qty || 0), p_serial_numbers: Array.isArray(serialNumbers) ? serialNumbers : [],
+    p_reference: reference || 'Restock', p_actor: actor || 'System'
+  }, { Prefer: 'return=representation' });
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.ok !== true) throw new Error(row?.error || 'Restock gagal diproses.');
+  return row;
+}
+async function getInventoryTransactions() {
+  requireInventorySupabase();
+  return await sbFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
+}
+async function insertInventoryTransaction(data) {
+  requireInventorySupabase();
+  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
+  const rows = await sbFetch('POST', '/inventory_transactions', entry, { Prefer: 'return=representation' });
+  return rows?.[0] || entry;
+}
+async function getInventoryOpnames() {
+  requireInventorySupabase();
+  return await sbFetch('GET', '/inventory_opnames?order=created_at.desc&limit=50') || [];
+}
+async function insertInventoryOpname(data) {
+  requireInventorySupabase();
+  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
+  const rows = await sbFetch('POST', '/inventory_opnames', entry, { Prefer: 'return=representation' });
+  return rows?.[0] || entry;
+}
+async function updateInventoryOpname(id, data) {
+  requireInventorySupabase();
+  const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${encodeURIComponent(id)}`, data, { Prefer: 'return=representation' });
+  return rows?.[0] || { id, ...data };
+}
+async function insertInventoryOpnameItem(data) {
+  requireInventorySupabase();
+  const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
+  const rows = await sbFetch('POST', '/inventory_opname_items', entry, { Prefer: 'return=representation' });
+  return rows?.[0] || entry;
+}
+async function importInventoryCutoff(rows, actor) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_apply_cutoff', { p_rows: rows, p_actor: actor || 'System' }, { Prefer: 'return=representation' });
+  const output = Array.isArray(result) ? result[0] : result;
+  if (output?.ok === false) throw new Error(output.error || 'Import Inventory gagal.');
+  return output || result;
+}
+
 // ─────────────────────────────────────────
 // CRM / SALES ORDER / WO / INVOICE FLOW
 // PXL-REV-0039
@@ -752,6 +871,10 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
+  getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, getInventoryHealth,
+  getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
+  restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
+  getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
   getSalesOrders, insertSalesOrder, updateSalesOrder,
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,

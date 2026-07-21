@@ -34,12 +34,17 @@
 let items=[],logs=[],cart=[],importPreviewRows=[],scannerStream=null,scannerRunning=false,scanPurpose='request';
 let inventoryAccess={view:false,manage:false,import_export:false,barcode:false,opname:false,delete:false};let restockCurrentItem=null,restockMode='scan',restockScanCount=0,restockSerials=[];
 let inventoryCategories=[];let currentLabelItem=null;
-const token=localStorage.getItem('pixel_token')||'';
+function getInventoryToken(){
+  try{
+    return localStorage.getItem('pixel_token')||localStorage.getItem('token')||localStorage.getItem('pxl_token')||parent?.localStorage?.getItem('pixel_token')||'';
+  }catch(_){return localStorage.getItem('pixel_token')||''}
+}
+
 async function api(url,opt={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15000);
   try{
-    const r=await fetch(url,{...opt,credentials:'same-origin',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,...(opt.headers||{})}});
+    const r=await fetch(url,{...opt,credentials:'same-origin',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+getInventoryToken(),...(opt.headers||{})}});
     const text=await r.text();
     let d={};
     try{d=text?JSON.parse(text):{}}catch(_){d={error:text||'Respons server tidak valid'}}
@@ -78,9 +83,14 @@ async function load(){
     render();
     applyInventoryAccess();
   }catch(e){
-    if(status){status.textContent='● Database tidak terhubung';status.style.color='#A32E24'}
-    toast('⚠️ '+e.message);
-    throw e;
+    const msg=String(e.message||e);
+    if(status){
+      status.textContent=msg.includes('404')?'● API Inventory belum aktif':msg.toLowerCase().includes('unauthorized')?'● Sesi login tidak terbaca':'● Database tidak terhubung';
+      status.style.color='#A32E24';
+      status.title=msg;
+    }
+    toast('⚠️ '+msg);
+    console.error('[Inventory Load]',e);
   }
 }
 function renderCategoryOptions(selectedCategory,selectedSubcategory){
@@ -139,8 +149,13 @@ async function submitRequest(){if(!cart.length)return toast('⚠️ Pilih minima
 
 async function downloadAuthFile(url, fallbackName){
   try{
-    const r=await fetch(url,{headers:{'Authorization':'Bearer '+token}});
+    const r=await fetch(url,{headers:{'Authorization':'Bearer '+getInventoryToken()}});
     if(!r.ok){const t=await r.text();let m=t;try{m=JSON.parse(t).error||t}catch(_){ }throw new Error(m||`Gagal download (${r.status})`)}
+    const type=(r.headers.get('content-type')||'').toLowerCase();
+    if(!type.includes('spreadsheetml')&&!type.includes('application/octet-stream')){
+      const t=await r.text();let m=t;try{m=JSON.parse(t).error||t}catch(_){ }
+      throw new Error(m||'Server tidak mengirim file Excel. Route Inventory belum aktif.');
+    }
     const blob=await r.blob();
     const cd=r.headers.get('content-disposition')||'';
     const match=cd.match(/filename="?([^";]+)"?/i);
@@ -157,7 +172,7 @@ async function previewInventoryImport(file){
   try{
     const fd=new FormData();fd.append('file',file);
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),30000);
-    const r=await fetch('/api/inventory/import/preview',{method:'POST',body:fd,signal:controller.signal,headers:{'Authorization':'Bearer '+token}});clearTimeout(timer);
+    const r=await fetch('/api/inventory/import/preview',{method:'POST',body:fd,signal:controller.signal,headers:{'Authorization':'Bearer '+getInventoryToken()}});clearTimeout(timer);
     const d=await r.json();if(!r.ok)throw new Error(d.error||'Preview import gagal.');
     summary.innerHTML=`<b>File:</b> ${esc(file.name)} &nbsp; · &nbsp; <b>Sheet:</b> ${esc(d.sheet)} &nbsp; · &nbsp; <b>Jumlah:</b> ${d.row_count} baris`;
     if(d.errors?.length){errors.innerHTML='<div class="error-list"><b>Perbaiki error berikut:</b><br>'+d.errors.map(esc).join('<br>')+'</div>'}
