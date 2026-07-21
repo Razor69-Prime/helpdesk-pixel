@@ -2802,9 +2802,10 @@ function buildNav(){
   ensureCrmMenuVisible();
 }
 
+/* PXL-REV-0049: teknisi tidak boleh dipaksa melihat CRM */
 function ensureCrmMenuVisible(){
   const role=String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'');
-  const allowed=['superadmin','admin','manager','sales','accounting','technician'].includes(role);
+  const allowed=['superadmin','admin','manager','sales','accounting'].includes(role);
   if(!allowed) return;
   const nav=document.getElementById('main-nav');
   if(!nav || nav.querySelector('[data-tab-id="crm"]')) return;
@@ -10062,8 +10063,9 @@ function exportExcel(){
 function pxlRoleNormalized(){
   return String(window.currentUser?.role||'').toLowerCase().replace(/[\s_-]/g,'');
 }
+/* PXL-REV-0049: fallback CRM mengikuti hard deny teknisi */
 function pxlShowPermanentCrmFallback(){
-  const allowed=['superadmin','admin','manager','sales','accounting','technician'].includes(pxlRoleNormalized());
+  const allowed=['superadmin','admin','manager','sales','accounting'].includes(pxlRoleNormalized());
   const fallback=document.getElementById('crm-static-fallback');
   if(fallback) fallback.style.display=allowed?'block':'none';
 
