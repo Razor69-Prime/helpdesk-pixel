@@ -761,7 +761,8 @@ const CRM_FILES = {
   crm_invoices: path.join(__dirname,'data','crm_invoices.json'),
   customer_import_staging: path.join(__dirname,'data','crm_customer_import_staging.json'),
   whatsapp_templates: path.join(__dirname,'data','crm_whatsapp_templates.json'),
-  communication_history: path.join(__dirname,'data','crm_communication_history.json')
+  communication_history: path.join(__dirname,'data','crm_communication_history.json'),
+  work_order_photos: path.join(__dirname,'data','work_order_photos.json')
 };
 function readJsonFile(file){ try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return []} }
 function writeJsonFile(file,data){ fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,JSON.stringify(data,null,2)); }
@@ -842,6 +843,44 @@ async function insertWhatsappTemplate(data){return insertEntity('crm_whatsapp_te
 async function getCommunicationHistory(){return listEntity('crm_communication_history','communication_history')}
 async function insertCommunicationHistory(data){return insertEntity('crm_communication_history','communication_history',data)}
 
+// PXL-REV-0052 — Dokumentasi foto Work Order (Cloudinary metadata)
+async function getWorkOrderPhotos(ticketId, publicOnly=false){
+  if(!USE_SUPABASE){
+    return readJsonFile(CRM_FILES.work_order_photos)
+      .filter(x=>String(x.ticket_id)===String(ticketId) && !x.deleted_at && (!publicOnly || x.visible_to_customer===true))
+      .sort((a,b)=>new Date(a.uploaded_at||a.created_at||0)-new Date(b.uploaded_at||b.created_at||0));
+  }
+  let q=`/work_order_photos?ticket_id=eq.${encodeURIComponent(ticketId)}&deleted_at=is.null`;
+  if(publicOnly) q += '&visible_to_customer=eq.true';
+  q += '&order=uploaded_at.asc';
+  return await sbFetch('GET',q)||[];
+}
+async function insertWorkOrderPhoto(data){
+  const entry={
+    id:crypto.randomUUID(),
+    ticket_id:data.ticket_id,
+    image_url:data.image_url,
+    secure_url:data.secure_url||data.image_url,
+    cloudinary_public_id:data.cloudinary_public_id,
+    original_filename:data.original_filename||null,
+    generated_filename:data.generated_filename||null,
+    caption:data.caption||null,
+    visible_to_customer:data.visible_to_customer!==false,
+    uploaded_by:data.uploaded_by||null,
+    uploaded_by_id:data.uploaded_by_id||null,
+    uploaded_at:new Date().toISOString(),
+    created_at:new Date().toISOString(),
+    deleted_at:null
+  };
+  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES.work_order_photos);rows.push(entry);writeJsonFile(CRM_FILES.work_order_photos,rows);return entry;}
+  const rows=await sbFetch('POST','/work_order_photos',entry);return rows?.[0]||entry;
+}
+async function updateWorkOrderPhoto(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES.work_order_photos);const i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Foto tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES.work_order_photos,rows);return rows[i];}
+  const rows=await sbFetch('PATCH',`/work_order_photos?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||{id,...data};
+}
+
 async function getCrmReport(){
   const [customers,sos,wos,mrs,amrs,invoices,projects,visits,tickets]=await Promise.all([
     getCrmCustomers(),getSalesOrders(),getCrmWorkOrders(),getCrmMaterialRequests(),getAdditionalMaterialRequests(),getCrmInvoices(),getProjects(),getSalesVisits(),getTickets(null,true)
@@ -880,5 +919,5 @@ module.exports = {
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
-  getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getCrmReport
+  getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport
 };
