@@ -2594,14 +2594,32 @@ function startGPS(){
 /* ══ INIT ═══════════════════════════════ */
 window.addEventListener('DOMContentLoaded', checkSession);
 async function checkSession(){
+  const token=readAppToken();
+  if(!token) return;
   try{
-    const token=localStorage.getItem('pixel_token')||'';
-    if(!token) return;
-    const r=await fetch('/api/me',{headers:token?{'Authorization':'Bearer '+token}:{}});
-    const{user}=await r.json();
-    if(user){currentUser=user;showApp();}
-    else{ localStorage.removeItem('pixel_token'); }
-  }catch(e){ localStorage.removeItem('pixel_token'); }
+    const r=await fetch('/api/me',{
+      cache:'no-store',
+      headers:{
+        'Authorization':'Bearer '+token,
+        'X-Auth-Token':token,
+        'Cache-Control':'no-cache'
+      }
+    });
+    if(r.status===401){
+      clearAppToken();
+      return;
+    }
+    if(!r.ok) return;
+    const {user}=await r.json();
+    if(user){
+      window.__pxlAuthToken=token;
+      currentUser=user;
+      showApp();
+    }
+  }catch(e){
+    // Gangguan jaringan tidak boleh menghapus sesi lokal.
+    console.warn('PXL-REV-0057 checkSession gagal sementara:',e);
+  }
 }
 
 /* ══ LOGIN/LOGOUT ════════════════════════ */
@@ -2641,7 +2659,11 @@ async function doLogin(){
 
     const{ok,data}=result;
     if(!ok){errEl.textContent=data.error;errEl.classList.add('show');return;}
-    if(data.token) localStorage.setItem('pixel_token', data.token);
+    if(data.token){
+      window.__pxlAuthToken=data.token;
+      localStorage.setItem('pixel_token',data.token);
+      sessionStorage.setItem('pixel_token',data.token);
+    }
     currentUser=data.user; showApp();
   }catch(e){
     errEl.textContent='Server sedang bangun dari mode hemat daya (bisa memakan waktu hingga 30 detik pada login pertama). Silakan tunggu sebentar lalu tekan Masuk sekali lagi.';
@@ -2657,8 +2679,7 @@ async function doLogout(){
       'X-Auth-Token':token
     }:{}});
   }catch(_){}
-  try{ localStorage.removeItem('pixel_token'); }catch(_){}
-  try{ sessionStorage.removeItem('pixel_token'); }catch(_){}
+  clearAppToken();
   currentUser=null; clearInterval(pollTimer);
   document.getElementById('app').classList.remove('show');
   document.getElementById('login-screen').style.display='flex';
@@ -2694,14 +2715,16 @@ function showApp(){
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   const ft=document.getElementById('f-time'); if(ft) ft.value=now.toISOString().slice(0,16);
-  loadTickets(); startPolling(); startNotifPolling();
+  // PXL-REV-0059: initial load harus berjalan walau tab baru saja kembali aktif.
+  // requestAnimationFrame memastikan seluruh elemen UI sudah siap sebelum render pertama.
+  requestAnimationFrame(()=>loadTickets(true));
+  startPolling(); startNotifPolling();
   // Preload arsip agar data arsip masuk ke laporan sejak awal
   const canArchive=['admin','manager','accounting'].includes(currentUser.role);
   if(canArchive) api('GET','/archive').then(d=>{archivedTickets=d||[];}).catch(()=>{});
 
-  // Preload kunjungan sales untuk dashboard & KPI
-  const canSeeVisits=['admin','manager','superadmin','sales'].includes(currentUser.role);
-  if(canSeeVisits) api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{});
+  // PXL-REV-0057: Sales Visit tidak dipanggil saat login.
+  // Data baru dimuat ketika menu Kunjungan/KPI terkait benar-benar dibuka.
 
   // PXL-REV-0056: supplier dimuat saat modul PR/Supplier dibuka agar login awal lebih ringan.
   if(!Array.isArray(currentUser.pr_roles)){
@@ -2877,8 +2900,13 @@ function syncActiveNavGroup(){
 /* ══ TABS ════════════════════════════════ */
 function readAppToken(){
   try{
-    return localStorage.getItem('pixel_token')||sessionStorage.getItem('pixel_token')||'';
-  }catch(_){ return ''; }
+    return String(window.__pxlAuthToken||localStorage.getItem('pixel_token')||sessionStorage.getItem('pixel_token')||'').trim();
+  }catch(_){ return String(window.__pxlAuthToken||'').trim(); }
+}
+function clearAppToken(){
+  window.__pxlAuthToken='';
+  try{localStorage.removeItem('pixel_token');}catch(_){}
+  try{sessionStorage.removeItem('pixel_token');}catch(_){}
 }
 async function waitForAppToken(maxWaitMs=2500){
   const started=Date.now();
@@ -2904,7 +2932,10 @@ function switchTab(tab,btn){
   if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='dashboard') loadDashboard();
-  if(tab==='tickets')   renderTickets();
+  if(tab==='tickets'){
+    if(!allTickets.length) loadTickets(true);
+    else renderTickets();
+  }
   if(tab==='kpi'){
     renderKPI();
     // Sales role langsung ke sub-tab KPI Sales
@@ -2931,7 +2962,7 @@ function switchTab(tab,btn){
 
 /* ══ API ═════════════════════════════════ */
 function setConn(ok){document.getElementById('conn-dot').className='conn-dot '+(ok?'ok':'err');}
-// PXL-REV-0056 — gabungkan GET identik yang masih berjalan agar dashboard/modul tidak menduplikasi request.
+// PXL-REV-0057 — auth Sales Visit stabil; gabungkan GET identik yang masih berjalan agar dashboard/modul tidak menduplikasi request.
 const apiInFlight=new Map();
 const apiShortCache=new Map();
 async function api(method,path,body){
@@ -2942,16 +2973,19 @@ async function api(method,path,body){
     if(apiInFlight.has(requestKey)) return apiInFlight.get(requestKey);
   }
   const execute=async()=>{
-  let token=await waitForAppToken();
-  const buildOptions=(activeToken)=>{
+  const token=await waitForAppToken();
+  if(!token){
+    throw new Error('Token login belum tersedia. Muat ulang halaman lalu login kembali.');
+  }
+  const buildOptions=()=>{
     const opts={
       method,
+      cache:'no-store',
       headers:{
         'Content-Type':'application/json',
-        ...(activeToken?{
-          'Authorization':'Bearer '+activeToken,
-          'X-Auth-Token':activeToken
-        }:{})
+        'Authorization':'Bearer '+token,
+        'X-Auth-Token':token,
+        'Cache-Control':'no-cache'
       }
     };
     if(body!==undefined && body!==null) opts.body=JSON.stringify(body);
@@ -2959,43 +2993,13 @@ async function api(method,path,body){
   };
 
   let r;
-  try{ r=await fetch('/api'+path,buildOptions(token)); }
+  try{ r=await fetch('/api'+path,buildOptions()); }
   catch(e){ throw new Error('Tidak bisa terhubung ke server. Pastikan server berjalan.'); }
 
-  // PXL-REV-0054: request modul dapat berjalan terlalu cepat saat token baru selesai disimpan.
-  // Ambil ulang token lalu coba sekali lagi sebelum menyimpulkan sesi tidak valid.
+  // PXL-REV-0057: error 401 pada satu modul tidak boleh memanggil logout global.
+  // Token hanya dibersihkan oleh checkSession ketika /api/me benar-benar mengembalikan 401.
   if(r.status===401){
-    await new Promise(resolve=>setTimeout(resolve,200));
-    const latestToken=await waitForAppToken(1500);
-    if(latestToken){
-      token=latestToken;
-      try{ r=await fetch('/api'+path,buildOptions(token)); }
-      catch(e){ throw new Error('Tidak bisa terhubung ke server. Pastikan server berjalan.'); }
-    }
-  }
-
-  if(r.status===401){
-    // Jangan langsung logout hanya karena satu modul gagal. Validasi sesi utama lebih dulu.
-    let sessionInvalid=false;
-    const activeToken=readAppToken();
-    if(!activeToken){
-      sessionInvalid=true;
-    }else{
-      try{
-        const check=await fetch('/api/me',{headers:{
-          'Authorization':'Bearer '+activeToken,
-          'X-Auth-Token':activeToken
-        }});
-        sessionInvalid=check.status===401;
-      }catch(_){
-        sessionInvalid=false;
-      }
-    }
-    if(sessionInvalid){
-      await doLogout();
-      throw new Error('Session expired — silakan login ulang.');
-    }
-    throw new Error('Akses modul belum terautentikasi. Silakan muat ulang halaman.');
+    throw new Error('Sales Visit belum terautentikasi. Muat ulang halaman dan coba kembali.');
   }
 
   if(!r.ok){
@@ -3016,8 +3020,9 @@ async function api(method,path,body){
   return pending;
 }
 let ticketsLoading=false;
-async function loadTickets(){
-  if(ticketsLoading || document.hidden) return;
+async function loadTickets(force=false){
+  // Polling boleh berhenti saat tab tersembunyi, tetapi initial/manual load tidak boleh diblokir.
+  if(ticketsLoading || (!force && document.hidden)) return;
   ticketsLoading=true;
   try{
     allTickets=await api('GET','/tickets');
@@ -4050,7 +4055,6 @@ async function deleteUser(id,name){
   }catch(e){alert('Gagal hapus: '+e.message);}
 }
 
-/* PXL-REV-0060: Dashboard Overview, Invoice, dan Sales memakai periode serta sumber invoice/target yang konsisten. */
 /* ══ DASHBOARD ═══════════════════════════ */
 let dashData=[], dashPeriod='all';
 
@@ -4058,17 +4062,32 @@ async function loadDashboard(){
   const el=document.getElementById('dash-loading');
   if(el) el.style.display='block';
   try{
-    const jobs=[];
-    if(!allTickets.length) jobs.push(api('GET','/tickets').then(d=>{allTickets=d||[];dashData=allTickets;}));
-    else dashData=allTickets;
-    if(!salesTargets.length) jobs.push(api('GET','/sales-targets').then(d=>{salesTargets=d||[];}).catch(()=>{}));
-    if(!kunjunganData||!kunjunganData.length) jobs.push(api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{}));
-    if(!dashMRData) jobs.push(api('GET','/material-requests').then(d=>{dashMRData=d||[];}).catch(()=>{dashMRData=[];}));
-    if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}).catch(()=>{dashPRData=[];}));
-    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}).catch(()=>{dashProjectData=[];}));
-    if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}).catch(()=>{standaloneInvoices=standaloneInvoices||[];}));
-    await Promise.all(jobs);
+    // PXL-REV-0059: tiket adalah data utama. Tampilkan segera tanpa menunggu modul tambahan.
+    if(!allTickets.length){
+      try{
+        allTickets=await api('GET','/tickets');
+      }catch(e){
+        console.error('Gagal memuat tiket dashboard',e);
+        allTickets=allTickets||[];
+      }
+    }
+    dashData=allTickets;
     renderDashboard();
+    if(el) el.style.display='none';
+
+    // Data tambahan dimuat di belakang dan tidak mengunci tampilan dashboard/tiket.
+    const jobs=[];
+    if(!salesTargets.length) jobs.push(api('GET','/sales-targets').then(d=>{salesTargets=d||[];}));
+    if(!kunjunganData||!kunjunganData.length) jobs.push(api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}));
+    if(!dashMRData) jobs.push(api('GET','/material-requests').then(d=>{dashMRData=d||[];}));
+    if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}));
+    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
+    if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
+
+    if(jobs.length){
+      await Promise.allSettled(jobs);
+      renderDashboard();
+    }
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
 }
@@ -4089,8 +4108,7 @@ function getDashRange(){
   const now=new Date();
   if(dashPeriod==='today'){const s=new Date(now);s.setHours(0,0,0,0);return{from:s,to:now};}
   if(dashPeriod==='week') return{from:new Date(now-7*864e5),to:now};
-  // PXL-REV-0060: "Bulan ini" memakai satu bulan kalender penuh agar target sama dengan menu Sales.
-  if(dashPeriod==='month') return{from:new Date(now.getFullYear(),now.getMonth(),1),to:new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59)};
+  if(dashPeriod==='month') return{from:new Date(now.getFullYear(),now.getMonth(),1),to:now};
   return{from:null,to:null};
 }
 
@@ -4176,33 +4194,9 @@ function renderDashSubTeknisi(data){
   renderTrendChart(data,'dt-trend-chart','tiket');
 }
 
-// PXL-REV-0060: sumber invoice dashboard disamakan dengan menu Sales.
-// Invoice difilter berdasarkan tanggal upload invoice, bukan tanggal tiket,
-// dan mencakup tiket aktif, arsip, serta invoice tanpa WO.
-function getDashboardInvoiceData(){
-  const {from,to}=getDashRange();
-  return buildInvoiceFlat().filter(inv=>{
-    const raw=inv.uploaded_at||inv.ticket_date;
-    if(!raw) return false;
-    const d=new Date(raw);
-    if(isNaN(d)) return false;
-    return !(from&&d<from)&&!(to&&d>to);
-  });
-}
-
-function buildSalesMapFromInvoices(invoices){
-  const salesMap={};
-  (invoices||[]).forEach(inv=>{
-    const pic=inv.sales_pic||'(Tidak ada)';
-    if(!salesMap[pic]) salesMap[pic]={total:0,count:0};
-    salesMap[pic].total+=Number(inv.total_amount)||0;
-    salesMap[pic].count++;
-  });
-  return salesMap;
-}
-
 function renderDashSubInvoice(data){
-  const allInv=getDashboardInvoiceData();
+  const ticketInv=data.flatMap(t=>t.invoices||[]);
+  const allInv=[...ticketInv, ...(standaloneInvoices||[])];
   const total=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avg=allInv.length?Math.round(total/allInv.length):0;
   const el=id=>document.getElementById(id);
@@ -4210,9 +4204,13 @@ function renderDashSubInvoice(data){
   if(el('di-count')) el('di-count').textContent=allInv.length+' invoice';
   if(el('di-avg')) el('di-avg').textContent=fmtFull(avg);
 
-  // Target & achievement memakai rumus periode yang sama dengan Overview dan menu Sales.
-  const targetTotal=calculateDashboardTargetTotal();
-  if(el('di-target')) el('di-target').textContent=targetTotal?fmtFull(Math.round(targetTotal)):'Rp 0';
+  // Target & achievement
+  const{from,to}=getDashRange();
+  const now=new Date();
+  const mKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthTargets=salesTargets.filter(t=>t.year_month===mKey);
+  const targetTotal=monthTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+  if(el('di-target')) el('di-target').textContent=fmtFull(Math.round(targetTotal))||'—';
   if(el('di-achievement')) el('di-achievement').textContent=targetTotal?Math.round(total/targetTotal*100)+'%':'—';
 
   // Reuse charts
@@ -4906,7 +4904,7 @@ function renderDashboard(){
   // ── Metric cards ──
   const done=data.filter(t=>t.status==='done');
   const pending=data.filter(t=>t.status==='pending');
-  const allInv=getDashboardInvoiceData();
+  const allInv=[...data.flatMap(t=>t.invoices||[]), ...(standaloneInvoices||[])];
   const totalAmount=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   document.getElementById('dm-total').textContent=data.length;
   document.getElementById('dm-done').textContent=done.length;
@@ -4945,7 +4943,13 @@ function renderDashboard(){
     :'<div class="no-data">📭 Belum ada data</div>';
 
   // ── Bar chart: Sales PIC ──
-  const salesMap=buildSalesMapFromInvoices(allInv);
+  const salesMap={};
+  allInv.forEach(inv=>{
+    const pic=inv.sales_pic||'(Tidak ada)';
+    if(!salesMap[pic]) salesMap[pic]={total:0,count:0};
+    salesMap[pic].total+=Number(inv.total_amount)||0;
+    salesMap[pic].count++;
+  });
   const salesNames=Object.keys(salesMap).sort((a,b)=>salesMap[b].total-salesMap[a].total);
   const maxSales=Math.max(1,...salesNames.map(n=>salesMap[n].total));
   document.getElementById('dash-sales-chart').innerHTML=salesNames.length
@@ -4970,38 +4974,41 @@ function renderDashboard(){
 }
 
 // ── Target & Pencapaian metrics + chart ──
-function calculateDashboardTargets(){
-  const {from,to}=getDashRange();
+function renderDashTargetMetrics(data, salesMap){
+  const{from,to}=getDashRange();
+  // Tentukan range efektif untuk overlap target bulanan
+  let effFrom=from, effTo=to;
+  if(!effFrom||!effTo){
+    // "Semua" → pakai range tanggal data yang ada
+    const dates=data.map(t=>new Date(t.worked_at||t.created_at)).filter(d=>!isNaN(d));
+    if(dates.length){
+      effFrom=effFrom||new Date(Math.min(...dates));
+      effTo=effTo||new Date(Math.max(...dates));
+    }
+  }
+
+  // Hitung total target dengan pro-rata terhadap overlap periode
   let totalTarget=0;
   const targetPerPic={};
   (salesTargets||[]).forEach(t=>{
-    const [ty,tm]=String(t.year_month||'').split('-').map(Number);
-    if(!ty||!tm) return;
+    const [ty,tm]=t.year_month.split('-').map(Number);
     const tFrom=new Date(ty,tm-1,1);
     const tTo=new Date(ty,tm,0,23,59,59);
-    if(from&&tTo<from) return;
-    if(to&&tFrom>to) return;
-    let ratio=1;
-    if(from||to){
-      const overlapFrom=from&&from>tFrom?from:tFrom;
-      const overlapTo=to&&to<tTo?to:tTo;
-      const overlapDays=Math.max(0,(overlapTo-overlapFrom)/864e5+1);
-      const totalDays=(tTo-tFrom)/864e5+1;
-      ratio=Math.min(1,overlapDays/totalDays);
+    if(!effFrom||!effTo){
+      totalTarget+=Number(t.target_amount);
+      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+Number(t.target_amount);
+      return;
     }
-    const amount=(Number(t.target_amount)||0)*ratio;
-    totalTarget+=amount;
-    targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+amount;
+    if(tFrom<=effTo&&tTo>=effFrom){
+      const overlapDays=Math.max(0,(Math.min(effTo,tTo)-Math.max(effFrom,tFrom))/864e5+1);
+      const totalDays=(tTo-tFrom)/864e5+1;
+      const ratio=Math.min(1,overlapDays/totalDays);
+      const proRated=Number(t.target_amount)*ratio;
+      totalTarget+=proRated;
+      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+proRated;
+    }
   });
-  return {totalTarget,targetPerPic};
-}
 
-function calculateDashboardTargetTotal(){
-  return calculateDashboardTargets().totalTarget;
-}
-
-function renderDashTargetMetrics(data, salesMap){
-  const {totalTarget,targetPerPic}=calculateDashboardTargets();
   const totalRealisasi=Object.values(salesMap).reduce((s,v)=>s+v.total,0);
   const achievement=totalTarget>0?Math.round(totalRealisasi/totalTarget*100):null;
 
