@@ -2715,7 +2715,10 @@ function showApp(){
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   const ft=document.getElementById('f-time'); if(ft) ft.value=now.toISOString().slice(0,16);
-  loadTickets(); startPolling(); startNotifPolling();
+  // PXL-REV-0059: initial load harus berjalan walau tab baru saja kembali aktif.
+  // requestAnimationFrame memastikan seluruh elemen UI sudah siap sebelum render pertama.
+  requestAnimationFrame(()=>loadTickets(true));
+  startPolling(); startNotifPolling();
   // Preload arsip agar data arsip masuk ke laporan sejak awal
   const canArchive=['admin','manager','accounting'].includes(currentUser.role);
   if(canArchive) api('GET','/archive').then(d=>{archivedTickets=d||[];}).catch(()=>{});
@@ -2929,7 +2932,10 @@ function switchTab(tab,btn){
   if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='dashboard') loadDashboard();
-  if(tab==='tickets')   renderTickets();
+  if(tab==='tickets'){
+    if(!allTickets.length) loadTickets(true);
+    else renderTickets();
+  }
   if(tab==='kpi'){
     renderKPI();
     // Sales role langsung ke sub-tab KPI Sales
@@ -3014,8 +3020,9 @@ async function api(method,path,body){
   return pending;
 }
 let ticketsLoading=false;
-async function loadTickets(){
-  if(ticketsLoading || document.hidden) return;
+async function loadTickets(force=false){
+  // Polling boleh berhenti saat tab tersembunyi, tetapi initial/manual load tidak boleh diblokir.
+  if(ticketsLoading || (!force && document.hidden)) return;
   ticketsLoading=true;
   try{
     allTickets=await api('GET','/tickets');
@@ -4055,17 +4062,32 @@ async function loadDashboard(){
   const el=document.getElementById('dash-loading');
   if(el) el.style.display='block';
   try{
-    const jobs=[];
-    if(!allTickets.length) jobs.push(api('GET','/tickets').then(d=>{allTickets=d||[];dashData=allTickets;}));
-    else dashData=allTickets;
-    if(!salesTargets.length) jobs.push(api('GET','/sales-targets').then(d=>{salesTargets=d||[];}).catch(()=>{}));
-    if(!kunjunganData||!kunjunganData.length) jobs.push(api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{}));
-    if(!dashMRData) jobs.push(api('GET','/material-requests').then(d=>{dashMRData=d||[];}).catch(()=>{dashMRData=[];}));
-    if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}).catch(()=>{dashPRData=[];}));
-    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}).catch(()=>{dashProjectData=[];}));
-    if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}).catch(()=>{standaloneInvoices=standaloneInvoices||[];}));
-    await Promise.all(jobs);
+    // PXL-REV-0059: tiket adalah data utama. Tampilkan segera tanpa menunggu modul tambahan.
+    if(!allTickets.length){
+      try{
+        allTickets=await api('GET','/tickets');
+      }catch(e){
+        console.error('Gagal memuat tiket dashboard',e);
+        allTickets=allTickets||[];
+      }
+    }
+    dashData=allTickets;
     renderDashboard();
+    if(el) el.style.display='none';
+
+    // Data tambahan dimuat di belakang dan tidak mengunci tampilan dashboard/tiket.
+    const jobs=[];
+    if(!salesTargets.length) jobs.push(api('GET','/sales-targets').then(d=>{salesTargets=d||[];}));
+    if(!kunjunganData||!kunjunganData.length) jobs.push(api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}));
+    if(!dashMRData) jobs.push(api('GET','/material-requests').then(d=>{dashMRData=d||[];}));
+    if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}));
+    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
+    if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
+
+    if(jobs.length){
+      await Promise.allSettled(jobs);
+      renderDashboard();
+    }
   }catch(e){console.error(e);}
   finally{ if(el) el.style.display='none'; }
 }
