@@ -2962,6 +2962,7 @@ function switchTab(tab,btn){
 
 /* ══ API ═════════════════════════════════ */
 function setConn(ok){document.getElementById('conn-dot').className='conn-dot '+(ok?'ok':'err');}
+// PXL-REV-0060B — patch dashboard saja; auth, logout, initial loading, dan modul lain tidak diubah.
 // PXL-REV-0057 — auth Sales Visit stabil; gabungkan GET identik yang masih berjalan agar dashboard/modul tidak menduplikasi request.
 const apiInFlight=new Map();
 const apiShortCache=new Map();
@@ -4106,10 +4107,45 @@ function getDashRange(){
   const to=document.getElementById('dash-to').value;
   if(from||to) return{from:from?new Date(from):null,to:to?new Date(to+'T23:59:59'):null};
   const now=new Date();
-  if(dashPeriod==='today'){const s=new Date(now);s.setHours(0,0,0,0);return{from:s,to:now};}
+  if(dashPeriod==='today'){const s=new Date(now);s.setHours(0,0,0,0);return{from:s,to:new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59)};}
   if(dashPeriod==='week') return{from:new Date(now-7*864e5),to:now};
-  if(dashPeriod==='month') return{from:new Date(now.getFullYear(),now.getMonth(),1),to:now};
+  // PXL-REV-0060B: Bulan Ini memakai satu bulan kalender penuh, sama dengan menu Sales.
+  if(dashPeriod==='month') return{from:new Date(now.getFullYear(),now.getMonth(),1),to:new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59)};
   return{from:null,to:null};
+}
+
+function getDashInvoices(){
+  const{from,to}=getDashRange();
+  return buildInvoiceFlat().filter(inv=>{
+    const raw=inv.uploaded_at||inv.ticket_date;
+    const d=raw?new Date(raw):null;
+    if(!d||isNaN(d)) return !from&&!to;
+    return!(from&&d<from)&&!(to&&d>to);
+  });
+}
+
+function getDashTargetSummary(){
+  const{from,to}=getDashRange();
+  const targetMap={};
+  (salesTargets||[]).forEach(t=>{
+    const [ty,tm]=String(t.year_month||'').split('-').map(Number);
+    if(!ty||!tm) return;
+    const tFrom=new Date(ty,tm-1,1);
+    const tTo=new Date(ty,tm,0,23,59,59);
+    if(from&&tTo<from) return;
+    if(to&&tFrom>to) return;
+    let ratio=1;
+    if(from||to){
+      const overlapFrom=from&&from>tFrom?from:tFrom;
+      const overlapTo=to&&to<tTo?to:tTo;
+      const overlapDays=Math.max(0,(overlapTo-overlapFrom)/864e5+1);
+      const totalDays=(tTo-tFrom)/864e5+1;
+      ratio=Math.min(1,overlapDays/totalDays);
+    }
+    const pic=t.sales_pic||'(Tanpa PIC)';
+    targetMap[pic]=(targetMap[pic]||0)+(Number(t.target_amount)||0)*ratio;
+  });
+  return{targetMap,totalTarget:Object.values(targetMap).reduce((a,b)=>a+b,0)};
 }
 
 function filterDash(list){
@@ -4195,8 +4231,8 @@ function renderDashSubTeknisi(data){
 }
 
 function renderDashSubInvoice(data){
-  const ticketInv=data.flatMap(t=>t.invoices||[]);
-  const allInv=[...ticketInv, ...(standaloneInvoices||[])];
+  // PXL-REV-0060B: sumber invoice sama dengan menu Sales dan difilter dari tanggal upload invoice.
+  const allInv=getDashInvoices();
   const total=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avg=allInv.length?Math.round(total/allInv.length):0;
   const el=id=>document.getElementById(id);
@@ -4204,12 +4240,8 @@ function renderDashSubInvoice(data){
   if(el('di-count')) el('di-count').textContent=allInv.length+' invoice';
   if(el('di-avg')) el('di-avg').textContent=fmtFull(avg);
 
-  // Target & achievement
-  const{from,to}=getDashRange();
-  const now=new Date();
-  const mKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const monthTargets=salesTargets.filter(t=>t.year_month===mKey);
-  const targetTotal=monthTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+  // Target & achievement memakai sumber/periode yang sama dengan menu Sales.
+  const{totalTarget:targetTotal}=getDashTargetSummary();
   if(el('di-target')) el('di-target').textContent=fmtFull(Math.round(targetTotal))||'—';
   if(el('di-achievement')) el('di-achievement').textContent=targetTotal?Math.round(total/targetTotal*100)+'%':'—';
 
@@ -4904,7 +4936,8 @@ function renderDashboard(){
   // ── Metric cards ──
   const done=data.filter(t=>t.status==='done');
   const pending=data.filter(t=>t.status==='pending');
-  const allInv=[...data.flatMap(t=>t.invoices||[]), ...(standaloneInvoices||[])];
+  // PXL-REV-0060B: jangan filter invoice berdasarkan tanggal tiket.
+  const allInv=getDashInvoices();
   const totalAmount=allInv.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   document.getElementById('dm-total').textContent=data.length;
   document.getElementById('dm-done').textContent=done.length;
@@ -4975,41 +5008,9 @@ function renderDashboard(){
 
 // ── Target & Pencapaian metrics + chart ──
 function renderDashTargetMetrics(data, salesMap){
-  const{from,to}=getDashRange();
-  // Tentukan range efektif untuk overlap target bulanan
-  let effFrom=from, effTo=to;
-  if(!effFrom||!effTo){
-    // "Semua" → pakai range tanggal data yang ada
-    const dates=data.map(t=>new Date(t.worked_at||t.created_at)).filter(d=>!isNaN(d));
-    if(dates.length){
-      effFrom=effFrom||new Date(Math.min(...dates));
-      effTo=effTo||new Date(Math.max(...dates));
-    }
-  }
-
-  // Hitung total target dengan pro-rata terhadap overlap periode
-  let totalTarget=0;
-  const targetPerPic={};
-  (salesTargets||[]).forEach(t=>{
-    const [ty,tm]=t.year_month.split('-').map(Number);
-    const tFrom=new Date(ty,tm-1,1);
-    const tTo=new Date(ty,tm,0,23,59,59);
-    if(!effFrom||!effTo){
-      totalTarget+=Number(t.target_amount);
-      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+Number(t.target_amount);
-      return;
-    }
-    if(tFrom<=effTo&&tTo>=effFrom){
-      const overlapDays=Math.max(0,(Math.min(effTo,tTo)-Math.max(effFrom,tFrom))/864e5+1);
-      const totalDays=(tTo-tFrom)/864e5+1;
-      const ratio=Math.min(1,overlapDays/totalDays);
-      const proRated=Number(t.target_amount)*ratio;
-      totalTarget+=proRated;
-      targetPerPic[t.sales_pic]=(targetPerPic[t.sales_pic]||0)+proRated;
-    }
-  });
-
-  const totalRealisasi=Object.values(salesMap).reduce((s,v)=>s+v.total,0);
+  // PXL-REV-0060B: sumber target dan realisasi sama dengan submenu Invoice dan menu Sales.
+  const{targetMap:targetPerPic,totalTarget}=getDashTargetSummary();
+  const totalRealisasi=getDashInvoices().reduce((s,inv)=>s+(Number(inv.total_amount)||0),0);
   const achievement=totalTarget>0?Math.round(totalRealisasi/totalTarget*100):null;
 
   document.getElementById('dm-target-total').textContent=totalTarget?fmtFull(Math.round(totalTarget)):'Rp 0';
