@@ -193,6 +193,15 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
 .modal-close{position:absolute;top:16px;right:16px;border:none;background:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
 
+
+/* PXL-REV-0061 — Modal dokumentasi foto Work Order */
+.wo-photo-drop{border:1px dashed var(--border);border-radius:12px;padding:14px;background:var(--surface2)}
+.wo-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+.wo-photo-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.wo-photo-card img{display:block;width:100%;height:120px;object-fit:cover;background:var(--surface2)}
+.wo-photo-info{padding:8px;font-size:11px;color:var(--muted)}
+.wo-photo-caption{font-size:12px;color:var(--text);font-weight:600;margin-bottom:3px;word-break:break-word}
+
 /* Tracking modal */
 .track-link-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;word-break:break-all;color:var(--text);margin-bottom:8px;user-select:all;cursor:text}
 .expiry-note{font-size:11px;color:var(--amber);text-align:center;margin-bottom:12px}
@@ -2488,6 +2497,39 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   </div>
 </div>
 
+
+<!-- PXL-REV-0061 — WORK ORDER PHOTO MODAL -->
+<div class="modal-overlay" id="wo-photo-modal" onclick="if(event.target===this)closeWoPhotoModal()">
+  <div class="modal" style="max-width:720px">
+    <button class="modal-close" onclick="closeWoPhotoModal()">✕</button>
+    <div class="modal-title">📷 Dokumentasi Foto Work Order</div>
+    <div class="modal-sub" id="wo-photo-modal-sub">WO: —</div>
+    <div class="wo-photo-drop">
+      <label>Foto pekerjaan (JPG, PNG, WEBP — maks. 10MB)</label>
+      <input type="file" id="wo-photo-file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px"/>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px">
+        <div>
+          <label>Keterangan foto <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
+          <input type="text" id="wo-photo-caption" maxlength="160" placeholder="Contoh: Kamera area depan selesai dipasang"/>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;white-space:nowrap;padding-bottom:9px;text-transform:none;letter-spacing:0">
+          <input type="checkbox" id="wo-photo-visible" checked style="width:15px;height:15px;accent-color:var(--accent)"/>
+          Tampil ke customer
+        </label>
+      </div>
+      <div id="wo-photo-error" class="form-error" style="display:none;margin-top:8px"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn primary" id="wo-photo-upload-btn" onclick="uploadWoPhoto()">📤 Upload Foto</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+      <div style="font-size:13px;font-weight:600">Riwayat foto WO</div>
+      <button class="btn sm" onclick="loadWoPhotos(true)">↻ Refresh</button>
+    </div>
+    <div id="wo-photo-list"><div class="empty">Memuat foto...</div></div>
+  </div>
+</div>
+
 <!-- TRACKING MODAL -->
 <div class="modal-overlay" id="track-modal" onclick="if(event.target===this)closeTrackModal()">
   <div class="modal">
@@ -3366,6 +3408,12 @@ function renderTickets(){
     const pdfBtn=(!isAccounting&&!isReadOnly)
       ?`<button class="btn sm" style="padding:4px 8px;font-size:11px" title="Export Laporan PDF" onclick="exportTicketPDF('${t.id}')">📄</button>`:'';
 
+
+    // PXL-REV-0061: tombol dokumentasi foto hanya untuk role yang diizinkan endpoint Cloudinary.
+    const canUploadWoPhoto=['technician','sales','operator','manager','admin','superadmin'].includes(String(currentUser.role||'').toLowerCase());
+    const photoBtn=canUploadWoPhoto
+      ?`<button class="btn blue sm" style="padding:4px 9px;font-size:11px" title="Upload dan lihat dokumentasi foto WO" onclick="openWoPhotoModal('${t.id}')">📷 Foto</button>`:'';
+
     // ── Job Stage buttons (teknisi saja) ──
     const stages = t.job_stages || [];
     const hasBerangkat = stages.some(s=>s.stage==='berangkat');
@@ -3431,6 +3479,7 @@ function renderTickets(){
           ${stageBtns}
           ${assignBtn}
           ${pdfBtn}
+          ${photoBtn}
           ${trackBtn}
           ${delBtn}
         </div>
@@ -3447,6 +3496,121 @@ function renderTickets(){
       ${(showInvoice&&invCount)?`<div class="invoice-section"><div class="invoice-section-title">📄 Invoice</div>${invoiceChips}${invSummaryHtml}</div>`:''}
     </div>`;
   }).join('');
+}
+
+
+
+/* ══ PXL-REV-0061 — FOTO WORK ORDER / CLOUDINARY ══ */
+let currentWoPhotoTicketId=null;
+function woPhotoEscape(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));}
+
+function closeWoPhotoModal(){
+  const modal=document.getElementById('wo-photo-modal');
+  if(modal) modal.classList.remove('show');
+  currentWoPhotoTicketId=null;
+}
+
+async function openWoPhotoModal(ticketId){
+  const ticket=allTickets.find(t=>String(t.id)===String(ticketId));
+  if(!ticket){ alert('Work Order tidak ditemukan.'); return; }
+  currentWoPhotoTicketId=String(ticketId);
+  document.getElementById('wo-photo-modal-sub').textContent=`WO: ${ticket.wo_number||'-'}${ticket.customer_name?' · '+ticket.customer_name:''}`;
+  document.getElementById('wo-photo-file').value='';
+  document.getElementById('wo-photo-caption').value='';
+  document.getElementById('wo-photo-visible').checked=true;
+  document.getElementById('wo-photo-error').style.display='none';
+  document.getElementById('wo-photo-modal').classList.add('show');
+  await loadWoPhotos(true);
+}
+
+function renderWoPhotoList(rows){
+  const box=document.getElementById('wo-photo-list');
+  const list=Array.isArray(rows)?rows:[];
+  if(!list.length){ box.innerHTML='<div class="empty">📭 Belum ada dokumentasi foto untuk WO ini</div>'; return; }
+  const canDelete=['admin','superadmin'].includes(String(currentUser?.role||'').toLowerCase());
+  box.innerHTML=`<div class="wo-photo-grid">${list.map(row=>{
+    const url=row.secure_url||row.image_url||'';
+    const when=row.uploaded_at||row.created_at;
+    const dt=when?new Date(when).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
+    return `<div class="wo-photo-card">
+      <a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Dokumentasi WO" loading="lazy"/></a>
+      <div class="wo-photo-info">
+        <div class="wo-photo-caption">${woPhotoEscape(row.caption||row.generated_filename||'Foto pekerjaan')}</div>
+        <div>${row.visible_to_customer===false?'🔒 Internal':'👁️ Customer'} · ${dt}</div>
+        <div>${woPhotoEscape(row.uploaded_by||'-')}</div>
+        ${canDelete?`<button class="btn danger sm" style="margin-top:6px;width:100%;justify-content:center" onclick="deleteWoPhoto('${row.id}')">Hapus</button>`:''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function loadWoPhotos(force=false){
+  if(!currentWoPhotoTicketId) return;
+  const box=document.getElementById('wo-photo-list');
+  if(force) box.innerHTML='<div class="empty">Memuat foto...</div>';
+  try{
+    const rows=await api('GET',`/tickets/${currentWoPhotoTicketId}/photos${force?'?v='+Date.now():''}`);
+    renderWoPhotoList(rows);
+  }catch(e){
+    box.innerHTML=`<div class="empty" style="color:var(--red)">⚠️ ${woPhotoEscape(e.message||'Gagal memuat foto')}</div>`;
+  }
+}
+
+async function uploadWoPhoto(){
+  if(!currentWoPhotoTicketId) return;
+  const file=document.getElementById('wo-photo-file').files?.[0];
+  const caption=document.getElementById('wo-photo-caption').value.trim();
+  const visible=document.getElementById('wo-photo-visible').checked;
+  const err=document.getElementById('wo-photo-error');
+  const btn=document.getElementById('wo-photo-upload-btn');
+  err.style.display='none';
+  if(!file){ err.textContent='Pilih foto terlebih dahulu.'; err.style.display='block'; return; }
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    err.textContent='Format foto harus JPG, PNG, atau WEBP.'; err.style.display='block'; return;
+  }
+  if(file.size>10*1024*1024){ err.textContent='Ukuran foto maksimal 10MB.'; err.style.display='block'; return; }
+
+  btn.disabled=true; btn.textContent='Mengupload...';
+  try{
+    const sig=await api('POST',`/tickets/${currentWoPhotoTicketId}/photos/signature`,{});
+    const form=new FormData();
+    form.append('file',file);
+    form.append('api_key',sig.api_key);
+    form.append('timestamp',String(sig.timestamp));
+    form.append('public_id',sig.public_id);
+    form.append('signature',sig.signature);
+    const cloudRes=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloud_name)}/image/upload`,{method:'POST',body:form});
+    let cloudData={};
+    try{ cloudData=await cloudRes.json(); }catch(_){ }
+    if(!cloudRes.ok) throw new Error(cloudData?.error?.message||'Upload ke Cloudinary gagal.');
+
+    await api('POST',`/tickets/${currentWoPhotoTicketId}/photos`,{
+      secure_url:cloudData.secure_url,
+      cloudinary_public_id:cloudData.public_id,
+      original_filename:file.name,
+      generated_filename:sig.generated_filename,
+      caption:caption||null,
+      visible_to_customer:visible
+    });
+    document.getElementById('wo-photo-file').value='';
+    document.getElementById('wo-photo-caption').value='';
+    await loadWoPhotos(true);
+    alert('✅ Foto Work Order berhasil diupload.');
+  }catch(e){
+    err.textContent=e.message||'Upload foto gagal.';
+    err.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='📤 Upload Foto';
+  }
+}
+
+async function deleteWoPhoto(photoId){
+  if(!currentWoPhotoTicketId || !confirm('Hapus foto ini dari riwayat WO?')) return;
+  try{
+    await api('DELETE',`/tickets/${currentWoPhotoTicketId}/photos/${photoId}`);
+    apiShortCache.delete(`GET:/tickets/${currentWoPhotoTicketId}/photos`);
+    await loadWoPhotos(true);
+  }catch(e){ alert('Gagal menghapus foto: '+e.message); }
 }
 
 /* ══ TRACKING MODAL ══════════════════════ */
