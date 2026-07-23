@@ -172,6 +172,49 @@ async function getInvoicesByTicket(ticketId) {
   return sbFetch('GET', `/invoices?ticket_id=eq.${ticketId}&order=uploaded_at.desc`);
 }
 
+
+// PXL-REV-0056 — ambil relasi seluruh tiket dalam query batch, bukan 3 query per tiket.
+function groupRowsByTicket(rows) {
+  return (rows || []).reduce((map, row) => {
+    const key = String(row.ticket_id || '');
+    if (!map[key]) map[key] = [];
+    map[key].push(row);
+    return map;
+  }, {});
+}
+
+async function getTicketRelationsBatch(ticketIds) {
+  const ids = [...new Set((ticketIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return { invoices:{}, status_history:{}, job_stages:{} };
+
+  if (!USE_SUPABASE) {
+    const tickets = readLocal();
+    const wanted = new Set(ids);
+    const invoices = {}, status_history = {}, job_stages = {};
+    tickets.forEach(t => {
+      const id = String(t.id);
+      if (!wanted.has(id)) return;
+      invoices[id] = t.invoices || [];
+      status_history[id] = t.status_history || [];
+      job_stages[id] = t.job_stages || [];
+    });
+    return { invoices, status_history, job_stages };
+  }
+
+  // UUID tidak mengandung koma; encode tiap nilai agar filter PostgREST tetap aman.
+  const inFilter = ids.map(id => encodeURIComponent(id)).join(',');
+  const [invoiceRows, historyRows, stageRows] = await Promise.all([
+    sbFetch('GET', `/invoices?ticket_id=in.(${inFilter})&order=uploaded_at.desc`),
+    sbFetch('GET', `/status_history?ticket_id=in.(${inFilter})&order=timestamp.desc`),
+    sbFetch('GET', `/job_stages?ticket_id=in.(${inFilter})&order=timestamp.asc`)
+  ]);
+  return {
+    invoices: groupRowsByTicket(invoiceRows),
+    status_history: groupRowsByTicket(historyRows),
+    job_stages: groupRowsByTicket(stageRows)
+  };
+}
+
 async function insertInvoice(data) {
   if (!USE_SUPABASE) {
     const tickets = readLocal();
@@ -895,7 +938,7 @@ module.exports = {
   getTickets, getArchivedTickets, getTicketByToken,
   insertTicket, updateTicket, deleteTicket,
   getStatusHistory, insertStatusHistory,
-  getInvoicesByTicket, insertInvoice, deleteInvoice,
+  getInvoicesByTicket, getTicketRelationsBatch, insertInvoice, deleteInvoice,
   getStandaloneInvoices, insertStandaloneInvoice, deleteStandaloneInvoice,
   insertNotification, getNotificationsForUser, markNotificationRead, markAllNotificationsRead,
   getJobStages, insertJobStage,

@@ -414,21 +414,28 @@ app.delete('/api/sales-targets/:id', requireRole('admin','superadmin','manager')
 //  TICKETS
 // ══════════════════════════════════════════
 app.get('/api/tickets', requireAuth, async (req, res) => {
+  const startedAt = Date.now();
   try {
     const role   = req.session.user.role;
     // teknisi hanya lihat tiket yang di-assign ke dirinya
     const filter = role === 'technician' ? req.session.user.name : null; // superadmin: null (lihat semua)
     const tickets = await db.getTickets(filter);
-    const enriched = await Promise.all(tickets.map(async t => {
-      const [invoices, status_history, job_stages] = await Promise.all([
-        db.getInvoicesByTicket(t.id),
-        db.getStatusHistory(t.id),
-        db.getJobStages(t.id)
-      ]);
-      return { ...t, invoices: invoices || [], status_history: status_history || [], job_stages: job_stages || [] };
-    }));
+    const relations = await db.getTicketRelationsBatch(tickets.map(t => t.id));
+    const enriched = tickets.map(t => {
+      const id = String(t.id);
+      return {
+        ...t,
+        invoices: relations.invoices[id] || [],
+        status_history: relations.status_history[id] || [],
+        job_stages: relations.job_stages[id] || []
+      };
+    });
+    res.set('Server-Timing', `tickets;dur=${Date.now()-startedAt}`);
     res.json(enriched);
-  } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
+  } catch(e) {
+    console.error(`[PXL-REV-0056] GET /api/tickets gagal setelah ${Date.now()-startedAt}ms`, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), async (req, res) => {
