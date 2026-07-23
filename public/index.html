@@ -2513,6 +2513,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
+/* PXL-REV-0055: Global Auth Stability & Performance */
 /* ══ STATE ══════════════════════════════ */
 let allTickets=[], allUsers=[], allSuppliers=[], salesPics=[], currentUser=null, currentRating=0;
 let myPrRoles=[]; // pr_roles milik currentUser, di-set ulang tiap kali login/showApp
@@ -2594,14 +2595,30 @@ function startGPS(){
 /* ══ INIT ═══════════════════════════════ */
 window.addEventListener('DOMContentLoaded', checkSession);
 async function checkSession(){
+  const token=readAppToken();
+  if(!token) return;
   try{
-    const token=localStorage.getItem('pixel_token')||'';
-    if(!token) return;
-    const r=await fetch('/api/me',{headers:token?{'Authorization':'Bearer '+token}:{}});
-    const{user}=await r.json();
-    if(user){currentUser=user;showApp();}
-    else{ localStorage.removeItem('pixel_token'); }
-  }catch(e){ localStorage.removeItem('pixel_token'); }
+    const r=await fetch('/api/me',{headers:{
+      'Authorization':'Bearer '+token,
+      'X-Auth-Token':token
+    },cache:'no-store'});
+    if(!r.ok){
+      // Gangguan endpoint tidak boleh menghapus sesi yang masih tersimpan.
+      console.warn('Session check gagal:',r.status);
+      return;
+    }
+    const data=await r.json();
+    if(data&&data.user){
+      currentUser=data.user;
+      showApp();
+    }else{
+      // Token benar-benar tidak dikenali oleh backend.
+      localStorage.removeItem('pixel_token');
+      sessionStorage.removeItem('pixel_token');
+    }
+  }catch(e){
+    console.warn('Session check tertunda:',e);
+  }
 }
 
 /* ══ LOGIN/LOGOUT ════════════════════════ */
@@ -2699,18 +2716,27 @@ function showApp(){
   const canArchive=['admin','manager','accounting'].includes(currentUser.role);
   if(canArchive) api('GET','/archive').then(d=>{archivedTickets=d||[];}).catch(()=>{});
 
-  // Preload kunjungan sales untuk dashboard & KPI
+  // PXL-REV-0055: muat data tambahan bertahap agar login/dashboard tidak dibanjiri request.
   const canSeeVisits=['admin','manager','superadmin','sales'].includes(currentUser.role);
-  if(canSeeVisits) api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}).catch(()=>{});
+  if(canSeeVisits){
+    setTimeout(()=>{
+      api('GET','/sales-visits').then(d=>{
+        kunjunganData=d||[];
+        const dash=document.getElementById('tab-dashboard');
+        if(dash&&dash.classList.contains('active')) loadDashboard();
+      }).catch(e=>console.warn('sales-visits preload:',e.message));
+    },700);
+  }
 
-  // Preload suppliers untuk dropdown PR
-  api('GET','/suppliers').then(d=>{allSuppliers=d||[];}).catch(()=>{});
+  // Supplier tidak lagi dimuat saat login; dimuat hanya saat PR/Supplier dibuka.
   if(!Array.isArray(currentUser.pr_roles)){
-    api('GET','/users').then(users=>{
-      allUsers=users||[];
-      const me=allUsers.find(u=>u.id===currentUser.id);
-      if(me) currentUser.pr_roles=me.pr_roles||[];
-    }).catch(()=>{});
+    setTimeout(()=>{
+      api('GET','/users').then(users=>{
+        allUsers=users||[];
+        const me=allUsers.find(u=>u.id===currentUser.id);
+        if(me) currentUser.pr_roles=me.pr_roles||[];
+      }).catch(e=>console.warn('users preload:',e.message));
+    },1200);
   }
 }
 
@@ -2902,8 +2928,8 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
-  if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-REV-0055';frame.dataset.loaded='1';}else sendModuleToken(frame); }
+  if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0055';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets')   renderTickets();
   if(tab==='kpi'){
@@ -2923,9 +2949,9 @@ function switchTab(tab,btn){
   if(tab==='materials') loadMaterialRequests();
   if(tab==='inventory') {
     const frame=document.getElementById('inventory-frame');
-    if(frame && !frame.dataset.loaded){ frame.src='/inventory.html'; frame.dataset.loaded='1'; }
+    if(frame && !frame.dataset.loaded){ frame.src='/inventory.html?v=PXL-REV-0055'; frame.dataset.loaded='1'; }
   }
-  if(tab==='pr')        loadPurchaseRequests();
+  if(tab==='pr')        { if(!allSuppliers||!allSuppliers.length) api('GET','/suppliers').then(d=>{allSuppliers=d||[];}).catch(()=>{}); loadPurchaseRequests(); }
   if(tab==='projects')  { loadProjects(); updateImportButtonVisibility(); }
   if(tab==='supplier')  loadSuppliers();
 }
@@ -2966,27 +2992,10 @@ async function api(method,path,body){
   }
 
   if(r.status===401){
-    // Jangan langsung logout hanya karena satu modul gagal. Validasi sesi utama lebih dulu.
-    let sessionInvalid=false;
-    const activeToken=readAppToken();
-    if(!activeToken){
-      sessionInvalid=true;
-    }else{
-      try{
-        const check=await fetch('/api/me',{headers:{
-          'Authorization':'Bearer '+activeToken,
-          'X-Auth-Token':activeToken
-        }});
-        sessionInvalid=check.status===401;
-      }catch(_){
-        sessionInvalid=false;
-      }
-    }
-    if(sessionInvalid){
-      await doLogout();
-      throw new Error('Session expired — silakan login ulang.');
-    }
-    throw new Error('Akses modul belum terautentikasi. Silakan muat ulang halaman.');
+    // PXL-REV-0055: satu modul 401 tidak boleh menendang seluruh aplikasi.
+    // Token tetap dipertahankan; user hanya logout melalui tombol Keluar.
+    console.warn('401 pada modul:',path);
+    throw new Error('Sesi modul belum terbaca. Muat ulang modul ini.');
   }
 
   if(!r.ok){
@@ -3020,7 +3029,12 @@ async function loadSalesPics(){
     }
   }catch(e){console.error('Failed to load sales PICs',e);}
 }
-function startPolling(){ clearInterval(pollTimer); pollTimer=setInterval(loadTickets,10000); }
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer=setInterval(()=>{
+    if(document.visibilityState==='visible' && currentUser) loadTickets();
+  },60000);
+}
 
 // ══ NOTIFIKASI ══
 let notifList=[];
@@ -3030,7 +3044,9 @@ const NOTIF_ICONS={tiket:'🎫',kunjungan:'🗺️',pr:'📝',mr:'📦',project:
 function startNotifPolling(){
   loadNotifications();
   clearInterval(notifPollTimer);
-  notifPollTimer=setInterval(loadNotifications,15000);
+  notifPollTimer=setInterval(()=>{
+    if(document.visibilityState==='visible' && currentUser) loadNotifications();
+  },60000);
 }
 
 async function loadNotifications(){
@@ -3179,7 +3195,7 @@ async function recordStage(ticketId, stage, signatures){
       },
       body:JSON.stringify({stage,...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng}),...(signatures||{})})
     });
-    if(r.status===401){doLogout();return;}
+    if(r.status===401){throw new Error('Sesi modul belum terbaca. Silakan ulangi.');}
     const data=await r.json();
     if(!r.ok){alert('Gagal: '+(data.error||'Error'));return;}
     // update local ticket
@@ -3619,7 +3635,7 @@ async function uploadInvoice(){
     const token=localStorage.getItem('pixel_token')||'';
     const endpoint=noWoMode ? '/api/invoices/standalone' : '/api/tickets/'+ticketId+'/invoice';
     const r=await fetch(endpoint,{method:'POST',body:fd,headers:token?{'Authorization':'Bearer '+token}:{}});
-    if(r.status===401){doLogout();return;}
+    if(r.status===401){throw new Error('Sesi modul belum terbaca. Silakan ulangi.');}
     if(!r.ok) throw new Error((await r.json()).error||'Error');
     const inv=await r.json();
     if(!noWoMode){
@@ -3645,7 +3661,7 @@ async function deleteInvoice(ticketId,invId){
   try{
     const token=localStorage.getItem('pixel_token')||'';
     const r=await fetch('/api/tickets/'+ticketId+'/invoice/'+invId,{method:'DELETE',headers:token?{'Authorization':'Bearer '+token}:{}});
-    if(r.status===401){doLogout();return;}
+    if(r.status===401){throw new Error('Sesi modul belum terbaca. Silakan ulangi.');}
     if(!r.ok) throw new Error();
     const t=allTickets.find(t=>t.id===ticketId);
     if(t) t.invoices=t.invoices.filter(i=>i.id!==invId);
