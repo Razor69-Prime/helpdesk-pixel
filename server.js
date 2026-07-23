@@ -201,7 +201,11 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy();
   res.json({ ok: true });
 });
-app.get('/api/me',     (req, res) => res.json({ user: req.session.user || null }));
+app.get('/api/me', (req, res) => {
+  res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, private');
+  if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+  res.json({ user: req.session.user });
+});
 
 // ══════════════════════════════════════════
 //  USER MANAGEMENT
