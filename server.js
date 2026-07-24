@@ -1362,12 +1362,14 @@ app.post('/api/tickets/:id/photos/signature', requireAuth, async (req,res)=>{
     if(!cloudinaryReady()) return res.status(503).json({error:'Cloudinary belum dikonfigurasi di Vercel Environment Variables.'});
     const ticket=(await db.getTickets(null,true)).find(x=>String(x.id)===String(req.params.id));
     if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
-    const photos=await db.getWorkOrderPhotos(ticket.id,false);
-    const seq=String(photos.length+1).padStart(3,'0');
-    const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
+    // PXL-REV-0065: setiap file harus memiliki Cloudinary public_id yang unik.
+    // Nomor urut berbasis jumlah foto dapat bentrok pada multi-upload atau retry.
+    const now=Date.now();
+    const date=new Date(now).toISOString().slice(0,10).replace(/-/g,'');
     const wo=safeDocPart(ticket.wo_number||ticket.id);
-    const public_id=`helpdesk-pixel/work-orders/${wo}/${wo}-${date}-${seq}`;
-    const timestamp=Math.floor(Date.now()/1000);
+    const uniqueSuffix=`${now}-${Math.random().toString(36).slice(2,8)}`;
+    const public_id=`helpdesk-pixel/work-orders/${wo}/${wo}-${date}-${uniqueSuffix}`;
+    const timestamp=Math.floor(now/1000);
     const params={public_id,timestamp};
     res.json({cloud_name:CLOUDINARY_CLOUD_NAME,api_key:CLOUDINARY_API_KEY,timestamp,public_id,signature:cloudinarySignature(params),generated_filename:public_id.split('/').pop()});
   }catch(e){res.status(500).json({error:e.message});}
