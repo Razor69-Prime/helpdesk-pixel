@@ -194,7 +194,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .modal-close{position:absolute;top:16px;right:16px;border:none;background:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
 
 
-/* PXL-REV-0061 — Modal dokumentasi foto Work Order */
+/* PXL-REV-0064 — Multi upload dokumentasi foto Work Order */
 .wo-photo-drop{border:1px dashed var(--border);border-radius:12px;padding:14px;background:var(--surface2)}
 .wo-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
 .wo-photo-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
@@ -2505,8 +2505,9 @@ input[type=file]{padding:7px 11px;cursor:pointer}
     <div class="modal-title">📷 Dokumentasi Foto Work Order</div>
     <div class="modal-sub" id="wo-photo-modal-sub">WO: —</div>
     <div class="wo-photo-drop">
-      <label>Foto pekerjaan (JPG, PNG, WEBP — maks. 10MB)</label>
-      <input type="file" id="wo-photo-file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px"/>
+      <label>Foto pekerjaan (JPG, PNG, WEBP — maks. 10MB per foto)</label>
+      <input type="file" id="wo-photo-file" accept="image/jpeg,image/png,image/webp" multiple style="margin-top:6px" onchange="updateWoPhotoSelection()"/>
+      <div id="wo-photo-selection" style="font-size:11px;color:var(--muted);margin-top:6px">Belum ada foto dipilih.</div>
       <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px">
         <div>
           <label>Keterangan foto <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
@@ -2517,6 +2518,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
           Tampil ke customer
         </label>
       </div>
+      <div id="wo-photo-progress" style="display:none;margin-top:8px;font-size:12px;color:var(--muted)"></div>
       <div id="wo-photo-error" class="form-error" style="display:none;margin-top:8px"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
         <button class="btn primary" id="wo-photo-upload-btn" onclick="uploadWoPhoto()">📤 Upload Foto</button>
@@ -3500,7 +3502,7 @@ function renderTickets(){
 
 
 
-/* ══ PXL-REV-0061 — FOTO WORK ORDER / CLOUDINARY ══ */
+/* ══ PXL-REV-0064 — MULTI FOTO WORK ORDER / CLOUDINARY ══ */
 let currentWoPhotoTicketId=null;
 function woPhotoEscape(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));}
 
@@ -3516,6 +3518,9 @@ async function openWoPhotoModal(ticketId){
   currentWoPhotoTicketId=String(ticketId);
   document.getElementById('wo-photo-modal-sub').textContent=`WO: ${ticket.wo_number||'-'}${ticket.customer_name?' · '+ticket.customer_name:''}`;
   document.getElementById('wo-photo-file').value='';
+  updateWoPhotoSelection();
+  const progress=document.getElementById('wo-photo-progress');
+  if(progress){ progress.style.display='none'; progress.textContent=''; }
   document.getElementById('wo-photo-caption').value='';
   document.getElementById('wo-photo-visible').checked=true;
   document.getElementById('wo-photo-error').style.display='none';
@@ -3556,51 +3561,96 @@ async function loadWoPhotos(force=false){
   }
 }
 
+function updateWoPhotoSelection(){
+  const input=document.getElementById('wo-photo-file');
+  const info=document.getElementById('wo-photo-selection');
+  if(!input || !info) return;
+  const files=Array.from(input.files||[]);
+  if(!files.length){ info.textContent='Belum ada foto dipilih.'; return; }
+  const totalMb=files.reduce((sum,file)=>sum+Number(file.size||0),0)/(1024*1024);
+  info.textContent=`${files.length} foto dipilih · total ${totalMb.toFixed(1)} MB`;
+}
+
 async function uploadWoPhoto(){
   if(!currentWoPhotoTicketId) return;
-  const file=document.getElementById('wo-photo-file').files?.[0];
+  const input=document.getElementById('wo-photo-file');
+  const files=Array.from(input?.files||[]);
   const caption=document.getElementById('wo-photo-caption').value.trim();
   const visible=document.getElementById('wo-photo-visible').checked;
   const err=document.getElementById('wo-photo-error');
+  const progress=document.getElementById('wo-photo-progress');
   const btn=document.getElementById('wo-photo-upload-btn');
   err.style.display='none';
-  if(!file){ err.textContent='Pilih foto terlebih dahulu.'; err.style.display='block'; return; }
-  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
-    err.textContent='Format foto harus JPG, PNG, atau WEBP.'; err.style.display='block'; return;
+  progress.style.display='none';
+  progress.textContent='';
+
+  if(!files.length){ err.textContent='Pilih minimal satu foto terlebih dahulu.'; err.style.display='block'; return; }
+
+  const invalidType=files.find(file=>!['image/jpeg','image/png','image/webp'].includes(file.type));
+  if(invalidType){
+    err.textContent=`Format file ${invalidType.name} harus JPG, PNG, atau WEBP.`;
+    err.style.display='block'; return;
   }
-  if(file.size>10*1024*1024){ err.textContent='Ukuran foto maksimal 10MB.'; err.style.display='block'; return; }
+  const oversized=files.find(file=>file.size>10*1024*1024);
+  if(oversized){
+    err.textContent=`Ukuran ${oversized.name} melebihi batas 10MB.`;
+    err.style.display='block'; return;
+  }
 
-  btn.disabled=true; btn.textContent='Mengupload...';
+  btn.disabled=true;
+  const failures=[];
+  let successCount=0;
+  progress.style.display='block';
+
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    const position=i+1;
+    btn.textContent=`Mengupload ${position}/${files.length}...`;
+    progress.textContent=`Memproses foto ${position} dari ${files.length}: ${file.name}`;
+    try{
+      const sig=await api('POST',`/tickets/${currentWoPhotoTicketId}/photos/signature`,{});
+      const form=new FormData();
+      form.append('file',file);
+      form.append('api_key',sig.api_key);
+      form.append('timestamp',String(sig.timestamp));
+      form.append('public_id',sig.public_id);
+      form.append('signature',sig.signature);
+      const cloudRes=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloud_name)}/image/upload`,{method:'POST',body:form});
+      let cloudData={};
+      try{ cloudData=await cloudRes.json(); }catch(_){ }
+      if(!cloudRes.ok) throw new Error(cloudData?.error?.message||'Upload ke Cloudinary gagal.');
+
+      await api('POST',`/tickets/${currentWoPhotoTicketId}/photos`,{
+        secure_url:cloudData.secure_url,
+        cloudinary_public_id:cloudData.public_id,
+        original_filename:file.name,
+        generated_filename:sig.generated_filename,
+        caption:caption||null,
+        visible_to_customer:visible
+      });
+      successCount++;
+    }catch(e){
+      failures.push(`${file.name}: ${e.message||'gagal diupload'}`);
+    }
+  }
+
   try{
-    const sig=await api('POST',`/tickets/${currentWoPhotoTicketId}/photos/signature`,{});
-    const form=new FormData();
-    form.append('file',file);
-    form.append('api_key',sig.api_key);
-    form.append('timestamp',String(sig.timestamp));
-    form.append('public_id',sig.public_id);
-    form.append('signature',sig.signature);
-    const cloudRes=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloud_name)}/image/upload`,{method:'POST',body:form});
-    let cloudData={};
-    try{ cloudData=await cloudRes.json(); }catch(_){ }
-    if(!cloudRes.ok) throw new Error(cloudData?.error?.message||'Upload ke Cloudinary gagal.');
-
-    await api('POST',`/tickets/${currentWoPhotoTicketId}/photos`,{
-      secure_url:cloudData.secure_url,
-      cloudinary_public_id:cloudData.public_id,
-      original_filename:file.name,
-      generated_filename:sig.generated_filename,
-      caption:caption||null,
-      visible_to_customer:visible
-    });
-    document.getElementById('wo-photo-file').value='';
+    input.value='';
+    updateWoPhotoSelection();
     document.getElementById('wo-photo-caption').value='';
     await loadWoPhotos(true);
-    alert('✅ Foto Work Order berhasil diupload.');
-  }catch(e){
-    err.textContent=e.message||'Upload foto gagal.';
-    err.style.display='block';
+
+    if(failures.length){
+      err.textContent=`${successCount} foto berhasil, ${failures.length} foto gagal. ${failures.join(' | ')}`;
+      err.style.display='block';
+      progress.textContent=`Selesai: ${successCount}/${files.length} foto berhasil.`;
+    }else{
+      progress.textContent=`Selesai: ${successCount} foto berhasil diupload.`;
+      alert(`✅ ${successCount} foto Work Order berhasil diupload.`);
+    }
   }finally{
-    btn.disabled=false; btn.textContent='📤 Upload Foto';
+    btn.disabled=false;
+    btn.textContent='📤 Upload Foto';
   }
 }
 
