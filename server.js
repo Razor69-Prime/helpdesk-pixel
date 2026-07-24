@@ -1961,7 +1961,8 @@ app.get('/api/inventory/export.xlsx', requireInventoryPermission('inventory_impo
       { header: 'Nama Barang', key: 'name', width: 36 },
       { header: 'SKU', key: 'sku', width: 18 },
       { header: 'Product Number', key: 'product_number', width: 22 },
-      { header: 'Barcode', key: 'barcode', width: 20 },
+      { header: 'Barcode Internal', key: 'barcode', width: 20 },
+      { header: 'Barcode Pabrikan', key: 'manufacturer_barcode', width: 22 },
       { header: 'Kategori', key: 'category', width: 24 },
       { header: 'Sub Kategori', key: 'subcategory', width: 28 },
       { header: 'Satuan', key: 'unit', width: 14 },
@@ -1972,14 +1973,14 @@ app.get('/api/inventory/export.xlsx', requireInventoryPermission('inventory_impo
     for (const i of items) {
       const stock = Number(i.stock || 0), min = Number(i.min_stock || 0);
       ws.addRow({
-        name: i.name, sku: i.sku || '', product_number: i.product_number || '', barcode: i.barcode || '',
+        name: i.name, sku: i.sku || '', product_number: i.product_number || '', barcode: i.barcode || '', manufacturer_barcode: i.manufacturer_barcode || '',
         category: i.category || '', subcategory: i.subcategory || '', unit: i.unit || '', stock, min_stock: min,
         status: stock <= min ? 'Kritis' : (min > 0 && stock <= min * 1.5 ? 'Rendah' : 'Aman')
       });
     }
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE07B39' } };
-    ws.autoFilter = 'A1:J1';
+    ws.autoFilter = 'A1:K1';
 
     const logWs = wb.addWorksheet('Log Stok', { views: [{ state: 'frozen', ySplit: 1 }] });
     logWs.columns = [
@@ -2089,17 +2090,25 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
     const trackingMode = String(req.body.tracking_mode || 'quantity') === 'serial' ? 'serial' : 'quantity';
     if (trackingMode === 'serial' && qty > 0) return res.status(400).json({ error: 'Stok awal barang serial harus 0. Tambahkan melalui Restock.' });
     const suppliedBarcode = String(req.body.barcode || '').trim();
-    if (suppliedBarcode && !/^[A-Za-z0-9._-]{4,40}$/.test(suppliedBarcode)) return res.status(400).json({ error: 'Format barcode tidak valid.' });
+    const manufacturerBarcode = String(req.body.manufacturer_barcode || '').trim();
+    const barcodePattern = /^[A-Za-z0-9._-]{4,64}$/;
+    if (suppliedBarcode && !barcodePattern.test(suppliedBarcode)) return res.status(400).json({ error: 'Format barcode internal tidak valid.' });
+    if (manufacturerBarcode && !barcodePattern.test(manufacturerBarcode)) return res.status(400).json({ error: 'Format barcode pabrikan tidak valid.' });
     if (suppliedBarcode) {
       const duplicate = await db.findInventoryItemByCode(suppliedBarcode);
-      if (duplicate) return res.status(409).json({ error: `Barcode sudah digunakan oleh ${duplicate.name} (${duplicate.sku || '-'}).` });
+      if (duplicate) return res.status(409).json({ error: `Barcode internal sudah digunakan oleh ${duplicate.name} (${duplicate.sku || '-'}).` });
+    }
+    if (manufacturerBarcode) {
+      const duplicateManufacturer = await db.findInventoryItemByManufacturerBarcode(manufacturerBarcode);
+      if (duplicateManufacturer) return res.status(409).json({ error: `Barcode pabrikan sudah digunakan oleh ${duplicateManufacturer.name} (${duplicateManufacturer.sku || '-'}).` });
     }
     const sku = String(req.body.sku || '').trim() || await db.generateInventorySku(category, subcategory);
     const barcode = suppliedBarcode || await db.generateInventoryBarcode();
     const item = await db.insertInventoryItem({
       name, sku, product_number: String(req.body.product_number || '').trim() || null,
       category, subcategory, unit: String(req.body.unit || 'pcs'), tracking_mode: trackingMode,
-      stock: qty, min_stock: Number(req.body.min_stock || 0), barcode, is_active: true
+      stock: qty, min_stock: Number(req.body.min_stock || 0), barcode,
+      manufacturer_barcode: manufacturerBarcode || null, is_active: true
     });
     if (qty > 0) await db.insertInventoryTransaction({
       item_id: item.id, transaction_type: 'RESTOCK', qty, balance_after: qty,
@@ -2110,6 +2119,26 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
     logActivity(req, 'inventory', 'TAMBAH BARANG', `${name} · stok awal ${qty}`);
     res.status(201).json({ ok: true, item: persisted });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/inventory/items/:id/manufacturer-barcode', requireInventoryPermission('inventory_manage'), async (req, res) => {
+  try {
+    const item = await db.getInventoryItem(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Barang tidak ditemukan.' });
+    const manufacturerBarcode = String(req.body.manufacturer_barcode || '').trim();
+    if (!manufacturerBarcode) return res.status(400).json({ error: 'Barcode pabrikan wajib diisi.' });
+    if (!/^[A-Za-z0-9._-]{4,64}$/.test(manufacturerBarcode)) return res.status(400).json({ error: 'Format barcode pabrikan tidak valid.' });
+    const duplicate = await db.findInventoryItemByManufacturerBarcode(manufacturerBarcode);
+    if (duplicate && String(duplicate.id) !== String(item.id)) {
+      return res.status(409).json({ error: `Barcode pabrikan sudah digunakan oleh ${duplicate.name} (${duplicate.sku || '-'}).` });
+    }
+    const updated = await db.updateInventoryItem(item.id, { manufacturer_barcode: manufacturerBarcode });
+    logActivity(req, 'inventory', 'BARCODE PABRIKAN', `${item.name} · ${manufacturerBarcode}`);
+    res.json({ ok: true, item: updated });
+  } catch (e) {
+    const message = String(e.message || e);
+    res.status(message.includes('duplicate key') ? 409 : 500).json({ error: message });
+  }
 });
 
 app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_delete'), async (req, res) => {

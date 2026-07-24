@@ -703,7 +703,13 @@ async function generateInventoryBarcode() {
 async function findInventoryItemByCode(code) {
   requireInventorySupabase();
   const q = encodeURIComponent(String(code || '').trim());
-  const rows = await sbFetch('GET', `/inventory_items?or=(barcode.eq.${q},sku.eq.${q},product_number.eq.${q})&is_active=is.true&limit=1`);
+  const rows = await sbFetch('GET', `/inventory_items?or=(manufacturer_barcode.eq.${q},barcode.eq.${q},sku.eq.${q},product_number.eq.${q})&is_active=is.true&limit=1`);
+  return rows?.[0] || null;
+}
+async function findInventoryItemByManufacturerBarcode(code) {
+  requireInventorySupabase();
+  const q = encodeURIComponent(String(code || '').trim());
+  const rows = await sbFetch('GET', `/inventory_items?manufacturer_barcode=eq.${q}&is_active=is.true&limit=1`);
   return rows?.[0] || null;
 }
 async function getInventoryHealth() {
@@ -956,7 +962,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, getInventoryHealth,
+  getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
   getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
