@@ -33,9 +33,12 @@ if (USE_SUPABASE) {
 }
 
 const sbBase = () => `${cfg.SUPABASE_URL}/rest/v1`;
+// PXL-REV-0063 — Server-side Supabase writes must use the service-role key.
+// Keep the existing SUPABASE_KEY as a read/fallback key for backward compatibility.
+const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.SUPABASE_KEY;
 const sbHdrs = () => ({
-  'apikey':        cfg.SUPABASE_KEY,
-  'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
+  'apikey':        SUPABASE_SERVER_KEY,
+  'Authorization': `Bearer ${SUPABASE_SERVER_KEY}`,
   'Content-Type':  'application/json',
   'Prefer':        'return=representation'
 });
