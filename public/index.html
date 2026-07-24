@@ -516,6 +516,15 @@ input[type=file]{padding:7px 11px;cursor:pointer}
   .bar-bg{height:6px!important}
   .bar-fill{height:6px!important}
 }
+/* PXL-STG-0001 — environment identity */
+#staging-banner{display:none;position:sticky;top:0;z-index:1000;background:#7C2D12;color:#fff;padding:7px 12px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.08em;box-shadow:0 2px 8px rgba(0,0,0,.16)}
+#staging-banner.show{display:block}
+#staging-login-badge{display:none;margin:0 0 12px;padding:7px 10px;border-radius:8px;background:#FFF1E8;border:1px solid #F5A66A;color:#9A3412;font-size:11px;font-weight:800;text-align:center;letter-spacing:.06em}
+#staging-login-badge.show{display:block}
+body.pxl-staging .topbar{top:31px}
+body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
+@media(max-width:600px){body.pxl-staging .topbar{top:31px}}
+
 @media print{
   body *{visibility:hidden}
   .print-area,.print-area *{visibility:visible}
@@ -524,10 +533,12 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 </style>
 </head>
 <body>
+<div id="staging-banner">⚠ STAGING / DATA UJI — BUKAN SERVER LIVE</div>
 
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
+    <div id="staging-login-badge">STAGING / DATA UJI</div>
     <div class="login-logo">
       <div class="login-logo-dot">P</div>
       <div><div class="login-logo-text">Pixel Solusindo</div><div class="login-logo-sub">Helpdesk Teknisi</div></div>
@@ -10417,7 +10428,22 @@ function pxlForceCrmChecklist(){
     });
   }
 }
+async function pxlApplyEnvironmentIdentity(){
+  try{
+    const r=await fetch('/api/environment',{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+    if(!r.ok) return;
+    const info=await r.json();
+    if(info?.staging){
+      document.body.classList.add('pxl-staging');
+      document.getElementById('staging-banner')?.classList.add('show');
+      document.getElementById('staging-login-badge')?.classList.add('show');
+      document.title='[STAGING] Helpdesk Teknisi — Pixel Solusindo';
+    }
+  }catch(_){ /* identitas environment tidak boleh mengganggu login */ }
+}
+
 window.addEventListener('load',()=>{
+  pxlApplyEnvironmentIdentity();
   // Hapus service worker lama agar index terbaru tidak tertahan cache PWA.
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations()

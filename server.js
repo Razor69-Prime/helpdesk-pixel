@@ -9,6 +9,26 @@ const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
 
+// PXL-STG-0001 — staging safety guard.
+// Guard hanya aktif bila APP_ENV=staging, sehingga source tetap aman saat nanti di-merge ke production.
+const APP_ENV = String(process.env.APP_ENV || '').trim().toLowerCase();
+const IS_STAGING = APP_ENV === 'staging';
+const STAGING_SUPABASE_PROJECT_REF = String(process.env.STAGING_SUPABASE_PROJECT_REF || '').trim();
+const PRODUCTION_SUPABASE_PROJECT_REF = 'chgcictuycjeqdxfrnej';
+
+if (IS_STAGING) {
+  const configuredSupabaseUrl = String(cfg.SUPABASE_URL || '').trim();
+  if (!STAGING_SUPABASE_PROJECT_REF) {
+    throw new Error('PXL-STG-0001: STAGING_SUPABASE_PROJECT_REF wajib diisi pada Vercel staging.');
+  }
+  if (!configuredSupabaseUrl || !configuredSupabaseUrl.includes(STAGING_SUPABASE_PROJECT_REF)) {
+    throw new Error('PXL-STG-0001: Supabase URL staging tidak cocok dengan project reference yang diizinkan.');
+  }
+  if (configuredSupabaseUrl.includes(PRODUCTION_SUPABASE_PROJECT_REF)) {
+    throw new Error('PXL-STG-0001: Staging dilarang terhubung ke Supabase production.');
+  }
+}
+
 const app  = express();
 const PORT = cfg.PORT;
 const UPLOADS_DIR  = path.join(__dirname, 'data', 'uploads');
@@ -88,6 +108,20 @@ const JWT_SECRET = cfg.SESSION_SECRET;
 // Bekerja sempurna di Vercel serverless tanpa cookie issue
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+// Header dan endpoint identitas environment dipakai UI untuk menampilkan penanda STAGING.
+app.use((req, res, next) => {
+  res.setHeader('X-PXL-Environment', IS_STAGING ? 'staging' : 'production');
+  next();
+});
+app.get('/api/environment', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.json({
+    environment: IS_STAGING ? 'staging' : 'production',
+    staging: IS_STAGING,
+    project_ref: IS_STAGING ? STAGING_SUPABASE_PROJECT_REF : null
+  });
+});
 
 app.use((req, res, next) => {
   req.session = { user: null };
