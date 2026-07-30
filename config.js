@@ -13,7 +13,7 @@ module.exports = {
 
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://chgcictuycjeqdxfrnej.supabase.co',
-  SUPABASE_KEY: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYXNlIiwicmVmIjoiY2hnY2ljdHV5Y2plcWR4ZnJuZWoiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc4MTA3MDgwMiwiZXhwIjoyMDk2NjQ2ODAyfQ.3vdiX3Eya1l1CON47m3htPKl7GsYF4PmQ9eyQgBHE-Q',
+  SUPABASE_KEY: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoZ2NpY3R1eWNqZXFkeGZybmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzA4MDIsImV4cCI6MjA5NjY0NjgwMn0.3vdiX3Eya1l1CON47m3htPKl7GsYF4PmQ9eyQgBHE-Q',
 
   // Database URL untuk session store (Supabase → Settings → Database → URI)
   DATABASE_URL: process.env.DATABASE_URL || null,
