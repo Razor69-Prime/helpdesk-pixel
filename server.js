@@ -1678,6 +1678,96 @@ app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{r
 app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
+
+// PXL-STG-0003 — konversi Sales Order menjadi WO operasional existing.
+// Idempotent: satu Sales Order hanya boleh terhubung ke satu ticket/WO.
+app.post('/api/sales-orders/:id/work-order',requireRole('sales','manager','admin','superadmin'),async(req,res)=>{
+  try{
+    const salesOrders=await db.getSalesOrders();
+    const so=salesOrders.find(x=>String(x.id)===String(req.params.id));
+    if(!so) return res.status(404).json({error:'Sales Order tidak ditemukan.'});
+    if(['cancelled','void'].includes(String(so.status||'').toLowerCase())){
+      return res.status(400).json({error:'Sales Order batal/void tidak dapat dibuatkan Work Order.'});
+    }
+    if(String(so.status||'').toLowerCase()!=='approved'){
+      return res.status(400).json({error:'Sales Order harus berstatus Disetujui sebelum dibuatkan Work Order.'});
+    }
+
+    const integrationKey=`sales-order:${so.id}`;
+    const tickets=await db.getTickets(null,true);
+    let ticket=tickets.find(x=>
+      String(x.sales_order_id||'')===String(so.id)||
+      String(x.integration_key||'')===integrationKey||
+      (so.linked_work_order_id&&String(x.id)===String(so.linked_work_order_id))
+    );
+    let created=false;
+
+    if(!ticket){
+      const year=new Date().getFullYear();
+      const re=new RegExp(`^WO-${year}-(\\d+)$`);
+      const max=tickets.reduce((m,row)=>{const hit=String(row.wo_number||'').match(re);return hit?Math.max(m,Number(hit[1])):m},0);
+      const woNumber=`WO-${year}-${String(max+1).padStart(6,'0')}`;
+      const itemSummary=(Array.isArray(so.items)?so.items:[]).map(i=>{
+        const name=i.item_name||i.name||'Item';
+        return `${name} x ${Number(i.qty||0)}`;
+      }).join(', ');
+      const now=new Date().toISOString();
+      const workedAt=req.body.worked_at||new Date().toISOString().slice(0,10);
+      ticket=await db.insertTicket({
+        wo_number:woNumber,
+        project_name:req.body.project_name||so.location||so.customer_name||so.so_number,
+        customer_name:so.customer_name||null,
+        customer_phone:so.customer_phone||null,
+        technicians:[],
+        technician:'Belum Ditugaskan',
+        created_by:req.session.user.name,
+        status:'assigned',
+        worked_at:workedAt,
+        description:req.body.description||[`Dibuat otomatis dari ${so.so_number}.`,so.notes||'',itemSummary?`Item: ${itemSummary}`:''].filter(Boolean).join(' '),
+        rating:0,
+        tracking_token:crypto.randomBytes(14).toString('hex'),
+        last_lat:null,last_lng:null,last_gps_at:null,
+        source_type:'sales_order',
+        sales_order_id:so.id,
+        so_number:so.so_number,
+        crm_customer_id:so.customer_id||null,
+        integration_key:integrationKey,
+        integration_meta:{revision:'PXL-STG-0003',source:'sales_order',created_from_so_at:now}
+      });
+      await db.insertStatusHistory({ticket_id:ticket.id,status:'assigned',timestamp:now,technician:req.session.user.name,lat:null,lng:null});
+      created=true;
+    }
+
+    // Mirror CRM bersifat ringkasan; ticket tetap menjadi sumber operasional dan KPI.
+    const crmWos=await db.getCrmWorkOrders();
+    let crmWo=crmWos.find(x=>
+      String(x.ticket_id||'')===String(ticket.id)||
+      String(x.sales_order_id||'')===String(so.id)||
+      String(x.integration_key||'')===integrationKey
+    );
+    if(!crmWo){
+      crmWo=await db.insertCrmWorkOrder({
+        number_source:'manual',wo_number:ticket.wo_number,ticket_id:ticket.id,
+        sales_order_id:so.id,so_number:so.so_number,customer_id:so.customer_id||null,
+        customer_name:so.customer_name||null,customer_phone:so.customer_phone||null,
+        source_type:'sales_order',integration_key:integrationKey,
+        source_marker:so.source_marker||null,status:'draft',created_by:req.session.user.name
+      });
+    }
+
+    const history=[...(so.history||[])];
+    if(!history.some(h=>h.action==='create_work_order'&&String(h.ticket_id||'')===String(ticket.id))){
+      history.push({at:new Date().toISOString(),by:req.session.user.name,action:'create_work_order',ticket_id:ticket.id,wo_number:ticket.wo_number});
+    }
+    await db.updateSalesOrder(so.id,{linked_work_order_id:ticket.id,linked_wo_number:ticket.wo_number,converted_to_wo_at:so.converted_to_wo_at||new Date().toISOString(),history});
+    logActivity(req,'so',created?'BUAT WO DARI SALES ORDER':'BUKA WO SALES ORDER',`${so.so_number} → ${ticket.wo_number}`);
+    res.status(created?201:200).json({ok:true,created,ticket,crm_work_order:crmWo});
+  }catch(e){
+    const duplicate=/duplicate key|unique constraint|23505/i.test(String(e.message));
+    res.status(duplicate?409:500).json({error:duplicate?'Sales Order ini sudah memiliki Work Order. Muat ulang daftar Sales Order.':e.message});
+  }
+});
+
 app.get('/api/crm/work-orders',requireAuth,async(req,res)=>{try{res.json(await db.getCrmWorkOrders())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{const payload={...req.body,sales_order_id:req.body.sales_order_id||null,so_number:req.body.so_number||null,created_by:req.session.user.name};const x=await db.insertCrmWorkOrder(payload);logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
 app.patch('/api/crm/work-orders/:id',requireAuth,async(req,res)=>{try{res.json(await db.updateCrmWorkOrder(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
