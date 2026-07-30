@@ -3,10 +3,10 @@
 //  Dapatkan nilai dari: https://supabase.com → Settings → API
 // ═══════════════════════════════════════════════════════════
 
-// PXL-STG-0004A — hardening route Sales Order dan relasi CRM Material Request.
-require('./pxl-stg-0004a');
-// PXL-STG-0004B — verifikasi teknisi, reminder stok, dan pengeluaran MR penuh.
+// Urutan penting: 0004B dimuat lebih dulu agar wrapper 0004A meneruskan
+// registrasi route ke handler MR terbaru dari 0004B.
 require('./pxl-stg-0004b');
+require('./pxl-stg-0004a');
 
 module.exports = {
 
