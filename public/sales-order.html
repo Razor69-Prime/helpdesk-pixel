@@ -1,203 +1,34 @@
 <!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sales Order · PXL-STG-0003A</title>
-<style>
-:root{--bg:#f7f6f1;--card:#fff;--line:#e4e1d8;--text:#1f1d19;--muted:#756f66;--accent:#df7b3b;--green:#5b9220;--red:#b64036}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font:13px Arial,sans-serif;color:var(--text)}button,input,select,textarea{font:inherit}.wrap{padding:18px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}h2{margin:0;font-size:19px}.sub{font-size:11px;color:var(--muted);margin-top:3px}.btn{border:1px solid var(--line);background:#fff;padding:8px 11px;border-radius:8px;cursor:pointer;font-weight:700}.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px}.metric{border-left:4px solid var(--accent)}.metric b{font-size:24px;display:block;margin-top:5px}.label{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}textarea{min-height:84px}.notice{padding:10px;border-radius:8px;background:#fff4ea;border:1px solid #f0d1b5;margin-top:10px}.table{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}table{width:100%;border-collapse:collapse}th{background:#efede7;color:var(--muted);font-size:10px;text-transform:uppercase;text-align:left;padding:8px}td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3px 7px;border-radius:99px;background:#fff0e4;color:#9b541f;font-size:10px;font-weight:700}.status{padding:3px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#eef5e8;color:#52791f}.actions{display:flex;gap:6px;flex-wrap:wrap}.item-row{display:grid;grid-template-columns:minmax(220px,2fr) 90px 110px 140px 42px;gap:7px;align-items:end;margin-bottom:7px}.item-row .remove{height:36px;padding:0}.item-head{display:grid;grid-template-columns:minmax(220px,2fr) 90px 110px 140px 42px;gap:7px;color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:700;margin-bottom:5px}.helper{font-size:11px;color:var(--muted);margin-top:5px}@media(max-width:700px){.item-row,.item-head{grid-template-columns:1fr 80px}.item-row .wide,.item-head .wide{grid-column:1/-1}}.section{margin-top:12px}.msg{display:none;position:fixed;right:18px;bottom:18px;background:#222;color:#fff;padding:10px 13px;border-radius:9px;z-index:10}@media(max-width:850px){.grid4,.form{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="toolbar">
-    <div>
-      <h2>Sales Order</h2>
-      <div class="sub">Modul khusus pembuatan, daftar, status, dan histori Sales Order. Project Tracker tetap dikelola pada modul Project Tracker.</div>
-    </div>
-    <button class="btn" onclick="loadAll()">Refresh</button>
-  </div>
-
-  <div class="grid4" id="metrics"></div>
-
-  <div class="card section">
-    <div class="toolbar">
-      <div>
-        <b>Buat Sales Order</b>
-        <div class="sub">Nomor SO dibuat otomatis dan tidak dihapus. Gunakan status void/cancelled untuk menjaga histori.</div>
-      </div>
-      <button class="btn primary" onclick="saveSO()">Simpan Sales Order</button>
-    </div>
-    <div class="form">
-      <div><label>Customer</label><input id="soCustomer" placeholder="Nama customer"></div>
-      <div><label>Nomor Telepon</label><input id="soPhone" inputmode="tel" placeholder="08xxxxxxxxxx"></div>
-      <div><label>Sales PIC</label><input id="soSales" placeholder="Nama sales"></div>
-      <div><label>Status</label><select id="soStatus"><option value="draft">Draft</option><option value="approved">Disetujui</option><option value="cancelled">Dibatalkan</option><option value="void">Void</option></select></div>
-      <div class="full"><label>Alamat / Lokasi Pekerjaan</label><textarea id="soLocation" placeholder="Alamat lengkap atau lokasi pekerjaan"></textarea></div>
-      <div class="full"><label>Catatan</label><textarea id="soNotes" placeholder="Catatan kebutuhan, scope pekerjaan, atau informasi tambahan"></textarea></div>
-      <div class="full">
-        <div class="toolbar" style="margin-bottom:6px"><div><label style="margin:0">Item yang Dibutuhkan</label><div class="helper">Isi nama item, quantity, satuan, dan harga satuan. Tidak perlu menulis JSON.</div></div><button type="button" class="btn" onclick="addItemRow()">+ Tambah Item</button></div>
-        <div class="item-head"><span class="wide">Nama Item</span><span>Qty</span><span>Satuan</span><span>Harga Satuan</span><span></span></div>
-        <div id="soItemRows"></div>
-      </div>
-    </div>
-    <div class="notice">Sales Order berstatus <b>Disetujui</b> dapat dibuatkan Work Order operasional. Satu Sales Order hanya dapat memiliki satu WO; setelah dibuat tombol berubah menjadi <b>Buka Work Order</b>.</div>
-  </div>
-
-  <div class="section">
-    <div class="toolbar"><div><b>Daftar dan Histori Sales Order</b><div class="sub">Semua SO tetap tercatat termasuk yang dibatalkan atau void.</div></div></div>
-    <div id="soTable" class="table"></div>
-  </div>
-</div>
-<div id="msg" class="msg"></div>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sales Order</title>
+<style>:root{--bg:#f7f6f1;--card:#fff;--line:#e4e1d8;--text:#1f1d19;--muted:#756f66;--accent:#df7b3b;--green:#5b9220;--red:#b64036}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:13px Arial,sans-serif;color:var(--text)}button,input,select,textarea{font:inherit}.wrap{padding:18px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}h2{margin:0;font-size:19px}.sub{font-size:11px;color:var(--muted);margin-top:3px}.btn{border:1px solid var(--line);background:#fff;padding:8px 11px;border-radius:8px;cursor:pointer;font-weight:700}.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.good{background:var(--green);color:#fff;border-color:var(--green)}.btn.bad{background:var(--red);color:#fff;border-color:var(--red)}.btn:disabled{opacity:.45;cursor:not-allowed}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px}.metric{border-left:4px solid var(--accent)}.metric b{font-size:24px;display:block;margin-top:5px}.label{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}textarea{min-height:70px}.items{display:grid;gap:7px}.itemrow{display:grid;grid-template-columns:2fr .7fr .7fr 1fr auto;gap:7px;align-items:end}.notice{padding:10px;border-radius:8px;background:#fff4ea;border:1px solid #f0d1b5;margin-top:10px}.table{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}table{width:100%;border-collapse:collapse}th{background:#efede7;color:var(--muted);font-size:10px;text-transform:uppercase;text-align:left;padding:8px}td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3px 7px;border-radius:99px;background:#fff0e4;color:#9b541f;font-size:10px;font-weight:700}.status{padding:3px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#eef5e8;color:#52791f}.actions{display:flex;gap:5px;flex-wrap:wrap}.section{margin-top:12px}.msg{display:none;position:fixed;right:18px;bottom:18px;background:#222;color:#fff;padding:10px 13px;border-radius:9px;z-index:10}@media(max-width:850px){.grid4,.form{grid-template-columns:1fr}.itemrow{grid-template-columns:1fr 1fr}.itemrow .wide{grid-column:1/-1}}</style></head>
+<body><div class="wrap"><div class="toolbar"><div><h2>Sales Order</h2><div class="sub">PXL-STG-0003B/0003C/STG-0004 — SO, approval, WO, Material Request, dan Inventory.</div></div><button class="btn" id="refreshBtn">Refresh</button></div>
+<div class="grid4" id="metrics"></div>
+<div class="card section"><div class="toolbar"><div><b id="formTitle">Buat Sales Order</b><div class="sub">SO baru selalu Draft. Approval dilakukan dari daftar.</div></div><div class="actions"><button class="btn" id="resetBtn">Reset</button><button class="btn primary" id="saveBtn">Simpan Draft</button></div></div>
+<div class="form"><div><label>Customer</label><input id="customer" placeholder="Nama customer"></div><div><label>Nomor Telepon</label><input id="phone" placeholder="08..."></div><div><label>Sales PIC</label><select id="salesPic"><option value="">Memuat akun Sales...</option></select></div><div><label>Nama Project</label><input id="projectName" placeholder="Contoh: Instalasi CCTV Villa ABC"></div><div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div><div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div><div class="full"><div class="toolbar"><b>Item dari Inventory</b><button class="btn" id="addItemBtn">Tambah Item</button></div><div class="items" id="items"></div></div></div>
+<div class="notice">Alamat pekerjaan tidak lagi digunakan sebagai Nama Project. Stok belum berkurang saat SO atau WO dibuat; stok baru berkurang ketika Material Request ditekan <b>Keluarkan Material</b>.</div></div>
+<div class="section"><div class="toolbar"><div><b>Daftar Sales Order</b><div class="sub">Draft dapat diedit. Manager/Admin/Superadmin dapat approve atau batalkan.</div></div></div><div id="soTable" class="table"></div></div>
+<div class="section"><div class="toolbar"><div><b>Material Request Trial</b><div class="sub">Uji pembuatan MR dari WO dan pengurangan Inventory.</div></div></div><div id="mrTable" class="table"></div></div></div><div id="msg" class="msg"></div>
 <script>
-let runtimeToken='';
-function getAuthToken(){
-  try{
-    const parentToken=(window.parent&&window.parent!==window&&window.parent.localStorage)
-      ? window.parent.localStorage.getItem('pixel_token')
-      : '';
-    return runtimeToken||parentToken||localStorage.getItem('pixel_token')||localStorage.getItem('token')||localStorage.getItem('pxl_token')||'';
-  }catch(_){
-    return runtimeToken||localStorage.getItem('pixel_token')||localStorage.getItem('token')||localStorage.getItem('pxl_token')||'';
-  }
-}
-window.addEventListener('message',e=>{
-  if(e.origin!==window.location.origin)return;
-  if(e.data&&e.data.type==='PXL_AUTH_TOKEN'&&e.data.token){runtimeToken=e.data.token;}
-});
-const H=()=>{const token=getAuthToken();return {'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})}};
-let D={sales_orders:[],counts:{}};
+let runtimeToken='',D={sales_orders:[],material_requests:[]},OPT={sales_users:[],inventory_items:[],can_approve:false,can_issue:false},editId=null;
+function token(){try{return runtimeToken||(window.parent&&window.parent!==window?window.parent.localStorage.getItem('pixel_token'):'')||localStorage.getItem('pixel_token')||''}catch(_){return runtimeToken||''}}
+window.addEventListener('message',e=>{if(e.origin===location.origin&&e.data?.type==='PXL_AUTH_TOKEN')runtimeToken=e.data.token||runtimeToken});
+const H=()=>({'Content-Type':'application/json',...(token()?{Authorization:'Bearer '+token()}:{})});
+async function api(method,url,body){let r=await fetch(url,{method,headers:H(),body:body?JSON.stringify(body):undefined});let d={};try{d=await r.json()}catch(_){}if(!r.ok)throw new Error(d.error||'Gagal');return d}
+function toast(t){const e=document.getElementById('msg');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',4200)}
 const rp=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
-function msg(t){const e=document.getElementById('msg');e.style.display='block';e.textContent=t;setTimeout(()=>e.style.display='none',4000)}
-async function api(method,url,body){
-  let r=await fetch(url,{method,headers:H(),body:body?JSON.stringify(body):undefined});
-  if(r.status===401&&window.parent&&window.parent!==window){
-    try{runtimeToken=window.parent.localStorage.getItem('pixel_token')||runtimeToken}catch(_){}
-    r=await fetch(url,{method,headers:H(),body:body?JSON.stringify(body):undefined});
-  }
-  let d={};try{d=await r.json()}catch(_){d={}}
-  if(!r.ok){
-    if(r.status===401)throw new Error('Sesi CRM tidak terbaca. Muat ulang halaman utama lalu login kembali.');
-    throw new Error(d.error||'Gagal');
-  }
-  return d;
-}
-async function loadAll(){
-  try{
-    D=await api('GET','/api/crm/report');
-    render();
-  }catch(e){msg(e.message)}
-}
-function render(){
-  const rows=D.sales_orders||[];
-  const total=rows.length;
-  const draft=rows.filter(x=>x.status==='draft').length;
-  const approved=rows.filter(x=>x.status==='approved').length;
-  const inactive=rows.filter(x=>x.status==='cancelled'||x.status==='void').length;
-  document.getElementById('metrics').innerHTML=[['Total SO',total],['Draft',draft],['Disetujui',approved],['Batal / Void',inactive]].map(x=>`<div class="card metric"><div class="label">${x[0]}</div><b>${x[1]}</b></div>`).join('');
-  const body=rows.map(x=>{
-    const linked=x.linked_work_order_id||x.linked_wo_number;
-    let action='';
-    if(linked){
-      action=`<button class="btn" onclick="openWO('${x.linked_wo_number||''}')">Buka Work Order</button>`;
-    }else if(x.status==='approved'){
-      action=`<button class="btn primary" onclick="createWO('${x.id}')">Buat Work Order</button>`;
-    }else if(x.status==='cancelled'||x.status==='void'){
-      action='<span class="sub">Tidak tersedia</span>';
-    }else{
-      action='<span class="sub">Setujui SO dahulu</span>';
-    }
-    return `<tr><td><b>${x.so_number||'-'}</b></td><td>${x.customer_name||'-'}</td><td>${x.sales_pic||'-'}</td><td><span class="${x.status==='approved'?'status':'badge'}">${x.status||'-'}</span></td><td>${rp(x.total_amount)}</td><td>${x.location||'-'}</td><td>${(x.created_at||'').replace('T',' ').slice(0,16)||'-'}</td><td>${Array.isArray(x.history)?x.history.length:0}</td><td>${action}${linked?`<div class="sub">${x.linked_wo_number||''}</div>`:''}</td></tr>`;
-  }).join('');
-  document.getElementById('soTable').innerHTML=`<table><thead><tr><th>No SO</th><th>Customer</th><th>Sales PIC</th><th>Status</th><th>Total</th><th>Lokasi</th><th>Dibuat</th><th>Histori</th><th>Work Order</th></tr></thead><tbody>${body||'<tr><td colspan="9">Belum ada Sales Order.</td></tr>'}</tbody></table>`;
-}
-async function createWO(soId){
-  if(!confirm('Buat Work Order dari Sales Order ini? Data customer dan item akan dibawa otomatis.'))return;
-  try{
-    const result=await api('POST',`/api/sales-orders/${soId}/work-order`,{});
-    await loadAll();
-    msg(result.created?`Work Order ${result.ticket.wo_number} berhasil dibuat`:`Sales Order sudah terhubung ke ${result.ticket.wo_number}`);
-  }catch(e){msg(e.message)}
-}
-function openWO(woNumber){
-  if(!woNumber){msg('Nomor Work Order belum tersedia');return}
-  try{
-    if(window.parent&&window.parent!==window&&typeof window.parent.switchTab==='function'){
-      const btn=window.parent.document.querySelector('[data-tab-id="tickets"]');
-      window.parent.switchTab('tickets',btn);
-      setTimeout(()=>{
-        const search=window.parent.document.getElementById('t-search');
-        if(search){search.value=woNumber;if(typeof window.parent.renderTickets==='function')window.parent.renderTickets();search.focus();}
-      },350);
-      return;
-    }
-  }catch(_){}
-  msg(`Cari ${woNumber} pada menu Daftar Tiket`);
-}
-function itemRowTemplate(item={}){
-  const name=String(item.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  const qty=Number(item.qty||1);
-  const unit=String(item.unit||'pcs');
-  const price=Number(item.unit_price||0);
-  return `<div class="item-row">
-    <div class="wide"><input class="item-name" placeholder="Contoh: Camera CCTV 2MP" value="${name}"></div>
-    <div><input class="item-qty" type="number" min="0.01" step="0.01" value="${qty}"></div>
-    <div><select class="item-unit"><option value="pcs" ${unit==='pcs'?'selected':''}>pcs</option><option value="unit" ${unit==='unit'?'selected':''}>unit</option><option value="meter" ${unit==='meter'?'selected':''}>meter</option><option value="roll" ${unit==='roll'?'selected':''}>roll</option><option value="lot" ${unit==='lot'?'selected':''}>lot</option><option value="jasa" ${unit==='jasa'?'selected':''}>jasa</option></select></div>
-    <div><input class="item-price" type="number" min="0" step="1" value="${price}" placeholder="0"></div>
-    <button type="button" class="btn remove" title="Hapus item" onclick="removeItemRow(this)">×</button>
-  </div>`;
-}
-function addItemRow(item){document.getElementById('soItemRows').insertAdjacentHTML('beforeend',itemRowTemplate(item||{}))}
-function removeItemRow(btn){const rows=document.querySelectorAll('#soItemRows .item-row');if(rows.length<=1){msg('Minimal satu item harus tersedia');return}btn.closest('.item-row').remove()}
-function collectItems(){
-  const rows=[...document.querySelectorAll('#soItemRows .item-row')];
-  const items=rows.map((row,index)=>{
-    const name=row.querySelector('.item-name').value.trim();
-    const qty=Number(row.querySelector('.item-qty').value);
-    const unit=row.querySelector('.item-unit').value;
-    const unit_price=Number(row.querySelector('.item-price').value||0);
-    if(!name)throw new Error(`Nama item baris ${index+1} wajib diisi`);
-    if(!Number.isFinite(qty)||qty<=0)throw new Error(`Quantity item baris ${index+1} harus lebih dari 0`);
-    if(!Number.isFinite(unit_price)||unit_price<0)throw new Error(`Harga item baris ${index+1} tidak valid`);
-    return {name,qty,unit,unit_price,item_type:unit==='jasa'?'service':'item'};
-  });
-  if(!items.length)throw new Error('Minimal satu item wajib diisi');
-  return items;
-}
-function resetSOForm(){
-  document.getElementById('soCustomer').value='';
-  document.getElementById('soPhone').value='';
-  document.getElementById('soSales').value='';
-  document.getElementById('soStatus').value='draft';
-  document.getElementById('soLocation').value='';
-  document.getElementById('soNotes').value='';
-  document.getElementById('soItemRows').innerHTML='';
-  addItemRow({qty:1,unit:'pcs',unit_price:0});
-}
-async function saveSO(){
-  try{
-    const customer_name=document.getElementById('soCustomer').value.trim();
-    if(!customer_name)throw new Error('Customer wajib diisi');
-    const items=collectItems();
-    await api('POST','/api/sales-orders',{
-      customer_name,
-      customer_phone:document.getElementById('soPhone').value.trim(),
-      sales_pic:document.getElementById('soSales').value.trim(),
-      status:document.getElementById('soStatus').value,
-      location:document.getElementById('soLocation').value.trim(),
-      address:document.getElementById('soLocation').value.trim(),
-      notes:document.getElementById('soNotes').value.trim(),
-      items
-    });
-    resetSOForm();
-    await loadAll();
-    msg('Sales Order berhasil dibuat');
-  }catch(e){msg(e.message)}
-}
-addItemRow({name:'',qty:1,unit:'pcs',unit_price:0});
-loadAll();
-</script>
-</body>
-</html>
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function itemOptions(selected=''){return '<option value="">Pilih Inventory</option>'+OPT.inventory_items.map(i=>`<option value="${i.id}" ${i.id===selected?'selected':''}>${esc(i.name)}${i.sku?' · '+esc(i.sku):''} · stok ${i.stock} ${esc(i.unit)}</option>`).join('')}
+function addItem(data={}){const row=document.createElement('div');row.className='itemrow';row.innerHTML=`<div class="wide"><label>Nama Item</label><select class="inv">${itemOptions(data.inventory_item_id||'')}</select></div><div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${data.qty||1}"></div><div><label>Satuan</label><input class="unit" value="${esc(data.unit||'pcs')}" readonly></div><div><label>Harga Satuan</label><input class="price" type="number" min="0" value="${data.unit_price||0}"></div><button class="btn bad remove" type="button">Hapus</button>`;const sel=row.querySelector('.inv');sel.addEventListener('change',()=>{const i=OPT.inventory_items.find(x=>x.id===sel.value);if(i)row.querySelector('.unit').value=i.unit||'pcs'});row.querySelector('.remove').addEventListener('click',()=>row.remove());document.getElementById('items').appendChild(row)}
+function reset(){editId=null;['customer','phone','projectName','address','notes'].forEach(id=>document.getElementById(id).value='');document.getElementById('salesPic').value='';document.getElementById('items').innerHTML='';addItem();document.getElementById('formTitle').textContent='Buat Sales Order';document.getElementById('saveBtn').textContent='Simpan Draft'}
+function collect(){const sales=OPT.sales_users.find(x=>x.id===document.getElementById('salesPic').value);const items=[...document.querySelectorAll('.itemrow')].map(r=>{const inv=OPT.inventory_items.find(x=>x.id===r.querySelector('.inv').value);return {inventory_item_id:inv?.id||null,name:inv?.name||'',item_name:inv?.name||'',qty:Number(r.querySelector('.qty').value||0),unit:r.querySelector('.unit').value||inv?.unit||'pcs',unit_price:Number(r.querySelector('.price').value||0),item_type:'item',stock_at_select:inv?.stock??null}});return {customer_name:document.getElementById('customer').value.trim(),customer_phone:document.getElementById('phone').value.trim(),sales_pic_user_id:sales?.id||null,sales_pic:sales?.name||'',project_name:document.getElementById('projectName').value.trim(),address:document.getElementById('address').value.trim(),location:document.getElementById('address').value.trim(),notes:document.getElementById('notes').value.trim(),items}}
+async function save(){try{const p=collect();if(editId)await api('PATCH','/api/sales-orders/'+editId,p);else await api('POST','/api/sales-orders',p);toast(editId?'Draft diperbarui':'SO Draft dibuat');reset();await load()}catch(e){toast(e.message)}}
+function editSO(id){const x=D.sales_orders.find(s=>s.id===id);if(!x||x.status!=='draft')return toast('Hanya Draft yang dapat diedit');editId=x.id;document.getElementById('customer').value=x.customer_name||'';document.getElementById('phone').value=x.customer_phone||'';document.getElementById('salesPic').value=x.sales_pic_user_id||'';document.getElementById('projectName').value=x.project_name||'';document.getElementById('address').value=x.address||x.location||'';document.getElementById('notes').value=x.notes||'';document.getElementById('items').innerHTML='';(x.items||[]).forEach(addItem);if(!(x.items||[]).length)addItem();document.getElementById('formTitle').textContent='Edit '+x.so_number;document.getElementById('saveBtn').textContent='Simpan Perubahan';scrollTo({top:0,behavior:'smooth'})}
+async function act(id,a){try{if(a==='approve')await api('POST',`/api/sales-orders/${id}/approve`,{});if(a==='cancel')await api('POST',`/api/sales-orders/${id}/cancel`,{status:'cancelled'});if(a==='wo'){const d=await api('POST',`/api/sales-orders/${id}/work-order`,{});toast(d.created?'WO berhasil dibuat':'WO sudah tersedia')}if(a==='mr'){const d=await api('POST',`/api/sales-orders/${id}/material-request`,{});toast(d.created?'MR berhasil dibuat':'MR sudah tersedia')}await load()}catch(e){toast(e.message)}}
+async function issue(id){try{await api('POST',`/api/crm/material-requests/${id}/issue`,{});toast('Material dikeluarkan dan stok Inventory berkurang');await load()}catch(e){toast(e.message)}}
+function render(){const rows=D.sales_orders||[];document.getElementById('metrics').innerHTML=[['Total SO',rows.length],['Draft',rows.filter(x=>x.status==='draft').length],['Disetujui',rows.filter(x=>x.status==='approved').length],['MR Issued',(D.material_requests||[]).filter(x=>x.status==='issued').length]].map(x=>`<div class="card metric"><div class="label">${x[0]}</div><b>${x[1]}</b></div>`).join('');
+const body=rows.map(x=>{let a='';if(x.status==='draft')a+=`<button class="btn" data-act="edit" data-id="${x.id}">Edit</button>`;if(x.status==='draft'&&OPT.can_approve)a+=`<button class="btn good" data-act="approve" data-id="${x.id}">Setujui SO</button><button class="btn bad" data-act="cancel" data-id="${x.id}">Batalkan</button>`;if(x.status==='approved')a+=`<button class="btn primary" data-act="wo" data-id="${x.id}">${x.linked_work_order_id?'Buka Work Order':'Buat Work Order'}</button>`;if(x.linked_work_order_id)a+=`<button class="btn" data-act="mr" data-id="${x.id}">Buat/Buka MR</button>`;return `<tr><td><b>${esc(x.so_number)}</b></td><td>${esc(x.customer_name)}</td><td>${esc(x.sales_pic)}</td><td>${esc(x.project_name||'-')}</td><td>${esc(x.address||x.location||'-')}</td><td><span class="${x.status==='approved'?'status':'badge'}">${esc(x.status)}</span></td><td>${rp(x.total_amount)}</td><td><div class="actions">${a||'-'}</div></td></tr>`}).join('');document.getElementById('soTable').innerHTML=`<table><thead><tr><th>No SO</th><th>Customer</th><th>Sales PIC</th><th>Nama Project</th><th>Alamat</th><th>Status</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${body||'<tr><td colspan="8">Belum ada SO.</td></tr>'}</tbody></table>`;
+const mbody=(D.material_requests||[]).map(m=>`<tr><td><b>${esc(m.mr_number||'-')}</b></td><td>${esc(m.wo_number||'-')}</td><td>${esc(m.customer_name||'-')}</td><td>${(m.items||[]).map(i=>`${esc(i.name)} x ${i.qty}`).join(', ')}</td><td><span class="${m.status==='issued'?'status':'badge'}">${esc(m.status)}</span></td><td>${m.status!=='issued'&&OPT.can_issue?`<button class="btn good" data-issue="${m.id}">Keluarkan Material</button>`:'-'}</td></tr>`).join('');document.getElementById('mrTable').innerHTML=`<table><thead><tr><th>No MR</th><th>No WO</th><th>Customer</th><th>Item</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${mbody||'<tr><td colspan="6">Belum ada MR.</td></tr>'}</tbody></table>`;
+document.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>b.dataset.act==='edit'?editSO(b.dataset.id):act(b.dataset.id,b.dataset.act)));document.querySelectorAll('[data-issue]').forEach(b=>b.addEventListener('click',()=>issue(b.dataset.issue)))}
+async function load(){try{[OPT,D]=await Promise.all([api('GET','/api/sales-orders/options'),api('GET','/api/crm/report')]);document.getElementById('salesPic').innerHTML='<option value="">Pilih akun Sales</option>'+OPT.sales_users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');render()}catch(e){toast(e.message)}}
+document.getElementById('refreshBtn').addEventListener('click',load);document.getElementById('resetBtn').addEventListener('click',reset);document.getElementById('saveBtn').addEventListener('click',save);document.getElementById('addItemBtn').addEventListener('click',()=>addItem());load().then(reset);
+</script></body></html>

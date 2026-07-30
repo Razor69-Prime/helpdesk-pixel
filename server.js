@@ -1674,8 +1674,74 @@ app.post('/api/crm/customers',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{t
 app.patch('/api/crm/customers/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{res.json(await db.updateCrmCustomer(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{try{const deleted=await db.deleteCrmCustomer(req.params.id);logActivity(req,'crm','HAPUS CUSTOMER',deleted?.name||req.params.id);res.json({ok:true,deleted})}catch(e){const status=/foreign key|constraint|reference/i.test(String(e.message))?409:500;res.status(status).json({error:status===409?'Customer masih terhubung dengan data lain dan belum dapat dihapus.':e.message})}});
 
+
+// PXL-STG-0003B/0003C/STG-0004 — options, approval, MR and inventory issue.
+app.get('/api/sales-orders/options',requireRole(...SO_READ_ROLES),async(req,res)=>{
+  try{
+    const [users,inventory]=await Promise.all([db.getUsers(),db.getInventoryItems()]);
+    const salesUsers=(users||[]).filter(u=>u.is_active!==false&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
+      .map(u=>({id:u.id,name:u.name,email:u.email||null,role:u.role}));
+    const items=(inventory||[]).filter(i=>i.is_active!==false).map(i=>({id:i.id,name:i.name,sku:i.sku||null,unit:i.unit||'pcs',stock:Number(i.stock||0),tracking_mode:i.tracking_mode||'quantity'}));
+    res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:['manager','admin','superadmin'].includes(req.session.user.role),can_issue:['manager','admin','superadmin'].includes(req.session.user.role)});
+  }catch(e){res.status(500).json({error:e.message})}
+});
+
+app.post('/api/sales-orders/:id/approve',requireRole('manager','admin','superadmin'),async(req,res)=>{
+  try{
+    const so=(await db.getSalesOrders()).find(x=>String(x.id)===String(req.params.id));
+    if(!so)return res.status(404).json({error:'SO tidak ditemukan'});
+    if(so.status!=='draft')return res.status(400).json({error:'Hanya SO Draft yang dapat disetujui.'});
+    const history=[...(so.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'approve',from_status:so.status,status:'approved'}];
+    const x=await db.updateSalesOrder(so.id,{status:'approved',approved_by:req.session.user.name,approved_at:new Date().toISOString(),history});
+    logActivity(req,'so','SETUJUI SALES ORDER',so.so_number);res.json(x);
+  }catch(e){res.status(500).json({error:e.message})}
+});
+
+app.post('/api/sales-orders/:id/cancel',requireRole('manager','admin','superadmin'),async(req,res)=>{
+  try{
+    const so=(await db.getSalesOrders()).find(x=>String(x.id)===String(req.params.id));
+    if(!so)return res.status(404).json({error:'SO tidak ditemukan'});
+    if(so.linked_work_order_id)return res.status(400).json({error:'SO yang sudah memiliki WO tidak dapat dibatalkan langsung.'});
+    const target=req.body.status==='void'?'void':'cancelled';
+    const history=[...(so.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:target,from_status:so.status,status:target,note:req.body.note||null}];
+    const x=await db.updateSalesOrder(so.id,{status:target,cancelled_by:req.session.user.name,cancelled_at:new Date().toISOString(),history});
+    logActivity(req,'so',target==='void'?'VOID SALES ORDER':'BATALKAN SALES ORDER',so.so_number);res.json(x);
+  }catch(e){res.status(500).json({error:e.message})}
+});
+
+app.post('/api/sales-orders/:id/material-request',requireRole('sales','manager','admin','superadmin'),async(req,res)=>{
+  try{
+    const so=(await db.getSalesOrders()).find(x=>String(x.id)===String(req.params.id));
+    if(!so)return res.status(404).json({error:'SO tidak ditemukan'});
+    if(!so.linked_work_order_id)return res.status(400).json({error:'Buat Work Order terlebih dahulu.'});
+    const all=await db.getCrmMaterialRequests();
+    let mr=all.find(x=>String(x.sales_order_id||'')===String(so.id)&&String(x.work_order_id||'')===String(so.linked_work_order_id)&&!['cancelled','void'].includes(x.status));
+    let created=false;
+    if(!mr){
+      const items=(so.items||[]).filter(i=>(i.item_type||'item')!=='service').map(i=>({inventory_item_id:i.inventory_item_id||null,name:i.item_name||i.name,qty:Number(i.qty||0),unit:i.unit||'pcs',stock_at_request:i.stock_at_select??null}));
+      if(!items.length)return res.status(400).json({error:'SO tidak memiliki item Inventory untuk Material Request.'});
+      mr=await db.insertCrmMaterialRequest({sales_order_id:so.id,so_number:so.so_number,work_order_id:so.linked_work_order_id,wo_number:so.linked_wo_number,customer_name:so.customer_name,items,technician:null,created_by:req.session.user.name});created=true;
+      logActivity(req,'mr','BUAT MR DARI WO',`${so.linked_wo_number} / ${so.so_number}`);
+    }
+    res.status(created?201:200).json({created,material_request:mr});
+  }catch(e){res.status(500).json({error:e.message})}
+});
+
+app.post('/api/crm/material-requests/:id/issue',requireRole('manager','admin','superadmin'),async(req,res)=>{
+  try{
+    const mr=(await db.getCrmMaterialRequests()).find(x=>String(x.id)===String(req.params.id));
+    if(!mr)return res.status(404).json({error:'Material Request tidak ditemukan'});
+    if(mr.status==='issued')return res.status(409).json({error:'Material Request sudah pernah dikeluarkan.'});
+    const items=(mr.items||[]).map(i=>({inventory_item_id:i.inventory_item_id,qty_out:Number(i.qty||0)}));
+    if(items.some(i=>!i.inventory_item_id||i.qty_out<=0))return res.status(400).json({error:'Ada item MR yang belum terhubung ke Inventory atau qty tidak valid.'});
+    const result=await db.issueInventoryMaterialRequest(mr.id,items,req.session.user.name,mr.wo_number||mr.mr_number||'Material Request');
+    const updated=await db.updateCrmMaterialRequest(mr.id,{status:'issued',issued_by:req.session.user.name,issued_at:new Date().toISOString(),inventory_issue_result:result});
+    logActivity(req,'inventory','KELUARKAN MATERIAL MR',`${mr.mr_number} / ${mr.wo_number||'-'}`);res.json({ok:true,material_request:updated,result});
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
 app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});if(!req.body.project_name)return res.status(400).json({error:'Nama project wajib diisi'});if(!req.body.address)return res.status(400).json({error:'Alamat/lokasi pekerjaan wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];if(!items.length||items.some(i=>!i.inventory_item_id||!i.name||Number(i.qty||0)<=0))return res.status(400).json({error:'Minimal satu item Inventory dengan quantity valid wajib dipilih'});const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,status:'draft',items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
 
@@ -1715,7 +1781,7 @@ app.post('/api/sales-orders/:id/work-order',requireRole('sales','manager','admin
       const workedAt=req.body.worked_at||new Date().toISOString().slice(0,10);
       ticket=await db.insertTicket({
         wo_number:woNumber,
-        project_name:req.body.project_name||so.location||so.customer_name||so.so_number,
+        project_name:req.body.project_name||so.project_name||`Pekerjaan ${so.so_number}`,
         customer_name:so.customer_name||null,
         customer_phone:so.customer_phone||null,
         technicians:[],
@@ -1723,7 +1789,7 @@ app.post('/api/sales-orders/:id/work-order',requireRole('sales','manager','admin
         created_by:req.session.user.name,
         status:'assigned',
         worked_at:workedAt,
-        description:req.body.description||[`Dibuat otomatis dari ${so.so_number}.`,so.notes||'',itemSummary?`Item: ${itemSummary}`:''].filter(Boolean).join(' '),
+        description:req.body.description||[`Dibuat otomatis dari ${so.so_number}.`,so.address?`Lokasi pekerjaan: ${so.address}.`:'',so.notes||'',itemSummary?`Item: ${itemSummary}`:''].filter(Boolean).join(' '),
         rating:0,
         tracking_token:crypto.randomBytes(14).toString('hex'),
         last_lat:null,last_lng:null,last_gps_at:null,
@@ -1732,7 +1798,7 @@ app.post('/api/sales-orders/:id/work-order',requireRole('sales','manager','admin
         so_number:so.so_number,
         crm_customer_id:so.customer_id||null,
         integration_key:integrationKey,
-        integration_meta:{revision:'PXL-STG-0003',source:'sales_order',created_from_so_at:now}
+        integration_meta:{revision:'PXL-STG-0003B-0003C-STG-0004',source:'sales_order',created_from_so_at:now,work_address:so.address||null}
       });
       await db.insertStatusHistory({ticket_id:ticket.id,status:'assigned',timestamp:now,technician:req.session.user.name,lat:null,lng:null});
       created=true;

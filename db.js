@@ -877,6 +877,11 @@ async function insertCrmMaterialRequest(data){
   return insertEntity('crm_material_requests','crm_material_requests',{...data,mr_number:nextDocNo('MR',rows,'mr_number'),status:'waiting_technician_verification'});
 }
 async function updateCrmMaterialRequest(id,data){return updateEntity('crm_material_requests','crm_material_requests',id,data)}
+async function issueInventoryMaterialRequest(requestId,items,actor,woNumber){
+  requireInventorySupabase();
+  const result=await sbFetch('POST','/rpc/inventory_issue_material_request',{p_request_id:requestId,p_items:items,p_actor:actor||'System',p_wo_number:woNumber||''},{Prefer:'return=representation'});
+  return Array.isArray(result)?result[0]:result;
+}
 async function getAdditionalMaterialRequests(){return listEntity('additional_material_requests','additional_material_requests')}
 async function insertAdditionalMaterialRequest(data){
   const rows=await getAdditionalMaterialRequests();
@@ -971,7 +976,7 @@ module.exports = {
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
   getSalesOrders, insertSalesOrder, updateSalesOrder, deleteSalesOrder,
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder, deleteCrmWorkOrder,
-  getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
+  getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest, issueInventoryMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
   getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport
 };
