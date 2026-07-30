@@ -3,6 +3,9 @@
 //  Dapatkan nilai dari: https://supabase.com → Settings → API
 // ═══════════════════════════════════════════════════════════
 
+// PXL-STG-0004A — hardening route Sales Order dan relasi CRM Material Request.
+require('./pxl-stg-0004a');
+
 module.exports = {
 
   // Supabase
