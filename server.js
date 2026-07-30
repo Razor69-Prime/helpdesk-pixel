@@ -123,6 +123,21 @@ app.get('/api/environment', (req, res) => {
   });
 });
 
+// PXL-STG-0002 — marker data sampling hanya boleh digunakan di staging.
+const STAGING_DEMO_MARKER = 'STG-DEMO';
+function containsStagingDemoMarker(value) {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.toUpperCase().includes(STAGING_DEMO_MARKER);
+  try { return JSON.stringify(value).toUpperCase().includes(STAGING_DEMO_MARKER); }
+  catch (_) { return false; }
+}
+function blockStagingDemoOnProduction(req, res, next) {
+  if (!IS_STAGING && containsStagingDemoMarker(req.body)) {
+    return res.status(403).json({ error: 'Data STG-DEMO dilarang dibuat pada server production.' });
+  }
+  next();
+}
+
 app.use((req, res, next) => {
   req.session = { user: null };
   req.session.destroy = (cb) => {
@@ -476,7 +491,7 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), async (req, res) => {
+app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), blockStagingDemoOnProduction, async (req, res) => {
   try {
     const now   = new Date().toISOString();
     const token = crypto.randomBytes(14).toString('hex');
@@ -517,6 +532,13 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       last_lat:       req.body.lat           || null,
       last_lng:       req.body.lng           || null,
       last_gps_at:    req.body.lat ? now : null,
+      // PXL-STG-0002 — relasi integrasi bersifat opsional; WO manual tetap valid.
+      source_type:    req.body.source_type    || 'manual',
+      sales_order_id: req.body.sales_order_id || null,
+      so_number:      req.body.so_number      || null,
+      crm_customer_id:req.body.crm_customer_id|| null,
+      integration_key:req.body.integration_key|| null,
+      integration_meta:req.body.integration_meta||{},
     });
     await db.insertStatusHistory({
       ticket_id: ticket.id, status: 'assigned', timestamp: now,
@@ -1490,6 +1512,159 @@ app.get('/track/:token', (req, res) => {
 
 
 // ══════════════════════════════════════════
+// PXL-STG-0002 — FONDASI INTEGRASI WO
+// Hanya menambah relasi opsional. Status/KPI WO existing tidak diubah.
+// ══════════════════════════════════════════
+const WO_FOUNDATION_ROLES = ['sales','manager','admin','superadmin'];
+const demoDate = (offsetDays=0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  d.setHours(9,0,0,0);
+  return d.toISOString();
+};
+const normalizeDemoPhone = value => {
+  const d=String(value||'').replace(/\D/g,'');
+  if(!d) return '';
+  if(d.startsWith('62')) return d;
+  if(d.startsWith('0')) return '62'+d.slice(1);
+  return '62'+d;
+};
+
+app.get('/api/integration/wo-foundation', requireRole(...WO_FOUNDATION_ROLES), async (req,res)=>{
+  try{
+    const [tickets,sos,wos,customers,users]=await Promise.all([
+      db.getTickets(null,true), db.getSalesOrders(), db.getCrmWorkOrders(), db.getCrmCustomers(), db.getUsers()
+    ]);
+    const demo = {
+      customers: customers.filter(x=>x.source_marker===STAGING_DEMO_MARKER).length,
+      sales_orders: sos.filter(x=>x.source_marker===STAGING_DEMO_MARKER).length,
+      tickets: tickets.filter(x=>String(x.integration_key||'').startsWith(STAGING_DEMO_MARKER)).length,
+      crm_work_orders: wos.filter(x=>x.source_marker===STAGING_DEMO_MARKER).length,
+      technicians: users.filter(x=>String(x.username||'').startsWith('stg.tech.')).length
+    };
+    const linkedTickets=tickets.filter(x=>x.sales_order_id||x.so_number).length;
+    const manualTickets=tickets.filter(x=>!x.sales_order_id&&!x.so_number).length;
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.json({
+      revision:'PXL-STG-0002', environment:IS_STAGING?'staging':'production',
+      rules:{work_order_center:true,sales_order_optional:true,kpi_status_unchanged:true,demo_seed_enabled:IS_STAGING},
+      totals:{tickets:tickets.length,sales_orders:sos.length,crm_work_orders:wos.length,customers:customers.length,technicians:users.filter(x=>x.role==='technician'||(x.extra_roles||[]).includes('technician')).length,linked_tickets:linkedTickets,manual_tickets:manualTickets},
+      demo
+    });
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/staging/demo/wo-foundation', requireRole('superadmin'), async (req,res)=>{
+  if(!IS_STAGING) return res.status(403).json({error:'Seed dummy hanya tersedia pada staging.'});
+  try{
+    const result={created:{technicians:[],customers:[],sales_orders:[],tickets:[],crm_work_orders:[]},skipped:[]};
+
+    const existingUsers=await db.getUsersWithPassword();
+    const techSpecs=[
+      ['stg.tech.made','STG Teknisi Made'],['stg.tech.wayan','STG Teknisi Wayan'],
+      ['stg.tech.komang','STG Teknisi Komang'],['stg.tech.kadek','STG Teknisi Kadek']
+    ];
+    for(const [username,name] of techSpecs){
+      let u=existingUsers.find(x=>x.username===username);
+      if(!u){u=await db.insertUser({username,password:'DemoTech#2026',name,role:'technician',custom_menus:[],extra_roles:[],is_active:true});result.created.technicians.push(u);}
+      else result.skipped.push(`user:${username}`);
+    }
+
+    let customers=await db.getCrmCustomers();
+    const customerSpecs=[
+      {name:'STG-DEMO Villa Samudra',type:'B2B',sales_pic:'Admin Staging',phone:'081200000101',address:'Canggu, Bali'},
+      {name:'STG-DEMO Restoran Purnama',type:'B2B',sales_pic:'Admin Staging',phone:'081200000102',address:'Denpasar, Bali'},
+      {name:'STG-DEMO Toko Teknologi',type:'B2C',sales_pic:'Admin Staging',phone:'081200000103',address:'Badung, Bali'}
+    ];
+    const demoCustomers=[];
+    for(const spec of customerSpecs){
+      let c=customers.find(x=>x.source_marker===STAGING_DEMO_MARKER&&x.name===spec.name);
+      if(!c){c=await db.insertCrmCustomer({...spec,normalized_phone:normalizeDemoPhone(spec.phone),status:'active',source_marker:STAGING_DEMO_MARKER,created_by:req.session.user.name});result.created.customers.push(c);customers.push(c);}
+      else result.skipped.push(`customer:${spec.name}`);
+      demoCustomers.push(c);
+    }
+
+    let sos=await db.getSalesOrders();
+    const soSpecs=[
+      {key:'SO-001',customer:demoCustomers[0],status:'approved',items:[{item_name:'CCTV 2MP',qty:4,unit_price:0,item_type:'item'},{item_name:'Instalasi CCTV',qty:1,unit_price:0,item_type:'service'}]},
+      {key:'SO-002',customer:demoCustomers[1],status:'approved',items:[{item_name:'Access Point',qty:3,unit_price:0,item_type:'item'}]},
+      {key:'SO-003',customer:demoCustomers[2],status:'draft',items:[{item_name:'Switch PoE 8 Port',qty:1,unit_price:0,item_type:'item'}]}
+    ];
+    const demoSos=[];
+    for(const spec of soSpecs){
+      let so=sos.find(x=>x.source_marker===STAGING_DEMO_MARKER&&x.integration_key===`${STAGING_DEMO_MARKER}-${spec.key}`);
+      if(!so){so=await db.insertSalesOrder({customer_id:spec.customer.id,customer_name:spec.customer.name,customer_phone:spec.customer.phone,items:spec.items,total_amount:0,status:spec.status,source_marker:STAGING_DEMO_MARKER,integration_key:`${STAGING_DEMO_MARKER}-${spec.key}`,notes:'Data sampling fondasi integrasi WO',created_by:req.session.user.name});result.created.sales_orders.push(so);sos.push(so);}
+      else result.skipped.push(`sales-order:${spec.key}`);
+      demoSos.push(so);
+    }
+
+    let tickets=await db.getTickets(null,true);
+    let crmWos=await db.getCrmWorkOrders();
+    const woSpecs=[
+      {no:'STG-DEMO-WO-001',customer:demoCustomers[0],so:demoSos[0],tech:'STG Teknisi Made',days:1},
+      {no:'STG-DEMO-WO-002',customer:demoCustomers[1],so:demoSos[1],tech:'STG Teknisi Wayan',days:1},
+      {no:'STG-DEMO-WO-003',customer:demoCustomers[2],so:null,tech:'STG Teknisi Komang',days:2},
+      {no:'STG-DEMO-WO-004',customer:demoCustomers[0],so:null,tech:'STG Teknisi Kadek',days:2},
+      {no:'STG-DEMO-WO-005',customer:demoCustomers[1],so:null,tech:'STG Teknisi Made',days:3},
+      {no:'STG-DEMO-WO-006',customer:demoCustomers[2],so:null,tech:'STG Teknisi Wayan',days:4}
+    ];
+    for(const spec of woSpecs){
+      const integrationKey=`${STAGING_DEMO_MARKER}-${spec.no}`;
+      let ticket=tickets.find(x=>x.integration_key===integrationKey||x.wo_number===spec.no);
+      if(!ticket){
+        const now=new Date().toISOString();
+        ticket=await db.insertTicket({
+          wo_number:spec.no,project_name:`Sampling ${spec.customer.name}`,customer_name:spec.customer.name,
+          customer_phone:spec.customer.phone,technicians:[spec.tech],technician:spec.tech,created_by:req.session.user.name,
+          status:'assigned',worked_at:demoDate(spec.days),description:'Data sampling PXL-STG-0002. Status KPI existing tetap digunakan.',
+          rating:0,tracking_token:crypto.randomBytes(14).toString('hex'),last_lat:null,last_lng:null,last_gps_at:null,
+          source_type:spec.so?'sales_order':'manual',sales_order_id:spec.so?.id||null,so_number:spec.so?.so_number||null,
+          crm_customer_id:spec.customer.id,integration_key:integrationKey,integration_meta:{revision:'PXL-STG-0002',demo:true}
+        });
+        await db.insertStatusHistory({ticket_id:ticket.id,status:'assigned',timestamp:now,technician:req.session.user.name,lat:null,lng:null});
+        result.created.tickets.push(ticket);tickets.push(ticket);
+      }else result.skipped.push(`ticket:${spec.no}`);
+
+      let crmWo=crmWos.find(x=>x.integration_key===integrationKey||x.wo_number===spec.no);
+      if(!crmWo){
+        crmWo=await db.insertCrmWorkOrder({number_source:'manual',wo_number:spec.no,ticket_id:ticket.id,
+          sales_order_id:spec.so?.id||null,so_number:spec.so?.so_number||null,customer_id:spec.customer.id,
+          customer_name:spec.customer.name,customer_phone:spec.customer.phone,source_type:spec.so?'sales_order':'manual',
+          integration_key:integrationKey,source_marker:STAGING_DEMO_MARKER,status:'draft',created_by:req.session.user.name});
+        result.created.crm_work_orders.push(crmWo);crmWos.push(crmWo);
+      }else result.skipped.push(`crm-work-order:${spec.no}`);
+
+      if(spec.so && (!spec.so.linked_work_order_id || spec.so.linked_work_order_id!==ticket.id)){
+        const updated=await db.updateSalesOrder(spec.so.id,{linked_work_order_id:ticket.id,linked_wo_number:ticket.wo_number,converted_to_wo_at:new Date().toISOString()});
+        Object.assign(spec.so,updated);
+      }
+    }
+
+    logActivity(req,'staging','SEED DEMO WO FOUNDATION',`PXL-STG-0002 · ${result.created.tickets.length} WO dibuat`);
+    res.status(201).json({ok:true,revision:'PXL-STG-0002',credentials:{technician_username_prefix:'stg.tech.',password:'DemoTech#2026'},...result});
+  }catch(e){
+    const message=String(e.message||e);
+    const migrationHint=/column|schema cache|PGRST/i.test(message)?' Jalankan SQL PXL-STG-0002 terlebih dahulu pada Supabase staging.':'';
+    res.status(500).json({error:message+migrationHint});
+  }
+});
+
+app.delete('/api/staging/demo/wo-foundation', requireRole('superadmin'), async (req,res)=>{
+  if(!IS_STAGING) return res.status(403).json({error:'Cleanup dummy hanya tersedia pada staging.'});
+  try{
+    const out={tickets:0,crm_work_orders:0,sales_orders:0,customers:0,technicians:0};
+    const [tickets,wos,sos,customers,users]=await Promise.all([db.getTickets(null,true),db.getCrmWorkOrders(),db.getSalesOrders(),db.getCrmCustomers(),db.getUsersWithPassword()]);
+    for(const row of wos.filter(x=>x.source_marker===STAGING_DEMO_MARKER)){await db.deleteCrmWorkOrder(row.id);out.crm_work_orders++;}
+    for(const row of tickets.filter(x=>String(x.integration_key||'').startsWith(STAGING_DEMO_MARKER))){await db.deleteTicket(row.id);out.tickets++;}
+    for(const row of sos.filter(x=>x.source_marker===STAGING_DEMO_MARKER)){await db.deleteSalesOrder(row.id);out.sales_orders++;}
+    for(const row of customers.filter(x=>x.source_marker===STAGING_DEMO_MARKER)){await db.deleteCrmCustomer(row.id);out.customers++;}
+    for(const row of users.filter(x=>String(x.username||'').startsWith('stg.tech.'))){await db.deleteUser(row.id);out.technicians++;}
+    logActivity(req,'staging','HAPUS DEMO WO FOUNDATION',`PXL-STG-0002 · ${out.tickets} WO dihapus`);
+    res.json({ok:true,deleted:out});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+// ══════════════════════════════════════════
 // CRM + SALES ORDER FLOW — PXL-REV-0035 CUMULATIVE
 // ══════════════════════════════════════════
 const CRM_WRITE_ROLES=['sales','manager','admin','superadmin'];
@@ -1500,11 +1675,11 @@ app.patch('/api/crm/customers/:id',requireRole(...CRM_WRITE_ROLES),async(req,res
 app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{try{const deleted=await db.deleteCrmCustomer(req.params.id);logActivity(req,'crm','HAPUS CUSTOMER',deleted?.name||req.params.id);res.json({ok:true,deleted})}catch(e){const status=/foreign key|constraint|reference/i.test(String(e.message))?409:500;res.status(status).json({error:status===409?'Customer masih terhubung dengan data lain dan belum dapat dihapus.':e.message})}});
 
 app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/work-orders',requireAuth,async(req,res)=>{try{res.json(await db.getCrmWorkOrders())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const payload={...req.body,sales_order_id:req.body.sales_order_id||null,so_number:req.body.so_number||null,created_by:req.session.user.name};const x=await db.insertCrmWorkOrder(payload);logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
+app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{const payload={...req.body,sales_order_id:req.body.sales_order_id||null,so_number:req.body.so_number||null,created_by:req.session.user.name};const x=await db.insertCrmWorkOrder(payload);logActivity(req,'wo','BUAT WO',x.wo_number);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
 app.patch('/api/crm/work-orders/:id',requireAuth,async(req,res)=>{try{res.json(await db.updateCrmWorkOrder(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/material-requests',requireAuth,async(req,res)=>{try{res.json(await db.getCrmMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});

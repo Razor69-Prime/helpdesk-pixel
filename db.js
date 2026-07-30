@@ -860,6 +860,7 @@ async function insertSalesOrder(data){
   return insertEntity('sales_orders','sales_orders',{...data,so_number:nextDocNo('SO',rows,'so_number'),status:data.status||'draft',revision_no:0,is_deleted:false,history:data.history||[]});
 }
 async function updateSalesOrder(id,data){return updateEntity('sales_orders','sales_orders',id,data)}
+async function deleteSalesOrder(id){return deleteEntity('sales_orders','sales_orders',id)}
 async function getCrmWorkOrders(){return listEntity('crm_work_orders','work_orders')}
 async function insertCrmWorkOrder(data){
   const rows=await getCrmWorkOrders();
@@ -869,6 +870,7 @@ async function insertCrmWorkOrder(data){
   return insertEntity('crm_work_orders','work_orders',{...data,wo_number,status:data.status||'draft'});
 }
 async function updateCrmWorkOrder(id,data){return updateEntity('crm_work_orders','work_orders',id,data)}
+async function deleteCrmWorkOrder(id){return deleteEntity('crm_work_orders','work_orders',id)}
 async function getCrmMaterialRequests(){return listEntity('crm_material_requests','crm_material_requests')}
 async function insertCrmMaterialRequest(data){
   const rows=await getCrmMaterialRequests();
@@ -967,8 +969,8 @@ module.exports = {
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
-  getSalesOrders, insertSalesOrder, updateSalesOrder,
-  getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder,
+  getSalesOrders, insertSalesOrder, updateSalesOrder, deleteSalesOrder,
+  getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder, deleteCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
   getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport
