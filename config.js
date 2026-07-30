@@ -5,6 +5,8 @@
 
 // PXL-STG-0004A — hardening route Sales Order dan relasi CRM Material Request.
 require('./pxl-stg-0004a');
+// PXL-STG-0004B — verifikasi teknisi, reminder stok, dan pengeluaran MR penuh.
+require('./pxl-stg-0004b');
 
 module.exports = {
 
