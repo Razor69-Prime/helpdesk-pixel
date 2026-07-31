@@ -1,13 +1,23 @@
-/* PXL-STG-0004I — perbaikan final relasi WO MR otomatis. */
+/* PXL-STG-0004J — relasi WO MR otomatis tanpa bergantung global let di index.html. */
 (function(){
   'use strict';
 
   var activeMR=null;
+  var activeEditId='';
 
   function same(a,b){return String(a==null?'':a)===String(b==null?'':b);}
 
+  function extractEditId(element){
+    var node=element&&element.closest?element.closest('[onclick*="showMRForm"]'):null;
+    if(!node)return '';
+    var code=String(node.getAttribute('onclick')||'');
+    var match=code.match(/showMRForm\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+    return match?match[1]:'';
+  }
+
   async function loadActiveMR(editId){
     if(!editId)return null;
+    activeEditId=editId;
     try{
       var response=await fetch('/api/material-requests-form',{credentials:'same-origin',cache:'no-store'});
       if(!response.ok)throw new Error(await response.text());
@@ -15,7 +25,7 @@
       activeMR=(Array.isArray(rows)?rows:[]).find(function(row){return same(row.id,editId);})||null;
       return activeMR;
     }catch(error){
-      console.error('PXL-STG-0004I gagal mengambil MR:',error);
+      console.error('PXL-STG-0004J gagal mengambil MR:',error);
       activeMR=null;
       return null;
     }
@@ -46,8 +56,11 @@
 
     select.value=option.value;
     select.dataset.integratedMrTicketId=ticketId||option.value;
-    select.dataset.integratedMrId=mr.id||'';
+    select.dataset.integratedMrId=mr.id||activeEditId;
     select.disabled=true;
+
+    var project=document.getElementById('mr-project');
+    if(project&&!project.value)project.value=mr.project_name||option.dataset.project||'';
 
     var error=document.getElementById('mr-form-error');
     if(error&&/Pilih Nomor WO/i.test(error.textContent||'')){
@@ -57,29 +70,35 @@
     return Boolean(select.value);
   }
 
-  var originalShow=window.showMRForm;
-  if(typeof originalShow==='function'){
-    window.showMRForm=function(editId){
+  // Tangkap ID MR sebelum onclick inline menjalankan showMRForm().
+  document.addEventListener('click',function(event){
+    var editId=extractEditId(event.target);
+    if(editId){
       activeMR=null;
-      var result=originalShow.apply(this,arguments);
       loadActiveMR(editId).then(function(mr){
         applyWorkOrder(mr);
-        setTimeout(function(){applyWorkOrder(mr);},150);
+        setTimeout(function(){applyWorkOrder(mr);},100);
+        setTimeout(function(){applyWorkOrder(mr);},350);
       });
-      return result;
-    };
-  }
+      return;
+    }
 
-  var originalSubmit=window.submitMR;
-  if(typeof originalSubmit==='function'){
-    window.submitMR=function(){
-      if(activeMR)applyWorkOrder(activeMR);
-      return originalSubmit.apply(this,arguments);
-    };
-  }
-
-  document.addEventListener('click',function(event){
-    var button=event.target&&event.target.closest?event.target.closest('#mr-submit-btn'):null;
-    if(button&&activeMR)applyWorkOrder(activeMR);
+    var submit=event.target&&event.target.closest?event.target.closest('#mr-submit-btn'):null;
+    if(submit&&activeMR){
+      applyWorkOrder(activeMR);
+      setTimeout(function(){applyWorkOrder(activeMR);},0);
+    }
   },true);
+
+  // Fallback: saat form tampil tetapi data belum terpasang, gunakan ID terakhir.
+  var observer=new MutationObserver(function(){
+    var form=document.getElementById('mr-form-section');
+    if(!form||form.style.display==='none'||!activeEditId)return;
+    if(activeMR)applyWorkOrder(activeMR);
+    else loadActiveMR(activeEditId).then(applyWorkOrder);
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var form=document.getElementById('mr-form-section');
+    if(form)observer.observe(form,{attributes:true,attributeFilter:['style']});
+  });
 })();
