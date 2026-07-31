@@ -3,69 +3,14 @@
   'use strict';
   const num=(...values)=>{for(const v of values){const n=Number(v);if(Number.isFinite(n))return n;}return 0;};
   const text=(...values)=>{for(const v of values){if(v!==null&&v!==undefined&&String(v).trim())return String(v).trim();}return '';};
-  function normalizeInventory(i){
-    return {...i,
-      id:text(i.id,i.inventory_item_id,i.item_id),
-      name:text(i.name,i.item_name,i.product_name,i.description),
-      sku:text(i.sku,i.no_sku,i.sku_number,i.product_code),
-      barcode:text(i.barcode,i.barcode_value,i.ean),
-      product_number:text(i.product_number,i.part_number,i.model),
-      unit:text(i.unit,i.satuan,'pcs'),
-      stock:num(i.stock,i.qty,i.quantity,i.current_stock,i.available_stock,i.stock_available)
-    };
-  }
+  function normalizeInventory(i){return {...i,id:text(i.id,i.inventory_item_id,i.item_id),name:text(i.name,i.item_name,i.product_name,i.description),sku:text(i.sku,i.no_sku,i.sku_number,i.product_code),barcode:text(i.barcode,i.barcode_value,i.ean),product_number:text(i.product_number,i.part_number,i.model),unit:text(i.unit,i.satuan,'pcs'),stock:num(i.stock,i.qty,i.quantity,i.current_stock,i.available_stock,i.stock_available)};}
   const originalAddRow=window.addMRItemRow;
-  if(typeof originalAddRow==='function'){
-    window.addMRItemRow=function(item,locked){
-      if(item){
-        const inv=(window.mrInventoryItems||[]).find(x=>String(x.id)===String(item.inventory_item_id||item.item_id||''));
-        item=normalizeInventory({...inv,...item,
-          stock:num(item.stock,item.stock_available,item.stock_at_request,inv?.stock),
-          sku:text(item.sku,inv?.sku),unit:text(item.unit,inv?.unit,'pcs')
-        });
-      }
-      return originalAddRow(item,locked);
-    };
-  }
-  window.loadMRInventoryItems=async function(){
-    const status=document.getElementById('mr-inventory-status');
-    try{
-      const result=await api('GET','/inventory/items');
-      const rows=Array.isArray(result)?result:(result?.items||result?.data||result?.rows||[]);
-      window.mrInventoryItems=rows.map(normalizeInventory).filter(i=>i.id&&i.name);
-      if(status)status.textContent=`${window.mrInventoryItems.length} item Inventory siap dicari. Item stok kosong tetap dapat diminta.`;
-      return window.mrInventoryItems;
-    }catch(e){
-      window.mrInventoryItems=[];
-      if(status)status.textContent='Gagal mengambil Inventory: '+e.message;
-      return [];
-    }
-  };
-  window.mrInventorySearchText=function(i){
-    i=normalizeInventory(i);return [i.name,i.sku,i.barcode,i.product_number,i.category,i.subcategory].map(v=>String(v||'').toLowerCase()).join(' ');
-  };
-  window.findMRInventoryMatches=function(code){
-    const q=String(code||'').trim().toLowerCase();if(!q)return[];
-    const rows=(window.mrInventoryItems||[]).map(normalizeInventory);
-    const exact=rows.filter(i=>[i.sku,i.barcode,i.product_number,i.name].some(v=>String(v||'').trim().toLowerCase()===q));
-    return (exact.length?exact:rows.filter(i=>window.mrInventorySearchText(i).includes(q))).slice(0,30);
-  };
-  window.addMRInventoryItem=function(raw){
-    const item=normalizeInventory(raw);if(!item.id||!item.name)return false;
-    const existing=[...document.querySelectorAll('#mr-items-body tr')].find(r=>r.dataset.inventoryId===String(item.id));
-    if(existing){
-      const qty=existing.querySelector('.mr-qout');qty.value=(Number(qty.value)||0)+1;
-      recalcMRReturn(existing);
-      document.getElementById('mr-inventory-status').textContent=`${item.name} ditambah. Qty sekarang ${qty.value}.`;
-      return true;
-    }
-    const blank=[...document.querySelectorAll('#mr-items-body tr')].find(r=>!r.dataset.inventoryId&&!r.querySelector('.mr-name')?.value.trim());if(blank)blank.remove();
-    const row=window.addMRItemRow({...item,inventory_item_id:item.id,qty_out:1,field_addition:true},false);
-    if(row){row.dataset.fieldAddition='true';const note=row.querySelector('.mr-name')?.parentElement; if(note)note.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--amber);padding:2px 3px">Tambahan Lapangan · menunggu proses gudang</div>');}
-    document.getElementById('mr-inventory-status').textContent=item.stock>0?`${item.name} ditambahkan. Stok tersedia ${item.stock} ${item.unit}.`:`${item.name} ditambahkan sebagai permintaan. Stok saat ini kosong.`;
-    return true;
-  };
-  const originalGetItems=window.getMRItems;
-  if(typeof originalGetItems==='function')window.getMRItems=function(){return originalGetItems().map(i=>({...i,field_addition:document.querySelector(`#mr-items-body tr[data-inventory-id="${CSS.escape(String(i.inventory_item_id||''))}"]`)?.dataset.fieldAddition==='true'}));};
+  if(typeof originalAddRow==='function')window.addMRItemRow=function(item,locked){if(item){const inv=(window.mrInventoryItems||[]).find(x=>String(x.id)===String(item.inventory_item_id||item.item_id||''));item=normalizeInventory({...inv,...item,stock:num(item.stock,item.stock_available,item.stock_at_request,inv?.stock),sku:text(item.sku,inv?.sku),unit:text(item.unit,inv?.unit,'pcs')});}return originalAddRow(item,locked);};
+  window.loadMRInventoryItems=async function(){const status=document.getElementById('mr-inventory-status');try{const result=await api('GET','/inventory/items');const rows=Array.isArray(result)?result:(result?.items||result?.data||result?.rows||[]);window.mrInventoryItems=rows.map(normalizeInventory).filter(i=>i.id&&i.name);if(status)status.textContent=`${window.mrInventoryItems.length} item Inventory siap dicari. Item stok kosong tetap dapat diminta.`;return window.mrInventoryItems;}catch(e){window.mrInventoryItems=[];if(status)status.textContent='Gagal mengambil Inventory: '+e.message;return[];}};
+  window.mrInventorySearchText=i=>{i=normalizeInventory(i);return[i.name,i.sku,i.barcode,i.product_number,i.category,i.subcategory].map(v=>String(v||'').toLowerCase()).join(' ');};
+  window.findMRInventoryMatches=function(code){const q=String(code||'').trim().toLowerCase();if(!q)return[];const rows=(window.mrInventoryItems||[]).map(normalizeInventory);const exact=rows.filter(i=>[i.sku,i.barcode,i.product_number,i.name].some(v=>String(v||'').trim().toLowerCase()===q));return(exact.length?exact:rows.filter(i=>window.mrInventorySearchText(i).includes(q))).slice(0,30);};
+  window.addMRInventoryItem=function(raw){const item=normalizeInventory(raw);if(!item.id||!item.name)return false;const existing=[...document.querySelectorAll('#mr-items-body tr')].find(r=>r.dataset.inventoryId===String(item.id));if(existing){const qty=existing.querySelector('.mr-qout');qty.value=(Number(qty.value)||0)+1;recalcMRReturn(existing);document.getElementById('mr-inventory-status').textContent=`${item.name} ditambah. Qty sekarang ${qty.value}.`;return true;}const blank=[...document.querySelectorAll('#mr-items-body tr')].find(r=>!r.dataset.inventoryId&&!r.querySelector('.mr-name')?.value.trim());if(blank)blank.remove();const row=window.addMRItemRow({...item,inventory_item_id:item.id,qty_out:1,field_addition:true},false);if(row){row.dataset.fieldAddition='true';const note=row.querySelector('.mr-name')?.parentElement;if(note)note.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:var(--amber);padding:2px 3px">Tambahan Lapangan · menunggu proses gudang</div>');}document.getElementById('mr-inventory-status').textContent=item.stock>0?`${item.name} ditambahkan. Stok tersedia ${item.stock} ${item.unit}.`:`${item.name} ditambahkan sebagai permintaan. Stok saat ini kosong.`;return true;};
+  window.selectMRSearchItem=function(id){const item=(window.mrInventoryItems||[]).find(i=>String(i.id)===String(id));if(!item)return;window.addMRInventoryItem(item);const input=document.getElementById('mr-sku-input');input.value='';document.getElementById('mr-search-results').style.display='none';input.focus();};
+  const originalGetItems=window.getMRItems;if(typeof originalGetItems==='function')window.getMRItems=function(){return originalGetItems().map(i=>({...i,field_addition:[...document.querySelectorAll('#mr-items-body tr')].find(r=>String(r.dataset.inventoryId||'')===String(i.inventory_item_id||''))?.dataset.fieldAddition==='true'}));};
   document.addEventListener('DOMContentLoaded',()=>{const input=document.getElementById('mr-sku-input');if(input)input.addEventListener('focus',()=>{if(!(window.mrInventoryItems||[]).length)window.loadMRInventoryItems();});});
 })();
