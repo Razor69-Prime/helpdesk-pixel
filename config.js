@@ -3,8 +3,9 @@
 //  Dapatkan nilai dari: https://supabase.com → Settings → API
 // ═══════════════════════════════════════════════════════════
 
-// Urutan wrapper penting: integrasi Form MR didaftarkan paling awal,
-// lalu reminder/verifikasi 0004B dan hardening SO 0004A.
+// Urutan wrapper penting: frontend MR 0004D, integrasi 0004C,
+// reminder/verifikasi 0004B, lalu hardening SO 0004A.
+require('./pxl-stg-0004d');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
