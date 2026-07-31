@@ -1,5 +1,8 @@
 'use strict';
 
+// PXL-STG-0004G aktif melalui modul 0004F agar config.js tidak perlu disentuh.
+require('./pxl-stg-0004g');
+
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
