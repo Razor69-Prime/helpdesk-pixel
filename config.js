@@ -3,10 +3,11 @@
 //  Dapatkan nilai dari: https://supabase.com → Settings → API
 // ═══════════════════════════════════════════════════════════
 
-// Urutan wrapper penting: akses Inventory MR 0004E, frontend MR 0004D,
-// integrasi 0004C, reminder/verifikasi 0004B, lalu hardening SO 0004A.
+// Urutan wrapper penting: akses Inventory MR 0004E, pencarian 0004D,
+// formula qty 0004F, integrasi 0004C, reminder 0004B, hardening SO 0004A.
 require('./pxl-stg-0004e');
 require('./pxl-stg-0004d');
+require('./pxl-stg-0004f');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
