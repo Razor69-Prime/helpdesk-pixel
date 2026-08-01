@@ -127,7 +127,7 @@ function installSalesOrderRoutePatch() {
           return res.status(400).json({ error: 'Hanya SO Draft yang dapat diedit.' });
         }
 
-        const payload = preparePayload({ ...oldRow, ...req.body });
+        const payload = preparePayload(req.body || {});
         const history = [
           ...(Array.isArray(oldRow.history) ? oldRow.history : []),
           {
