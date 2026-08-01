@@ -1,9 +1,10 @@
 'use strict';
 
-// PXL-STG-0005G — daftar WO teknisi dan item SO langsung dari backend.
+// PXL-STG-0005H — route MR dipasang setelah JWT session dan sebelum static.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
+const originalUse = express.application.use;
 const ITEMS_ROUTE = '/api/material-requests-form/work-order/:ticketId/items';
 const ASSIGNED_ROUTE = '/api/material-requests-form/assigned-work-orders';
 
@@ -12,7 +13,8 @@ function normalized(value){ return String(value == null ? '' : value).trim().toL
 function assignmentValues(value){
   if(value == null) return [];
   if(typeof value === 'object'){
-    return [value.id,value.user_id,value.technician_id,value.name,value.username,value.email].filter(Boolean).map(normalized);
+    return [value.id,value.user_id,value.technician_id,value.name,value.username,value.email]
+      .filter(Boolean).map(normalized);
   }
   return [normalized(value)];
 }
@@ -59,7 +61,7 @@ function findRelation(ticket, crmWos, salesOrders){
 async function routeAssignedWorkOrders(req,res){
   try{
     const user = req.session?.user;
-    if(!user) return res.status(401).json({source:'PXL-STG-0005G',error:'Unauthorized'});
+    if(!user) return res.status(401).json({source:'PXL-STG-0005H',error:'Unauthorized'});
     const db = require('./db');
     const tickets = await db.getTickets(null,true);
     const role = normalized(user.role);
@@ -75,30 +77,30 @@ async function routeAssignedWorkOrders(req,res){
         status:ticket.status || null
       }))
       .sort((a,b) => String(b.wo_number || '').localeCompare(String(a.wo_number || '')));
-    return res.json({source:'PXL-STG-0005G',work_orders:workOrders});
+    return res.json({source:'PXL-STG-0005H',work_orders:workOrders});
   }catch(error){
-    return res.status(500).json({source:'PXL-STG-0005G',error:String(error.message || error)});
+    return res.status(500).json({source:'PXL-STG-0005H',error:String(error.message || error)});
   }
 }
 
 async function routeItems(req,res){
   try{
     const user = req.session?.user;
-    if(!user) return res.status(401).json({source:'PXL-STG-0005G',error:'Unauthorized'});
+    if(!user) return res.status(401).json({source:'PXL-STG-0005H',error:'Unauthorized'});
     const db = require('./db');
     const [tickets, crmWos, salesOrders] = await Promise.all([
       db.getTickets(null,true), db.getCrmWorkOrders(), db.getSalesOrders()
     ]);
     const key = decodeURIComponent(req.params.ticketId || '');
     const ticket = (tickets || []).find(t => same(t.id,key) || same(t.wo_number,key));
-    if(!ticket) return res.status(404).json({source:'PXL-STG-0005G',error:'Work Order tidak ditemukan.'});
+    if(!ticket) return res.status(404).json({source:'PXL-STG-0005H',error:'Work Order tidak ditemukan.'});
     if(['technician','teknisi'].includes(normalized(user.role)) && !assigned(ticket,user)){
-      return res.status(403).json({source:'PXL-STG-0005G',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
+      return res.status(403).json({source:'PXL-STG-0005H',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
     if(!so){
       return res.status(404).json({
-        source:'PXL-STG-0005G',
+        source:'PXL-STG-0005H',
         error:'Sales Order yang terhubung dengan '+(ticket.wo_number || 'WO ini')+' tidak ditemukan.'
       });
     }
@@ -117,7 +119,7 @@ async function routeItems(req,res){
       };
     }).filter(i => i.inventory_item_id && i.qty_out > 0);
     return res.json({
-      source:'PXL-STG-0005G',
+      source:'PXL-STG-0005H',
       ticket_id:ticket.id,
       wo_number:ticket.wo_number || null,
       crm_work_order_id:crmWo?.id || null,
@@ -125,7 +127,7 @@ async function routeItems(req,res){
       items
     });
   }catch(error){
-    return res.status(500).json({source:'PXL-STG-0005G',error:String(error.message || error)});
+    return res.status(500).json({source:'PXL-STG-0005H',error:String(error.message || error)});
   }
 }
 
@@ -145,20 +147,28 @@ async function validateAssigned(req,res,next){
   }
 }
 
-function ensureRoutes(app){
-  if(app.__pxl0005gRoutes) return;
-  app.__pxl0005gRoutes = true;
+function registerRoutes(app){
+  if(app.__pxl0005hRoutes) return;
+  app.__pxl0005hRoutes = true;
   originalGet.call(app,ASSIGNED_ROUTE,routeAssignedWorkOrders);
   originalGet.call(app,ITEMS_ROUTE,routeItems);
 }
 
-express.application.get = function pxl0005gGet(path,...handlers){
-  ensureRoutes(this);
-  if(path === ITEMS_ROUTE || path === ASSIGNED_ROUTE) return this;
-  return originalGet.call(this,path,...handlers);
+// config.js dimuat sebelum app dibuat. Deteksi middleware JWT session saat app.use dipanggil,
+// lalu pasang route persis setelah middleware tersebut dan sebelum express.static.
+express.application.use = function pxl0005hUse(...args){
+  const result = originalUse.apply(this,args);
+  if(!this.__pxl0005hRoutes){
+    const source = args
+      .filter(value => typeof value === 'function')
+      .map(value => Function.prototype.toString.call(value))
+      .join('\n');
+    if(source.includes('req.session') && source.includes('_setUser')) registerRoutes(this);
+  }
+  return result;
 };
 
-express.application.post = function pxl0005gPost(path,...handlers){
+express.application.post = function pxl0005hPost(path,...handlers){
   if(['/api/crm/material-requests/from-so/:salesOrderId','/api/crm/material-requests/from-so/:soId','/api/sales-orders/:id/material-request'].includes(path)){
     handlers[handlers.length-1] = (req,res) => res.status(410).json({error:'Pembuatan MR dari Sales Order dinonaktifkan. Buat MR dari Form Material Request.'});
   }
