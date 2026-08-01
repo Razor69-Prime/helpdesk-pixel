@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font:13px Arial,sans-serif;color:var(--text)}
 button,input,select,textarea{font:inherit}.wrap{padding:18px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 h2{margin:0;font-size:19px}.sub{font-size:11px;color:var(--muted);margin-top:3px}.btn{border:1px solid var(--line);background:#fff;padding:8px 11px;border-radius:8px;cursor:pointer;font-weight:700}
-.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.good{background:var(--green);color:#fff;border-color:var(--green)}.btn.bad{background:var(--red);color:#fff;border-color:var(--red)}.btn.service{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.good{background:var(--green);color:#fff;border-color:var(--green)}.btn.bad{background:var(--red);color:#fff;border-color:var(--red)}.btn.service{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.pdf{border-color:var(--blue);color:#174f85;background:#f3f8ff}
 .btn:disabled{opacity:.45;cursor:not-allowed}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px}
 .metric{border-left:4px solid var(--accent)}.metric b{font-size:24px;display:block;margin-top:5px}.label{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}
@@ -18,13 +18,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;
 .item-results.open{display:block}.item-option{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.item-option:hover{background:#fff4ea}.item-option b{display:block}.item-option small{color:var(--muted)}
 .selected-item{font-size:10px;color:var(--green);margin-top:4px}.notice{padding:10px;border-radius:8px;background:#fff4ea;border:1px solid #f0d1b5;margin-top:10px}.flow-note{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.flow-note div{padding:9px;border-radius:8px;border:1px solid var(--line);background:#fafafa}.flow-note b{display:block;margin-bottom:3px}
 .line-section{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfbfa}.line-section.service-box{border-color:#cbdcf0;background:#f7fbff}.section-title{font-size:13px}.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.total-box{border:1px solid var(--line);border-radius:9px;padding:10px;background:#fff}.total-box strong{display:block;font-size:16px;margin-top:4px}.total-box.grand{border-color:#efbd97;background:#fff7ef}
+.form-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.form-actions .btn{padding:11px 18px}.form-actions .primary{min-width:150px}
 .table{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}table{width:100%;border-collapse:collapse}th{background:#efede7;color:var(--muted);font-size:10px;text-transform:uppercase;text-align:left;padding:8px}
 td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3px 7px;border-radius:99px;background:#fff0e4;color:#9b541f;font-size:10px;font-weight:700}
 .status{padding:3px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#eef5e8;color:#52791f}.actions{display:flex;gap:5px;flex-wrap:wrap}.section{margin-top:12px}
 .empty-hint{padding:11px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}.msg{display:none;position:fixed;right:18px;bottom:18px;background:#222;color:#fff;padding:10px 13px;border-radius:9px;z-index:30}
 @media(max-width:1000px){.line-row{grid-template-columns:1fr 1fr 1fr}.line-row .wide{grid-column:1/-1}.line-row .remove{justify-self:start}.totals,.flow-note{grid-template-columns:1fr}}
 @media(max-width:850px){.grid4,.form{grid-template-columns:1fr}}
-@media(max-width:560px){.line-row{grid-template-columns:1fr 1fr}.line-row .wide{grid-column:1/-1}}
+@media(max-width:560px){.line-row{grid-template-columns:1fr 1fr}.line-row .wide{grid-column:1/-1}.form-actions{display:grid;grid-template-columns:1fr 1fr}.form-actions .btn{width:100%;min-width:0}}
 </style>
 </head>
 <body>
@@ -32,7 +33,7 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
   <div class="toolbar">
     <div>
       <h2>Sales Order</h2>
-      <div class="sub">PXL-STG-0006B — Draft SO dengan Material/Barang dan Jasa/Pekerjaan.</div>
+      <div class="sub">PXL-STG-0006H — Form SO Material/Jasa, Submit di bagian akhir, PDF Penawaran.</div>
     </div>
     <button class="btn" id="refreshBtn">Refresh</button>
   </div>
@@ -42,7 +43,6 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
   <div class="card section">
     <div class="toolbar">
       <div><b id="formTitle">Buat Sales Order</b><div class="sub">Material dan jasa disimpan dalam satu Draft SO.</div></div>
-      <div class="actions"><button class="btn" id="resetBtn">Reset</button><button class="btn primary" id="saveBtn">Simpan Draft</button></div>
     </div>
 
     <div class="form">
@@ -79,6 +79,11 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
     <div class="flow-note">
       <div><b>Material → Material Request</b>Stok tidak berkurang saat SO atau WO dibuat. Flow MR revisi 05 tetap digunakan.</div>
       <div><b>Jasa → Work Order</b>Jasa tidak masuk Inventory dan tidak muncul pada Form Material Request.</div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" id="resetBtn" type="button">Reset</button>
+      <button class="btn primary" id="saveBtn" type="button">Submit</button>
     </div>
   </div>
 
@@ -308,7 +313,7 @@ function reset() {
   updateEmptyHints();
   updateTotals();
   if (byId('formTitle')) byId('formTitle').textContent = 'Buat Sales Order';
-  if (byId('saveBtn')) byId('saveBtn').textContent = 'Simpan Draft';
+  if (byId('saveBtn')) byId('saveBtn').textContent = 'Submit';
 }
 
 function collect() {
@@ -418,7 +423,7 @@ function editSO(id) {
   updateTotals();
 
   if (byId('formTitle')) byId('formTitle').textContent = `Edit ${salesOrder.so_number || 'SO'} · ${salesOrder.quotation_number || 'Penawaran'}`;
-  if (byId('saveBtn')) byId('saveBtn').textContent = 'Simpan Perubahan';
+  if (byId('saveBtn')) byId('saveBtn').textContent = 'Submit Perubahan';
   scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -433,6 +438,12 @@ async function act(id, action) {
     } else if (action === 'wo') {
       const result = await api('POST', `/api/sales-orders/${id}/work-order`, {});
       toast(result.created ? 'Work Order berhasil dibuat' : 'Work Order sudah tersedia');
+    } else if (action === 'pdf') {
+      if (typeof window.downloadQuotationPDF !== 'function') throw new Error('Generator PDF belum tersedia. Muat ulang halaman Sales Order.');
+      return window.downloadQuotationPDF(id);
+    } else if (action === 'history') {
+      if (typeof window.showQuotationRevisions !== 'function') throw new Error('Riwayat penawaran belum tersedia. Muat ulang halaman Sales Order.');
+      return window.showQuotationRevisions(id);
     }
     await load();
   } catch (error) {
@@ -461,7 +472,7 @@ function render() {
     const items = Array.isArray(item.items) ? item.items : [];
     const materialCount = items.filter(line => !['service', 'jasa'].includes(String(line.item_type || line.type || 'item').toLowerCase())).length;
     const serviceCount = items.filter(line => ['service', 'jasa'].includes(String(line.item_type || line.type || '').toLowerCase())).length;
-    let actions = '';
+    let actions = `<button class="btn pdf" data-act="pdf" data-id="${item.id}">Unduh PDF</button><button class="btn" data-act="history" data-id="${item.id}">Riwayat</button>`;
     if (item.status === 'draft') actions += `<button class="btn" data-act="edit" data-id="${item.id}">Edit</button>`;
     if (item.status === 'draft' && OPT.can_approve) {
       actions += `<button class="btn good" data-act="approve" data-id="${item.id}">Setujui SO</button>`;
@@ -480,7 +491,7 @@ function render() {
       <td>${rp(item.material_subtotal)}</td>
       <td>${rp(item.service_subtotal)}</td>
       <td><b>${rp(item.quotation_total ?? item.total_amount)}</b></td>
-      <td><div class="actions">${actions || '-'}</div></td>
+      <td><div class="actions">${actions}</div></td>
     </tr>`;
   }).join('');
 
@@ -526,5 +537,6 @@ byId('addServiceBtn')?.addEventListener('click', () => addService());
 
 load().then(reset);
 </script>
+<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006H"></script>
 </body>
 </html>
