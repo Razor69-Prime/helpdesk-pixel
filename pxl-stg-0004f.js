@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-STG-0005D menjadi satu-satunya konsolidator flow baru.
+// PXL-STG-0005E menjadi satu-satunya konsolidator flow baru.
 require('./pxl-stg-0005d');
 
 const fs = require('fs');
@@ -8,11 +8,11 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
-express.static = function pxl0005dStatic(root, options) {
+express.static = function pxl0005eStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
-  return function pxl0005dMiddleware(req, res, next) {
+  return function pxl0005eMiddleware(req, res, next) {
     const isIndex = req.method === 'GET' && (req.path === '/' || req.path === '/index.html') && fs.existsSync(indexPath);
     const isSalesOrder = req.method === 'GET' && req.path === '/sales-order.html' && fs.existsSync(salesOrderPath);
     if (!isIndex && !isSalesOrder) return middleware(req, res, next);
@@ -21,15 +21,14 @@ express.static = function pxl0005dStatic(root, options) {
       if (isIndex) {
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0005D"></script>',
-          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0005D"></script>'
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0005E"></script>',
+          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0005E"></script>'
         ];
         for (const tag of tags) {
           const src = tag.match(/src="([^"]+)/)?.[1];
           if (src && !html.includes(src.split('?')[0])) html = html.replace('</body>', tag + '\n</body>');
         }
       } else {
-        // Hilangkan sumber pembuatan MR langsung dari source HTML yang dikirim.
         html = html
           .replace(/<div class="section"><div class="toolbar"><div><b>Material Request Trial<\/b>[\s\S]*?<div id="mrTable" class="table"><\/div><\/div>/, '')
           .replace(/if\(a==='mr'\)[\s\S]*?await load\(\)\}catch\(e\)\{toast\(e\.message\)\}\}/, "await load()}catch(e){toast(e.message)}}")
