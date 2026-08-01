@@ -1,7 +1,7 @@
 'use strict';
 
-// PXL-STG-0005L — perbaikan header tabel PDF Material Request.
-// PXL-STG-0005H sampai 0005K tetap aktif pada flow masing-masing.
+// PXL-STG-0005M — koreksi perhitungan Sisa Material PDF Material Request.
+// PXL-STG-0005H sampai 0005L tetap aktif pada flow masing-masing.
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
 
@@ -10,12 +10,12 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
-express.static = function pxl0005lStatic(root, options) {
+express.static = function pxl0005mStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
 
-  return function pxl0005lMiddleware(req, res, next) {
+  return function pxl0005mMiddleware(req, res, next) {
     const isIndex = req.method === 'GET'
       && (req.path === '/' || req.path === '/index.html')
       && fs.existsSync(indexPath);
@@ -31,11 +31,11 @@ express.static = function pxl0005lStatic(root, options) {
       if (isIndex) {
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0005L"></script>',
-          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0005L"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0005M"></script>',
+          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0005M"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
-          '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005L"></script>'
+          '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>'
         ];
         for (const tag of tags) {
           const src = tag.match(/src="([^"]+)/)?.[1];
