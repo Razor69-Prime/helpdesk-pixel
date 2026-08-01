@@ -1,9 +1,11 @@
 'use strict';
 
-// PXL-STG-0005B — MR hanya dibuat teknisi dari WO yang ditugaskan.
+// PXL-STG-0005C — MR dibuat teknisi dari WO yang ditugaskan.
+// Route didaftarkan saat server.js mulai mendaftarkan route, bukan melalui app.listen,
+// agar tetap aktif pada Vercel serverless.
 const express=require('express');
+const originalGet=express.application.get;
 const originalPost=express.application.post;
-const originalListen=express.application.listen;
 
 function same(a,b){return String(a==null?'':a)===String(b==null?'':b);}
 function assigned(ticket,user){
@@ -49,67 +51,70 @@ function findLinkedSalesOrder(ticket,crmWos,salesOrders){
   return {crmWo,so};
 }
 
-express.application.post=function pxl0005bPost(path,...handlers){
-  if(path==='/api/crm/material-requests/from-so/:salesOrderId'){
+async function workOrderItems(req,res){
+  try{
+    const user=req.session?.user;
+    if(!user)return res.status(401).json({error:'Unauthorized'});
+    const db=require('./db');
+    const [tickets,crmWos,salesOrders]=await Promise.all([
+      db.getTickets(null,true),
+      db.getCrmWorkOrders(),
+      db.getSalesOrders()
+    ]);
+    const ticket=(tickets||[]).find(t=>same(t.id,req.params.ticketId)||same(t.wo_number,req.params.ticketId));
+    if(!ticket)return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    if(String(user.role||'').toLowerCase()==='technician'&&!assigned(ticket,user)){
+      return res.status(403).json({error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
+    }
+
+    const {crmWo,so}=findLinkedSalesOrder(ticket,crmWos,salesOrders);
+    if(!so){
+      return res.status(404).json({error:'Sales Order yang terhubung dengan '+String(ticket.wo_number||'WO ini')+' tidak ditemukan. Pastikan WO dibuat dari Sales Order.'});
+    }
+
+    const sourceItems=Array.isArray(so.items)?so.items:[];
+    const items=sourceItems.map(i=>{
+      const qty=Number(i.qty??i.quantity??i.qty_out??0);
+      return {
+        inventory_item_id:i.inventory_item_id||i.item_id||null,
+        name:i.name||i.item_name||'Item',
+        sku:i.sku||null,
+        unit:i.unit||'pcs',
+        stock:i.stock_at_select??i.stock??0,
+        qty_out:qty,
+        qty_use:0,
+        qty_return:qty,
+        source_type:'sales_order'
+      };
+    }).filter(i=>i.name&&i.qty_out>0);
+
+    return res.json({
+      ticket_id:ticket.id,
+      wo_number:ticket.wo_number||crmWo?.wo_number||null,
+      crm_work_order_id:crmWo?.id||null,
+      sales_order_id:so.id,
+      items
+    });
+  }catch(error){
+    return res.status(500).json({error:String(error.message||error)});
+  }
+}
+
+express.application.get=function pxl0005cGet(path,...handlers){
+  const result=originalGet.call(this,path,...handlers);
+  if(!this.__pxl0005cRoute){
+    this.__pxl0005cRoute=true;
+    originalGet.call(this,'/api/material-requests-form/work-order/:ticketId/items',workOrderItems);
+  }
+  return result;
+};
+
+express.application.post=function pxl0005cPost(path,...handlers){
+  if(path==='/api/crm/material-requests/from-so/:salesOrderId'||path==='/api/crm/material-requests/from-so/:soId'||path==='/api/sales-orders/:id/material-request'){
     handlers[handlers.length-1]=(req,res)=>res.status(410).json({error:'Pembuatan MR dari Sales Order sudah dinonaktifkan. Buat MR melalui Form Material Request setelah teknisi ditugaskan ke WO.'});
   }
   if(path==='/api/material-requests-form'&&handlers.length){
     handlers.splice(Math.max(0,handlers.length-1),0,validateAssignedWO);
   }
   return originalPost.call(this,path,...handlers);
-};
-
-express.application.listen=function pxl0005bListen(...args){
-  if(!this.__pxl0005aRoutes){
-    this.__pxl0005aRoutes=true;
-    this.get('/api/material-requests-form/work-order/:ticketId/items',async(req,res)=>{
-      try{
-        const user=req.session?.user;
-        if(!user)return res.status(401).json({error:'Unauthorized'});
-        const db=require('./db');
-        const [tickets,crmWos,salesOrders]=await Promise.all([
-          db.getTickets(null,true),
-          db.getCrmWorkOrders(),
-          db.getSalesOrders()
-        ]);
-        const ticket=(tickets||[]).find(t=>same(t.id,req.params.ticketId)||same(t.wo_number,req.params.ticketId));
-        if(!ticket)return res.status(404).json({error:'Work Order tidak ditemukan.'});
-        if(String(user.role||'').toLowerCase()==='technician'&&!assigned(ticket,user)){
-          return res.status(403).json({error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
-        }
-
-        const {crmWo,so}=findLinkedSalesOrder(ticket,crmWos,salesOrders);
-        if(!so){
-          return res.status(404).json({
-            error:'Sales Order yang terhubung dengan '+String(ticket.wo_number||'WO ini')+' tidak ditemukan. Pastikan WO dibuat dari Sales Order.'
-          });
-        }
-
-        const sourceItems=Array.isArray(so.items)?so.items:[];
-        const items=sourceItems.map(i=>{
-          const qty=Number(i.qty??i.quantity??i.qty_out??0);
-          return {
-            inventory_item_id:i.inventory_item_id||i.item_id||null,
-            name:i.name||i.item_name||'Item',
-            sku:i.sku||null,
-            unit:i.unit||'pcs',
-            stock:i.stock_at_select??i.stock??0,
-            qty_out:qty,
-            qty_use:0,
-            qty_return:qty,
-            source_type:'sales_order'
-          };
-        }).filter(i=>i.name&&i.qty_out>0);
-
-        res.json({
-          ticket_id:ticket.id,
-          wo_number:ticket.wo_number||crmWo?.wo_number||null,
-          crm_work_order_id:crmWo?.id||null,
-          sales_order_id:so.id,
-          items
-        });
-      }catch(error){res.status(500).json({error:String(error.message||error)});}
-    });
-  }
-  return originalListen.apply(this,args);
 };
