@@ -1,20 +1,42 @@
 'use strict';
 
-// PXL-STG-0005F — konsolidasi route WO -> item SO dan validasi MR teknisi.
+// PXL-STG-0005G — daftar WO teknisi dan item SO langsung dari backend.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
 const ITEMS_ROUTE = '/api/material-requests-form/work-order/:ticketId/items';
+const ASSIGNED_ROUTE = '/api/material-requests-form/assigned-work-orders';
 
 function same(a,b){ return String(a == null ? '' : a) === String(b == null ? '' : b); }
+function normalized(value){ return String(value == null ? '' : value).trim().toLowerCase(); }
+function assignmentValues(value){
+  if(value == null) return [];
+  if(typeof value === 'object'){
+    return [value.id,value.user_id,value.technician_id,value.name,value.username,value.email].filter(Boolean).map(normalized);
+  }
+  return [normalized(value)];
+}
 function assigned(ticket,user){
   if(!ticket || !user) return false;
-  const name = String(user.name || '').trim().toLowerCase();
-  const id = String(user.id || '');
+  const identities = new Set([user.id,user.name,user.username,user.email].filter(Boolean).map(normalized));
+  const candidates = [];
   const technicians = Array.isArray(ticket.technicians) ? ticket.technicians : [];
-  return technicians.some(v => String(v || '').trim().toLowerCase() === name || String(v || '') === id)
-    || String(ticket.technician || '').trim().toLowerCase() === name
-    || String(ticket.technician_id || '') === id;
+  technicians.forEach(value => candidates.push(...assignmentValues(value)));
+  [
+    ticket.technician,
+    ticket.technician_id,
+    ticket.technician_1,
+    ticket.technician_1_id,
+    ticket.technician_2,
+    ticket.technician_2_id,
+    ticket.assigned_to,
+    ticket.assigned_to_id
+  ].forEach(value => candidates.push(...assignmentValues(value)));
+  return candidates.some(value => identities.has(value));
+}
+function activeWO(ticket){
+  const status = normalized(ticket?.status);
+  return !ticket?.archived && !['done','completed','cancelled','canceled','void','closed'].includes(status);
 }
 
 function findRelation(ticket, crmWos, salesOrders){
@@ -34,24 +56,49 @@ function findRelation(ticket, crmWos, salesOrders){
   return { crmWo, so };
 }
 
+async function routeAssignedWorkOrders(req,res){
+  try{
+    const user = req.session?.user;
+    if(!user) return res.status(401).json({source:'PXL-STG-0005G',error:'Unauthorized'});
+    const db = require('./db');
+    const tickets = await db.getTickets(null,true);
+    const role = normalized(user.role);
+    const technicianRole = ['technician','teknisi'].includes(role);
+    const workOrders = (tickets || [])
+      .filter(activeWO)
+      .filter(ticket => !technicianRole || assigned(ticket,user))
+      .map(ticket => ({
+        id:ticket.id,
+        wo_number:ticket.wo_number || null,
+        project_name:ticket.project_name || ticket.project || ticket.description || '',
+        customer_name:ticket.customer_name || ticket.customer || '',
+        status:ticket.status || null
+      }))
+      .sort((a,b) => String(b.wo_number || '').localeCompare(String(a.wo_number || '')));
+    return res.json({source:'PXL-STG-0005G',work_orders:workOrders});
+  }catch(error){
+    return res.status(500).json({source:'PXL-STG-0005G',error:String(error.message || error)});
+  }
+}
+
 async function routeItems(req,res){
   try{
     const user = req.session?.user;
-    if(!user) return res.status(401).json({source:'PXL-STG-0005F',error:'Unauthorized'});
+    if(!user) return res.status(401).json({source:'PXL-STG-0005G',error:'Unauthorized'});
     const db = require('./db');
     const [tickets, crmWos, salesOrders] = await Promise.all([
       db.getTickets(null,true), db.getCrmWorkOrders(), db.getSalesOrders()
     ]);
     const key = decodeURIComponent(req.params.ticketId || '');
     const ticket = (tickets || []).find(t => same(t.id,key) || same(t.wo_number,key));
-    if(!ticket) return res.status(404).json({source:'PXL-STG-0005F',error:'Work Order tidak ditemukan.'});
-    if(String(user.role || '').toLowerCase() === 'technician' && !assigned(ticket,user)){
-      return res.status(403).json({source:'PXL-STG-0005F',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
+    if(!ticket) return res.status(404).json({source:'PXL-STG-0005G',error:'Work Order tidak ditemukan.'});
+    if(['technician','teknisi'].includes(normalized(user.role)) && !assigned(ticket,user)){
+      return res.status(403).json({source:'PXL-STG-0005G',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
     if(!so){
       return res.status(404).json({
-        source:'PXL-STG-0005F',
+        source:'PXL-STG-0005G',
         error:'Sales Order yang terhubung dengan '+(ticket.wo_number || 'WO ini')+' tidak ditemukan.'
       });
     }
@@ -70,7 +117,7 @@ async function routeItems(req,res){
       };
     }).filter(i => i.inventory_item_id && i.qty_out > 0);
     return res.json({
-      source:'PXL-STG-0005F',
+      source:'PXL-STG-0005G',
       ticket_id:ticket.id,
       wo_number:ticket.wo_number || null,
       crm_work_order_id:crmWo?.id || null,
@@ -78,7 +125,7 @@ async function routeItems(req,res){
       items
     });
   }catch(error){
-    return res.status(500).json({source:'PXL-STG-0005F',error:String(error.message || error)});
+    return res.status(500).json({source:'PXL-STG-0005G',error:String(error.message || error)});
   }
 }
 
@@ -86,7 +133,7 @@ async function validateAssigned(req,res,next){
   try{
     const user = req.session?.user;
     if(!user) return res.status(401).json({error:'Unauthorized'});
-    if(String(user.role || '').toLowerCase() !== 'technician') return next();
+    if(!['technician','teknisi'].includes(normalized(user.role))) return next();
     const ticketId = req.body?.ticket_id;
     if(!ticketId) return res.status(400).json({error:'Nomor WO wajib dipilih.'});
     const db = require('./db');
@@ -98,20 +145,20 @@ async function validateAssigned(req,res,next){
   }
 }
 
-function ensureItemsRoute(app){
-  if(app.__pxl0005fItemsRoute) return;
-  app.__pxl0005fItemsRoute = true;
+function ensureRoutes(app){
+  if(app.__pxl0005gRoutes) return;
+  app.__pxl0005gRoutes = true;
+  originalGet.call(app,ASSIGNED_ROUTE,routeAssignedWorkOrders);
   originalGet.call(app,ITEMS_ROUTE,routeItems);
 }
 
-express.application.get = function pxl0005fGet(path,...handlers){
-  ensureItemsRoute(this);
-  // Abaikan registrasi lama untuk URL yang sama supaya hanya handler 0005F yang aktif.
-  if(path === ITEMS_ROUTE) return this;
+express.application.get = function pxl0005gGet(path,...handlers){
+  ensureRoutes(this);
+  if(path === ITEMS_ROUTE || path === ASSIGNED_ROUTE) return this;
   return originalGet.call(this,path,...handlers);
 };
 
-express.application.post = function pxl0005fPost(path,...handlers){
+express.application.post = function pxl0005gPost(path,...handlers){
   if(['/api/crm/material-requests/from-so/:salesOrderId','/api/crm/material-requests/from-so/:soId','/api/sales-orders/:id/material-request'].includes(path)){
     handlers[handlers.length-1] = (req,res) => res.status(410).json({error:'Pembuatan MR dari Sales Order dinonaktifkan. Buat MR dari Form Material Request.'});
   }
