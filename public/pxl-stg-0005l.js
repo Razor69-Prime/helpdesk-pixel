@@ -1,4 +1,4 @@
-/* PXL-STG-0005L — perbaikan header tabel PDF Material Request. */
+/* PXL-STG-0005M — koreksi perhitungan Sisa Material pada PDF Material Request. */
 (function () {
   'use strict';
 
@@ -12,7 +12,7 @@
     return Number.isInteger(parsed) ? String(parsed) : String(Number(parsed.toFixed(2)));
   }
 
-  window.exportMRPDF = function exportMRPDF0005L(id) {
+  window.exportMRPDF = function exportMRPDF0005M(id) {
     let mr = null;
     try {
       mr = Array.isArray(mrData)
@@ -95,8 +95,6 @@
     const TH = 6;
 
     function drawTableHeader() {
-      // Isi latar seluruh header terlebih dahulu. Text color pada jsPDF dapat
-      // mengubah fill state, sehingga cell tidak boleh di-fill setelah text ditulis.
       doc.setFillColor(180, 180, 180);
       doc.rect(ML, y, CW, TH, 'F');
 
@@ -147,7 +145,7 @@
         const qtyOut = numberValue(item.qty_out ?? item.qty);
         const qtyUse = numberValue(item.qty_use);
         const qtyReturn = numberValue(item.qty_return);
-        const qtyRemaining = Math.max(0, Number((qtyOut - qtyUse - qtyReturn).toFixed(2)));
+        const qtyRemaining = Math.max(0, Number((qtyOut - qtyUse).toFixed(2)));
         const nameLines = doc.splitTextToSize(String(item.name || item.item_name || ''), colW[1] - 2);
         doc.text(nameLines[0] || '', colX[1] + 1.5, y + ROW_H - 1.5);
         doc.text(displayNumber(qtyOut), colX[2] + colW[2] / 2, y + ROW_H - 1.5, { align: 'center' });
