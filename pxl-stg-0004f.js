@@ -1,7 +1,8 @@
 'use strict';
 
-// PXL-STG-0005M — koreksi perhitungan Sisa Material PDF Material Request.
-// PXL-STG-0005H sampai 0005L tetap aktif pada flow masing-masing.
+// PXL-STG-0006A — fondasi backend quotation, jasa WO, dan Customer 360.
+// Seluruh frontend dan flow Material Request PXL-STG-0005 tetap aktif tanpa perubahan.
+require('./pxl-stg-0006a');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
 
@@ -10,12 +11,12 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
-express.static = function pxl0005mStatic(root, options) {
+express.static = function pxl0006aStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
 
-  return function pxl0005mMiddleware(req, res, next) {
+  return function pxl0006aMiddleware(req, res, next) {
     const isIndex = req.method === 'GET'
       && (req.path === '/' || req.path === '/index.html')
       && fs.existsSync(indexPath);
