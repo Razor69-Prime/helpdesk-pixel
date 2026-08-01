@@ -1,4 +1,4 @@
-/* PXL-STG-0005G — satu handler MR, daftar WO dari backend, dan checklist akun. */
+/* PXL-STG-0005H — satu handler MR, dropdown WO interaktif, dan checklist akun. */
 (function(){
   'use strict';
 
@@ -6,11 +6,20 @@
     const token=localStorage.getItem('pixel_token')||'';
     return {'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})};
   }
-  async function getJSON(url){
-    const response=await fetch(url,{headers:authHeaders(),cache:'no-store'});
-    let data={};try{data=await response.json();}catch(_){data={};}
-    if(!response.ok)throw new Error(data.error||'Gagal mengambil data.');
-    return data;
+  async function getJSON(url,timeoutMs=10000){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(url,{headers:authHeaders(),cache:'no-store',signal:controller.signal});
+      let data={};try{data=await response.json();}catch(_){data={};}
+      if(!response.ok)throw new Error(data.error||'Gagal mengambil data.');
+      return data;
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('Waktu permintaan habis. Silakan buka ulang form.');
+      throw error;
+    }finally{
+      clearTimeout(timer);
+    }
   }
   function showError(message){
     const el=document.getElementById('mr-form-error');
@@ -18,32 +27,70 @@
     el.textContent=message||'';
     el.style.display=message?'block':'none';
   }
+  function normalized(value){return String(value==null?'':value).trim().toLowerCase();}
+  function assignmentValues(value){
+    if(value==null)return[];
+    if(typeof value==='object')return[value.id,value.user_id,value.technician_id,value.name,value.username,value.email].filter(Boolean).map(normalized);
+    return[normalized(value)];
+  }
+  function assignedLocally(ticket,user){
+    if(!ticket||!user)return false;
+    const identities=new Set([user.id,user.name,user.username,user.email].filter(Boolean).map(normalized));
+    const candidates=[];
+    (Array.isArray(ticket.technicians)?ticket.technicians:[]).forEach(value=>candidates.push(...assignmentValues(value)));
+    [ticket.technician,ticket.technician_id,ticket.technician_1,ticket.technician_1_id,ticket.technician_2,ticket.technician_2_id,ticket.assigned_to,ticket.assigned_to_id]
+      .forEach(value=>candidates.push(...assignmentValues(value)));
+    return candidates.some(value=>identities.has(value));
+  }
+  function localAssignedWorkOrders(){
+    try{
+      const user=currentUser;
+      const tickets=Array.isArray(allTickets)?allTickets:[];
+      return tickets.filter(ticket=>{
+        const status=normalized(ticket?.status);
+        const active=!ticket?.archived&&!['done','completed','cancelled','canceled','void','closed'].includes(status);
+        return active&&assignedLocally(ticket,user);
+      }).map(ticket=>({
+        id:ticket.id,
+        wo_number:ticket.wo_number||null,
+        project_name:ticket.project_name||ticket.project||ticket.description||'',
+        customer_name:ticket.customer_name||ticket.customer||''
+      }));
+    }catch(_){return[];}
+  }
+  function renderWorkOrders(select,workOrders){
+    select.innerHTML='<option value="">-- Pilih WO yang Ditugaskan --</option>';
+    workOrders.forEach(ticket=>{
+      const option=document.createElement('option');
+      option.value=ticket.id;
+      option.dataset.wo=ticket.wo_number||'';
+      option.dataset.project=ticket.project_name||'';
+      option.textContent=(ticket.wo_number||ticket.id)+' — '+(ticket.project_name||ticket.customer_name||'Tanpa nama project');
+      select.appendChild(option);
+    });
+    select.disabled=false;
+  }
   async function populateAssignedWO(){
     const select=document.getElementById('mr-wo');
     if(!select)return;
-    select.disabled=true;
+    select.disabled=false;
     select.innerHTML='<option value="">Memuat WO yang ditugaskan...</option>';
     showError('');
     try{
       const data=await getJSON('/api/material-requests-form/assigned-work-orders');
       if(!Array.isArray(data.work_orders))throw new Error('Respons daftar Work Order tidak valid.');
       if(!select.isConnected)return;
-      select.innerHTML='<option value="">-- Pilih WO yang Ditugaskan --</option>';
-      data.work_orders.forEach(ticket=>{
-        const option=document.createElement('option');
-        option.value=ticket.id;
-        option.dataset.wo=ticket.wo_number||'';
-        option.dataset.project=ticket.project_name||'';
-        option.textContent=(ticket.wo_number||ticket.id)+' — '+(ticket.project_name||ticket.customer_name||'Tanpa nama project');
-        select.appendChild(option);
-      });
-      select.disabled=false;
+      renderWorkOrders(select,data.work_orders);
       if(!data.work_orders.length)showError('Belum ada Work Order aktif yang ditugaskan kepada akun teknisi ini.');
     }catch(error){
       if(!select.isConnected)return;
-      select.innerHTML='<option value="">-- Gagal memuat WO --</option>';
-      select.disabled=false;
-      showError('Gagal mengambil daftar WO: '+String(error.message||error));
+      const fallback=localAssignedWorkOrders();
+      renderWorkOrders(select,fallback);
+      if(fallback.length){
+        showError('Daftar WO backend gagal dimuat. Data assignment lokal sementara digunakan.');
+      }else{
+        showError('Gagal mengambil daftar WO: '+String(error.message||error));
+      }
     }
   }
   async function loadItemsFromSelectedWO(event){
