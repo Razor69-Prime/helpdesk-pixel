@@ -1,7 +1,8 @@
 'use strict';
 
-// PXL-STG-0006A — fondasi backend quotation, jasa WO, dan Customer 360.
-// Seluruh frontend dan flow Material Request PXL-STG-0005 tetap aktif tanpa perubahan.
+// PXL-STG-0006B — form dan validasi Sales Order Material + Jasa.
+// Fondasi PXL-STG-0006A dan seluruh flow Material Request PXL-STG-0005 tetap aktif.
+require('./pxl-stg-0006b');
 require('./pxl-stg-0006a');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
@@ -11,12 +12,12 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
-express.static = function pxl0006aStatic(root, options) {
+express.static = function pxl0006bStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
 
-  return function pxl0006aMiddleware(req, res, next) {
+  return function pxl0006bMiddleware(req, res, next) {
     const isIndex = req.method === 'GET'
       && (req.path === '/' || req.path === '/index.html')
       && fs.existsSync(indexPath);
@@ -32,7 +33,7 @@ express.static = function pxl0006aStatic(root, options) {
       if (isIndex) {
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0005M"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0006B"></script>',
           '<script src="/pxl-stg-0005d.js?v=PXL-STG-0005M"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
