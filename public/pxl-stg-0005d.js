@@ -1,4 +1,4 @@
-/* PXL-STG-0005E — satu handler MR, daftar WO teknisi, dan checklist akun. */
+/* PXL-STG-0005G — satu handler MR, daftar WO dari backend, dan checklist akun. */
 (function(){
   'use strict';
 
@@ -18,40 +18,33 @@
     el.textContent=message||'';
     el.style.display=message?'block':'none';
   }
-  function sameText(a,b){return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();}
-  function assignedToCurrentUser(ticket){
-    let user=null;
-    try{user=currentUser;}catch(_){}
-    if(!user||!ticket)return false;
-    const userId=String(user.id||'');
-    const userName=String(user.name||'').trim().toLowerCase();
-    const techs=Array.isArray(ticket.technicians)?ticket.technicians:[];
-    return techs.some(value=>String(value||'')===userId||sameText(value,userName))
-      ||String(ticket.technician_id||'')===userId
-      ||sameText(ticket.technician,userName);
-  }
-  function activeWO(ticket){
-    const status=String(ticket?.status||'').toLowerCase();
-    return !ticket?.archived&&!['done','cancelled','void','closed'].includes(status);
-  }
-  function populateAssignedWO(){
+  async function populateAssignedWO(){
     const select=document.getElementById('mr-wo');
     if(!select)return;
-    let tickets=[];
-    try{tickets=Array.isArray(allTickets)?allTickets:[];}catch(_){}
-    const allowed=tickets.filter(ticket=>activeWO(ticket)&&assignedToCurrentUser(ticket));
-    select.innerHTML='<option value="">-- Pilih WO yang Ditugaskan --</option>';
-    allowed.forEach(ticket=>{
-      const option=document.createElement('option');
-      option.value=ticket.id;
-      option.dataset.wo=ticket.wo_number||'';
-      option.dataset.project=ticket.project_name||ticket.description||'';
-      option.textContent=(ticket.wo_number||ticket.id)+' — '+(ticket.project_name||ticket.customer_name||'Tanpa nama project');
-      select.appendChild(option);
-    });
-    select.disabled=false;
-    if(!allowed.length)showError('Belum ada Work Order aktif yang ditugaskan kepada akun teknisi ini.');
-    else showError('');
+    select.disabled=true;
+    select.innerHTML='<option value="">Memuat WO yang ditugaskan...</option>';
+    showError('');
+    try{
+      const data=await getJSON('/api/material-requests-form/assigned-work-orders');
+      if(!Array.isArray(data.work_orders))throw new Error('Respons daftar Work Order tidak valid.');
+      if(!select.isConnected)return;
+      select.innerHTML='<option value="">-- Pilih WO yang Ditugaskan --</option>';
+      data.work_orders.forEach(ticket=>{
+        const option=document.createElement('option');
+        option.value=ticket.id;
+        option.dataset.wo=ticket.wo_number||'';
+        option.dataset.project=ticket.project_name||'';
+        option.textContent=(ticket.wo_number||ticket.id)+' — '+(ticket.project_name||ticket.customer_name||'Tanpa nama project');
+        select.appendChild(option);
+      });
+      select.disabled=false;
+      if(!data.work_orders.length)showError('Belum ada Work Order aktif yang ditugaskan kepada akun teknisi ini.');
+    }catch(error){
+      if(!select.isConnected)return;
+      select.innerHTML='<option value="">-- Gagal memuat WO --</option>';
+      select.disabled=false;
+      showError('Gagal mengambil daftar WO: '+String(error.message||error));
+    }
   }
   async function loadItemsFromSelectedWO(event){
     const select=event?.target?.id==='mr-wo'?event.target:document.getElementById('mr-wo');
@@ -87,10 +80,7 @@
   if(typeof originalShowMRForm==='function'){
     window.showMRForm=function(editId){
       const result=originalShowMRForm.apply(this,arguments);
-      if(!editId){
-        setTimeout(populateAssignedWO,0);
-        setTimeout(populateAssignedWO,250);
-      }
+      if(!editId)setTimeout(()=>{void populateAssignedWO();},0);
       return result;
     };
   }
