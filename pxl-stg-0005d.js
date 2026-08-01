@@ -1,9 +1,10 @@
 'use strict';
 
-// PXL-STG-0005D — konsolidasi route WO -> item SO dan validasi MR teknisi.
+// PXL-STG-0005F — konsolidasi route WO -> item SO dan validasi MR teknisi.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
+const ITEMS_ROUTE = '/api/material-requests-form/work-order/:ticketId/items';
 
 function same(a,b){ return String(a == null ? '' : a) === String(b == null ? '' : b); }
 function assigned(ticket,user){
@@ -36,19 +37,24 @@ function findRelation(ticket, crmWos, salesOrders){
 async function routeItems(req,res){
   try{
     const user = req.session?.user;
-    if(!user) return res.status(401).json({error:'Unauthorized'});
+    if(!user) return res.status(401).json({source:'PXL-STG-0005F',error:'Unauthorized'});
     const db = require('./db');
     const [tickets, crmWos, salesOrders] = await Promise.all([
       db.getTickets(null,true), db.getCrmWorkOrders(), db.getSalesOrders()
     ]);
     const key = decodeURIComponent(req.params.ticketId || '');
     const ticket = (tickets || []).find(t => same(t.id,key) || same(t.wo_number,key));
-    if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    if(!ticket) return res.status(404).json({source:'PXL-STG-0005F',error:'Work Order tidak ditemukan.'});
     if(String(user.role || '').toLowerCase() === 'technician' && !assigned(ticket,user)){
-      return res.status(403).json({error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
+      return res.status(403).json({source:'PXL-STG-0005F',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
-    if(!so) return res.status(404).json({error:'Sales Order yang terhubung dengan '+(ticket.wo_number || 'WO ini')+' tidak ditemukan.'});
+    if(!so){
+      return res.status(404).json({
+        source:'PXL-STG-0005F',
+        error:'Sales Order yang terhubung dengan '+(ticket.wo_number || 'WO ini')+' tidak ditemukan.'
+      });
+    }
     const items = (Array.isArray(so.items) ? so.items : []).map(i => {
       const qty = Number(i.qty ?? i.quantity ?? i.qty_out ?? 0);
       return {
@@ -63,9 +69,16 @@ async function routeItems(req,res){
         source_type:'sales_order'
       };
     }).filter(i => i.inventory_item_id && i.qty_out > 0);
-    return res.json({ticket_id:ticket.id,wo_number:ticket.wo_number,crm_work_order_id:crmWo?.id || null,sales_order_id:so.id,items});
+    return res.json({
+      source:'PXL-STG-0005F',
+      ticket_id:ticket.id,
+      wo_number:ticket.wo_number || null,
+      crm_work_order_id:crmWo?.id || null,
+      sales_order_id:so.id,
+      items
+    });
   }catch(error){
-    return res.status(500).json({error:String(error.message || error)});
+    return res.status(500).json({source:'PXL-STG-0005F',error:String(error.message || error)});
   }
 }
 
@@ -85,14 +98,20 @@ async function validateAssigned(req,res,next){
   }
 }
 
-express.application.get = function pxl0005dGet(path,...handlers){
-  if(path === '/api/material-requests-form/work-order/:ticketId/items'){
-    return originalGet.call(this,path,routeItems);
-  }
+function ensureItemsRoute(app){
+  if(app.__pxl0005fItemsRoute) return;
+  app.__pxl0005fItemsRoute = true;
+  originalGet.call(app,ITEMS_ROUTE,routeItems);
+}
+
+express.application.get = function pxl0005fGet(path,...handlers){
+  ensureItemsRoute(this);
+  // Abaikan registrasi lama untuk URL yang sama supaya hanya handler 0005F yang aktif.
+  if(path === ITEMS_ROUTE) return this;
   return originalGet.call(this,path,...handlers);
 };
 
-express.application.post = function pxl0005dPost(path,...handlers){
+express.application.post = function pxl0005fPost(path,...handlers){
   if(['/api/crm/material-requests/from-so/:salesOrderId','/api/crm/material-requests/from-so/:soId','/api/sales-orders/:id/material-request'].includes(path)){
     handlers[handlers.length-1] = (req,res) => res.status(410).json({error:'Pembuatan MR dari Sales Order dinonaktifkan. Buat MR dari Form Material Request.'});
   }
