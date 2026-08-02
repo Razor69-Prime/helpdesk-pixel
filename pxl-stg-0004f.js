@@ -1,7 +1,7 @@
 'use strict';
 
-// PXL-STG-0006N — generator utama PDF Penawaran diperbaiki langsung.
-// Paket PXL-STG-0006A–0006M dan flow Material Request PXL-STG-0005 tetap aktif.
+// PXL-STG-0007A–0007E — Kanban, penjadwalan, kapasitas, dan KPI teknisi.
+// Paket PXL-STG-0006A–0006N dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
 require('./pxl-stg-0006e');
@@ -10,6 +10,7 @@ require('./pxl-stg-0006a');
 require('./pxl-stg-0006d');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
+process.nextTick(() => { try { require('./pxl-stg-0007'); } catch (error) { console.error('PXL-STG-0007 gagal diaktifkan:', error.message); } });
 
 const fs = require('fs');
 const path = require('path');
@@ -33,7 +34,6 @@ function forceSalesOrderScriptOrder(html) {
     '/pxl-stg-0006k-polish.js',
     '/pxl-stg-0006l-pdf-fix.js'
   ];
-
   for (const base of bases) {
     const tagPattern = new RegExp(
       `<script[^>]+src=["']${escapeRegex(base)}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,
@@ -41,23 +41,21 @@ function forceSalesOrderScriptOrder(html) {
     );
     html = html.replace(tagPattern, '');
   }
-
   const ordered = [
     '<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>',
     '<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>',
     '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>'
   ].join('\n');
-
   return html.replace('</body>', ordered + '\n</body>');
 }
 
-express.static = function pxl0006nStatic(root, options) {
+express.static = function pxl0007eStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
   const crmPath = path.join(root, 'crm.html');
 
-  return function pxl0006nMiddleware(req, res, next) {
+  return function pxl0007eMiddleware(req, res, next) {
     const isIndex = req.method === 'GET'
       && (req.path === '/' || req.path === '/index.html')
       && fs.existsSync(indexPath);
@@ -77,19 +75,20 @@ express.static = function pxl0006nStatic(root, options) {
       if (isIndex) {
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0006N"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0007E"></script>',
           '<script src="/pxl-stg-0005d.js?v=PXL-STG-0006J"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
           '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>',
           '<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>',
-          '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>'
+          '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>',
+          '<script src="/pxl-stg-0007-kanban.js?v=PXL-STG-0007E"></script>'
         ];
         for (const tag of tags) {
           const src = tag.match(/src="([^"]+)/)?.[1];
           if (!src) continue;
           const base = src.split('?')[0];
-          html = replaceOrAppendScript(html, base, src.split('?v=')[1] || 'PXL-STG-0006N');
+          html = replaceOrAppendScript(html, base, src.split('?v=')[1] || 'PXL-STG-0007E');
         }
       }
 
