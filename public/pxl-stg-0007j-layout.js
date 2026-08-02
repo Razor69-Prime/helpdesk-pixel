@@ -1,0 +1,55 @@
+/* PXL-STG-0007J — Kanban+Jadwal satu halaman, KPI Teknisi pindah ke menu KPI. */
+(function(){
+  'use strict';
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const pad=n=>String(n).padStart(2,'0');
+  const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const monday=d=>{const x=new Date(d),n=(x.getDay()+6)%7;x.setDate(x.getDate()-n);x.setHours(0,0,0,0);return x;};
+  const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const techName=x=>typeof x==='object'?(x.name||x.username||x.id):x;
+  let week=monday(new Date()), tickets=[], technicians=[], canEdit=false;
+
+  async function api(url,opt={}){
+    const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('pxl_token')||sessionStorage.getItem('token')||'';
+    const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...opt,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`,'X-Auth-Token':token}:{}),...(opt.headers||{})}});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||d.message||`HTTP ${r.status}`); return d;
+  }
+  function hideDirectChildren(except){const host=$('.app-content');if(!host)return;[...host.children].forEach(n=>{if(n===except)return;if(!n.dataset.k7jOldDisplay)n.dataset.k7jOldDisplay=n.style.display||'';n.style.display='none';});}
+  function restoreDirectChildren(){const host=$('.app-content');if(!host)return;[...host.children].forEach(n=>{if(n.id==='pxlKanbanPage'||n.id==='pxlTechnicianKpiPage')n.style.display='none';else if('k7jOldDisplay'in n.dataset){n.style.display=n.dataset.k7jOldDisplay;delete n.dataset.k7jOldDisplay;}});}
+  function ensurePages(){
+    const host=$('.app-content'); if(!host)return;
+    const old=$('#pxlKanbanPage'); if(old) old.remove();
+    const page=document.createElement('section');page.id='pxlKanbanPage';page.style.display='none';page.innerHTML=`<style>
+      #pxlKanbanPage,#pxlTechnicianKpiPage{padding:4px 0}.k7j-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.k7j-head h2{margin-right:auto}.k7j-board{display:flex;gap:10px;overflow-x:auto;padding-bottom:12px}.k7j-day{min-width:290px;max-width:330px;background:#f3f2ef;border:1px solid #ddd8cf;border-radius:10px;padding:10px}.k7j-day h3{margin:0 0 4px}.k7j-cap{font-size:12px;color:#6f6b64;margin-bottom:4px}.k7j-free{font-size:11px;color:#3b6d11;margin-bottom:8px}.k7j-card{background:#fff;border:1px solid #dedad2;border-radius:8px;padding:9px;margin-bottom:7px}.k7j-meta{font-size:11px;color:#6f6b64;margin-top:3px}.k7j-late{color:#a32d2d;font-weight:700}.k7j-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.k7j-kpi{background:#fff;border:1px solid #dedad2;border-radius:10px;padding:12px}.k7j-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}@media(max-width:600px){.k7j-board{scroll-snap-type:x mandatory}.k7j-day{min-width:88vw;scroll-snap-align:start}}
+    </style><div class="k7j-head"><h2>Kanban & Jadwal Teknisi</h2><button class="btn" id="k7jPrev">‹ Minggu</button><button class="btn" id="k7jToday">Hari Ini</button><button class="btn" id="k7jNext">Minggu ›</button></div><div id="k7jRange" class="sub" style="margin-bottom:10px"></div><div id="k7jBody"></div>`;
+    host.appendChild(page);
+    const kpi=document.createElement('section');kpi.id='pxlTechnicianKpiPage';kpi.style.display='none';kpi.innerHTML=`<div class="k7j-head"><h2>KPI Teknisi</h2></div><div class="k7j-filter"><input type="date" id="k7jKpiFrom"><span>s/d</span><input type="date" id="k7jKpiTo"><button class="btn" id="k7jKpiLoad">Tampilkan</button></div><div id="k7jKpiBody"></div>`;host.appendChild(kpi);
+    $('#k7jPrev').onclick=()=>{week=add(week,-7);loadKanban();};$('#k7jNext').onclick=()=>{week=add(week,7);loadKanban();};$('#k7jToday').onclick=()=>{week=monday(new Date());loadKanban();};$('#k7jKpiLoad').onclick=loadKpi;
+  }
+  function installMenus(){
+    const sidebar=$('.sidebar');if(!sidebar)return;
+    $$('[data-k7-nav]',sidebar).forEach((b,i)=>{if(i>0)b.remove();});
+    let kb=$('[data-k7-nav]',sidebar);if(!kb){kb=document.createElement('button');kb.className='nav-btn';kb.dataset.k7Nav='1';kb.innerHTML='<span>🗓️</span><span class="nav-label">Kanban Teknisi</span>';sidebar.appendChild(kb);}kb.onclick=()=>openKanban();
+    let group=$('[data-k7j-kpi-group]',sidebar);if(!group){group=document.createElement('div');group.className='sidebar-group';group.dataset.k7jKpiGroup='1';group.innerHTML='<button type="button" class="sidebar-group-toggle"><span>KPI</span><span class="sidebar-group-arrow">▾</span></button><div class="sidebar-group-content"><button type="button" class="nav-btn" data-k7j-kpi-nav><span>📊</span><span class="nav-label">KPI Teknisi</span></button></div>';sidebar.appendChild(group);$('.sidebar-group-toggle',group).onclick=()=>group.classList.toggle('collapsed');}
+    $('[data-k7j-kpi-nav]',group).onclick=()=>openKpi();
+    $$('.sidebar .nav-btn:not([data-k7-nav]):not([data-k7j-kpi-nav])').forEach(b=>{if(b.dataset.k7jBound)return;b.dataset.k7jBound='1';b.addEventListener('click',restoreDirectChildren,true);});
+  }
+  async function loadKanban(){
+    const end=add(week,6);$('#k7jRange').textContent=`${week.toLocaleDateString('id-ID')} – ${end.toLocaleDateString('id-ID')}`;
+    try{const d=await api(`/api/technician-kanban?date_from=${ymd(week)}&date_to=${ymd(end)}`);tickets=d.tickets||[];technicians=d.technicians||[];canEdit=!!d.can_edit;renderKanban();}catch(e){$('#k7jBody').innerHTML=`<div class="alert error show">${esc(e.message)}</div>`;}
+  }
+  function endTime(t){if(!t.scheduled_start_time)return'-';const[h,m]=t.scheduled_start_time.split(':').map(Number),v=h*60+m+Number(t.estimated_duration_minutes||60);return`${pad(Math.floor(v/60)%24)}:${pad(v%60)}`;}
+  function renderKanban(){
+    const days=[...Array(7)].map((_,i)=>add(week,i));$('#k7jBody').innerHTML=`<div class="k7j-board">${days.map(d=>{const date=ymd(d),rows=tickets.filter(t=>t.scheduled_date===date),used=new Set();rows.forEach(t=>(t.technicians||[]).forEach(x=>used.add(String(typeof x==='object'?(x.id||x.name):x))));const free=technicians.filter(x=>!used.has(String(x.id))&&!used.has(String(x.name)));return`<div class="k7j-day" data-date="${date}"><h3>${d.toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'short'})}</h3><div class="k7j-cap">${rows.length} WO · Terisi ${used.size}/${technicians.length} · Sisa ${free.length}</div><div class="k7j-free">${free.length?'Kosong: '+free.map(x=>esc(x.name)).join(', '):'Tidak ada teknisi kosong'}</div>${rows.sort((a,b)=>String(a.scheduled_start_time||'').localeCompare(String(b.scheduled_start_time||''))).map(t=>`<article class="k7j-card" draggable="${canEdit}" data-id="${esc(t.id)}"><b>${esc(t.wo_number||'-')}</b><div>${esc(t.project_name||t.customer_name||'-')}</div><div class="k7j-meta">${esc(t.customer_name||'-')} · ${esc((t.technicians||[]).map(techName).join(', ')||'Belum ada teknisi')}</div><div class="k7j-meta">🕒 ${esc(t.scheduled_start_time||'-')}–${esc(endTime(t))} · ${esc(t.estimated_duration_minutes||60)} menit</div><div class="k7j-meta">Status: ${esc(t.status||'-')} ${t.is_late?'<span class="k7j-late">· Terlambat</span>':''}</div>${canEdit?`<button class="btn sm" data-edit="${esc(t.id)}" style="margin-top:7px">Edit Jadwal</button>`:''}</article>`).join('')||'<div class="k7j-meta">Belum ada WO.</div>'}</div>`;}).join('')}</div>`;
+    $$('[data-edit]').forEach(b=>b.onclick=()=>editSchedule(b.dataset.edit));bindDrag();
+  }
+  async function editSchedule(id){const t=tickets.find(x=>String(x.id)===String(id));if(!t)return;const date=prompt('Tanggal kerja (YYYY-MM-DD)',t.scheduled_date||ymd(new Date()));if(date===null)return;const time=prompt('Jam mulai (HH:MM)',t.scheduled_start_time||'08:00');if(time===null)return;const duration=prompt('Estimasi durasi (menit)',String(t.estimated_duration_minutes||60));if(duration===null)return;await save(t,{scheduled_date:date,scheduled_start_time:time,estimated_duration_minutes:Number(duration)||60,schedule_priority:t.schedule_priority||'normal',schedule_order:t.schedule_order||0,technicians:t.technicians||[]});}
+  async function save(t,patch){await api(`/api/technician-kanban/${encodeURIComponent(t.id)}/schedule`,{method:'PATCH',body:JSON.stringify({...patch,source:'kanban'})});await loadKanban();}
+  function bindDrag(){if(!canEdit)return;$$('.k7j-card').forEach(c=>{c.ondragstart=()=>c.classList.add('dragging');c.ondragend=()=>c.classList.remove('dragging');});$$('.k7j-day').forEach(z=>{z.ondragover=e=>e.preventDefault();z.ondrop=async e=>{e.preventDefault();const c=$('.k7j-card.dragging');if(!c)return;const t=tickets.find(x=>String(x.id)===c.dataset.id);const time=prompt('Jam mulai (HH:MM)',t.scheduled_start_time||'08:00');if(time===null)return;await save(t,{scheduled_date:z.dataset.date,scheduled_start_time:time,estimated_duration_minutes:t.estimated_duration_minutes||60,schedule_priority:t.schedule_priority||'normal',schedule_order:0,technicians:t.technicians||[]});};});}
+  async function loadKpi(){const from=$('#k7jKpiFrom').value,to=$('#k7jKpiTo').value;$('#k7jKpiBody').innerHTML='Memuat KPI...';try{const d=await api(`/api/technician-kanban-kpi?date_from=${from}&date_to=${to}`);const rows=d.kpi||[],unassigned=rows.filter(x=>String(x.technician).toLowerCase().includes('belum ditugaskan')),people=rows.filter(x=>!unassigned.includes(x));$('#k7jKpiBody').innerHTML=`${unassigned.length?`<div class="k7j-kpi" style="margin-bottom:10px"><b>WO Belum Ditugaskan</b><div class="k7j-meta">${unassigned.reduce((a,x)=>a+Number(x.total||0),0)} WO</div></div>`:''}<div class="k7j-kpis">${people.map(k=>`<div class="k7j-kpi"><b>${esc(k.technician)}</b><div class="k7j-meta">WO ${k.total} · Selesai ${k.done} · Berjalan ${k.running}</div><div class="k7j-meta">Menunggu ${k.waiting} · Terlambat ${k.late}</div><div class="k7j-meta">Completion ${k.completion_rate}% · Beban ${k.capacity_hours} jam</div></div>`).join('')||'Belum ada data KPI.'}</div>`;}catch(e){$('#k7jKpiBody').innerHTML=`<div class="alert error show">${esc(e.message)}</div>`;}}
+  function openKanban(){const p=$('#pxlKanbanPage');hideDirectChildren(p);p.style.display='block';$('#pxlTechnicianKpiPage').style.display='none';loadKanban();}
+  function openKpi(){const p=$('#pxlTechnicianKpiPage');hideDirectChildren(p);p.style.display='block';$('#pxlKanbanPage').style.display='none';const end=new Date(),start=new Date(end);start.setDate(end.getDate()-30);$('#k7jKpiFrom').value=ymd(start);$('#k7jKpiTo').value=ymd(end);loadKpi();}
+  function init(){ensurePages();installMenus();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
