@@ -1,4 +1,4 @@
-/* PXL-STG-0006I — satu aksi PDF Penawaran, riwayat revisi, dan generator quotation. */
+/* PXL-STG-0006N — generator utama PDF Penawaran customer tanpa status/revisi. */
 (function () {
   'use strict';
 
@@ -8,34 +8,22 @@
   let revisionModal = null;
   let tableObserver = null;
 
-  function n(value) {
+  const n = value => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function idr(value) {
-    return Math.round(n(value)).toLocaleString('id-ID');
-  }
-
-  function rupiah(value) {
-    return 'Rp ' + idr(value);
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[char]));
-  }
+  };
+  const idr = value => Math.round(n(value)).toLocaleString('id-ID');
+  const rupiah = value => 'Rp ' + idr(value);
+  const safeFile = value => String(value || 'quotation').replace(/[^a-zA-Z0-9_-]+/g, '_');
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
 
   function dateId(value) {
     if (!value) return '-';
     const source = String(value).slice(0, 10);
     const parts = source.split('-');
     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : source;
-  }
-
-  function safeFile(value) {
-    return String(value || 'quotation').replace(/[^a-zA-Z0-9_-]+/g, '_');
   }
 
   function splitLines(items) {
@@ -148,13 +136,13 @@
     doc.rect(10, state.y, 190, 1.1, 'F');
     state.y += 6;
 
-    const x = [10, 22, 111, 128, 147, 174, 200];
-    const headers = ['NO', 'DESCRIPTION', 'QTY', 'UNIT', 'PRICE', 'TOTAL'];
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    headers.forEach((head, index) => {
-      doc.text(head, (x[index] + x[index + 1]) / 2, state.y, { align: 'center' });
-    });
+    doc.text('NO', 16, state.y, { align: 'center' });
+    doc.text('DESCRIPTION', 66, state.y, { align: 'center' });
+    doc.text('QTY', 119.5, state.y, { align: 'center' });
+    doc.text('UNIT', 137.5, state.y, { align: 'center' });
+    doc.text('PRICE', 151, state.y);
+    doc.text('TOTAL', 179, state.y);
     state.y += 4;
 
     if (!rows.length) {
@@ -181,8 +169,8 @@
       doc.text(descriptionLines, 23, state.y + 4);
       doc.text(String(n(row.qty)), 119.5, state.y + 4, { align: 'center' });
       doc.text(String(row.unit || '-'), 137.5, state.y + 4, { align: 'center' });
-      doc.text(`IDR ${idr(row.unit_price)}`, 173, state.y + 4, { align: 'right' });
-      doc.text(`IDR ${idr(n(row.qty) * n(row.unit_price))}`, 199, state.y + 4, { align: 'right' });
+      doc.text(`IDR ${idr(row.unit_price)}`, 151, state.y + 4);
+      doc.text(`IDR ${idr(n(row.qty) * n(row.unit_price))}`, 179, state.y + 4);
       state.y += rowHeight;
     });
     state.y += 7;
@@ -215,10 +203,8 @@
       const details = [
         ['Quotation No.', so.quotation_number || '-'],
         ['SO No.', so.so_number || '-'],
-        ['Revision', `Rev ${n(so.quotation_revision_no ?? so.revision_no)}`],
         ['Date', dateId(so.quotation_date || so.created_at)],
-        ['Expired', dateId(so.quotation_valid_until)],
-        ['Status', String(so.quotation_status || so.status || 'draft').toUpperCase()]
+        ['Expired', dateId(so.quotation_valid_until)]
       ];
       details.forEach((entry, index) => {
         const y = 51 + index * 5.5;
@@ -227,7 +213,7 @@
         doc.text(String(entry[1]), 199, y, { align: 'right' });
       });
 
-      state.y = Math.max(91, 58 + customerLines.length * 4);
+      state.y = Math.max(84, 58 + customerLines.length * 4);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.text(String(so.quotation_title || so.project_name || 'Penawaran'), 105, state.y, { align: 'center' });
@@ -247,15 +233,11 @@
 
       const materialSubtotal = n(so.material_subtotal ?? material.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0));
       const serviceSubtotal = n(so.service_subtotal ?? service.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0));
-      const totals = [
-        ['ITEM PRICES', materialSubtotal],
-        ['SERVICE PRICES', serviceSubtotal]
-      ];
-      totals.forEach((entry, index) => {
+      [['ITEM PRICES', materialSubtotal], ['SERVICE PRICES', serviceSubtotal]].forEach((entry, index) => {
         const y = state.y + index * 7;
         doc.text(entry[0], 137, y);
         doc.text('IDR', 169, y);
-        doc.text(idr(entry[1]), 199, y, { align: 'right' });
+        doc.text(idr(entry[1]), 181, y);
       });
 
       const grandY = state.y + 19;
@@ -263,7 +245,7 @@
       doc.setFontSize(9.5);
       doc.text('GRAND TOTAL', 137, grandY);
       doc.text('IDR', 169, grandY);
-      doc.text(idr(so.quotation_total ?? so.total_amount ?? materialSubtotal + serviceSubtotal), 199, grandY, { align: 'right' });
+      doc.text(idr(so.quotation_total ?? so.total_amount ?? materialSubtotal + serviceSubtotal), 181, grandY);
       doc.setFillColor(...ORANGE);
       doc.rect(137, grandY + 3, 63, 1.7, 'F');
 
@@ -273,15 +255,10 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(125, 125, 125);
-        doc.text(
-          `${so.quotation_number || '-'} | ${so.so_number || '-'} | Rev ${n(so.quotation_revision_no ?? so.revision_no)} | Hal ${page}/${pages}`,
-          105,
-          293,
-          { align: 'center' }
-        );
+        doc.text(`${so.quotation_number || '-'} | ${so.so_number || '-'} | Hal ${page}/${pages}`, 105, 293, { align: 'center' });
       }
 
-      doc.save(`Quotation_${safeFile(so.quotation_number)}_${safeFile(so.so_number)}_Rev${n(so.quotation_revision_no ?? so.revision_no)}.pdf`);
+      doc.save(`Quotation_${safeFile(so.quotation_number)}_${safeFile(so.so_number)}.pdf`);
     } catch (error) {
       notify(error.message || 'Gagal membuat PDF penawaran.');
     }
@@ -345,9 +322,13 @@
         pdf.type = 'button';
         pdf.className = 'btn';
         pdf.dataset.quotePdf = id;
-        pdf.addEventListener('click', () => exportQuotation(id));
         actions.insertBefore(pdf, actions.firstChild);
       }
+      pdf.onclick = event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        exportQuotation(id);
+      };
       pdf.textContent = 'PDF Penawaran';
 
       const historyButtons = Array.from(actions.querySelectorAll('[data-quote-history]'));
@@ -358,9 +339,13 @@
         history.type = 'button';
         history.className = 'btn';
         history.dataset.quoteHistory = id;
-        history.addEventListener('click', () => showRevisions(id));
         pdf.insertAdjacentElement('afterend', history);
       }
+      history.onclick = event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showRevisions(id);
+      };
       history.textContent = 'Riwayat';
     });
   }
@@ -369,9 +354,7 @@
     const table = document.getElementById('soTable');
     if (!table) return;
     tableObserver?.disconnect();
-    tableObserver = new MutationObserver(() => {
-      window.requestAnimationFrame(ensureSingleQuotationActions);
-    });
+    tableObserver = new MutationObserver(() => window.requestAnimationFrame(ensureSingleQuotationActions));
     tableObserver.observe(table, { childList: true, subtree: true });
   }
 
