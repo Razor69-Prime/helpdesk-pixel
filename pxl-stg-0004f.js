@@ -16,6 +16,10 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 express.static = function pxl0006jStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
@@ -50,7 +54,14 @@ express.static = function pxl0006jStatic(root, options) {
         ];
         for (const tag of tags) {
           const src = tag.match(/src="([^"]+)/)?.[1];
-          if (src && !html.includes(src.split('?')[0])) {
+          if (!src) continue;
+          const base = src.split('?')[0];
+          if (html.includes(base)) {
+            html = html.replace(
+              new RegExp(escapeRegex(base) + '(?:\\?v=[^"\']+)?', 'g'),
+              src
+            );
+          } else {
             html = html.replace('</body>', tag + '\n</body>');
           }
         }
