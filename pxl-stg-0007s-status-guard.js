@@ -11,7 +11,6 @@ const dateOnly = value => {
 };
 const same = (left, right) => String(left ?? '') === String(right ?? '');
 const allowedStatuses = new Set([
-  'selesai', 'done', 'completed', 'closed',
   'assigned',
   'menunggu', 'waiting', 'pending'
 ]);
@@ -35,7 +34,7 @@ async function guardScheduleDateMove(req, res, next) {
     if (allowedStatuses.has(status)) return next();
 
     return res.status(409).json({
-      error: 'Tanggal WO hanya dapat dipindahkan saat status Selesai, Assigned, atau Menunggu.',
+      error: 'Tanggal WO hanya dapat dipindahkan saat status Assigned atau Menunggu.',
       code: 'SCHEDULE_DATE_STATUS_LOCKED',
       current_status: ticket.status || null,
       current_date: currentDate,
