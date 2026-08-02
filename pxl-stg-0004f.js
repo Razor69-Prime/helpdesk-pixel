@@ -10,7 +10,7 @@ require('./pxl-stg-0006a');
 require('./pxl-stg-0006d');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
-process.nextTick(() => { try { require('./pxl-stg-0007'); } catch (error) { console.error('PXL-STG-0007 gagal diaktifkan:', error.message); } });
+require('./pxl-stg-0007');
 
 const fs = require('fs');
 const path = require('path');
