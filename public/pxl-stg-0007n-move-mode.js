@@ -1,0 +1,33 @@
+/* PXL-STG-0007N — mode pilih lalu pindahkan untuk Kanban/Timeline. */
+(function(){
+  'use strict';
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const pad=n=>String(n).padStart(2,'0');
+  const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+  let selectedId=null, selectedTicket=null, busy=false, cache=[];
+
+  function token(){return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('pxl_token')||sessionStorage.getItem('token')||'';}
+  async function api(url,opt={}){const t=token();const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...opt,headers:{'Content-Type':'application/json',...(t?{Authorization:`Bearer ${t}`,'X-Auth-Token':t}:{}),...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d;}
+  function range(){const txt=$('#k7kRange')?.textContent||'';const parts=txt.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)||[];if(parts.length>=2){const parse=s=>{const[a,b,c]=s.split('/').map(Number);return new Date(c,b-1,a)};return{from:ymd(parse(parts[0])),to:ymd(parse(parts[1]))};}const d=new Date(),n=(d.getDay()+6)%7;d.setDate(d.getDate()-n);return{from:ymd(d),to:ymd(add(d,6))};}
+  async function loadTickets(){const r=range();const d=await api(`/api/technician-kanban?date_from=${r.from}&date_to=${r.to}`);cache=d.tickets||[];return cache;}
+  async function getTicket(id){let t=cache.find(x=>String(x.id)===String(id));if(!t){await loadTickets();t=cache.find(x=>String(x.id)===String(id));}return t;}
+  function ensureUi(){if($('#k7nMoveBar'))return;const bar=document.createElement('div');bar.id='k7nMoveBar';bar.innerHTML='<span id="k7nMoveText">Pilih WO lalu pilih tanggal/jam tujuan.</span><button type="button" class="btn sm" id="k7nCancel" style="display:none">Batal</button>';document.body.appendChild(bar);$('#k7nCancel').onclick=cancel;
+    const st=document.createElement('style');st.textContent=`#k7nMoveBar{position:fixed;left:12px;right:12px;bottom:14px;z-index:10020;background:#2f2b25;color:#fff;border-radius:12px;padding:10px 12px;display:none;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:12px}.k7n-move-btn{margin-top:7px}.k7n-selected{outline:3px solid #e67e22!important;outline-offset:2px}.k7n-target{cursor:pointer}.k7n-target:hover{outline:2px dashed #e67e22}.k7n-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:10030;background:#2f2b25;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px}`;document.head.appendChild(st);
+  }
+  function showBar(text){ensureUi();const b=$('#k7nMoveBar');$('#k7nMoveText').textContent=text;b.style.display='flex';$('#k7nCancel').style.display='inline-flex';}
+  function toast(text){const n=document.createElement('div');n.className='k7n-toast';n.textContent=text;document.body.appendChild(n);setTimeout(()=>n.remove(),2200);}
+  function cancel(){selectedId=null;selectedTicket=null;$$('.k7n-selected').forEach(n=>n.classList.remove('k7n-selected'));const b=$('#k7nMoveBar');if(b)b.style.display='none';}
+  async function select(id,el){if(busy)return;try{selectedTicket=await getTicket(id);if(!selectedTicket)throw new Error('WO tidak ditemukan.');selectedId=id;$$('.k7n-selected').forEach(n=>n.classList.remove('k7n-selected'));el?.classList.add('k7n-selected');showBar(`${selectedTicket.wo_number||'WO'} dipilih. Tap tanggal atau jam tujuan.`);}catch(e){toast(e.message);}}
+  async function save(patch){if(!selectedTicket||busy)return;busy=true;showBar('Menyimpan perpindahan jadwal...');try{await api(`/api/technician-kanban/${encodeURIComponent(selectedTicket.id)}/schedule`,{method:'PATCH',body:JSON.stringify({scheduled_date:patch.scheduled_date??selectedTicket.scheduled_date,scheduled_start_time:patch.scheduled_start_time??selectedTicket.scheduled_start_time??'08:00',estimated_duration_minutes:selectedTicket.estimated_duration_minutes||60,schedule_priority:selectedTicket.schedule_priority||'normal',schedule_order:selectedTicket.schedule_order||0,technicians:selectedTicket.technicians||[],source:'calendar'})});toast('Jadwal berhasil dipindahkan.');cancel();$('#k7kToday')?.click();setTimeout(()=>document.querySelector('[data-k7l-mode="timeline"].active')?.click(),250);}catch(e){toast(e.message);showBar('Gagal menyimpan. Pilih tujuan lain atau batalkan.');}finally{busy=false;}}
+  function timeFromTrack(track,clientX){const r=track.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(clientX-r.left)/r.width));const mins=8*60+Math.round((ratio*12*60)/15)*15;return`${pad(Math.floor(mins/60))}:${pad(mins%60)}`;}
+  function decorate(){ensureUi();
+    $$('.k7k-card').forEach(card=>{card.draggable=false;card.onpointerdown=null;card.onpointermove=null;card.onpointerup=null;if(card.querySelector('.k7n-move-btn'))return;const b=document.createElement('button');b.type='button';b.className='btn sm k7n-move-btn';b.textContent='Pindahkan';b.onclick=e=>{e.preventDefault();e.stopPropagation();select(card.dataset.id,card);};card.appendChild(b);});
+    $$('.k7l-bar,.k7l-chip').forEach(item=>{item.draggable=false;item.onpointerdown=null;item.onpointermove=null;item.onpointerup=null;if(item.dataset.k7nBound)return;item.dataset.k7nBound='1';item.title=(item.title?item.title+' · ':'')+'Tap untuk memilih WO';item.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();select(item.dataset.id,item);});});
+    $$('.k7k-day').forEach(day=>{day.classList.add('k7n-target');if(day.dataset.k7nBound)return;day.dataset.k7nBound='1';day.addEventListener('click',e=>{if(!selectedId||e.target.closest('.k7k-card,button'))return;save({scheduled_date:day.dataset.date});});});
+    $$('.k7l-track').forEach(track=>{track.classList.add('k7n-target');if(track.dataset.k7nBound)return;track.dataset.k7nBound='1';track.addEventListener('click',e=>{if(!selectedId||e.target.closest('.k7l-bar'))return;const date=$('#k7lDate')?.value||selectedTicket?.scheduled_date;save({scheduled_date:date,scheduled_start_time:timeFromTrack(track,e.clientX)});});});
+    $$('[data-week-date]').forEach(cell=>{cell.classList.add('k7n-target');if(cell.dataset.k7nBound)return;cell.dataset.k7nBound='1';cell.addEventListener('click',e=>{if(!selectedId||e.target.closest('.k7l-chip'))return;save({scheduled_date:cell.dataset.weekDate});});});
+  }
+  const observer=new MutationObserver(decorate);observer.observe(document.documentElement,{childList:true,subtree:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',decorate,{once:true});else decorate();
+})();
