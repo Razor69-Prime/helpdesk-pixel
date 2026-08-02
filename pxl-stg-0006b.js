@@ -1,11 +1,12 @@
 'use strict';
 
 /**
- * PXL-STG-0006B
+ * PXL-STG-0006I
  * Validasi backend Sales Order untuk Material/Barang dan Jasa/Pekerjaan.
  *
  * Material wajib memiliki inventory_item_id.
- * Jasa tidak membutuhkan inventory_item_id dan akan disimpan sebagai item_type=service.
+ * Jasa tidak membutuhkan inventory_item_id dan disimpan sebagai item_type=service.
+ * Pengguna yang mengubah Draft dicatat pada history tanpa mengirim kolom updated_by.
  * Flow Material Request PXL-STG-0005 tidak diubah.
  */
 
@@ -142,8 +143,7 @@ function installSalesOrderRoutePatch() {
         const saved = await db.updateSalesOrder(req.params.id, {
           ...req.body,
           ...payload,
-          history,
-          updated_by: req.session?.user?.name || 'System'
+          history
         });
         return res.json(saved);
       } catch (error) {
