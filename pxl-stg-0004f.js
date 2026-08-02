@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-STG-0007M — fokus Kanban; perbaikan drag mouse dan PWA/Android.
+// PXL-STG-0007N — fokus Kanban; gunakan metode pilih lalu pindahkan.
 // Paket PXL-STG-0006A–0006N dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
@@ -38,12 +38,12 @@ function forceSalesOrderScriptOrder(html) {
   return html.replace('</body>', ordered + '\n</body>');
 }
 
-express.static = function pxl0007mStatic(root, options) {
+express.static = function pxl0007nStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
   const crmPath = path.join(root, 'crm.html');
-  return function pxl0007mMiddleware(req, res, next) {
+  return function pxl0007nMiddleware(req, res, next) {
     const isIndex = req.method === 'GET' && (req.path === '/' || req.path === '/index.html') && fs.existsSync(indexPath);
     const isSalesOrder = req.method === 'GET' && req.path === '/sales-order.html' && fs.existsSync(salesOrderPath);
     const isCrm = req.method === 'GET' && req.path === '/crm.html' && fs.existsSync(crmPath);
@@ -53,26 +53,27 @@ express.static = function pxl0007mStatic(root, options) {
       let html = fs.readFileSync(sourcePath, 'utf8');
       if (isIndex) {
         html = removeScript(html, '/pxl-stg-0007f-fix.js');
+        html = removeScript(html, '/pxl-stg-0007m-drag.js');
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0007M"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0007N"></script>',
           '<script src="/pxl-stg-0005d.js?v=PXL-STG-0006J"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
           '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>',
           '<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>',
           '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>',
-          '<script src="/pxl-stg-0007h-auth.js?v=PXL-STG-0007M"></script>',
-          '<script src="/pxl-stg-0007-kanban.js?v=PXL-STG-0007M"></script>',
-          '<script src="/pxl-stg-0007j-layout.js?v=PXL-STG-0007M"></script>',
-          '<script src="/pxl-stg-0007l-timeline.js?v=PXL-STG-0007M"></script>',
-          '<script src="/pxl-stg-0007m-drag.js?v=PXL-STG-0007M"></script>'
+          '<script src="/pxl-stg-0007h-auth.js?v=PXL-STG-0007N"></script>',
+          '<script src="/pxl-stg-0007-kanban.js?v=PXL-STG-0007N"></script>',
+          '<script src="/pxl-stg-0007j-layout.js?v=PXL-STG-0007N"></script>',
+          '<script src="/pxl-stg-0007l-timeline.js?v=PXL-STG-0007N"></script>',
+          '<script src="/pxl-stg-0007n-move-mode.js?v=PXL-STG-0007N"></script>'
         ];
         for (const tag of tags) {
           const src = tag.match(/src="([^"]+)/)?.[1];
           if (!src) continue;
           const base = src.split('?')[0];
-          html = replaceOrAppendScript(html, base, src.split('?v=')[1] || 'PXL-STG-0007M');
+          html = replaceOrAppendScript(html, base, src.split('?v=')[1] || 'PXL-STG-0007N');
         }
       }
       if (isSalesOrder) html = forceSalesOrderScriptOrder(html);
