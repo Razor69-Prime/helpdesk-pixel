@@ -1,9 +1,12 @@
-/* PXL-STG-0006C — PDF Quotation dan riwayat revisi pada Sales Order. */
+/* PXL-STG-0006I — satu aksi PDF Penawaran, riwayat revisi, dan generator quotation. */
 (function () {
+  'use strict';
+
   const NAVY = [18, 49, 88];
   const ORANGE = [231, 126, 50];
   const PEACH = [252, 232, 218];
   let revisionModal = null;
+  let tableObserver = null;
 
   function n(value) {
     const parsed = Number(value);
@@ -14,12 +17,21 @@
     return Math.round(n(value)).toLocaleString('id-ID');
   }
 
+  function rupiah(value) {
+    return 'Rp ' + idr(value);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+  }
+
   function dateId(value) {
     if (!value) return '-';
     const source = String(value).slice(0, 10);
     const parts = source.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    return source;
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : source;
   }
 
   function safeFile(value) {
@@ -37,14 +49,23 @@
     return { material, service };
   }
 
-  function findSO(id) {
+  function getSalesOrders() {
     try {
-      return Array.isArray(D?.sales_orders)
-        ? D.sales_orders.find(row => String(row.id) === String(id))
-        : null;
+      return typeof D !== 'undefined' && Array.isArray(D?.sales_orders) ? D.sales_orders : [];
     } catch (_) {
-      return null;
+      return [];
     }
+  }
+
+  function findSO(id) {
+    return getSalesOrders().find(row => String(row.id) === String(id)) || null;
+  }
+
+  function notify(message) {
+    try {
+      if (typeof toast === 'function') return toast(message);
+    } catch (_) {}
+    window.alert(message);
   }
 
   async function ensureJsPDF() {
@@ -58,6 +79,7 @@
     await new Promise((resolve, reject) => {
       const existing = document.querySelector('script[data-pxl-jspdf]');
       if (existing) {
+        if (window.jspdf?.jsPDF) return resolve();
         existing.addEventListener('load', resolve, { once: true });
         existing.addEventListener('error', reject, { once: true });
         return;
@@ -90,25 +112,18 @@
     }
   }
 
-  function text(doc, value, x, y, options) {
-    doc.text(String(value ?? ''), x, y, options || {});
-  }
-
   function drawHeader(doc, logo) {
     doc.setFillColor(...PEACH);
     doc.rect(10, 10, 190, 29, 'F');
-
     if (logo) {
       try { doc.addImage(logo, 'PNG', 14, 13, 23, 23); } catch (_) {}
     }
-
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    text(doc, 'PIXEL SOLUSINDO', 43, 27);
+    doc.text('PIXEL SOLUSINDO', 43, 27);
     doc.setFontSize(25);
-    text(doc, 'QUOTATION', 196, 28, { align: 'right' });
-
+    doc.text('QUOTATION', 196, 28, { align: 'right' });
     doc.setFillColor(...NAVY);
     doc.rect(10, 39, 126, 1.4, 'F');
     doc.setFillColor(...ORANGE);
@@ -127,7 +142,7 @@
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    text(doc, title, 10, state.y);
+    doc.text(title, 10, state.y);
     state.y += 2;
     doc.setFillColor(...NAVY);
     doc.rect(10, state.y, 190, 1.1, 'F');
@@ -138,26 +153,22 @@
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     headers.forEach((head, index) => {
-      const left = x[index];
-      const right = x[index + 1];
-      text(doc, head, (left + right) / 2, state.y, { align: 'center' });
+      doc.text(head, (x[index] + x[index + 1]) / 2, state.y, { align: 'center' });
     });
     state.y += 4;
 
-    const source = rows.length ? rows : [];
-    if (!source.length) {
+    if (!rows.length) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
       doc.setTextColor(110, 110, 110);
-      text(doc, '-', 105, state.y + 3, { align: 'center' });
-      state.y += 7;
+      doc.text('-', 105, state.y + 3, { align: 'center' });
+      state.y += 10;
       return;
     }
 
-    source.forEach((row, index) => {
+    rows.forEach((row, index) => {
       const description = String(row.name || row.item_name || row.description || '-');
-      const descLines = doc.splitTextToSize(description, 84);
-      const rowHeight = Math.max(6, descLines.length * 4 + 1);
+      const descriptionLines = doc.splitTextToSize(description, 84);
+      const rowHeight = Math.max(7, descriptionLines.length * 4 + 2);
       ensurePage(doc, state, rowHeight + 8, logo);
 
       doc.setDrawColor(224, 224, 224);
@@ -166,21 +177,20 @@
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(0, 0, 0);
-      text(doc, index + 1, 16, state.y + 4, { align: 'center' });
-      doc.text(descLines, 23, state.y + 4);
-      text(doc, n(row.qty), 119.5, state.y + 4, { align: 'center' });
-      text(doc, row.unit || '-', 137.5, state.y + 4, { align: 'center' });
-      text(doc, `IDR ${idr(row.unit_price)}`, 173, state.y + 4, { align: 'right' });
-      text(doc, `IDR ${idr(n(row.qty) * n(row.unit_price))}`, 199, state.y + 4, { align: 'right' });
+      doc.text(String(index + 1), 16, state.y + 4, { align: 'center' });
+      doc.text(descriptionLines, 23, state.y + 4);
+      doc.text(String(n(row.qty)), 119.5, state.y + 4, { align: 'center' });
+      doc.text(String(row.unit || '-'), 137.5, state.y + 4, { align: 'center' });
+      doc.text(`IDR ${idr(row.unit_price)}`, 173, state.y + 4, { align: 'right' });
+      doc.text(`IDR ${idr(n(row.qty) * n(row.unit_price))}`, 199, state.y + 4, { align: 'right' });
       state.y += rowHeight;
     });
-
     state.y += 7;
   }
 
   async function exportQuotation(id) {
     const so = findSO(id);
-    if (!so) return toast('Data Sales Order tidak ditemukan.');
+    if (!so) return notify('Data Sales Order tidak ditemukan.');
 
     try {
       const JsPDF = await ensureJsPDF();
@@ -190,11 +200,10 @@
       const state = { y: 49 };
 
       drawHeader(doc, logo);
-
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      text(doc, 'Customer:', 10, 50);
+      doc.text('Customer:', 10, 50);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       const customerLines = doc.splitTextToSize(
@@ -212,62 +221,59 @@
         ['Status', String(so.quotation_status || so.status || 'draft').toUpperCase()]
       ];
       details.forEach((entry, index) => {
-        const yy = 51 + index * 5.5;
-        doc.setFont('helvetica', 'normal');
+        const y = 51 + index * 5.5;
         doc.setFontSize(8.5);
-        text(doc, entry[0], 137, yy);
-        text(doc, entry[1], 199, yy, { align: 'right' });
+        doc.text(entry[0], 137, y);
+        doc.text(String(entry[1]), 199, y, { align: 'right' });
       });
 
       state.y = Math.max(91, 58 + customerLines.length * 4);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
-      text(doc, so.quotation_title || so.project_name || 'Penawaran', 105, state.y, { align: 'center' });
+      doc.text(String(so.quotation_title || so.project_name || 'Penawaran'), 105, state.y, { align: 'center' });
       state.y += 13;
 
       drawSection(doc, state, 'A. ITEM DETAILS', material, logo);
       drawSection(doc, state, 'B. SERVICE DETAILS', service, logo);
-      ensurePage(doc, state, 43, logo);
+      ensurePage(doc, state, 45, logo);
 
       doc.setFillColor(...NAVY);
       doc.rect(10, state.y, 190, 1.2, 'F');
       state.y += 10;
-
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      text(doc, 'If you have any questions concerning this quotation, use the following contact information:', 10, state.y);
-      text(doc, 'Marketing Pixel Solusindo (+62 877-3477-2999)', 10, state.y + 6);
+      doc.text('Jika ada pertanyaan mengenai penawaran ini, silakan hubungi:', 10, state.y);
+      doc.text('Marketing Pixel Solusindo (+62 877-3477-2999)', 10, state.y + 6);
 
+      const materialSubtotal = n(so.material_subtotal ?? material.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0));
+      const serviceSubtotal = n(so.service_subtotal ?? service.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0));
       const totals = [
-        ['ITEM PRICES', so.material_subtotal ?? material.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0)],
-        ['SERVICE PRICES', so.service_subtotal ?? service.reduce((sum, item) => sum + n(item.qty) * n(item.unit_price), 0)]
+        ['ITEM PRICES', materialSubtotal],
+        ['SERVICE PRICES', serviceSubtotal]
       ];
       totals.forEach((entry, index) => {
-        const yy = state.y + index * 7;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        text(doc, entry[0], 137, yy);
-        text(doc, 'IDR', 169, yy);
-        text(doc, idr(entry[1]), 199, yy, { align: 'right' });
+        const y = state.y + index * 7;
+        doc.text(entry[0], 137, y);
+        doc.text('IDR', 169, y);
+        doc.text(idr(entry[1]), 199, y, { align: 'right' });
       });
 
       const grandY = state.y + 19;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
-      text(doc, 'GRAND TOTAL', 137, grandY);
-      text(doc, 'IDR', 169, grandY);
-      text(doc, idr(so.quotation_total ?? so.total_amount), 199, grandY, { align: 'right' });
+      doc.text('GRAND TOTAL', 137, grandY);
+      doc.text('IDR', 169, grandY);
+      doc.text(idr(so.quotation_total ?? so.total_amount ?? materialSubtotal + serviceSubtotal), 199, grandY, { align: 'right' });
       doc.setFillColor(...ORANGE);
       doc.rect(137, grandY + 3, 63, 1.7, 'F');
 
       const pages = doc.getNumberOfPages();
-      for (let page = 1; page <= pages; page++) {
+      for (let page = 1; page <= pages; page += 1) {
         doc.setPage(page);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(125, 125, 125);
-        text(
-          doc,
+        doc.text(
           `${so.quotation_number || '-'} | ${so.so_number || '-'} | Rev ${n(so.quotation_revision_no ?? so.revision_no)} | Hal ${page}/${pages}`,
           105,
           293,
@@ -277,7 +283,7 @@
 
       doc.save(`Quotation_${safeFile(so.quotation_number)}_${safeFile(so.so_number)}_Rev${n(so.quotation_revision_no ?? so.revision_no)}.pdf`);
     } catch (error) {
-      toast(error.message || 'Gagal membuat PDF penawaran.');
+      notify(error.message || 'Gagal membuat PDF penawaran.');
     }
   }
 
@@ -288,7 +294,9 @@
     revisionModal.innerHTML = '<div style="max-width:850px;margin:30px auto;background:#fff;border-radius:12px;padding:16px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><b style="font-size:17px">Riwayat Revisi Penawaran</b><div class="sub" id="pxlQuoteRevisionTitle"></div></div><button class="btn" id="pxlCloseQuoteRevision">Tutup</button></div><div id="pxlQuoteRevisionBody" style="margin-top:14px"></div></div>';
     document.body.appendChild(revisionModal);
     revisionModal.querySelector('#pxlCloseQuoteRevision').onclick = () => { revisionModal.style.display = 'none'; };
-    revisionModal.addEventListener('click', event => { if (event.target === revisionModal) revisionModal.style.display = 'none'; });
+    revisionModal.addEventListener('click', event => {
+      if (event.target === revisionModal) revisionModal.style.display = 'none';
+    });
     return revisionModal;
   }
 
@@ -298,54 +306,97 @@
     const title = modal.querySelector('#pxlQuoteRevisionTitle');
     modal.style.display = 'block';
     body.innerHTML = '<div class="empty-hint">Memuat riwayat...</div>';
+
     try {
+      if (typeof api !== 'function') throw new Error('API Sales Order belum tersedia.');
       const result = await api('GET', `/api/sales-orders/${id}/quotation-revisions`);
       title.textContent = `${result.quotation_number || '-'} · ${result.so_number || '-'}`;
       const revisions = Array.isArray(result.revisions) ? result.revisions : [];
       body.innerHTML = revisions.length
-        ? `<div class="table"><table><thead><tr><th>Revisi</th><th>Status</th><th>Tanggal</th><th>Material</th><th>Jasa</th><th>Total</th><th>Oleh</th></tr></thead><tbody>${revisions.map(row => `<tr><td><b>Rev ${n(row.revision_no)}</b></td><td>${esc(row.quotation_status || '-')}</td><td>${esc(dateId(row.created_at))}</td><td>${rp(row.material_subtotal)}</td><td>${rp(row.service_subtotal)}</td><td><b>${rp(row.grand_total)}</b></td><td>${esc(row.created_by || '-')}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="table"><table><thead><tr><th>Revisi</th><th>Status</th><th>Tanggal</th><th>Material</th><th>Jasa</th><th>Total</th><th>Oleh</th></tr></thead><tbody>${revisions.map(row => `<tr><td><b>Rev ${n(row.revision_no)}</b></td><td>${escapeHtml(row.quotation_status || '-')}</td><td>${escapeHtml(dateId(row.created_at))}</td><td>${rupiah(row.material_subtotal)}</td><td>${rupiah(row.service_subtotal)}</td><td><b>${rupiah(row.grand_total)}</b></td><td>${escapeHtml(row.created_by || '-')}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty-hint">Belum ada snapshot revisi.</div>';
     } catch (error) {
-      body.innerHTML = `<div class="notice">${esc(error.message)}</div>`;
+      body.innerHTML = `<div class="notice">${escapeHtml(error.message)}</div>`;
     }
   }
 
-  function enhanceQuotationActions() {
-    const rows = Array.isArray(D?.sales_orders) ? D.sales_orders : [];
-    const rowElements = byId('soTable')?.querySelectorAll('tbody tr') || [];
-    rowElements.forEach((tr, index) => {
-      const so = rows[index];
-      if (!so) return;
-      const actions = tr.querySelector('.actions');
-      if (!actions || actions.querySelector('[data-quote-pdf]')) return;
+  function salesOrderIdForRow(row, index) {
+    const existing = row.querySelector('[data-id]');
+    return existing?.dataset?.id || getSalesOrders()[index]?.id || '';
+  }
 
-      const pdf = document.createElement('button');
-      pdf.className = 'btn';
-      pdf.type = 'button';
-      pdf.dataset.quotePdf = so.id;
+  function ensureSingleQuotationActions() {
+    const table = document.getElementById('soTable');
+    if (!table) return;
+
+    table.querySelectorAll('tbody tr').forEach((row, index) => {
+      const actions = row.querySelector('.actions');
+      if (!actions) return;
+      const id = salesOrderIdForRow(row, index);
+      if (!id) return;
+
+      actions.querySelectorAll('[data-act="pdf"],[data-act="history"]').forEach(button => button.remove());
+
+      const pdfButtons = Array.from(actions.querySelectorAll('[data-quote-pdf]'));
+      pdfButtons.slice(1).forEach(button => button.remove());
+      let pdf = pdfButtons[0];
+      if (!pdf) {
+        pdf = document.createElement('button');
+        pdf.type = 'button';
+        pdf.className = 'btn';
+        pdf.dataset.quotePdf = id;
+        pdf.addEventListener('click', () => exportQuotation(id));
+        actions.insertBefore(pdf, actions.firstChild);
+      }
       pdf.textContent = 'PDF Penawaran';
-      pdf.addEventListener('click', () => exportQuotation(so.id));
-      actions.appendChild(pdf);
 
-      const history = document.createElement('button');
-      history.className = 'btn';
-      history.type = 'button';
-      history.dataset.quoteHistory = so.id;
+      const historyButtons = Array.from(actions.querySelectorAll('[data-quote-history]'));
+      historyButtons.slice(1).forEach(button => button.remove());
+      let history = historyButtons[0];
+      if (!history) {
+        history = document.createElement('button');
+        history.type = 'button';
+        history.className = 'btn';
+        history.dataset.quoteHistory = id;
+        history.addEventListener('click', () => showRevisions(id));
+        pdf.insertAdjacentElement('afterend', history);
+      }
       history.textContent = 'Riwayat';
-      history.addEventListener('click', () => showRevisions(so.id));
-      actions.appendChild(history);
     });
   }
 
+  function observeTable() {
+    const table = document.getElementById('soTable');
+    if (!table) return;
+    tableObserver?.disconnect();
+    tableObserver = new MutationObserver(() => {
+      window.requestAnimationFrame(ensureSingleQuotationActions);
+    });
+    tableObserver.observe(table, { childList: true, subtree: true });
+  }
+
   try {
-    const originalRender = render;
-    render = function renderWithQuotationPdf() {
-      originalRender();
-      enhanceQuotationActions();
-    };
+    if (typeof render === 'function') {
+      const originalRender = render;
+      render = function renderWithSingleQuotationActions() {
+        originalRender();
+        ensureSingleQuotationActions();
+      };
+    }
   } catch (_) {}
 
   window.downloadQuotationPDF = exportQuotation;
   window.showQuotationRevisions = showRevisions;
-  setTimeout(enhanceQuotationActions, 250);
+
+  function install() {
+    ensureSingleQuotationActions();
+    observeTable();
+    window.setTimeout(ensureSingleQuotationActions, 250);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', install, { once: true });
+  } else {
+    install();
+  }
 })();
