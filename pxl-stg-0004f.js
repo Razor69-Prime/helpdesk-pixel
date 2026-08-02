@@ -1,7 +1,7 @@
 'use strict';
 
-// PXL-STG-0006I — satu tombol PDF Penawaran dan perbaikan edit Draft Sales Order.
-// Paket PXL-STG-0006A–0006H dan flow Material Request PXL-STG-0005 tetap aktif.
+// PXL-STG-0006J — sinkronisasi material terbaru Sales Order ke MR Draft.
+// Paket PXL-STG-0006A–0006I dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
 require('./pxl-stg-0006e');
@@ -16,13 +16,13 @@ const path = require('path');
 const express = require('express');
 const originalStatic = express.static;
 
-express.static = function pxl0006iStatic(root, options) {
+express.static = function pxl0006jStatic(root, options) {
   const middleware = originalStatic(root, options);
   const indexPath = path.join(root, 'index.html');
   const salesOrderPath = path.join(root, 'sales-order.html');
   const crmPath = path.join(root, 'crm.html');
 
-  return function pxl0006iMiddleware(req, res, next) {
+  return function pxl0006jMiddleware(req, res, next) {
     const isIndex = req.method === 'GET'
       && (req.path === '/' || req.path === '/index.html')
       && fs.existsSync(indexPath);
@@ -42,8 +42,8 @@ express.static = function pxl0006iStatic(root, options) {
       if (isIndex) {
         const tags = [
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0006I"></script>',
-          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0006I"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0006J"></script>',
+          '<script src="/pxl-stg-0005d.js?v=PXL-STG-0006J"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
           '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>'
@@ -59,24 +59,24 @@ express.static = function pxl0006iStatic(root, options) {
       if (isSalesOrder && !html.includes('/pxl-stg-0006c-sales-order.js')) {
         html = html.replace(
           '</body>',
-          '<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006I"></script>\n</body>'
+          '<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006J"></script>\n</body>'
         );
       } else if (isSalesOrder) {
         html = html.replace(
           /\/pxl-stg-0006c-sales-order\.js\?v=[^"']+/g,
-          '/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006I'
+          '/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006J'
         );
       }
 
       if (isCrm && !html.includes('/pxl-stg-0006e-crm.js')) {
         html = html.replace(
           '</body>',
-          '<script src="/pxl-stg-0006e-crm.js?v=PXL-STG-0006I"></script>\n</body>'
+          '<script src="/pxl-stg-0006e-crm.js?v=PXL-STG-0006J"></script>\n</body>'
         );
       } else if (isCrm) {
         html = html.replace(
           /\/pxl-stg-0006e-crm\.js\?v=[^"']+/g,
-          '/pxl-stg-0006e-crm.js?v=PXL-STG-0006I'
+          '/pxl-stg-0006e-crm.js?v=PXL-STG-0006J'
         );
       }
 
