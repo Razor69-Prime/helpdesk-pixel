@@ -1,4 +1,4 @@
-/* PXL-STG-0005H — satu handler MR, dropdown WO interaktif, dan checklist akun. */
+/* PXL-STG-0006J — sinkronisasi material terbaru SO ke MR Draft dan checklist akun. */
 (function(){
   'use strict';
 
@@ -27,6 +27,10 @@
     el.textContent=message||'';
     el.style.display=message?'block':'none';
   }
+  function showInventoryStatus(message){
+    const el=document.getElementById('mr-inventory-status');
+    if(el&&message)el.textContent=message;
+  }
   function normalized(value){return String(value==null?'':value).trim().toLowerCase();}
   function assignmentValues(value){
     if(value==null)return[];
@@ -41,6 +45,15 @@
     [ticket.technician,ticket.technician_id,ticket.technician_1,ticket.technician_1_id,ticket.technician_2,ticket.technician_2_id,ticket.assigned_to,ticket.assigned_to_id]
       .forEach(value=>candidates.push(...assignmentValues(value)));
     return candidates.some(value=>identities.has(value));
+  }
+  function activeMRForm(){
+    const section=document.getElementById('mr-form-section');
+    return !!section&&section.style.display!=='none';
+  }
+  function canSyncSalesOrderItems(){
+    if(!activeMRForm())return false;
+    const submitText=normalized(document.getElementById('mr-submit-btn')?.textContent);
+    return !submitText.includes('update pemakaian')&&!submitText.includes('pengembalian');
   }
   function localAssignedWorkOrders(){
     try{
@@ -93,33 +106,89 @@
       }
     }
   }
-  async function loadItemsFromSelectedWO(event){
-    const select=event?.target?.id==='mr-wo'?event.target:document.getElementById('mr-wo');
+  function existingInventoryIds(body){
+    return new Set([...body.querySelectorAll('tr')]
+      .map(row=>String(row.dataset.inventoryId||'').trim())
+      .filter(Boolean));
+  }
+  function removeBlankRows(body){
+    body.querySelectorAll('tr').forEach(row=>{
+      const inventoryId=String(row.dataset.inventoryId||'').trim();
+      const name=String(row.querySelector('.mr-name')?.value||'').trim();
+      if(!inventoryId&&!name)row.remove();
+    });
+  }
+  function resetMRItemCounter(){
+    try{mrItemCount=0;}catch(_){}
+  }
+  async function syncSelectedWOItems(options={}){
+    const replace=options.replace===true;
+    const silent=options.silent===true;
+    const select=document.getElementById('mr-wo');
     const option=select?.options?.[select.selectedIndex];
-    if(!option?.value)return;
-    if(event){event.preventDefault();event.stopImmediatePropagation();}
+    if(!option?.value)return {added:0,skipped:true};
+    if(!replace&&!canSyncSalesOrderItems())return {added:0,skipped:true};
+
     const project=document.getElementById('mr-project');
-    if(project)project.value=option.dataset.project||'';
-    showError('');
-    try{
-      const data=await getJSON('/api/material-requests-form/work-order/'+encodeURIComponent(option.value)+'/items');
-      if(!Array.isArray(data.items))throw new Error('Respons item Sales Order tidak valid.');
-      const body=document.getElementById('mr-items-body');
-      if(!body)return;
+    if(project&&option.dataset.project)project.value=option.dataset.project;
+    if(!silent)showError('');
+
+    const data=await getJSON('/api/material-requests-form/work-order/'+encodeURIComponent(option.value)+'/items');
+    if(!Array.isArray(data.items))throw new Error('Respons item Sales Order tidak valid.');
+    const body=document.getElementById('mr-items-body');
+    if(!body)return {added:0,skipped:true};
+
+    if(replace){
       body.innerHTML='';
-      try{mrItemCount=0;}catch(_){}
-      if(!data.items.length){
-        if(typeof addMRItemRow==='function')addMRItemRow(null,true);
-        return showError('Sales Order tidak memiliki item Inventory yang dapat dimasukkan ke MR.');
+      resetMRItemCounter();
+    }
+
+    removeBlankRows(body);
+    const existing=existingInventoryIds(body);
+    let added=0;
+    data.items.forEach(item=>{
+      const inventoryId=String(item?.inventory_item_id||item?.item_id||'').trim();
+      if(!inventoryId||existing.has(inventoryId))return;
+      if(typeof addMRItemRow==='function'){
+        addMRItemRow(item,true);
+        existing.add(inventoryId);
+        added++;
       }
-      data.items.forEach(item=>{if(typeof addMRItemRow==='function')addMRItemRow(item,true);});
+    });
+
+    if(replace&&!body.querySelector('tr')){
+      if(typeof addMRItemRow==='function')addMRItemRow(null,true);
+      if(!silent)showError('Sales Order tidak memiliki item Inventory yang dapat dimasukkan ke MR.');
+    }else if(added>0){
+      showError('');
+      showInventoryStatus('✅ '+added+' material terbaru dari Sales Order ditambahkan otomatis.');
+    }else if(replace&&!silent){
+      showInventoryStatus('Material Sales Order sudah dimuat lengkap.');
+    }
+
+    return {added,items:data.items,sales_order_id:data.sales_order_id||null};
+  }
+  async function loadItemsFromSelectedWO(event){
+    if(event){event.preventDefault();event.stopImmediatePropagation();}
+    try{
+      return await syncSelectedWOItems({replace:true,silent:false});
     }catch(error){
-      const body=document.getElementById('mr-items-body');if(body)body.innerHTML='';
+      const body=document.getElementById('mr-items-body');
+      if(body){body.innerHTML='';resetMRItemCounter();}
       showError('Gagal mengambil item SO: '+String(error.message||error));
+      return {added:0,error};
+    }
+  }
+  async function syncEditedDraft(){
+    if(!canSyncSalesOrderItems())return;
+    try{
+      await syncSelectedWOItems({replace:false,silent:true});
+    }catch(error){
+      showError('Gagal menyinkronkan material terbaru SO: '+String(error.message||error));
     }
   }
   document.addEventListener('change',function(event){
-    if(event.target?.id==='mr-wo')loadItemsFromSelectedWO(event);
+    if(event.target?.id==='mr-wo')void loadItemsFromSelectedWO(event);
   },true);
   window.onMRWOChange=loadItemsFromSelectedWO;
 
@@ -127,7 +196,11 @@
   if(typeof originalShowMRForm==='function'){
     window.showMRForm=function(editId){
       const result=originalShowMRForm.apply(this,arguments);
-      if(!editId)setTimeout(()=>{void populateAssignedWO();},0);
+      if(!editId){
+        setTimeout(()=>{void populateAssignedWO();},0);
+      }else{
+        setTimeout(()=>{void syncEditedDraft();},120);
+      }
       return result;
     };
   }
