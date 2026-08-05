@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-STG-0008A16 — fresh Invoice page dengan parent-auth fetch dan cache bypass.
+// PXL-STG-0008A19 — Invoice V1 memakai route installer setelah middleware JWT utama.
 // Paket PXL-STG-0006A–0006N dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
@@ -13,7 +13,6 @@ require('./pxl-stg-0005i');
 require('./pxl-stg-0007s-status-guard');
 require('./pxl-stg-0007');
 require('./pxl-stg-0007f');
-require('./pxl-stg-0008a10-invoice-auth-early');
 require('./pxl-stg-0008a9-invoice-query-fix');
 require('./pxl-stg-0008a-invoice-api');
 
