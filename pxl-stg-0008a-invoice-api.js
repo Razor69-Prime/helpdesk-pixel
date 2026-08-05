@@ -1,9 +1,10 @@
 'use strict';
 
-/* PXL-STG-0008A1 — Invoice V1 backend: Draft, approval, termin, pajak, numbering, Terbit. */
+/* PXL-STG-0008A17 — Invoice V1 backend kompatibel dengan data legacy dan sumber existing. */
 const express = require('express');
 const crypto = require('crypto');
 const cfg = require('./config');
+const db = require('./db');
 const PATCH_KEY = Symbol.for('pxl.stg.0008a.invoice.api');
 
 if (!global[PATCH_KEY]) {
@@ -41,27 +42,40 @@ function register(app, original) {
   const reviewer = roles('manager','admin');
   const readable = roles('accounting','manager','admin','sales');
 
-  original.get.call(app, '/api/invoice-v1/sources', auth, readable, async (req,res) => {
-    try {
-      const [sos,wos,customers] = await Promise.all([
-        api.get('/sales_orders?select=*&order=created_at.desc&limit=300'),
-        api.get('/tickets?select=*&order=created_at.desc&limit=500'),
-        api.safeGet('/crm_customers?select=*&order=customer_name.asc&limit=500', [])
-      ]);
-      res.json({
-        sales_orders:(sos||[]).filter(x=>['approved','setujui','disetujui'].includes(String(x.status||'').toLowerCase())),
-        work_orders:wos||[], customers:customers||[]
-      });
-    } catch(e) { res.status(500).json({error:clean(e)}); }
+  original.get.call(app, '/api/invoice-v1/sources', auth, readable, async (_req,res) => {
+    const warnings = [];
+    const [sos,wos,customers] = await Promise.all([
+      safeSource('SOURCE_SO', () => db.getSalesOrders(), warnings),
+      safeSource('SOURCE_WO', () => db.getTickets(null, true), warnings),
+      safeSource('SOURCE_CRM', () => db.getCrmCustomers(), warnings)
+    ]);
+
+    const approvedStatuses = new Set(['approved','setujui','disetujui']);
+    res.json({
+      sales_orders:(sos||[])
+        .filter(x => approvedStatuses.has(String(x.status||'').toLowerCase()))
+        .slice(0,300),
+      work_orders:(wos||[]).slice(0,500),
+      customers:(customers||[]).slice(0,500),
+      warnings
+    });
   });
 
   original.get.call(app, '/api/invoice-v1', auth, readable, async (req,res) => {
     try {
-      let q='/invoices?select=*&order=created_at.desc.nullslast,uploaded_at.desc&limit=500';
-      if(req.query.status) q += `&invoice_status=eq.${enc(req.query.status)}`;
-      const rows=await api.get(q);
-      res.json(rows||[]);
-    } catch(e){res.status(500).json({error:clean(e)});}
+      const statusFilter = req.query.status
+        ? `&invoice_status=eq.${enc(req.query.status)}`
+        : '';
+      const attempts = [
+        `/invoices?select=*${statusFilter}&order=updated_at.desc.nullslast&limit=500`,
+        `/invoices?select=*${statusFilter}&order=uploaded_at.desc.nullslast&limit=500`,
+        `/invoices?select=*${statusFilter}&limit=500`
+      ];
+      const rows = await firstSuccessful(api, 'INVOICE_LIST', attempts);
+      res.json(sortInvoices(rows||[]));
+    } catch(e) {
+      res.status(500).json({error:clean(e)});
+    }
   });
 
   original.get.call(app, '/api/invoice-v1/:id', auth, readable, async (req,res) => {
@@ -69,9 +83,9 @@ function register(app, original) {
       const rows=await api.get(`/invoices?id=eq.${enc(req.params.id)}&select=*`);
       if(!rows?.length)return res.status(404).json({error:'Invoice tidak ditemukan.'});
       const [items,wos,audit]=await Promise.all([
-        api.get(`/invoice_items?invoice_id=eq.${enc(req.params.id)}&order=line_no.asc`),
-        api.get(`/invoice_work_orders?invoice_id=eq.${enc(req.params.id)}`),
-        api.get(`/invoice_audit_logs?invoice_id=eq.${enc(req.params.id)}&order=created_at.desc`)
+        api.safeGet(`/invoice_items?invoice_id=eq.${enc(req.params.id)}&order=line_no.asc`, []),
+        api.safeGet(`/invoice_work_orders?invoice_id=eq.${enc(req.params.id)}`, []),
+        api.safeGet(`/invoice_audit_logs?invoice_id=eq.${enc(req.params.id)}&order=created_at.desc`, [])
       ]);
       res.json({...rows[0],items,wos,audit});
     } catch(e){res.status(500).json({error:clean(e)});}
@@ -185,6 +199,38 @@ function register(app, original) {
   });
 }
 
+async function safeSource(stage, loader, warnings){
+  try{
+    const rows=await loader();
+    return Array.isArray(rows)?rows:[];
+  }catch(error){
+    warnings.push({stage,error:clean(error)});
+    return [];
+  }
+}
+
+async function firstSuccessful(api, stage, paths){
+  const errors=[];
+  for(const path of paths){
+    try{
+      return await api.get(path);
+    }catch(error){
+      errors.push(clean(error));
+    }
+  }
+  throw new Error(`${stage}: ${errors.join(' | ')}`);
+}
+
+function sortInvoices(rows){
+  return [...rows].sort((a,b)=>invoiceTime(b)-invoiceTime(a));
+}
+
+function invoiceTime(row){
+  const value=row?.updated_at||row?.issued_at||row?.uploaded_at||row?.invoice_date||0;
+  const parsed=Date.parse(value);
+  return Number.isFinite(parsed)?parsed:0;
+}
+
 function calculate(body){
   const items=(Array.isArray(body.items)?body.items:[]).map((x,i)=>{
     const quantity=num(x.quantity||x.qty); const unitPrice=num(x.unit_price||x.price);
@@ -238,11 +284,50 @@ async function replaceItems(api,id,items){await api.del(`/invoice_items?invoice_
 async function replaceWos(api,id,ids,reason){await api.del(`/invoice_work_orders?invoice_id=eq.${enc(id)}`);if(ids.length)await api.post('/invoice_work_orders',ids.map(ticket_id=>({invoice_id:id,ticket_id,override_unfinished:!!reason,override_reason:reason||null})));}
 async function audit(api,req,id,action,oldValue,newValue,reason){await api.post('/invoice_audit_logs',{invoice_id:id,action,actor_id:req.session.user.id||null,actor_name:req.session.user.name,actor_role:req.session.user.role,reason:reason||null,old_value:oldValue,new_value:newValue});}
 async function one(api,id){const rows=await api.get(`/invoices?id=eq.${enc(id)}&limit=1`);if(!rows?.length){const e=bad('Invoice tidak ditemukan.');e.statusCode=404;throw e;}return rows[0];}
+
 function makeSupabase(){
-  let fetchFn=global.fetch; try{if(!fetchFn)fetchFn=require('node-fetch');}catch(_){ }
-  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY; const base=`${cfg.SUPABASE_URL}/rest/v1`;
-  async function call(method,path,body){const r=await fetchFn(base+path,{method,headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json',Prefer:'return=representation'},body:body==null?undefined:JSON.stringify(body)});const txt=await r.text();if(!r.ok)throw new Error(txt||`HTTP ${r.status}`);return txt?JSON.parse(txt):[];}
-  return {get:p=>call('GET',p),safeGet:async(p,f)=>{try{return await call('GET',p);}catch(_){return f;}},post:(p,b)=>call('POST',p,b),patch:(p,b)=>call('PATCH',p,b),del:p=>call('DELETE',p)};
+  let fetchFn;
+  try{fetchFn=require('node-fetch');}catch(_){fetchFn=global.fetch;}
+  if(typeof fetchFn!=='function')throw new Error('Fetch Supabase tidak tersedia.');
+  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY;
+  const base=`${cfg.SUPABASE_URL}/rest/v1`;
+
+  async function call(method,path,body){
+    const response=await fetchFn(base+path,{
+      method,
+      headers:{
+        apikey:key,
+        Authorization:`Bearer ${key}`,
+        'Content-Type':'application/json',
+        Prefer:'return=representation'
+      },
+      body:body==null?undefined:JSON.stringify(body)
+    });
+    const raw=await response.text();
+    if(!response.ok){
+      let detail=raw;
+      try{
+        const parsed=raw?JSON.parse(raw):{};
+        detail=parsed.message||parsed.details||parsed.hint||raw;
+      }catch(_){}
+      throw new Error(`${method} ${path.split('?')[0]}: ${detail||`HTTP ${response.status}`}`);
+    }
+    return raw?JSON.parse(raw):[];
+  }
+
+  return {
+    get:path=>call('GET',path),
+    safeGet:async(path,fallback)=>{try{return await call('GET',path);}catch(_){return fallback;}},
+    post:(path,body)=>call('POST',path,body),
+    patch:(path,body)=>call('PATCH',path,body),
+    del:path=>call('DELETE',path)
+  };
 }
-function text(v){return String(v??'').trim();} function num(v){const n=Number(v);return Number.isFinite(n)?n:0;} function round(v){return Math.round((num(v)+Number.EPSILON)*100)/100;} function enc(v){return encodeURIComponent(String(v));}
-function bad(message){const e=new Error(message);e.statusCode=400;return e;} function status(e){return e.statusCode||500;} function clean(e){return String(e.message||e).slice(0,1000);}
+
+function text(v){return String(v??'').trim();}
+function num(v){const n=Number(v);return Number.isFinite(n)?n:0;}
+function round(v){return Math.round((num(v)+Number.EPSILON)*100)/100;}
+function enc(v){return encodeURIComponent(String(v));}
+function bad(message){const e=new Error(message);e.statusCode=400;return e;}
+function status(e){return e.statusCode||500;}
+function clean(e){return String(e.message||e).slice(0,1000);}
