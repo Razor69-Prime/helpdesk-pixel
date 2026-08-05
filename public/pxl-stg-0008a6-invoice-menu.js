@@ -1,4 +1,4 @@
-/* PXL-STG-0008A14 — Invoice iframe memakai token runtime aplikasi utama. */
+/* PXL-STG-0008A15 — buka Invoice V1 dengan token runtime deterministik. */
 (function(){
   'use strict';
   const FRAME_ID='pxl-invoice-v1-frame';
@@ -33,12 +33,13 @@
     wrap=document.createElement('div');
     wrap.id=WRAP_ID;
     wrap.style.cssText='position:fixed;inset:0;z-index:2147483000;background:#f7f4f1;display:flex;flex-direction:column';
-    wrap.innerHTML='<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#fff;border-bottom:1px solid #ddd;font-family:Arial,sans-serif"><b>Invoice</b><button type="button" id="pxl-invoice-close" style="border:1px solid #d7cec6;background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer">Tutup</button></div><iframe id="'+FRAME_ID+'" src="/invoice-v1.html?v=PXL-STG-0008A14" style="border:0;width:100%;flex:1;background:#f7f4f1" title="Invoice"></iframe>';
+    const src='/invoice-v1.html?v=PXL-STG-0008A15#pxl_token='+encodeURIComponent(authToken);
+    wrap.innerHTML='<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#fff;border-bottom:1px solid #ddd;font-family:Arial,sans-serif"><b>Invoice</b><button type="button" id="pxl-invoice-close" style="border:1px solid #d7cec6;background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer">Tutup</button></div><iframe id="'+FRAME_ID+'" src="'+src+'" style="border:0;width:100%;flex:1;background:#f7f4f1" title="Invoice"></iframe>';
     document.body.appendChild(wrap);
     document.documentElement.style.overflow='hidden';
     wrap.querySelector('#pxl-invoice-close').onclick=closeInvoice;
     const frame=wrap.querySelector('iframe');
-    frame.addEventListener('load',function(){sendToken(frame);setTimeout(()=>sendToken(frame),250);setTimeout(()=>sendToken(frame),1000);});
+    frame.addEventListener('load',function(){sendToken(frame);setTimeout(()=>sendToken(frame),150);setTimeout(()=>sendToken(frame),600);});
   }
 
   function hideLegacy(){
