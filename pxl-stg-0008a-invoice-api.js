@@ -1,35 +1,42 @@
 'use strict';
 
-/* PXL-STG-0008A1 — Invoice V1 backend: Draft, approval, termin, pajak, numbering, Terbit. */
+/* PXL-STG-0008A19 — pasang route Invoice V1 setelah middleware JWT utama. */
 const express = require('express');
 const crypto = require('crypto');
-const cfg = require('./config');
 const PATCH_KEY = Symbol.for('pxl.stg.0008a.invoice.api');
 
 if (!global[PATCH_KEY]) {
   global[PATCH_KEY] = true;
-  install();
+  installAfterJwtSession();
 }
 
-function install() {
-  const methods = ['get','post','patch'];
-  const original = Object.fromEntries(methods.map(k => [k, express.application[k]]));
+function installAfterJwtSession() {
+  const originalUse = express.application.use;
 
-  function ensure(app) {
-    if (app.__pxl0008aInstalled) return;
-    app.__pxl0008aInstalled = true;
-    register(app, original);
-  }
+  express.application.use = function pxl0008a19Use(...args) {
+    const shouldInstall = !this.__pxl0008aInstalled && args.some(isMainJwtSessionMiddleware);
+    const result = originalUse.apply(this, args);
 
-  for (const method of methods) {
-    express.application[method] = function pxl0008aRoute(path, ...handlers) {
-      ensure(this);
-      return original[method].call(this, path, ...handlers);
-    };
-  }
+    if (shouldInstall) {
+      this.__pxl0008aInstalled = true;
+      express.application.use = originalUse;
+      register(this);
+    }
+
+    return result;
+  };
 }
 
-function register(app, original) {
+function isMainJwtSessionMiddleware(handler) {
+  if (typeof handler !== 'function') return false;
+  const source = Function.prototype.toString.call(handler);
+  return source.includes('req.session')
+    && source.includes('req.session._setUser')
+    && source.includes('jwt.verify')
+    && source.includes('JWT_SECRET');
+}
+
+function register(app) {
   const auth = (req,res,next) => req.session?.user ? next() : res.status(401).json({error:'Unauthorized'});
   const roles = (...allowed) => (req,res,next) => {
     const role = String(req.session?.user?.role||'');
@@ -41,7 +48,7 @@ function register(app, original) {
   const reviewer = roles('manager','admin');
   const readable = roles('accounting','manager','admin','sales');
 
-  original.get.call(app, '/api/invoice-v1/sources', auth, readable, async (req,res) => {
+  app.get('/api/invoice-v1/sources', auth, readable, async (req,res) => {
     try {
       const [sos,wos,customers] = await Promise.all([
         api.get('/sales_orders?select=*&order=created_at.desc&limit=300'),
@@ -55,7 +62,7 @@ function register(app, original) {
     } catch(e) { res.status(500).json({error:clean(e)}); }
   });
 
-  original.get.call(app, '/api/invoice-v1', auth, readable, async (req,res) => {
+  app.get('/api/invoice-v1', auth, readable, async (req,res) => {
     try {
       let q='/invoices?select=*&order=created_at.desc.nullslast,uploaded_at.desc&limit=500';
       if(req.query.status) q += `&invoice_status=eq.${enc(req.query.status)}`;
@@ -64,7 +71,7 @@ function register(app, original) {
     } catch(e){res.status(500).json({error:clean(e)});}
   });
 
-  original.get.call(app, '/api/invoice-v1/:id', auth, readable, async (req,res) => {
+  app.get('/api/invoice-v1/:id', auth, readable, async (req,res) => {
     try {
       const rows=await api.get(`/invoices?id=eq.${enc(req.params.id)}&select=*`);
       if(!rows?.length)return res.status(404).json({error:'Invoice tidak ditemukan.'});
@@ -77,7 +84,7 @@ function register(app, original) {
     } catch(e){res.status(500).json({error:clean(e)});}
   });
 
-  original.post.call(app, '/api/invoice-v1', auth, accounting, async (req,res) => {
+  app.post('/api/invoice-v1', auth, accounting, async (req,res) => {
     try {
       const calculated=calculate(req.body||{});
       const now=new Date().toISOString();
@@ -108,7 +115,7 @@ function register(app, original) {
     } catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
-  original.patch.call(app, '/api/invoice-v1/:id', auth, accounting, async (req,res) => {
+  app.patch('/api/invoice-v1/:id', auth, accounting, async (req,res) => {
     try {
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Hanya invoice Draft yang dapat diedit.'});
@@ -136,7 +143,7 @@ function register(app, original) {
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
-  original.post.call(app, '/api/invoice-v1/:id/submit', auth, accounting, async(req,res)=>{
+  app.post('/api/invoice-v1/:id/submit', auth, accounting, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice bukan Draft.'});
@@ -147,7 +154,7 @@ function register(app, original) {
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
-  original.post.call(app, '/api/invoice-v1/:id/approve', auth, reviewer, async(req,res)=>{
+  app.post('/api/invoice-v1/:id/approve', auth, reviewer, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='pending_approval')return res.status(400).json({error:'Invoice tidak menunggu persetujuan.'});
@@ -157,7 +164,7 @@ function register(app, original) {
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
-  original.post.call(app, '/api/invoice-v1/:id/reject', auth, reviewer, async(req,res)=>{
+  app.post('/api/invoice-v1/:id/reject', auth, reviewer, async(req,res)=>{
     try{
       if(!text(req.body.reason))return res.status(400).json({error:'Alasan penolakan wajib diisi.'});
       const old=await one(api,req.params.id);
@@ -167,7 +174,7 @@ function register(app, original) {
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
-  original.post.call(app, '/api/invoice-v1/:id/issue', auth, accounting, async(req,res)=>{
+  app.post('/api/invoice-v1/:id/issue', auth, accounting, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice harus Draft sebelum diterbitkan.'});
@@ -239,6 +246,7 @@ async function replaceWos(api,id,ids,reason){await api.del(`/invoice_work_orders
 async function audit(api,req,id,action,oldValue,newValue,reason){await api.post('/invoice_audit_logs',{invoice_id:id,action,actor_id:req.session.user.id||null,actor_name:req.session.user.name,actor_role:req.session.user.role,reason:reason||null,old_value:oldValue,new_value:newValue});}
 async function one(api,id){const rows=await api.get(`/invoices?id=eq.${enc(id)}&limit=1`);if(!rows?.length){const e=bad('Invoice tidak ditemukan.');e.statusCode=404;throw e;}return rows[0];}
 function makeSupabase(){
+  const cfg = require('./config');
   let fetchFn=global.fetch; try{if(!fetchFn)fetchFn=require('node-fetch');}catch(_){ }
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY; const base=`${cfg.SUPABASE_URL}/rest/v1`;
   async function call(method,path,body){const r=await fetchFn(base+path,{method,headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json',Prefer:'return=representation'},body:body==null?undefined:JSON.stringify(body)});const txt=await r.text();if(!r.ok)throw new Error(txt||`HTTP ${r.status}`);return txt?JSON.parse(txt):[];}
