@@ -11,6 +11,7 @@ require('./pxl-stg-0006d');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
 require('./pxl-stg-0007s-status-guard');
+require('./pxl-stg-0008a30-flow-guard');
 require('./pxl-stg-0007');
 require('./pxl-stg-0007f');
 require('./pxl-stg-0008a9-invoice-query-fix');

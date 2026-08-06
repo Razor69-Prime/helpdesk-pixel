@@ -1,0 +1,8 @@
+PXL-STG-0008A29 — Verification
+
+- Endpoint detail Invoice sudah mengirim invoice_items sebagai x.items.
+- Tampilan detail menggunakan x.items untuk tabel Rincian Item & Jasa.
+- Tabel menampilkan qty/satuan, harga satuan, dan subtotal setiap baris.
+- Total rincian dan total Invoice ditampilkan untuk pembanding.
+- Tombol approval dan seluruh aturan approval PXL-STG-0008A28 tetap ada.
+- Tidak ada perubahan database atau SQL.

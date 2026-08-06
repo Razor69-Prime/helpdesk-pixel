@@ -1,0 +1,19 @@
+VERIFICATION PXL-STG-0008A30
+
+[PASS] node --check pxl-stg-0004f.js
+[PASS] node --check pxl-stg-0008a30-flow-guard.js
+[PASS] node --check pxl-stg-0008a-invoice-api.js
+[PASS] Guard penyelesaian WO memeriksa MR ada dan material sudah diambil.
+[PASS] Draft Invoice tetap dapat dibuat/diedit sebelum flow pekerjaan lengkap.
+[PASS] Submit, Approve, dan Issue memvalidasi seluruh WO selesai dan MR returned.
+[PASS] Override unfinished WO/MR tidak lagi digunakan.
+[PASS] Tidak ada perubahan SQL.
+
+UAT staging:
+1. WO tanpa MR -> tombol/proses Selesai harus ditolak.
+2. WO dengan MR Draft -> proses Selesai harus ditolak.
+3. WO dengan MR Diambil -> WO dapat diselesaikan.
+4. Invoice Draft dengan MR belum Dikembalikan -> Ajukan Approval harus ditolak.
+5. Ubah MR menjadi Dikembalikan -> Ajukan Approval dapat dilanjutkan.
+6. Manager menyetujui Invoice yang sama.
+7. Accounting menerbitkan Invoice -> omzet dan piutang tercatat.

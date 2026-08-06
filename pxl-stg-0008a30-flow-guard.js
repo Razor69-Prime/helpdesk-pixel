@@ -1,0 +1,71 @@
+'use strict';
+
+// PXL-STG-0008A30 — server-side guard untuk urutan WO dan Material Request.
+// WO selesai: MR wajib ada dan material sudah diambil.
+// Pengembalian material tetap dilakukan setelah pekerjaan selesai.
+
+const express = require('express');
+const originalPost = express.application.post;
+const originalPatch = express.application.patch;
+
+const norm = value => String(value == null ? '' : value).trim().toLowerCase();
+const same = (a, b) => String(a == null ? '' : a) === String(b == null ? '' : b);
+const isDoneStatus = value => ['done', 'selesai', 'completed', 'closed', 'finished'].includes(norm(value));
+const isMaterialTaken = value => ['taken', 'diambil', 'issued', 'returned', 'dikembalikan'].includes(norm(value));
+
+async function materialRequestsForTicket(ticketId) {
+  const db = require('./db');
+  const [legacy, crmRequests, crmWorkOrders] = await Promise.all([
+    db.getMRForms(),
+    typeof db.getCrmMaterialRequests === 'function' ? db.getCrmMaterialRequests() : [],
+    typeof db.getCrmWorkOrders === 'function' ? db.getCrmWorkOrders() : []
+  ]);
+  const workOrderIds = new Set((crmWorkOrders || [])
+    .filter(row => same(row.ticket_id, ticketId))
+    .map(row => String(row.id)));
+  return [
+    ...(legacy || []).filter(row => same(row.ticket_id, ticketId)),
+    ...(crmRequests || []).filter(row => workOrderIds.has(String(row.work_order_id)))
+  ];
+}
+
+async function requireMaterialTaken(req, res, next) {
+  try {
+    const rows = await materialRequestsForTicket(req.params.id);
+    if (!rows.length) {
+      return res.status(409).json({
+        error: 'WO belum dapat diselesaikan. Buat Material Request dari WO ini terlebih dahulu.'
+      });
+    }
+    const notTaken = rows.filter(row => !isMaterialTaken(row.status));
+    if (notTaken.length) {
+      return res.status(409).json({
+        error: 'WO belum dapat diselesaikan. Material Request harus sudah diproses dan material sudah diambil.'
+      });
+    }
+    return next();
+  } catch (error) {
+    return res.status(500).json({ error: String(error.message || error) });
+  }
+}
+
+express.application.post = function pxl0008a30Post(path, ...handlers) {
+  if (path === '/api/tickets/:id/stage' && handlers.length) {
+    const guard = (req, res, next) => norm(req.body?.stage) === 'selesai'
+      ? requireMaterialTaken(req, res, next)
+      : next();
+    handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
+  }
+  return originalPost.call(this, path, ...handlers);
+};
+
+express.application.patch = function pxl0008a30Patch(path, ...handlers) {
+  if (path === '/api/tickets/:id' && handlers.length) {
+    const guard = (req, res, next) => isDoneStatus(req.body?.status)
+      ? requireMaterialTaken(req, res, next)
+      : next();
+    handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
+  }
+  return originalPatch.call(this, path, ...handlers);
+};
+

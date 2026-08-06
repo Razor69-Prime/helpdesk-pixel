@@ -168,7 +168,7 @@ function register(app) {
       };
       const saved=(await api.post('/invoices',header))[0];
       await replaceItems(api,invoiceId,calculated.items);
-      await replaceWos(api,invoiceId,req.body.work_order_ids||[],req.body.override_unfinished_reason);
+      await replaceWos(api,invoiceId,req.body.work_order_ids||[]);
       await audit(api,req,invoiceId,'CREATE_DRAFT',null,header,null);
       res.status(201).json(saved);
     } catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -196,7 +196,7 @@ function register(app) {
       };
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await replaceItems(api,req.params.id,calculated.items);
-      await replaceWos(api,req.params.id,req.body.work_order_ids||[],req.body.override_unfinished_reason);
+      await replaceWos(api,req.params.id,req.body.work_order_ids||[]);
       await audit(api,req,req.params.id,'UPDATE_DRAFT',old,patch,req.body.change_reason||null);
       res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -206,6 +206,7 @@ function register(app) {
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice bukan Draft.'});
+      await validateWorkOrderFlow(api,old);
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,{invoice_status:'pending_approval',updated_by:req.session.user.name,updated_at:new Date().toISOString()}))[0];
       await audit(api,req,req.params.id,'SUBMIT_APPROVAL',old,saved,null);
       res.json(saved);
@@ -216,6 +217,7 @@ function register(app) {
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='pending_approval')return res.status(400).json({error:'Invoice tidak menunggu persetujuan.'});
+      await validateWorkOrderFlow(api,old);
       const patch={invoice_status:'approved',approved_by:req.session.user.name,approved_at:new Date().toISOString(),rejected_by:null,rejected_at:null,rejection_reason:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()};
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'APPROVE',old,saved,req.body.reason||null);res.json(saved);
@@ -236,7 +238,7 @@ function register(app) {
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='approved' || !old.approved_at)return res.status(400).json({error:'Invoice harus berstatus Disetujui sebelum diterbitkan.'});
-      await validateIssueRules(api,old,req.body||{});
+      await validateIssueRules(api,old);
       const series=old.tax_mode==='non_ppn'?'INVPIXEL':'INVCK';
       const date=new Date(`${old.invoice_date}T00:00:00+08:00`); const year=date.getFullYear(); const month=String(date.getMonth()+1).padStart(2,'0');
       const seq=await nextSequence(api,series,year,req.body.manual_number||null,month);
@@ -244,7 +246,7 @@ function register(app) {
       const snapshot={...old,invoice_number:number,issued_at:new Date().toISOString()};
       const patch={invoice_number:number,invoice_series:series,invoice_year:year,invoice_sequence:seq,manual_number:!!req.body.manual_number,invoice_status:'issued',issued_by:req.session.user.name,issued_at:new Date().toISOString(),snapshot_json:snapshot,updated_at:new Date().toISOString()};
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
-      await audit(api,req,req.params.id,'ISSUE',old,saved,req.body.override_reason||null);res.json(saved);
+      await audit(api,req,req.params.id,'ISSUE',old,saved,null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
@@ -297,22 +299,57 @@ function calculate(body){
   return {items,subtotal,itemDiscount,invoiceDiscount,hg,dpp:round(dpp),ppn:round(ppn),pph:round(pph),total,taxMode,tax_mode:taxMode,taxPercent,tax_percent:taxPercent,approvalRequired,approvalReason:'Persetujuan Manager wajib sebelum Invoice diterbitkan.'};
 }
 
-async function validateIssueRules(api,inv,body){
-  const type=String(inv.invoice_type||'');
-  if(type==='full_payment'){
-    const rel=await api.get(`/invoice_work_orders?invoice_id=eq.${enc(inv.id)}`);
-    if(rel.length){
-      const ids=rel.map(x=>x.ticket_id).filter(Boolean);
-      const wos=ids.length?await api.get(`/tickets?id=in.(${ids.map(enc).join(',')})&select=id,status`):[];
-      const unfinished=wos.filter(x=>!isFinishedWorkOrderStatus(x.status));
-      if(unfinished.length&&!text(body.override_reason))throw bad('Full Payment memiliki WO belum selesai. Alasan override wajib diisi.');
-    }
-  }
+async function validateIssueRules(api,inv){
+  await validateWorkOrderFlow(api,inv);
   if(inv.billing_group_id&&inv.term_percent){
     const siblings=await api.get(`/invoices?billing_group_id=eq.${enc(inv.billing_group_id)}&invoice_status=in.(issued,partially_paid,paid)&select=term_percent`);
     const used=siblings.reduce((s,x)=>s+num(x.term_percent),0);
     if(used+num(inv.term_percent)>100.0001)throw bad('Total termin yang diterbitkan tidak boleh melebihi 100%.');
   }
+}
+
+async function validateWorkOrderFlow(api,inv){
+  const rel=await api.get(`/invoice_work_orders?invoice_id=eq.${enc(inv.id)}&select=ticket_id`);
+  const ids=[...new Set((rel||[]).map(x=>x.ticket_id).filter(Boolean))];
+  if(!ids.length)throw bad('Invoice wajib terhubung ke minimal satu Work Order.');
+
+  const idList=ids.map(enc).join(',');
+  const wos=await api.get(`/tickets?id=in.(${idList})&select=id,wo_number,status`);
+  const woById=new Map((wos||[]).map(x=>[String(x.id),x]));
+  const missing=ids.filter(id=>!woById.has(String(id)));
+  if(missing.length)throw bad('Sebagian Work Order Invoice tidak ditemukan. Periksa kembali relasi WO.');
+
+  const unfinished=(wos||[]).filter(x=>!isFinishedWorkOrderStatus(x.status));
+  if(unfinished.length)throw bad(`Invoice belum dapat diproses. WO belum selesai: ${unfinished.map(woLabel).join(', ')}.`);
+
+  const [legacyMrs,crmWos]=await Promise.all([
+    api.safeGet(`/material_request_forms?ticket_id=in.(${idList})&select=id,ticket_id,status`,[]),
+    api.safeGet(`/crm_work_orders?ticket_id=in.(${idList})&select=id,ticket_id`,[])
+  ]);
+  const crmWoIds=(crmWos||[]).map(x=>x.id).filter(Boolean);
+  const crmMrs=crmWoIds.length
+    ? await api.safeGet(`/crm_material_requests?work_order_id=in.(${crmWoIds.map(enc).join(',')})&select=id,work_order_id,status`,[])
+    : [];
+  const crmTicketByWo=new Map((crmWos||[]).map(x=>[String(x.id),String(x.ticket_id)]));
+  const requestsByTicket=new Map(ids.map(id=>[String(id),[]]));
+  for(const mr of legacyMrs||[]){
+    const key=String(mr.ticket_id||'');
+    if(requestsByTicket.has(key))requestsByTicket.get(key).push(mr);
+  }
+  for(const mr of crmMrs||[]){
+    const key=crmTicketByWo.get(String(mr.work_order_id||''));
+    if(key&&requestsByTicket.has(key))requestsByTicket.get(key).push(mr);
+  }
+
+  const noMr=[]; const notReturned=[];
+  for(const id of ids){
+    const wo=woById.get(String(id));
+    const requests=requestsByTicket.get(String(id))||[];
+    if(!requests.length)noMr.push(woLabel(wo));
+    else if(requests.some(mr=>!isReturnedMaterialStatus(mr.status)))notReturned.push(woLabel(wo));
+  }
+  if(noMr.length)throw bad(`Invoice belum dapat diproses. Material Request belum dibuat untuk: ${noMr.join(', ')}.`);
+  if(notReturned.length)throw bad(`Invoice belum dapat diproses. Pengembalian material belum selesai untuk: ${notReturned.join(', ')}.`);
 }
 
 // Status WO yang dipakai aplikasi teknisi saat pekerjaan selesai adalah "done".
@@ -322,6 +359,13 @@ function isFinishedWorkOrderStatus(value){
   return ['done','selesai','completed','closed','finished']
     .includes(String(value||'').trim().toLowerCase());
 }
+
+function isReturnedMaterialStatus(value){
+  return ['returned','dikembalikan','return_complete','returned_complete']
+    .includes(String(value||'').trim().toLowerCase());
+}
+
+function woLabel(wo){return text(wo?.wo_number)||text(wo?.id)||'WO';}
 
 async function nextSequence(api,series,year,manual,month){
   const rows=await api.get(`/invoice_sequences?series=eq.${series}&invoice_year=eq.${year}&limit=1`); const current=num(rows?.[0]?.last_sequence);
@@ -335,7 +379,7 @@ async function nextSequence(api,series,year,manual,month){
   return expected;
 }
 async function replaceItems(api,id,items){await api.del(`/invoice_items?invoice_id=eq.${enc(id)}`);if(items.length)await api.post('/invoice_items',items.map(x=>({...x,invoice_id:id})));}
-async function replaceWos(api,id,ids,reason){await api.del(`/invoice_work_orders?invoice_id=eq.${enc(id)}`);if(ids.length)await api.post('/invoice_work_orders',ids.map(ticket_id=>({invoice_id:id,ticket_id,override_unfinished:!!reason,override_reason:reason||null})));}
+async function replaceWos(api,id,ids){await api.del(`/invoice_work_orders?invoice_id=eq.${enc(id)}`);if(ids.length)await api.post('/invoice_work_orders',ids.map(ticket_id=>({invoice_id:id,ticket_id,override_unfinished:false,override_reason:null})));}
 async function audit(api,req,id,action,oldValue,newValue,reason){await api.post('/invoice_audit_logs',{invoice_id:id,action,actor_id:req.session.user.id||null,actor_name:req.session.user.name,actor_role:req.session.user.role,reason:reason||null,old_value:oldValue,new_value:newValue});}
 async function one(api,id){const rows=await api.get(`/invoices?id=eq.${enc(id)}&limit=1`);if(!rows?.length){const e=bad('Invoice tidak ditemukan.');e.statusCode=404;throw e;}return rows[0];}
 function makeSupabase(){
