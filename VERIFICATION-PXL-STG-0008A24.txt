@@ -1,0 +1,11 @@
+PXL-STG-0008A24 Verification
+
+- node --check pxl-stg-0008a-invoice-api.js : PASS
+- node --check public/pxl-stg-0008a24-revenue-receivables.js : PASS
+- Static check endpoint pembayaran /api/invoice-v1/:id/payment : PASS
+- Static check integrasi Invoice V1 Terbit ke Dashboard/Sales : PASS
+- Static check menu Daftar Piutang : PASS
+- SQL migration : tidak diperlukan
+
+Catatan uji aplikasi
+- Uji browser dan Supabase harus dilakukan setelah file dipasang lalu staging selesai deploy.

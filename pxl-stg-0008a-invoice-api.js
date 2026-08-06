@@ -210,6 +210,34 @@ function register(app) {
       await audit(api,req,req.params.id,'ISSUE',old,saved,req.body.override_reason||null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
+
+  // PXL-STG-0008A24 — pembayaran piutang dicatat manual oleh Accounting.
+  // Omzet tetap dihitung saat invoice Terbit; payment hanya mengubah saldo/piutang.
+  app.post('/api/invoice-v1/:id/payment', auth, accounting, async(req,res)=>{
+    try{
+      const old=await one(api,req.params.id);
+      if(!['issued','partially_paid','paid'].includes(String(old.invoice_status||''))) {
+        return res.status(400).json({error:'Pembayaran hanya dapat dicatat untuk Invoice Terbit.'});
+      }
+      const total=num(old.total_amount);
+      const previous=Math.max(0,num(old.paid_amount));
+      const requested=req.body?.mark_paid===true ? total : num(req.body?.paid_amount);
+      if(requested<=0)return res.status(400).json({error:'Nominal pembayaran harus lebih dari Rp0.'});
+      const paid=Math.min(total,round(previous+requested));
+      const balance=Math.max(0,round(total-paid));
+      const isPaid=balance<=0.0001;
+      const patch={
+        paid_amount:paid,balance_amount:balance,
+        payment_status:isPaid?'paid':(paid>0?'partially_paid':'unpaid'),
+        invoice_status:isPaid?'paid':(paid>0?'partially_paid':'issued'),
+        paid_at:isPaid?new Date().toISOString():(old.paid_at||null),
+        updated_by:req.session.user.name,updated_at:new Date().toISOString()
+      };
+      const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
+      await audit(api,req,req.params.id,isPaid?'MARK_PAID':'RECORD_PAYMENT',old,saved,text(req.body?.note));
+      res.json(saved);
+    }catch(e){res.status(status(e)).json({error:clean(e)});}
+  });
 }
 
 function calculate(body){
