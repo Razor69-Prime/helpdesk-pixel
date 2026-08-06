@@ -71,7 +71,7 @@ function register(app) {
       const soIds=[...new Set((rows||[]).map(x=>x.source_so_id).filter(Boolean))];
       const [relations,salesOrders,tickets]=await Promise.all([
         invoiceIds.length?api.get(`/invoice_work_orders?invoice_id=in.(${invoiceIds.map(enc).join(',')})&select=invoice_id,ticket_id`):Promise.resolve([]),
-        soIds.length?api.get(`/sales_orders?id=in.(${soIds.map(enc).join(',')})&select=id,so_number,order_number`):Promise.resolve([]),
+        soIds.length?api.get(`/sales_orders?id=in.(${soIds.map(enc).join(',')})&select=id,so_number`):Promise.resolve([]),
         invoiceIds.length?api.get('/tickets?select=id,wo_number&limit=1000'):Promise.resolve([])
       ]);
       const soById=new Map((salesOrders||[]).map(x=>[String(x.id),x]));
@@ -85,7 +85,7 @@ function register(app) {
       }
       res.json((rows||[]).map(row=>({
         ...row,
-        source_so_number:soById.get(String(row.source_so_id||''))?.so_number||soById.get(String(row.source_so_id||''))?.order_number||null,
+        source_so_number:soById.get(String(row.source_so_id||''))?.so_number||null,
         work_order_numbers:[...new Set((wosByInvoice.get(String(row.id))||[]).filter(Boolean))]
       })));
     } catch(e){res.status(500).json({error:clean(e)});}

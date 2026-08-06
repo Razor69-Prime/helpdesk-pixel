@@ -1,0 +1,10 @@
+VERIFICATION — PXL-STG-0008A23
+
+[OK] node --check pxl-stg-0008a-invoice-api.js
+[OK] Query Sales Order daftar Invoice menggunakan select=id,so_number.
+[OK] Tidak ada lagi referensi backend ke sales_orders.order_number.
+
+Uji manual staging setelah push
+1. Buka menu Invoice.
+2. Pastikan daftar Invoice termuat tanpa error 42703.
+3. Pastikan nomor SO tetap muncul pada kolom SO bila Invoice terhubung ke Sales Order.
