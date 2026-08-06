@@ -1,0 +1,10 @@
+PXL-STG-0008A40 VERIFICATION
+
+[ ] Sintaks pxl-stg-0008a-invoice-api.js valid
+[ ] crm.html memanggil repair sebelum /api/crm/report
+[ ] Role Accounting/Manager/Admin/Superadmin dapat menjalankan repair
+[ ] Invoice issued/partially_paid/paid ikut dipindai
+[ ] Error sinkronisasi tidak ditelan Promise.allSettled
+[ ] Master customer tersedia sebelum render CRM
+[ ] Tidak ada SQL baru
+[ ] Production tidak disentuh

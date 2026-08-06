@@ -150,6 +150,35 @@ function register(app) {
     } catch(e){res.status(status(e)).json({error:clean(e)});}
   });
 
+  // CRM meminta repair ini sebelum memuat Master Customer. Berbeda dengan
+  // backfill daftar Invoice, hasilnya tidak disembunyikan: setiap kegagalan
+  // dikembalikan bersama nomor Invoice agar masalah data dapat ditelusuri.
+  app.post('/api/invoice-v1/crm/repair-customers', auth, roles('accounting','manager','admin'), async (req,res) => {
+    try {
+      const rows=await api.get('/invoices?invoice_status=in.(issued,partially_paid,paid)&select=*&order=created_at.asc&limit=1000');
+      const result={checked:(rows||[]).length,repaired:0,failed:[]};
+      // Jalankan berurutan supaya repair relasi customer/SO/WO yang sama tidak
+      // saling berlomba dan membuat master customer duplikat.
+      for(const invoice of rows||[]){
+        try{
+          await syncIssuedInvoiceToCrm(api,invoice,req.session.user.name);
+          result.repaired++;
+        }catch(error){
+          result.failed.push({
+            invoice_number:invoice.invoice_number||invoice.temporary_number||invoice.id,
+            customer_name:invoice.customer_name_snapshot||null,
+            error:clean(error)
+          });
+        }
+      }
+      if(result.failed.length)return res.status(409).json({
+        error:`${result.failed.length} Invoice gagal disinkronkan ke Master Customer CRM.`,
+        ...result
+      });
+      res.json({ok:true,...result});
+    }catch(e){res.status(status(e)).json({error:clean(e)});}
+  });
+
   app.get('/api/invoice-v1/:id', auth, readable, async (req,res) => {
     try {
       const rows=await api.get(`/invoices?id=eq.${enc(req.params.id)}&select=*`);
