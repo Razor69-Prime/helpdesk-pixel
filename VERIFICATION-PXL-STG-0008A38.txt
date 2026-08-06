@@ -1,0 +1,11 @@
+VERIFICATION PXL-STG-0008A38
+
+[OK] Sintaks pxl-stg-0008a-invoice-api.js lulus node --check.
+[OK] Sinkronisasi Invoice Terbit memastikan crm_customers tersedia.
+[OK] crm_invoices selalu menerima customer_id hasil resolusi/repair.
+[OK] Pembayaran Invoice lama menjalankan repair CRM sebelum update saldo.
+[OK] Backfill daftar Invoice mencakup crm_invoices tanpa customer_id.
+[OK] PDF Invoice paid/Lunas menampilkan Remarks PAID.
+[OK] PDF menerima paid_amount sebagai Down Payment.
+[OK] Tidak ada perubahan flow WO, MR, approval, atau penerbitan Invoice.
+[OK] Tidak memerlukan SQL baru.

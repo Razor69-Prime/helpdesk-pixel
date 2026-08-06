@@ -71,11 +71,11 @@ function register(app) {
       // Backfill Invoice Terbit lama yang dibuat sebelum sinkronisasi CRM aktif.
       // Maksimal 50 record per pembukaan daftar agar request tetap terkendali.
       if(['accounting','admin','superadmin'].includes(String(req.session.user.role||''))){
-        const crmRows=await api.safeGet('/crm_invoices?select=invoice_number&limit=2000',[]);
-        const crmNumbers=new Set((crmRows||[]).map(x=>String(x.invoice_number||'')));
+        const crmRows=await api.safeGet('/crm_invoices?select=invoice_number,customer_id&limit=2000',[]);
+        const crmByNumber=new Map((crmRows||[]).map(x=>[String(x.invoice_number||''),x]));
         const missing=(rows||[]).filter(x=>
           ['issued','partially_paid','paid'].includes(String(x.invoice_status||''))&&
-          x.invoice_number&&!crmNumbers.has(String(x.invoice_number))
+          x.invoice_number&&(!crmByNumber.has(String(x.invoice_number))||!crmByNumber.get(String(x.invoice_number))?.customer_id)
         ).slice(0,50);
         await Promise.allSettled(missing.map(x=>syncIssuedInvoiceToCrm(api,x,req.session.user.name)));
       }
@@ -128,8 +128,12 @@ function register(app) {
         uploaded_at:invoice.issued_at||invoice.invoice_date,
         project_name:projectName,
         reference_text:`SO ${so.so_number||'-'} · WO ${woNumbers.join(', ')||'-'}`,
-        remark:invoice.term_name||invoice.invoice_type||'',
+        // Dokumen yang sudah lunas harus mudah dikenali oleh customer dan Accounting.
+        remark:String(invoice.payment_status||'').toLowerCase()==='paid'||String(invoice.invoice_status||'').toLowerCase()==='paid'||num(invoice.balance_amount)<=0.0001?'PAID':(invoice.term_name||invoice.invoice_type||''),
         grand_total:invoice.total_amount,
+        down_payment:invoice.paid_amount,
+        redemption:0,
+        payment_method:'CASH & TRANSFER BANK',
         items:(items||[]).map(x=>({
           description:x.item_name||x.description||'-', qty:num(x.quantity),
           unit:x.unit||'Pcs', unit_price:num(x.unit_price), total:num(x.line_total||x.total_amount||num(x.quantity)*num(x.unit_price))
@@ -284,6 +288,9 @@ function register(app) {
         paid_at:isPaid?new Date().toISOString():(old.paid_at||null),
         updated_by:req.session.user.name,updated_at:new Date().toISOString()
       };
+      // Pembayaran juga menjadi jalur repair untuk Invoice lama: pastikan master
+      // customer dan relasi Invoice CRM tersedia sebelum saldo diperbarui.
+      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
       await syncCrmPayment(api,{...old,...patch});
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,isPaid?'MARK_PAID':'RECORD_PAYMENT',old,saved,text(req.body?.note));
@@ -305,6 +312,7 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
   const salesOrders=await api.get(`/sales_orders?id=eq.${enc(salesOrderId)}&select=id,so_number,customer_id,customer_name`);
   const so=salesOrders?.[0];
   if(!so)throw bad('Sinkronisasi CRM gagal: data Sales Order tidak ditemukan di CRM.');
+  const customer=await ensureCrmCustomer(api,invoice,so,tickets,actor);
   // WO operasional lama/manual dapat valid tetapi belum mempunyai mirror CRM.
   // Cari juga berdasarkan nomor WO, lalu perbaiki/buat mirror secara idempotent
   // agar penerbitan Invoice tidak tertahan oleh data integrasi historis.
@@ -321,7 +329,7 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
       wo_number:ticket.wo_number||`WO-${String(ticket.id).slice(0,8)}`,
       number_source:'manual',project_name:ticket.project_name||null,
       technician:ticket.technician||null,status:ticket.status||'done',
-      customer_id:ticket.crm_customer_id||so.customer_id||null,
+      customer_id:customer.id,
       customer_name:ticket.customer_name||so.customer_name||null,
       customer_phone:ticket.customer_phone||null,
       source_type:'invoice_sync_repair',integration_key:`ticket:${ticket.id}`,
@@ -345,7 +353,7 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
   const existing=await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[]);
   const payload={
     invoice_number:invoice.invoice_number,sales_order_id:salesOrderId,so_number:so.so_number,
-    customer_id:invoice.customer_id||so.customer_id||(tickets||[]).map(x=>x.crm_customer_id).find(Boolean)||null,
+    customer_id:customer.id,
     customer_name:invoice.customer_name_snapshot||so.customer_name||null,work_order_ids:crmWorkOrderIds,
     items:mappedItems,additional_items:[],base_total:num(invoice.total_amount),additional_total:0,
     grand_total:num(invoice.total_amount),status:num(invoice.balance_amount)<=0.0001&&num(invoice.paid_amount)>0?'paid':(num(invoice.paid_amount)>0?'partially_paid':'issued'),invoice_date:invoice.invoice_date,
@@ -356,6 +364,35 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
   };
   if(existing?.length)return (await api.patch(`/crm_invoices?id=eq.${enc(existing[0].id)}`,payload))[0];
   return (await api.post('/crm_invoices',payload))[0];
+}
+
+async function ensureCrmCustomer(api,invoice,so,tickets,actor){
+  const candidates=[invoice.customer_id,so.customer_id,...(tickets||[]).map(x=>x.crm_customer_id)].filter(Boolean);
+  for(const id of candidates){
+    const rows=await api.safeGet(`/crm_customers?id=eq.${enc(id)}&select=id,name&limit=1`,[]);
+    if(rows?.[0])return rows[0];
+  }
+  const customerName=text(invoice.customer_name_snapshot||so.customer_name||(tickets||[]).map(x=>x.customer_name).find(Boolean));
+  if(!customerName)throw bad('Sinkronisasi CRM gagal: nama customer Invoice tidak tersedia.');
+  const byName=await api.safeGet(`/crm_customers?name=eq.${enc(customerName)}&select=id,name&limit=1`,[]);
+  let customer=byName?.[0];
+  if(!customer){
+    const phone=text((tickets||[]).map(x=>x.customer_phone).find(Boolean))||null;
+    customer=(await api.post('/crm_customers',{
+      name:customerName,type:'B2B',sales_pic:text(invoice.sales_pic_snapshot)||null,
+      phone,normalized_phone:phone?phone.replace(/\D/g,''):null,
+      address:text(invoice.billing_address_snapshot)||null,status:'active',
+      source_name:'invoice_sync',created_by:actor||'System',updated_at:new Date().toISOString()
+    }))[0];
+  }
+  if(!customer?.id)throw bad(`Sinkronisasi CRM gagal: customer ${customerName} tidak dapat dibuat.`);
+  // Repair relasi sumber secara best effort; master customer dan crm_invoices
+  // tetap menjadi sumber utama bila salah satu tabel lama belum memiliki kolomnya.
+  await Promise.allSettled([
+    api.patch(`/sales_orders?id=eq.${enc(so.id)}`,{customer_id:customer.id,updated_at:new Date().toISOString()}),
+    ...(tickets||[]).map(x=>api.patch(`/tickets?id=eq.${enc(x.id)}`,{crm_customer_id:customer.id}))
+  ]);
+  return customer;
 }
 
 async function syncCrmPayment(api,invoice){
