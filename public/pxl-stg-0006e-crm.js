@@ -58,6 +58,7 @@
   }
 
   function customerHeader(customer, summary, payload) {
+    const latestPrice = Array.isArray(payload.last_prices) ? payload.last_prices[0] : null;
     return `<div class="grid2">
       <div class="card">
         <h3 style="margin-top:0">${esc(customer.name)}</h3>
@@ -68,6 +69,8 @@
           <b>Alamat</b><span>${esc(customer.address || '-')}</span>
           <b>Project terakhir</b><span>${esc(summary.computed_last_project_name || customer.last_project_name || '-')}</span>
           <b>Lokasi terakhir</b><span>${esc(summary.computed_last_location || customer.last_location || '-')}</span>
+          <b>Barang/jasa terakhir</b><span>${esc(latestPrice?.item_name || '-')}</span>
+          <b>Harga terakhir</b><span><b>${latestPrice ? money(latestPrice.unit_price) : '-'}</b>${latestPrice ? ` / ${esc(latestPrice.unit || 'unit')}` : ''}</span>
         </div>
       </div>
       <div class="card">
@@ -88,10 +91,10 @@
   }
 
   function transactionTable(rows) {
-    if (!rows.length) return '<div class="card empty">Belum ada transaksi SO Approved untuk customer ini.</div>';
-    return `<div class="card c360-scroll"><b>Riwayat Transaksi</b><table style="margin-top:10px"><thead><tr><th>Tanggal</th><th>Quotation</th><th>Sales Order</th><th>Project</th><th>Material</th><th>Jasa</th><th>Total</th></tr></thead><tbody>${rows.map(row => `<tr>
+    if (!rows.length) return '<div class="card empty">Belum ada Invoice Terbit atau Sales Order Approved untuk customer ini.</div>';
+    return `<div class="card c360-scroll"><b>Riwayat Transaksi</b><table style="margin-top:10px"><thead><tr><th>Tanggal</th><th>Invoice</th><th>Sales Order</th><th>Project</th><th>Material</th><th>Jasa</th><th>Nominal</th></tr></thead><tbody>${rows.map(row => `<tr>
       <td>${esc(dateTime(row.transaction_at))}</td>
-      <td><b>${esc(row.quotation_number || '-')}</b><div class="sub">Rev ${num(row.quotation_revision_no)}</div></td>
+      <td><b>${esc(row.invoice_number || row.quotation_number || '-')}</b>${row.invoice_number ? '<div class="sub">Invoice Terbit</div>' : `<div class="sub">Quotation Rev ${num(row.quotation_revision_no)}</div>`}</td>
       <td>${esc(row.so_number || '-')}</td>
       <td>${esc(row.project_name || '-')}</td>
       <td>${lineCount(row.material_items)}</td>
@@ -136,6 +139,8 @@
       const lifetime = num(summary.computed_lifetime_value ?? customer.lifetime_value);
       const lastAt = summary.computed_last_transaction_at || customer.last_transaction_at;
       const lastAmount = num(summary.computed_last_transaction_amount ?? customer.last_transaction_amount);
+      const lastTransaction = Array.isArray(payload.transactions) ? payload.transactions[0] : null;
+      const lastPrice = Array.isArray(payload.last_prices) ? payload.last_prices[0] : null;
 
       c360Content.innerHTML = `<div class="c360-stack">
         <div class="grid4">
@@ -143,6 +148,12 @@
           <div class="card metric"><div class="label">Lifetime Value</div><b style="font-size:20px">${money(lifetime)}</b></div>
           <div class="card metric"><div class="label">Transaksi Terakhir</div><b style="font-size:18px">${esc(dateTime(lastAt))}</b></div>
           <div class="card metric"><div class="label">Nilai Terakhir</div><b style="font-size:20px">${money(lastAmount)}</b></div>
+        </div>
+        <div class="grid4">
+          <div class="card metric"><div class="label">Nomor Transaksi Terakhir</div><b style="font-size:17px">${esc(lastTransaction?.invoice_number || lastTransaction?.so_number || '-')}</b></div>
+          <div class="card metric"><div class="label">Barang/Jasa Terakhir</div><b style="font-size:17px">${esc(lastPrice?.item_name || '-')}</b></div>
+          <div class="card metric"><div class="label">Harga Terakhir</div><b style="font-size:19px">${lastPrice ? money(lastPrice.unit_price) : '-'}</b></div>
+          <div class="card metric"><div class="label">Tanggal Pembelian</div><b style="font-size:17px">${esc(dateTime(lastPrice?.transaction_at || lastAt))}</b></div>
         </div>
         ${customerHeader(customer, summary, payload)}
         ${transactionTable(Array.isArray(payload.transactions) ? payload.transactions : [])}

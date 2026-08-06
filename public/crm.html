@@ -88,4 +88,6 @@ async function seedWoFoundation(){if(!confirm('Buat data dummy STG-DEMO untuk sa
 async function resetWoFoundation(){if(!confirm('Hapus seluruh data dummy STG-DEMO PXL-STG-0002?'))return;try{await api('DELETE','/api/staging/demo/wo-foundation');await loadAll();msg('Data dummy berhasil dibersihkan')}catch(e){msg(e.message)}}
 function goParent(tab){try{parent.postMessage({type:'PXL_NAVIGATE',tab},'*');if(parent!==window&&typeof parent.showTab==='function')parent.showTab(tab)}catch(_){msg('Silakan buka modul terkait dari sidebar utama')}}
 loadAll();
-</script></body></html>
+</script>
+<script src="/pxl-stg-0006e-crm.js?v=PXL-STG-0008A34"></script>
+</body></html>

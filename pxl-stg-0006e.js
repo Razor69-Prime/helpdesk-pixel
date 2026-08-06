@@ -92,6 +92,34 @@ function installCustomer360Routes() {
     return [...map.values()];
   }
 
+  function invoiceTransactions(customer, invoices) {
+    const validStatuses = new Set(['issued', 'partially_paid', 'paid', 'terbit', 'sebagian', 'lunas']);
+    return invoices
+      .filter(row => validStatuses.has(String(row.status || row.invoice_status || '').toLowerCase()))
+      .map(row => {
+        const items = Array.isArray(row.items) ? row.items : [];
+        const materialItems = items.filter(item => !isService(item));
+        const serviceItems = items.filter(isService);
+        return {
+          id: `invoice-${row.id}`,
+          source: 'invoice',
+          customer_id: row.customer_id || customer.id,
+          invoice_id: row.id,
+          invoice_number: row.invoice_number || null,
+          sales_order_id: row.sales_order_id || null,
+          so_number: row.so_number || null,
+          transaction_at: row.issued_at || row.invoice_date || row.updated_at || row.created_at,
+          status: row.status || row.invoice_status,
+          project_name: row.project_name || null,
+          location: row.billing_address || null,
+          material_items: materialItems,
+          service_items: serviceItems,
+          grand_total: numberValue(row.grand_total ?? row.total_amount ?? row.base_total)
+        };
+      })
+      .sort((a, b) => new Date(b.transaction_at || 0) - new Date(a.transaction_at || 0));
+  }
+
   express.application.get = function pxlStg0006EGet(path, ...handlers) {
     const result = originalGet.call(this, path, ...handlers);
 
@@ -133,7 +161,10 @@ function installCustomer360Routes() {
               try { lastPrices = await db.getCustomerLastPrices(customerId); } catch (_) { lastPrices = []; }
             }
 
-            let transactions = fallbackTransactions(customer, relatedSalesOrders);
+            const invoiceHistory = invoiceTransactions(customer, relatedInvoices);
+            let transactions = invoiceHistory.length
+              ? invoiceHistory
+              : fallbackTransactions(customer, relatedSalesOrders);
             if (db.USE_SUPABASE) {
               try {
                 const cfg = require('./config');
@@ -150,14 +181,14 @@ function installCustomer360Routes() {
                     }
                   }
                 );
-                if (response.ok) {
+                if (response.ok && !invoiceHistory.length) {
                   const rows = await response.json();
                   if (Array.isArray(rows) && rows.length) transactions = rows;
                 }
               } catch (_) {}
             }
 
-            if (!Array.isArray(lastPrices) || !lastPrices.length) {
+            if (invoiceHistory.length || !Array.isArray(lastPrices) || !lastPrices.length) {
               lastPrices = fallbackLastPrices(customerId, transactions);
             }
 
@@ -177,7 +208,7 @@ function installCustomer360Routes() {
 
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
             return res.json({
-              revision: 'PXL-STG-0006E',
+              revision: 'PXL-STG-0008A34',
               customer,
               summary: computedSummary,
               transactions,

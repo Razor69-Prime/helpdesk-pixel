@@ -299,19 +299,47 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
   ]);
   const ticketIds=[...new Set((relations||[]).map(x=>x.ticket_id).filter(Boolean))];
   if(!ticketIds.length)throw bad('Sinkronisasi CRM gagal: Invoice tidak memiliki Work Order.');
-  const tickets=await api.get(`/tickets?id=in.(${ticketIds.map(enc).join(',')})&select=id,wo_number,sales_order_id,crm_customer_id`);
+  const tickets=await api.get(`/tickets?id=in.(${ticketIds.map(enc).join(',')})&select=id,wo_number,project_name,status,sales_order_id,so_number,crm_customer_id,customer_name,customer_phone,technician,created_by`);
   const salesOrderId=invoice.source_so_id||(tickets||[]).map(x=>x.sales_order_id).find(Boolean);
   if(!salesOrderId)throw bad('Sinkronisasi CRM gagal: Sales Order sumber Invoice tidak ditemukan.');
   const salesOrders=await api.get(`/sales_orders?id=eq.${enc(salesOrderId)}&select=id,so_number,customer_id,customer_name`);
   const so=salesOrders?.[0];
   if(!so)throw bad('Sinkronisasi CRM gagal: data Sales Order tidak ditemukan di CRM.');
-  const crmWos=await api.safeGet(`/crm_work_orders?ticket_id=in.(${ticketIds.map(enc).join(',')})&select=id,ticket_id,wo_number`,[]);
-  const crmWoByTicket=new Map((crmWos||[]).map(x=>[String(x.ticket_id),x]));
+  // WO operasional lama/manual dapat valid tetapi belum mempunyai mirror CRM.
+  // Cari juga berdasarkan nomor WO, lalu perbaiki/buat mirror secara idempotent
+  // agar penerbitan Invoice tidak tertahan oleh data integrasi historis.
+  const crmWos=await api.safeGet(`/crm_work_orders?or=(ticket_id.in.(${ticketIds.map(enc).join(',')}),sales_order_id.eq.${enc(salesOrderId)})&select=id,ticket_id,wo_number,sales_order_id`,[]);
+  const crmWoByTicket=new Map((crmWos||[]).filter(x=>x.ticket_id).map(x=>[String(x.ticket_id),x]));
+  const crmWoByNumber=new Map((crmWos||[]).filter(x=>x.wo_number).map(x=>[String(x.wo_number).trim().toLowerCase(),x]));
+  for(const ticket of tickets||[]){
+    const ticketKey=String(ticket.id);
+    if(crmWoByTicket.has(ticketKey))continue;
+    const numberKey=String(ticket.wo_number||'').trim().toLowerCase();
+    let mirror=numberKey?crmWoByNumber.get(numberKey):null;
+    const mirrorPayload={
+      ticket_id:ticket.id,sales_order_id:salesOrderId,so_number:so.so_number,
+      wo_number:ticket.wo_number||`WO-${String(ticket.id).slice(0,8)}`,
+      number_source:'manual',project_name:ticket.project_name||null,
+      technician:ticket.technician||null,status:ticket.status||'done',
+      customer_id:ticket.crm_customer_id||so.customer_id||null,
+      customer_name:ticket.customer_name||so.customer_name||null,
+      customer_phone:ticket.customer_phone||null,
+      source_type:'invoice_sync_repair',integration_key:`ticket:${ticket.id}`,
+      updated_at:new Date().toISOString()
+    };
+    if(mirror){
+      mirror=(await api.patch(`/crm_work_orders?id=eq.${enc(mirror.id)}`,mirrorPayload))[0];
+    }else{
+      mirror=(await api.post('/crm_work_orders',{...mirrorPayload,created_by:actor||ticket.created_by||'System'}))[0];
+    }
+    if(mirror)crmWoByTicket.set(ticketKey,mirror);
+  }
   const missingCrmWo=(tickets||[]).filter(x=>!crmWoByTicket.has(String(x.id)));
-  if(missingCrmWo.length)throw bad(`Sinkronisasi CRM gagal: WO belum terkoneksi ke CRM: ${missingCrmWo.map(woLabel).join(', ')}.`);
+  if(missingCrmWo.length)throw bad(`Sinkronisasi CRM gagal setelah repair otomatis: ${missingCrmWo.map(woLabel).join(', ')}.`);
   const crmWorkOrderIds=ticketIds.map(id=>crmWoByTicket.get(String(id))?.id).filter(Boolean);
   const mappedItems=(items||[]).map(x=>({
     name:x.item_name||x.description||'-',description:x.description||null,
+    item_type:String(x.source_type||'').toLowerCase()==='service'||String(x.unit||'').toLowerCase()==='jasa'?'service':'item',
     qty:num(x.quantity),unit:x.unit||'pcs',unit_price:num(x.unit_price),total:num(x.line_total)
   }));
   const existing=await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[]);

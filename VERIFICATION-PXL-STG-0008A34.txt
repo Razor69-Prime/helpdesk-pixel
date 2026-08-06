@@ -1,0 +1,16 @@
+VERIFICATION PXL-STG-0008A34
+
+1. Pemeriksaan sintaks:
+   node --check pxl-stg-0006e.js
+   node --check pxl-stg-0008a-invoice-api.js
+   node --check public/pxl-stg-0006e-crm.js
+   node --check pxl-stg-0004f.js
+
+2. UAT staging:
+   - Buka CRM > Customer 360.
+   - Pilih customer yang memiliki Invoice Terbit.
+   - Pastikan nomor transaksi, tanggal, nominal, barang/jasa, dan harga terakhir tampil.
+   - Bandingkan nominal dan harga dengan detail Invoice Terbit terbaru.
+   - Pilih customer tanpa Invoice Terbit; pastikan fallback SO Approved tetap tampil bila tersedia.
+
+3. Tidak ada migration/SQL.

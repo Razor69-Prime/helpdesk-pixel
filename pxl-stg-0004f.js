@@ -68,7 +68,7 @@ express.static=function pxl0008a20Static(root,options){
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0008A20');}
       }
       if(isSalesOrder)html=forceSalesOrderScriptOrder(html);
-      if(isCrm)html=replaceOrAppendScript(html,'/pxl-stg-0006e-crm.js','PXL-STG-0006N');
+      if(isCrm)html=replaceOrAppendScript(html,'/pxl-stg-0006e-crm.js','PXL-STG-0008A34');
       res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');res.setHeader('Pragma','no-cache');return res.type('html').send(html);
     }catch(_){return middleware(req,res,next);}
   };
