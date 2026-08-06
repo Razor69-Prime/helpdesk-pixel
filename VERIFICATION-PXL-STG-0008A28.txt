@@ -1,0 +1,9 @@
+PXL-STG-0008A28 — Verification
+
+1. Syntax check Node.js: pxl-stg-0008a-invoice-api.js.
+2. Status workflow diperiksa:
+   Draft -> pending_approval -> approved -> issued.
+3. Endpoint issue menolak Invoice selain status approved.
+4. Endpoint reject mengembalikan Invoice ke Draft dan menyimpan alasan.
+5. PDF memakai nama proyek WO dengan fallback ke SO.
+6. Tidak ada SQL baru.

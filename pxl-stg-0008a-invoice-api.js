@@ -103,17 +103,20 @@ function register(app) {
       const [items,relations,tickets,sos]=await Promise.all([
         api.get(`/invoice_items?invoice_id=eq.${enc(req.params.id)}&order=line_no.asc`),
         api.get(`/invoice_work_orders?invoice_id=eq.${enc(req.params.id)}`),
-        api.get('/tickets?select=id,wo_number&limit=1000'),
-        invoice.source_so_id?api.get(`/sales_orders?id=eq.${enc(invoice.source_so_id)}&select=id,so_number`):Promise.resolve([])
+        api.get('/tickets?select=id,wo_number,project_name&limit=1000'),
+        invoice.source_so_id?api.get(`/sales_orders?id=eq.${enc(invoice.source_so_id)}&select=id,so_number,project_name`):Promise.resolve([])
       ]);
-      const ticketById=new Map((tickets||[]).map(x=>[String(x.id),x.wo_number]));
-      const woNumbers=(relations||[]).map(x=>ticketById.get(String(x.ticket_id||''))||x.ticket_id).filter(Boolean);
-      const soNumber=sos?.[0]?.so_number||'-';
+      const ticketById=new Map((tickets||[]).map(x=>[String(x.id),x]));
+      const relatedWos=(relations||[]).map(x=>ticketById.get(String(x.ticket_id||''))||{wo_number:x.ticket_id}).filter(Boolean);
+      const woNumbers=relatedWos.map(x=>x.wo_number).filter(Boolean);
+      const so=sos?.[0]||{};
+      const projectName=relatedWos.map(x=>text(x.project_name)).find(Boolean)||text(so.project_name)||'Invoice Pekerjaan';
       reportSvc.invoicePdf(res,{
         ...invoice,
         customer_name:invoice.customer_name_snapshot||'Customer',
         uploaded_at:invoice.issued_at||invoice.invoice_date,
-        project_name:`SO ${soNumber} · WO ${woNumbers.join(', ')||'-'}`,
+        project_name:projectName,
+        reference_text:`SO ${so.so_number||'-'} · WO ${woNumbers.join(', ')||'-'}`,
         remark:invoice.term_name||invoice.invoice_type||'',
         grand_total:invoice.total_amount,
         items:(items||[]).map(x=>({
@@ -159,7 +162,7 @@ function register(app) {
         item_discount_amount:calculated.itemDiscount, invoice_discount_amount:calculated.invoiceDiscount,
         hg_amount:calculated.hg, dpp_amount:calculated.dpp, ppn_amount:calculated.ppn,
         pph_amount:calculated.pph, total_amount:calculated.total, balance_amount:calculated.total,
-        invoice_status:'draft', payment_status:'unpaid', approval_required:calculated.approvalRequired,
+        invoice_status:'draft', payment_status:'unpaid', approval_required:true,
         approval_reason:calculated.approvalReason, created_by:req.session.user.name,
         updated_by:req.session.user.name, updated_at:now
       };
@@ -188,7 +191,7 @@ function register(app) {
         item_discount_amount:calculated.itemDiscount,invoice_discount_amount:calculated.invoiceDiscount,
         hg_amount:calculated.hg,dpp_amount:calculated.dpp,ppn_amount:calculated.ppn,pph_amount:calculated.pph,
         total_amount:calculated.total,balance_amount:calculated.total-Number(old.paid_amount||0),
-        approval_required:calculated.approvalRequired,approval_reason:calculated.approvalReason,
+        approval_required:true,approval_reason:calculated.approvalReason,
         approved_by:null,approved_at:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()
       };
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
@@ -203,9 +206,8 @@ function register(app) {
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice bukan Draft.'});
-      const next=old.approval_required?'pending_approval':'draft';
-      const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,{invoice_status:next,updated_at:new Date().toISOString()}))[0];
-      await audit(api,req,req.params.id,old.approval_required?'SUBMIT_APPROVAL':'READY_TO_ISSUE',old,saved,null);
+      const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,{invoice_status:'pending_approval',updated_by:req.session.user.name,updated_at:new Date().toISOString()}))[0];
+      await audit(api,req,req.params.id,'SUBMIT_APPROVAL',old,saved,null);
       res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
   });
@@ -214,7 +216,7 @@ function register(app) {
     try{
       const old=await one(api,req.params.id);
       if(old.invoice_status!=='pending_approval')return res.status(400).json({error:'Invoice tidak menunggu persetujuan.'});
-      const patch={invoice_status:'draft',approved_by:req.session.user.name,approved_at:new Date().toISOString(),rejected_by:null,rejected_at:null,rejection_reason:null};
+      const patch={invoice_status:'approved',approved_by:req.session.user.name,approved_at:new Date().toISOString(),rejected_by:null,rejected_at:null,rejection_reason:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()};
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'APPROVE',old,saved,req.body.reason||null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -224,7 +226,7 @@ function register(app) {
     try{
       if(!text(req.body.reason))return res.status(400).json({error:'Alasan penolakan wajib diisi.'});
       const old=await one(api,req.params.id);
-      const patch={invoice_status:'draft',rejected_by:req.session.user.name,rejected_at:new Date().toISOString(),rejection_reason:text(req.body.reason),approved_by:null,approved_at:null};
+      const patch={invoice_status:'draft',rejected_by:req.session.user.name,rejected_at:new Date().toISOString(),rejection_reason:text(req.body.reason),approved_by:null,approved_at:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()};
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'REJECT',old,saved,req.body.reason);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -233,8 +235,7 @@ function register(app) {
   app.post('/api/invoice-v1/:id/issue', auth, accounting, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
-      if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice harus Draft sebelum diterbitkan.'});
-      if(old.approval_required&&!old.approved_at)return res.status(400).json({error:'Invoice wajib mendapat persetujuan Manager.'});
+      if(old.invoice_status!=='approved' || !old.approved_at)return res.status(400).json({error:'Invoice harus berstatus Disetujui sebelum diterbitkan.'});
       await validateIssueRules(api,old,req.body||{});
       const series=old.tax_mode==='non_ppn'?'INVPIXEL':'INVCK';
       const date=new Date(`${old.invoice_date}T00:00:00+08:00`); const year=date.getFullYear(); const month=String(date.getMonth()+1).padStart(2,'0');
@@ -292,8 +293,8 @@ function calculate(body){
   const hg=round(afterItems-invoiceDiscount); const taxMode=text(body.tax_mode)||'ppn'; const taxPercent=taxMode==='non_ppn'?0:num(body.tax_percent||12);
   const dpp=body.manual_dpp?num(body.dpp_amount):hg; const ppn=taxMode==='non_ppn'?0:(body.manual_ppn?num(body.ppn_amount):round(dpp*taxPercent/100));
   const pph=body.manual_pph?num(body.pph_amount):num(body.pph_amount); const total=round(hg+ppn-pph);
-  const approvalRequired=total>50000000||body.credit_limit_exceeded===true;
-  return {items,subtotal,itemDiscount,invoiceDiscount,hg,dpp:round(dpp),ppn:round(ppn),pph:round(pph),total,taxMode,tax_mode:taxMode,taxPercent,tax_percent:taxPercent,approvalRequired,approvalReason:approvalRequired?(total>50000000?'Nilai invoice di atas Rp50.000.000':'Credit limit terlampaui'):null};
+  const approvalRequired=true;
+  return {items,subtotal,itemDiscount,invoiceDiscount,hg,dpp:round(dpp),ppn:round(ppn),pph:round(pph),total,taxMode,tax_mode:taxMode,taxPercent,tax_percent:taxPercent,approvalRequired,approvalReason:'Persetujuan Manager wajib sebelum Invoice diterbitkan.'};
 }
 
 async function validateIssueRules(api,inv,body){
