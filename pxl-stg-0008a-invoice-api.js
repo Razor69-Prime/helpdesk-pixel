@@ -403,14 +403,14 @@ async function validateWorkOrderFlow(api,inv){
     if(key&&requestsByTicket.has(key))requestsByTicket.get(key).push(mr);
   }
 
-  const noMr=[]; const notReturned=[];
+  const notReturned=[];
   for(const id of ids){
     const wo=woById.get(String(id));
     const requests=requestsByTicket.get(String(id))||[];
-    if(!requests.length)noMr.push(woLabel(wo));
-    else if(requests.some(mr=>!isReturnedMaterialStatus(mr.status)))notReturned.push(woLabel(wo));
+    // MR tidak wajib untuk WO yang memang tidak memakai material. Namun bila
+    // MR pernah dibuat, seluruh pengembaliannya wajib selesai sebelum Invoice.
+    if(requests.length&&requests.some(mr=>!isReturnedMaterialStatus(mr.status)))notReturned.push(woLabel(wo));
   }
-  if(noMr.length)throw bad(`Invoice belum dapat diproses. Material Request belum dibuat untuk: ${noMr.join(', ')}.`);
   if(notReturned.length)throw bad(`Invoice belum dapat diproses. Pengembalian material belum selesai untuk: ${notReturned.join(', ')}.`);
 }
 

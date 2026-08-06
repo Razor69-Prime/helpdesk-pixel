@@ -1,7 +1,8 @@
 'use strict';
 
-// PXL-STG-0008A30 — server-side guard untuk urutan WO dan Material Request.
-// WO selesai: MR wajib ada dan material sudah diambil.
+// PXL-STG-0008A32 — server-side guard untuk urutan WO dan Material Request.
+// Material Request bersifat kondisional: WO tanpa kebutuhan/pengambilan material
+// tetap dapat diselesaikan. Jika MR ada, material wajib sudah diambil.
 // Pengembalian material tetap dilakukan setelah pekerjaan selesai.
 
 const express = require('express');
@@ -32,11 +33,9 @@ async function materialRequestsForTicket(ticketId) {
 async function requireMaterialTaken(req, res, next) {
   try {
     const rows = await materialRequestsForTicket(req.params.id);
-    if (!rows.length) {
-      return res.status(409).json({
-        error: 'WO belum dapat diselesaikan. Buat Material Request dari WO ini terlebih dahulu.'
-      });
-    }
+    // Tidak semua pekerjaan membutuhkan material. Tanpa MR, WO dapat langsung
+    // diselesaikan selama tanda tangan teknisi dan customer sudah lengkap.
+    if (!rows.length) return next();
     const notTaken = rows.filter(row => !isMaterialTaken(row.status));
     if (notTaken.length) {
       return res.status(409).json({

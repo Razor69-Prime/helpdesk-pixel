@@ -8921,6 +8921,9 @@ function exportMaterialExcel(){
 function hasMRPermission(permission){
   if(!currentUser) return false;
   if(currentUser.role==='superadmin') return true;
+  // Teknisi selalu boleh melihat dan membuat MR dari WO yang ditugaskan.
+  // Pembatasan assignment tetap divalidasi ulang oleh server.
+  if(currentUser.role==='technician'&&['material_request_view','material_request_create'].includes(permission)) return true;
   const custom=Array.isArray(currentUser.custom_menus)?currentUser.custom_menus:[];
   const configured=custom.some(x=>String(x).startsWith('material_request_'));
   if(configured) return custom.includes(permission);

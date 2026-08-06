@@ -1,0 +1,42 @@
+VERIFICATION PXL-STG-0008A32
+
+A. WO tanpa material
+1. Login sebagai teknisi yang ditugaskan pada WO.
+2. Jangan membuat Material Request.
+3. Isi tanda tangan teknisi dan customer.
+4. Selesaikan WO.
+HASIL: berhasil, tanpa pesan wajib membuat MR.
+
+B. WO dengan MR belum diambil
+1. Teknisi membuat MR dari WO yang ditugaskan.
+2. Coba selesaikan WO sebelum material diambil.
+HASIL: ditolak karena material belum diambil.
+
+C. WO dengan MR sudah diambil
+1. Proses MR sampai status material diambil.
+2. Isi kedua tanda tangan dan selesaikan WO.
+HASIL: WO berhasil diselesaikan.
+
+D. Invoice dengan MR belum dikembalikan
+1. Buat Invoice Draft dari WO pada skenario C.
+2. Coba Ajukan Approval.
+HASIL: ditolak karena pengembalian material belum selesai.
+
+E. Invoice setelah material dikembalikan
+1. Selesaikan pengembalian seluruh MR.
+2. Ajukan, setujui, lalu terbitkan Invoice.
+HASIL: seluruh proses berhasil.
+
+F. Akses teknisi
+1. Login sebagai teknisi dengan custom access lama yang tidak memuat material_request_create.
+2. Buka Operasional Teknisi -> Form Material Request.
+3. Klik Buat Material Request Baru.
+4. Pastikan dropdown hanya menampilkan WO yang ditugaskan kepada teknisi tersebut.
+HASIL: form dapat dibuka dan MR dapat dibuat untuk WO sendiri; WO teknisi lain ditolak server.
+
+Pemeriksaan teknis:
+- node --check pxl-stg-0008a30-flow-guard.js
+- node --check pxl-stg-0008a-invoice-api.js
+- Validasi script inline public/index.html
+- Integritas ZIP diuji dengan unzip -t
+
