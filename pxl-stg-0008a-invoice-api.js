@@ -65,7 +65,7 @@ function register(app) {
 
   app.get('/api/invoice-v1', auth, readable, async (req,res) => {
     try {
-      let q='/invoices?select=*&order=created_at.desc.nullslast,uploaded_at.desc&limit=500';
+      let q='/invoices?select=*&order=issued_at.desc.nullslast,updated_at.desc.nullslast,uploaded_at.desc.nullslast&limit=500';
       if(req.query.status) q += `&invoice_status=eq.${enc(req.query.status)}`;
       const rows=await api.get(q);
       // Backfill Invoice Terbit lama yang dibuat sebelum sinkronisasi CRM aktif.
@@ -155,7 +155,7 @@ function register(app) {
   // dikembalikan bersama nomor Invoice agar masalah data dapat ditelusuri.
   app.post('/api/invoice-v1/crm/repair-customers', auth, roles('accounting','manager','admin'), async (req,res) => {
     try {
-      const rows=await api.get('/invoices?invoice_status=in.(issued,partially_paid,paid)&select=*&order=created_at.asc&limit=1000');
+      const rows=await api.get('/invoices?invoice_status=in.(issued,partially_paid,paid)&select=*&order=invoice_date.asc.nullslast,issued_at.asc.nullslast&limit=1000');
       const result={checked:(rows||[]).length,repaired:0,failed:[]};
       // Jalankan berurutan supaya repair relasi customer/SO/WO yang sama tidak
       // saling berlomba dan membuat master customer duplikat.

@@ -1,0 +1,10 @@
+VERIFICATION PXL-STG-0008A41
+
+[OK] node --check pxl-stg-0008a-invoice-api.js
+[OK] Query daftar invoices tidak memakai invoices.created_at
+[OK] Query repair CRM tidak memakai invoices.created_at
+[OK] Query memakai kolom tanggal yang tersedia di migration Invoice
+[OK] Perbaikan A40 tetap termasuk dalam source A41
+[OK] Tidak memerlukan SQL/migration baru
+[OK] Production tidak disentuh
+
