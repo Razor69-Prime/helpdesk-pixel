@@ -84,7 +84,7 @@
     document.getElementById('app-content')?.appendChild(el);
   }
   function addMenu(){
-    if(!canRead()||document.getElementById('pxl-piutang-menu'))return;
+    if(!canRead()||document.querySelector('[data-tab-id="piutang"]'))return;
     const nav=document.getElementById('main-nav');if(!nav)return;
     let group=[...nav.querySelectorAll('.sidebar-group')].find(x=>/accounting/i.test(x.querySelector('.sidebar-group-toggle span')?.textContent||''));
     if(!group){
@@ -94,8 +94,8 @@
       group.innerHTML='<button type="button" class="sidebar-group-toggle" aria-expanded="true"><span>Accounting &amp; Piutang</span><span class="sidebar-group-arrow">▾</span></button><div class="sidebar-group-content"></div>';
       nav.appendChild(group);
     }
-    const button=document.createElement('button');button.id='pxl-piutang-menu';button.type='button';button.className='nav-btn';button.dataset.tabId='piutang-v1';button.innerHTML='💳 <span class="nav-label">Daftar Piutang</span>';
-    button.onclick=()=>open();
+    const button=document.createElement('button');button.id='pxl-piutang-menu';button.type='button';button.className='nav-btn';button.dataset.tabId='piutang';button.innerHTML='💳 <span class="nav-label">Daftar Piutang</span>';
+    button.onclick=()=>open(button);
     (group.querySelector('.sidebar-group-content')||group).appendChild(button);
   }
   function status(row){
@@ -120,11 +120,13 @@
     const note=prompt('Catatan pembayaran (opsional):','')||'';
     try{await request(`/api/invoice-v1/${encodeURIComponent(id)}/payment`,{method:'POST',body:JSON.stringify({paid_amount:amount,note})});await refreshIssued(true);render();if(typeof window.loadDashboard==='function')window.loadDashboard();if(typeof window.loadSalesDashboard==='function')window.loadSalesDashboard();alert('Pembayaran berhasil dicatat.');}catch(e){alert(e.message);}
   }
-  async function open(){
+  async function open(button){
     addTab();document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));tab()?.classList.add('active');document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));document.getElementById('pxl-piutang-menu')?.classList.add('active');
+    (button||document.querySelector('[data-tab-id="piutang"]'))?.classList.add('active');
     const box=document.getElementById('pxl-piutang-content');if(box)box.innerHTML='<div class="no-data">Memuat piutang...</div>';
     try{await refreshIssued(true);render();}catch(e){if(box)box.innerHTML='<div class="alert error">'+esc(e.message)+'</div>';}
   }
+  window.openPxlReceivables=open;
   function init(){addTab();addMenu();}
   window.addEventListener('load',init);new MutationObserver(init).observe(document.documentElement,{childList:true,subtree:true});
 })();

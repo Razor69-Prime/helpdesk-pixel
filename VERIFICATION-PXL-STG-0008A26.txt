@@ -1,0 +1,6 @@
+PXL-STG-0008A26 Verification
+
+1. public/index.html: tab piutang ditambahkan ke definisi menu inti dan kelompok Accounting & Piutang.
+2. public/index.html: switchTab meneruskan pembukaan Piutang ke modul receivables sebelum mencoba mencari tab HTML statis.
+3. public/pxl-stg-0008a24-revenue-receivables.js: mendukung menu inti data-tab-id="piutang" dan hanya membuat fallback bila menu belum tersedia.
+4. Tidak ada perubahan API, database, SQL, main, atau production.

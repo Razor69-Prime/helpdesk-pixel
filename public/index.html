@@ -2806,6 +2806,7 @@ function buildNav(){
     {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
+    {id:'piutang',   label:'💳 Daftar Piutang', show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
     {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
     {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
@@ -2850,7 +2851,7 @@ function buildNav(){
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','materials']},
     {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm','sales_order']},
-    {label:'Accounting & Piutang', ids:['invoice']},
+    {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory']},
     {label:'Administrasi', ids:['archive','users','actlog']},
@@ -2980,6 +2981,11 @@ function sendModuleToken(frame){
   }catch(_){}
 }
 function switchTab(tab,btn){
+  // PXL-STG-0008A26: Piutang adalah menu inti; modulnya menangani tab sendiri.
+  if(tab==='piutang'){
+    if(typeof window.openPxlReceivables==='function') window.openPxlReceivables(btn);
+    return;
+  }
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
