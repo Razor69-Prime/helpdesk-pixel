@@ -1,0 +1,24 @@
+VERIFICATION PXL-STG-0008A21
+
+Pemeriksaan statis
+- node --check server.js
+- Pastikan kedua endpoint Invoice menginisialisasi file_url dengan null.
+- Pastikan file_url hanya ditimpa setelah upload/storage berhasil.
+
+Uji staging yang wajib dilakukan
+1. Buat Invoice terkait WO tanpa memilih file.
+   Hasil: HTTP 201, record tersimpan, file_url = NULL.
+2. Buat Invoice tanpa WO tanpa memilih file menggunakan akun yang memiliki izin.
+   Hasil: HTTP 201, record tersimpan, file_url = NULL.
+3. Upload Invoice terkait WO dengan PDF/JPG/PNG valid.
+   Hasil: HTTP 201 dan file_url berisi URL file yang dapat dibuka.
+4. Upload Invoice tanpa WO dengan PDF/JPG/PNG valid.
+   Hasil: HTTP 201 dan file_url berisi URL file yang dapat dibuka.
+5. Buka daftar Invoice.
+   Hasil: Draft tanpa file tampil tanpa tautan rusak; Invoice dengan file tetap
+   memiliki tautan yang dapat dibuka.
+6. Pastikan modul lain, main, dan production tidak berubah.
+
+Catatan
+- Pengujian koneksi Supabase dan upload Storage harus dilakukan pada deployment
+  staging karena kredensial dan layanan tersebut tidak digunakan dalam uji lokal.

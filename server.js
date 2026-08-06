@@ -676,7 +676,9 @@ app.post('/api/tickets/:id/invoice',
   upload.single('file'),
   async (req, res) => {
     try {
-      let file_url      = "";
+      // Draft invoice belum memiliki berkas. Simpan NULL agar file_url hanya
+      // terisi setelah file benar-benar berhasil diunggah/disimpan.
+      let file_url      = null;
       let original_name = null;
       let mime_type     = null;
 
@@ -762,7 +764,9 @@ app.post('/api/invoices/standalone', requireRole('accounting','admin','manager',
       return res.status(403).json({ error: 'Anda tidak memiliki izin upload invoice tanpa WO.' });
     }
 
-    let file_url      = "";
+    // Draft invoice belum memiliki berkas. Simpan NULL agar file_url hanya
+    // terisi setelah file benar-benar berhasil diunggah/disimpan.
+    let file_url      = null;
     let original_name = null;
     let mime_type     = null;
 
