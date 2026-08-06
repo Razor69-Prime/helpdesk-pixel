@@ -1,0 +1,11 @@
+VERIFICATION PXL-STG-0008A36
+
+1. Login staging sebagai Accounting, Admin, atau Superadmin.
+2. Buka Accounting & Piutang > Daftar Piutang dari web desktop.
+3. Pastikan kolom Status dan Aksi tampil serta tombol Catat Bayar dapat diklik.
+4. Pastikan setiap baris memiliki garis pemisah tipis.
+5. Klik Download PDF dan periksa data piutang terbuka.
+6. Klik Download Excel dan periksa worksheet Daftar Piutang.
+7. Buka dari PWA; pastikan tombol Catat Bayar tampil pada setiap kartu.
+8. Login sebagai Manager; data boleh dibaca tetapi tombol Catat Bayar tidak tampil.
+
