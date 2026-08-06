@@ -209,7 +209,8 @@
     ['Operasional Teknisi',[['report','Input Laporan'],['tickets','Daftar Tiket'],['materials','Material Request']]],
     ['Gudang',[['inventory_view','Inventory'],['material_request_view','Material Request'],['material_request_edit','Persiapan / Pengembalian'],['material_request_issue','Pengeluaran Material']]],
     ['Sales & Proyek',[['sales','Sales Dashboard'],['kunjungan','Kunjungan'],['projects','Project'],['crm','CRM'],['sales_order','Sales Order']]],
-    ['Keuangan & Pengadaan',[['invoice','Invoice'],['pr','Purchase Request'],['supplier','Supplier']]],
+    ['Accounting & Piutang',[['invoice','Invoice']]],
+    ['Keuangan & Pengadaan',[['pr','Purchase Request'],['supplier','Supplier']]],
     ['Administrasi',[['archive','Arsip'],['users','Manajemen Akun'],['actlog','Activity Log']]]
   ];
   const DEFAULTS={

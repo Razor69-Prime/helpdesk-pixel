@@ -1,0 +1,6 @@
+PXL-STG-0008A25 Verification
+
+1. public/index.html: kelompok navigasi utama dan checklist hak akses memisahkan Accounting & Piutang dari Keuangan & Pengadaan.
+2. public/pxl-stg-0008a24-revenue-receivables.js: tombol Daftar Piutang mencari atau membuat kelompok Accounting & Piutang secara eksplisit.
+3. public/pxl-stg-0005d.js: daftar hak akses akun menggunakan kelompok menu yang sama.
+4. Tidak ada perubahan API, database, SQL, main, atau production.

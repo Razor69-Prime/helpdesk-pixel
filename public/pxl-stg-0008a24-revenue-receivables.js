@@ -1,7 +1,7 @@
-/* PXL-STG-0008A24 — Invoice V1 Terbit sebagai omzet, realisasi Sales PIC, dan Piutang. */
+/* PXL-STG-0008A25 — Invoice V1 Terbit sebagai omzet, realisasi Sales PIC, dan Piutang di Accounting. */
 (function(){
   'use strict';
-  const KEY='pxl-stg-0008a24';
+  const KEY='pxl-stg-0008a25';
   let issued=[];
   let loaded=false;
   const canAccount=()=>['accounting','admin','superadmin'].includes(String(window.currentUser?.role||'').toLowerCase());
@@ -86,10 +86,17 @@
   function addMenu(){
     if(!canRead()||document.getElementById('pxl-piutang-menu'))return;
     const nav=document.getElementById('main-nav');if(!nav)return;
-    let group=[...nav.querySelectorAll('.sidebar-group')].find(x=>/keuangan/i.test(x.textContent||''));
+    let group=[...nav.querySelectorAll('.sidebar-group')].find(x=>/accounting/i.test(x.querySelector('.sidebar-group-toggle span')?.textContent||''));
+    if(!group){
+      group=document.createElement('div');
+      group.className='sidebar-group';
+      group.dataset.navGroup='accounting-piutang';
+      group.innerHTML='<button type="button" class="sidebar-group-toggle" aria-expanded="true"><span>Accounting &amp; Piutang</span><span class="sidebar-group-arrow">▾</span></button><div class="sidebar-group-content"></div>';
+      nav.appendChild(group);
+    }
     const button=document.createElement('button');button.id='pxl-piutang-menu';button.type='button';button.className='nav-btn';button.dataset.tabId='piutang-v1';button.innerHTML='💳 <span class="nav-label">Daftar Piutang</span>';
     button.onclick=()=>open();
-    (group?.querySelector('.sidebar-group-content')||nav).appendChild(button);
+    (group.querySelector('.sidebar-group-content')||group).appendChild(button);
   }
   function status(row){
     if(Number(row.balance_amount)<=0.0001)return '<span class="status-badge done">Lunas</span>';
