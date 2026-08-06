@@ -1,0 +1,13 @@
+VERIFICATION — PXL-STG-0008A22
+
+[OK] node --check pxl-stg-0008a-invoice-api.js
+[OK] Validasi Full Payment mengenali status WO `done` sebagai status selesai.
+[OK] Endpoint GET /api/invoice-v1 menambahkan source_so_number dan work_order_numbers.
+[OK] Daftar Invoice menampilkan kolom SO dan WO; WO mendukung satu atau lebih nomor.
+[OK] Font/padding tabel daftar Invoice diperkecil.
+[OK] iframe Invoice memakai cache-bust PXL-STG-0008A22.
+
+Uji manual staging setelah push
+1. Buka satu Draft Invoice Full Payment dengan seluruh WO berstatus Selesai.
+2. Klik Terbitkan tanpa mengisi alasan override; Invoice harus berhasil terbit.
+3. Kembali ke daftar Invoice dan pastikan nomor SO serta semua nomor WO tampil.

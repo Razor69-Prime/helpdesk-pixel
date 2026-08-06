@@ -67,7 +67,27 @@ function register(app) {
       let q='/invoices?select=*&order=created_at.desc.nullslast,uploaded_at.desc&limit=500';
       if(req.query.status) q += `&invoice_status=eq.${enc(req.query.status)}`;
       const rows=await api.get(q);
-      res.json(rows||[]);
+      const invoiceIds=(rows||[]).map(x=>x.id).filter(Boolean);
+      const soIds=[...new Set((rows||[]).map(x=>x.source_so_id).filter(Boolean))];
+      const [relations,salesOrders,tickets]=await Promise.all([
+        invoiceIds.length?api.get(`/invoice_work_orders?invoice_id=in.(${invoiceIds.map(enc).join(',')})&select=invoice_id,ticket_id`):Promise.resolve([]),
+        soIds.length?api.get(`/sales_orders?id=in.(${soIds.map(enc).join(',')})&select=id,so_number,order_number`):Promise.resolve([]),
+        invoiceIds.length?api.get('/tickets?select=id,wo_number&limit=1000'):Promise.resolve([])
+      ]);
+      const soById=new Map((salesOrders||[]).map(x=>[String(x.id),x]));
+      const ticketById=new Map((tickets||[]).map(x=>[String(x.id),x]));
+      const wosByInvoice=new Map();
+      for(const relation of relations||[]){
+        const id=String(relation.invoice_id||'');
+        if(!wosByInvoice.has(id))wosByInvoice.set(id,[]);
+        const wo=ticketById.get(String(relation.ticket_id||''));
+        wosByInvoice.get(id).push(wo?.wo_number||relation.ticket_id);
+      }
+      res.json((rows||[]).map(row=>({
+        ...row,
+        source_so_number:soById.get(String(row.source_so_id||''))?.so_number||soById.get(String(row.source_so_id||''))?.order_number||null,
+        work_order_numbers:[...new Set((wosByInvoice.get(String(row.id))||[]).filter(Boolean))]
+      })));
     } catch(e){res.status(500).json({error:clean(e)});}
   });
 
@@ -219,7 +239,7 @@ async function validateIssueRules(api,inv,body){
     if(rel.length){
       const ids=rel.map(x=>x.ticket_id).filter(Boolean);
       const wos=ids.length?await api.get(`/tickets?id=in.(${ids.map(enc).join(',')})&select=id,status`):[];
-      const unfinished=wos.filter(x=>!['selesai','completed','closed'].includes(String(x.status||'').toLowerCase()));
+      const unfinished=wos.filter(x=>!isFinishedWorkOrderStatus(x.status));
       if(unfinished.length&&!text(body.override_reason))throw bad('Full Payment memiliki WO belum selesai. Alasan override wajib diisi.');
     }
   }
@@ -228,6 +248,14 @@ async function validateIssueRules(api,inv,body){
     const used=siblings.reduce((s,x)=>s+num(x.term_percent),0);
     if(used+num(inv.term_percent)>100.0001)throw bad('Total termin yang diterbitkan tidak boleh melebihi 100%.');
   }
+}
+
+// Status WO yang dipakai aplikasi teknisi saat pekerjaan selesai adalah "done".
+// Terima juga label yang digunakan pada data/migrasi lama agar Full Payment
+// tidak tertahan ketika seluruh WO sebenarnya sudah selesai.
+function isFinishedWorkOrderStatus(value){
+  return ['done','selesai','completed','closed','finished']
+    .includes(String(value||'').trim().toLowerCase());
 }
 
 async function nextSequence(api,series,year,manual,month){
