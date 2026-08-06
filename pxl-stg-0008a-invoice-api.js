@@ -54,7 +54,7 @@ function register(app) {
       const [sos,wos,customers] = await Promise.all([
         api.get('/sales_orders?select=*&order=created_at.desc&limit=300'),
         api.get('/tickets?select=*&order=created_at.desc&limit=500'),
-        api.safeGet('/crm_customers?select=*&order=customer_name.asc&limit=500', [])
+        api.safeGet('/crm_customers?select=*&order=name.asc&limit=500', [])
       ]);
       res.json({
         sales_orders:(sos||[]).filter(x=>['approved','setujui','disetujui'].includes(String(x.status||'').toLowerCase())),
@@ -71,11 +71,19 @@ function register(app) {
       // Backfill Invoice Terbit lama yang dibuat sebelum sinkronisasi CRM aktif.
       // Maksimal 50 record per pembukaan daftar agar request tetap terkendali.
       if(['accounting','admin','superadmin'].includes(String(req.session.user.role||''))){
-        const crmRows=await api.safeGet('/crm_invoices?select=invoice_number,customer_id&limit=2000',[]);
+        const [crmRows,crmCustomers]=await Promise.all([
+          api.safeGet('/crm_invoices?select=invoice_number,customer_id,customer_name&limit=2000',[]),
+          api.safeGet('/crm_customers?select=id,name&limit=2000',[])
+        ]);
         const crmByNumber=new Map((crmRows||[]).map(x=>[String(x.invoice_number||''),x]));
+        const validCustomerIds=new Set((crmCustomers||[]).map(x=>String(x.id||'')).filter(Boolean));
         const missing=(rows||[]).filter(x=>
           ['issued','partially_paid','paid'].includes(String(x.invoice_status||''))&&
-          x.invoice_number&&(!crmByNumber.has(String(x.invoice_number))||!crmByNumber.get(String(x.invoice_number))?.customer_id)
+          x.invoice_number&&(
+            !crmByNumber.has(String(x.invoice_number))||
+            !crmByNumber.get(String(x.invoice_number))?.customer_id||
+            !validCustomerIds.has(String(crmByNumber.get(String(x.invoice_number))?.customer_id||''))
+          )
         ).slice(0,50);
         await Promise.allSettled(missing.map(x=>syncIssuedInvoiceToCrm(api,x,req.session.user.name)));
       }
@@ -367,15 +375,21 @@ async function syncIssuedInvoiceToCrm(api,invoice,actor){
 }
 
 async function ensureCrmCustomer(api,invoice,so,tickets,actor){
-  const candidates=[invoice.customer_id,so.customer_id,...(tickets||[]).map(x=>x.crm_customer_id)].filter(Boolean);
-  for(const id of candidates){
-    const rows=await api.safeGet(`/crm_customers?id=eq.${enc(id)}&select=id,name&limit=1`,[]);
-    if(rows?.[0])return rows[0];
-  }
   const customerName=text(invoice.customer_name_snapshot||so.customer_name||(tickets||[]).map(x=>x.customer_name).find(Boolean));
   if(!customerName)throw bad('Sinkronisasi CRM gagal: nama customer Invoice tidak tersedia.');
-  const byName=await api.safeGet(`/crm_customers?name=eq.${enc(customerName)}&select=id,name&limit=1`,[]);
-  let customer=byName?.[0];
+  const candidates=[invoice.customer_id,so.customer_id,...(tickets||[]).map(x=>x.crm_customer_id)].filter(Boolean);
+  for(const id of candidates){
+    const rows=await api.safeGet(`/crm_customers?id=eq.${enc(id)}&select=id,name,status&limit=1`,[]);
+    const matched=rows?.[0];
+    if(matched&&normalizeCustomerName(matched.name)===normalizeCustomerName(customerName)){
+      if(String(matched.status||'active').toLowerCase()==='active')return matched;
+      return (await api.patch(`/crm_customers?id=eq.${enc(matched.id)}`,{
+        status:'active',updated_at:new Date().toISOString()
+      }))[0]||matched;
+    }
+  }
+  const nameCandidates=await api.safeGet(`/crm_customers?name=ilike.${enc(customerName)}&select=id,name,status&limit=20`,[]);
+  let customer=(nameCandidates||[]).find(row=>normalizeCustomerName(row.name)===normalizeCustomerName(customerName));
   if(!customer){
     const phone=text((tickets||[]).map(x=>x.customer_phone).find(Boolean))||null;
     customer=(await api.post('/crm_customers',{
@@ -384,6 +398,10 @@ async function ensureCrmCustomer(api,invoice,so,tickets,actor){
       address:text(invoice.billing_address_snapshot)||null,status:'active',
       source_name:'invoice_sync',created_by:actor||'System',updated_at:new Date().toISOString()
     }))[0];
+  }else if(String(customer.status||'active').toLowerCase()!=='active'){
+    customer=(await api.patch(`/crm_customers?id=eq.${enc(customer.id)}`,{
+      status:'active',updated_at:new Date().toISOString()
+    }))[0]||customer;
   }
   if(!customer?.id)throw bad(`Sinkronisasi CRM gagal: customer ${customerName} tidak dapat dibuat.`);
   // Repair relasi sumber secara best effort; master customer dan crm_invoices
@@ -393,6 +411,10 @@ async function ensureCrmCustomer(api,invoice,so,tickets,actor){
     ...(tickets||[]).map(x=>api.patch(`/tickets?id=eq.${enc(x.id)}`,{crm_customer_id:customer.id}))
   ]);
   return customer;
+}
+
+function normalizeCustomerName(value){
+  return String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
 }
 
 async function syncCrmPayment(api,invoice){

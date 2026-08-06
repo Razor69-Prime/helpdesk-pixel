@@ -1,0 +1,11 @@
+VERIFICATION PXL-STG-0008A39
+
+[x] JavaScript lolos node --check.
+[x] Invoice dengan crm_invoices.customer_id kosong masuk antrean repair.
+[x] Invoice dengan customer_id yatim/tidak ada di crm_customers masuk antrean repair.
+[x] Candidate ID dengan nama customer berbeda tidak digunakan.
+[x] Master customer dicari case-insensitive sebelum insert.
+[x] Customer nonaktif diaktifkan kembali.
+[x] Sync tetap idempotent berdasarkan invoice_number.
+[x] Tidak mengubah flow WO, MR, approval, pembayaran, atau PDF.
+[x] Tidak memerlukan SQL.
