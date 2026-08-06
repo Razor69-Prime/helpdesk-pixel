@@ -3,6 +3,7 @@
 /* PXL-STG-0008A19 — pasang route Invoice V1 setelah middleware JWT utama. */
 const express = require('express');
 const crypto = require('crypto');
+const reportSvc = require('./report-service');
 const PATCH_KEY = Symbol.for('pxl.stg.0008a.invoice.api');
 
 if (!global[PATCH_KEY]) {
@@ -91,16 +92,51 @@ function register(app) {
     } catch(e){res.status(500).json({error:clean(e)});}
   });
 
+  // PDF hanya tersedia setelah Invoice diterbitkan. Draft tetap dapat diedit
+  // tanpa menghasilkan dokumen resmi bernomor Invoice.
+  app.get('/api/invoice-v1/:id/pdf', auth, readable, async (req,res) => {
+    try {
+      const invoice=await one(api,req.params.id);
+      if(!['issued','partially_paid','paid'].includes(String(invoice.invoice_status||''))){
+        return res.status(400).json({error:'PDF tersedia setelah Invoice diterbitkan.'});
+      }
+      const [items,relations,tickets,sos]=await Promise.all([
+        api.get(`/invoice_items?invoice_id=eq.${enc(req.params.id)}&order=line_no.asc`),
+        api.get(`/invoice_work_orders?invoice_id=eq.${enc(req.params.id)}`),
+        api.get('/tickets?select=id,wo_number&limit=1000'),
+        invoice.source_so_id?api.get(`/sales_orders?id=eq.${enc(invoice.source_so_id)}&select=id,so_number`):Promise.resolve([])
+      ]);
+      const ticketById=new Map((tickets||[]).map(x=>[String(x.id),x.wo_number]));
+      const woNumbers=(relations||[]).map(x=>ticketById.get(String(x.ticket_id||''))||x.ticket_id).filter(Boolean);
+      const soNumber=sos?.[0]?.so_number||'-';
+      reportSvc.invoicePdf(res,{
+        ...invoice,
+        customer_name:invoice.customer_name_snapshot||'Customer',
+        uploaded_at:invoice.issued_at||invoice.invoice_date,
+        project_name:`SO ${soNumber} · WO ${woNumbers.join(', ')||'-'}`,
+        remark:invoice.term_name||invoice.invoice_type||'',
+        grand_total:invoice.total_amount,
+        items:(items||[]).map(x=>({
+          description:x.item_name||x.description||'-', qty:num(x.quantity),
+          unit:x.unit||'Pcs', unit_price:num(x.unit_price), total:num(x.line_total||x.total_amount||num(x.quantity)*num(x.unit_price))
+        }))
+      });
+    } catch(e){res.status(status(e)).json({error:clean(e)});}
+  });
+
   app.get('/api/invoice-v1/:id', auth, readable, async (req,res) => {
     try {
       const rows=await api.get(`/invoices?id=eq.${enc(req.params.id)}&select=*`);
       if(!rows?.length)return res.status(404).json({error:'Invoice tidak ditemukan.'});
-      const [items,wos,audit]=await Promise.all([
+      const [items,wos,audit,tickets,sos]=await Promise.all([
         api.get(`/invoice_items?invoice_id=eq.${enc(req.params.id)}&order=line_no.asc`),
         api.get(`/invoice_work_orders?invoice_id=eq.${enc(req.params.id)}`),
-        api.get(`/invoice_audit_logs?invoice_id=eq.${enc(req.params.id)}&order=created_at.desc`)
+        api.get(`/invoice_audit_logs?invoice_id=eq.${enc(req.params.id)}&order=created_at.desc`),
+        api.get('/tickets?select=id,wo_number&limit=1000'),
+        rows[0].source_so_id?api.get(`/sales_orders?id=eq.${enc(rows[0].source_so_id)}&select=id,so_number`):Promise.resolve([])
       ]);
-      res.json({...rows[0],items,wos,audit});
+      const woById=new Map((tickets||[]).map(x=>[String(x.id),x.wo_number]));
+      res.json({...rows[0],items,wos:(wos||[]).map(x=>({...x,wo_number:woById.get(String(x.ticket_id||''))||x.ticket_id})),audit,source_so_number:sos?.[0]?.so_number||null});
     } catch(e){res.status(500).json({error:clean(e)});}
   });
 

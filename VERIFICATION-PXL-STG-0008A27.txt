@@ -1,0 +1,12 @@
+VERIFICATION — PXL-STG-0008A27
+
+1. node --check pxl-stg-0008a-invoice-api.js — PASS
+2. node --check public/pxl-stg-0008a24-revenue-receivables.js — PASS
+3. Inline JavaScript public/invoice-v1-a16.html — PASS
+4. Endpoint PDF berada sebelum route /api/invoice-v1/:id — PASS
+5. Paket ZIP hanya memuat file revisi — PASS
+
+UAT staging:
+- Buka Invoice Terbit, pastikan tombol Download PDF muncul dan file PDF terunduh.
+- Pastikan detail memuat SO dan satu/lebih nomor WO.
+- Buka Accounting & Piutang > Daftar Piutang dan cek SO/WO pada baris piutang.
