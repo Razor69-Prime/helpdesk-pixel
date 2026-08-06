@@ -37,6 +37,7 @@ alter table invoices
   add column if not exists balance_amount numeric(18,2) default 0,
   add column if not exists invoice_status text default 'draft',
   add column if not exists payment_status text default 'unpaid',
+  add column if not exists paid_at timestamptz,
   add column if not exists approval_required boolean default false,
   add column if not exists approval_reason text,
   add column if not exists approved_by text,

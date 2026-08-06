@@ -1,0 +1,18 @@
+VERIFICATION PXL-STG-0008A37
+
+[ ] SQL dijalankan pada Supabase STAGING, bukan production.
+[ ] Query information_schema menunjukkan public.invoices.paid_at bertipe timestamp with time zone.
+[ ] Catat pembayaran sebagian berhasil dan paid_at tetap null.
+[ ] Catat pembayaran hingga lunas berhasil dan paid_at terisi.
+[ ] paid_amount, balance_amount, payment_status, dan invoice_status terbarui benar.
+[ ] Status/saldo Invoice CRM ikut tersinkron.
+[ ] Invoice lunas tidak lagi tampil dalam Daftar Piutang terbuka.
+
+Query pemeriksaan:
+
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'invoices'
+  and column_name = 'paid_at';
+
