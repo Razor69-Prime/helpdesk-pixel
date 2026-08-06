@@ -1,0 +1,11 @@
+VERIFICATION PXL-STG-0009A
+
+[OK] Sintaks server, adapter database, API modul, dan JavaScript browser.
+[OK] Semua role mendapat menu Form Cuti / Izin.
+[OK] Edit dibatasi pada pembuat form dan seluruh form untuk Manager.
+[OK] Approval hanya Manager.
+[OK] TTD pemohon/PIC/Manager tervalidasi berdasarkan akun login.
+[OK] Admin HR dibatasi Manager/Admin/Superadmin.
+[OK] Saldo cuti tahunan dihitung pada approval dan menolak saldo minus.
+[OK] PDF A5 landscape.
+[OK] SQL idempotent (create table/index if not exists).

@@ -602,6 +602,9 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
     </div>
 
     <!-- TAB: INPUT LAPORAN -->
+    <div id="tab-leave" class="tab-content"><div id="pxl-leave-root"></div></div>
+
+    <!-- TAB: INPUT LAPORAN -->
     <div id="tab-report" class="tab-content">
       <div id="alert-success" class="alert success">✅ Laporan berhasil disimpan!</div>
       <div id="alert-error"   class="alert error">❌ <span id="err-msg">Gagal.</span></div>
@@ -2805,6 +2808,7 @@ function buildNav(){
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
+    {id:'leave',     label:'🗓️ Form Cuti / Izin', show: true},
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
@@ -2835,6 +2839,11 @@ function buildNav(){
     const soDef=ALL_TAB_DEFS.find(t=>t.id==='sales_order');
     if(soDef) tabs.push({...soDef,show:true});
   }
+  // PXL-STG-0009A: Form Cuti / Izin wajib dapat diakses seluruh role.
+  if(!tabs.some(t=>t.id==='leave')){
+    const leaveDef=ALL_TAB_DEFS.find(t=>t.id==='leave');
+    if(leaveDef) tabs.push({...leaveDef,show:true});
+  }
   // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
   if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
 
@@ -2845,7 +2854,7 @@ function buildNav(){
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory']},
-    {label:'Administrasi', ids:['archive','users','actlog']},
+    {label:'Administrasi', ids:['leave','archive','users','actlog']},
   ];
 
   const visibleById=new Map(tabs.map(t=>[t.id,t]));
@@ -3004,6 +3013,7 @@ function switchTab(tab,btn){
   if(tab==='users')     loadUsers();
   if(tab==='actlog')    loadActivityLog();
   if(tab==='materials') loadMaterialRequests();
+  if(tab==='leave' && typeof window.pxlLeaveOpen==='function') window.pxlLeaveOpen();
   if(tab==='inventory') {
     const frame=document.getElementById('inventory-frame');
     if(frame && !frame.dataset.loaded){ frame.src='/inventory.html'; frame.dataset.loaded='1'; }
@@ -10464,5 +10474,6 @@ setInterval(()=>{
     <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn" onclick="closeMRBarcodeScanner()">Tutup</button></div>
   </div>
 </div>
+<script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A"></script>
 </body>
 </html>

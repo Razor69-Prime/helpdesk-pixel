@@ -2634,6 +2634,9 @@ app.get('/api/invoices/:id/template.pdf', requireAuth, async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
+// PXL-STG-0009A — modul terpisah Form Cuti / Izin
+require('./pxl-stg-0009a-leave-api')(app,{db,requireAuth,logActivity});
+
 // SPA fallback harus berada setelah seluruh route API/report.
 app.get('*', (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
 
