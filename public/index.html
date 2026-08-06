@@ -2323,7 +2323,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
       </div>
     </div>
 
-    <!-- TTD Customer wajib kecuali bypass -->
+    <!-- TTD Customer wajib -->
     <div id="ttd-cust-section" style="margin-bottom:16px">
       <label style="display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">
         🧑 Tanda Tangan Customer <span style="color:var(--red)">*wajib</span>
@@ -2336,15 +2336,6 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
         <input type="file" id="ttd-cust-upload" accept="image/png,image/jpeg" onchange="loadTicketSignatureUpload('cust',this)" style="font-size:10px;max-width:210px"/>
         <button class="btn ghost sm" onclick="clearTTDCanvas('cust')">🗑️ Hapus</button>
       </div>
-    </div>
-
-    <div id="ttd-bypass-wrap" style="display:none;border:1px solid #f0c36d;background:#fff8e8;border-radius:8px;padding:10px;margin-bottom:12px">
-      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;font-weight:700">
-        <input type="checkbox" id="ttd-bypass" onchange="toggleTicketSignatureBypass()"/>
-        Bypass tanda tangan Teknisi dan Customer
-      </label>
-      <div style="font-size:10px;color:var(--muted);margin:4px 0 7px 22px">Hanya Operator dan Super Admin. Alasan akan tercatat pada tiket dan PDF.</div>
-      <textarea id="ttd-bypass-reason" rows="2" placeholder="Alasan bypass wajib diisi..." style="display:none;width:100%"></textarea>
     </div>
 
     <div id="ttd-selesai-error" class="form-error" style="display:none;margin-bottom:12px"></div>
@@ -9794,12 +9785,6 @@ function openTTDSelesaiModal(ticketId){
   document.getElementById('ttd-selesai-sub').textContent=`WO: ${t?.wo_number||'-'}${t?.customer_name?' · '+t.customer_name:''}`;
   document.getElementById('ttd-selesai-error').style.display='none';
   _ttdTechUploaded=null; _ttdCustUploaded=null;
-  const bypassAllowed=['operator','superadmin'].includes(String(currentUser?.role||'').toLowerCase());
-  const bypassWrap=document.getElementById('ttd-bypass-wrap');
-  bypassWrap.style.display=bypassAllowed?'block':'none';
-  document.getElementById('ttd-bypass').checked=false;
-  document.getElementById('ttd-bypass-reason').value='';
-  document.getElementById('ttd-bypass-reason').style.display='none';
   const profileWrap=document.getElementById('ttd-tech-profile-wrap');
   const hasProfile=!!(currentUser?.signature_url&&String(currentUser.signature_url).length>20);
   profileWrap.style.display=hasProfile?'block':'none';
@@ -9906,13 +9891,6 @@ function exportTTDCanvas(canvas){
   return exportCanvas.toDataURL('image/png');
 }
 
-function toggleTicketSignatureBypass(){
-  const checked=document.getElementById('ttd-bypass').checked;
-  document.getElementById('ttd-bypass-reason').style.display=checked?'block':'none';
-  document.getElementById('ttd-tech-section').style.opacity=checked?'.45':'1';
-  document.getElementById('ttd-cust-section').style.opacity=checked?'.45':'1';
-}
-
 function loadTicketSignatureUpload(who,input){
   const file=input?.files?.[0];
   if(!file)return;
@@ -9945,30 +9923,25 @@ async function submitTTDAndFinish(){
   const errEl=document.getElementById('ttd-selesai-error');
   errEl.style.display='none';
 
-  const bypass=!!document.getElementById('ttd-bypass')?.checked;
-  const bypassAllowed=['operator','superadmin'].includes(String(currentUser?.role||'').toLowerCase());
-  const bypass_reason=String(document.getElementById('ttd-bypass-reason')?.value||'').trim();
-  if(bypass&&!bypassAllowed){errEl.textContent='Akun ini tidak memiliki hak bypass tanda tangan.';errEl.style.display='block';return;}
-  if(bypass&&!bypass_reason){errEl.textContent='Alasan bypass wajib diisi.';errEl.style.display='block';return;}
   const useProfile=!!document.getElementById('ttd-use-profile')?.checked&&!!currentUser?.signature_url;
-  if(!bypass&&!(_ttdTechHasData||_ttdTechUploaded||useProfile)){
+  if(!(_ttdTechHasData||_ttdTechUploaded||useProfile)){
     errEl.textContent='Tanda tangan Teknisi wajib diisi.';
     errEl.style.display='block';
     return;
   }
-  if(!bypass&&!(_ttdCustHasData||_ttdCustUploaded)){
+  if(!(_ttdCustHasData||_ttdCustUploaded)){
     errEl.textContent='Tanda tangan Customer wajib diisi.';
     errEl.style.display='block';
     return;
   }
 
-  const tech_signature=bypass?null:(useProfile?currentUser.signature_url:(_ttdTechUploaded||exportTTDCanvas(_ttdTechCanvas)));
-  const customer_signature=bypass?null:(_ttdCustUploaded||exportTTDCanvas(_ttdCustCanvas));
+  const tech_signature=useProfile?currentUser.signature_url:(_ttdTechUploaded||exportTTDCanvas(_ttdTechCanvas));
+  const customer_signature=_ttdCustUploaded||exportTTDCanvas(_ttdCustCanvas);
 
   const btn=document.getElementById('ttd-selesai-submit-btn');
   btn.disabled=true; btn.textContent='⏳ Menyimpan...';
   try{
-    await recordStage(ticketId, 'selesai', {tech_signature, customer_signature, signature_bypass:bypass, signature_bypass_reason:bypass_reason});
+    await recordStage(ticketId, 'selesai', {tech_signature, customer_signature});
     closeTTDSelesaiModal();
   }catch(e){
     errEl.textContent='Gagal: '+e.message;

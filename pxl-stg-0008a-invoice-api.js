@@ -68,6 +68,17 @@ function register(app) {
       let q='/invoices?select=*&order=created_at.desc.nullslast,uploaded_at.desc&limit=500';
       if(req.query.status) q += `&invoice_status=eq.${enc(req.query.status)}`;
       const rows=await api.get(q);
+      // Backfill Invoice Terbit lama yang dibuat sebelum sinkronisasi CRM aktif.
+      // Maksimal 50 record per pembukaan daftar agar request tetap terkendali.
+      if(['accounting','admin','superadmin'].includes(String(req.session.user.role||''))){
+        const crmRows=await api.safeGet('/crm_invoices?select=invoice_number&limit=2000',[]);
+        const crmNumbers=new Set((crmRows||[]).map(x=>String(x.invoice_number||'')));
+        const missing=(rows||[]).filter(x=>
+          ['issued','partially_paid','paid'].includes(String(x.invoice_status||''))&&
+          x.invoice_number&&!crmNumbers.has(String(x.invoice_number))
+        ).slice(0,50);
+        await Promise.allSettled(missing.map(x=>syncIssuedInvoiceToCrm(api,x,req.session.user.name)));
+      }
       const invoiceIds=(rows||[]).map(x=>x.id).filter(Boolean);
       const soIds=[...new Set((rows||[]).map(x=>x.source_so_id).filter(Boolean))];
       const [relations,salesOrders,tickets]=await Promise.all([
@@ -245,6 +256,7 @@ function register(app) {
       const number=`${series}-${month}${year}${String(seq).padStart(3,'0')}`;
       const snapshot={...old,invoice_number:number,issued_at:new Date().toISOString()};
       const patch={invoice_number:number,invoice_series:series,invoice_year:year,invoice_sequence:seq,manual_number:!!req.body.manual_number,invoice_status:'issued',issued_by:req.session.user.name,issued_at:new Date().toISOString(),snapshot_json:snapshot,updated_at:new Date().toISOString()};
+      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'ISSUE',old,saved,null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -272,10 +284,60 @@ function register(app) {
         paid_at:isPaid?new Date().toISOString():(old.paid_at||null),
         updated_by:req.session.user.name,updated_at:new Date().toISOString()
       };
+      await syncCrmPayment(api,{...old,...patch});
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,isPaid?'MARK_PAID':'RECORD_PAYMENT',old,saved,text(req.body?.note));
       res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
+  });
+}
+
+async function syncIssuedInvoiceToCrm(api,invoice,actor){
+  const [relations,items]=await Promise.all([
+    api.get(`/invoice_work_orders?invoice_id=eq.${enc(invoice.id)}&select=ticket_id`),
+    api.get(`/invoice_items?invoice_id=eq.${enc(invoice.id)}&order=line_no.asc`)
+  ]);
+  const ticketIds=[...new Set((relations||[]).map(x=>x.ticket_id).filter(Boolean))];
+  if(!ticketIds.length)throw bad('Sinkronisasi CRM gagal: Invoice tidak memiliki Work Order.');
+  const tickets=await api.get(`/tickets?id=in.(${ticketIds.map(enc).join(',')})&select=id,wo_number,sales_order_id,crm_customer_id`);
+  const salesOrderId=invoice.source_so_id||(tickets||[]).map(x=>x.sales_order_id).find(Boolean);
+  if(!salesOrderId)throw bad('Sinkronisasi CRM gagal: Sales Order sumber Invoice tidak ditemukan.');
+  const salesOrders=await api.get(`/sales_orders?id=eq.${enc(salesOrderId)}&select=id,so_number,customer_id,customer_name`);
+  const so=salesOrders?.[0];
+  if(!so)throw bad('Sinkronisasi CRM gagal: data Sales Order tidak ditemukan di CRM.');
+  const crmWos=await api.safeGet(`/crm_work_orders?ticket_id=in.(${ticketIds.map(enc).join(',')})&select=id,ticket_id,wo_number`,[]);
+  const crmWoByTicket=new Map((crmWos||[]).map(x=>[String(x.ticket_id),x]));
+  const missingCrmWo=(tickets||[]).filter(x=>!crmWoByTicket.has(String(x.id)));
+  if(missingCrmWo.length)throw bad(`Sinkronisasi CRM gagal: WO belum terkoneksi ke CRM: ${missingCrmWo.map(woLabel).join(', ')}.`);
+  const crmWorkOrderIds=ticketIds.map(id=>crmWoByTicket.get(String(id))?.id).filter(Boolean);
+  const mappedItems=(items||[]).map(x=>({
+    name:x.item_name||x.description||'-',description:x.description||null,
+    qty:num(x.quantity),unit:x.unit||'pcs',unit_price:num(x.unit_price),total:num(x.line_total)
+  }));
+  const existing=await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[]);
+  const payload={
+    invoice_number:invoice.invoice_number,sales_order_id:salesOrderId,so_number:so.so_number,
+    customer_id:invoice.customer_id||so.customer_id||(tickets||[]).map(x=>x.crm_customer_id).find(Boolean)||null,
+    customer_name:invoice.customer_name_snapshot||so.customer_name||null,work_order_ids:crmWorkOrderIds,
+    items:mappedItems,additional_items:[],base_total:num(invoice.total_amount),additional_total:0,
+    grand_total:num(invoice.total_amount),status:num(invoice.balance_amount)<=0.0001&&num(invoice.paid_amount)>0?'paid':(num(invoice.paid_amount)>0?'partially_paid':'issued'),invoice_date:invoice.invoice_date,
+    due_date:invoice.due_date||null,down_payment:num(invoice.paid_amount),redemption:0,
+    balance_due:num(invoice.balance_amount??invoice.total_amount),payment_method:'CASH & TRANSFER BANK',
+    remark:`Sinkron otomatis Invoice V1 ${invoice.id}`,billing_address:invoice.billing_address_snapshot||null,
+    created_by:actor,updated_at:new Date().toISOString()
+  };
+  if(existing?.length)return (await api.patch(`/crm_invoices?id=eq.${enc(existing[0].id)}`,payload))[0];
+  return (await api.post('/crm_invoices',payload))[0];
+}
+
+async function syncCrmPayment(api,invoice){
+  if(!invoice?.invoice_number)return;
+  const rows=await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[]);
+  if(!rows?.length)throw bad('Database CRM untuk Invoice ini tidak ditemukan. Pencatatan pembayaran dibatalkan.');
+  await api.patch(`/crm_invoices?id=eq.${enc(rows[0].id)}`,{
+    down_payment:num(invoice.paid_amount),balance_due:num(invoice.balance_amount),
+    status:num(invoice.balance_amount)<=0.0001?'paid':(num(invoice.paid_amount)>0?'partially_paid':'issued'),
+    updated_at:new Date().toISOString()
   });
 }
 

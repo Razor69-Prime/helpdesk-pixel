@@ -1323,6 +1323,12 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
     const { stage, lat, lng, tech_signature, customer_signature } = req.body;
     const VALID = ['berangkat','tiba','selesai'];
     if (!VALID.includes(stage)) return res.status(400).json({ error: 'Stage tidak valid.' });
+    if (stage === 'selesai' && !String(tech_signature || '').trim()) {
+      return res.status(400).json({ error: 'Tanda tangan teknisi wajib diisi sebelum WO diselesaikan.' });
+    }
+    if (stage === 'selesai' && !String(customer_signature || '').trim()) {
+      return res.status(400).json({ error: 'Tanda tangan customer wajib diisi sebelum WO diselesaikan.' });
+    }
 
     const now      = new Date().toISOString();
     const userName = req.session.user.name;
@@ -1385,8 +1391,8 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
     if (newStatus) {
       const ticketPatch = { status: newStatus };
       if (stage === 'selesai') {
-        if (tech_signature)     ticketPatch.tech_signature     = tech_signature;
-        if (customer_signature) ticketPatch.customer_signature = customer_signature;
+        ticketPatch.tech_signature = tech_signature;
+        ticketPatch.customer_signature = customer_signature;
       }
       await db.updateTicket(req.params.id, ticketPatch);
       await db.insertStatusHistory({

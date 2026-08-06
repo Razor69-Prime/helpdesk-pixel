@@ -1,0 +1,13 @@
+VERIFICATION PXL-STG-0008A31
+
+[ ] WO tidak dapat selesai tanpa tanda tangan teknisi.
+[ ] WO tidak dapat selesai tanpa tanda tangan customer.
+[ ] Tidak ada opsi bypass tanda tangan pada modal penyelesaian WO.
+[ ] WO selesai setelah kedua tanda tangan dan syarat Material Request terpenuhi.
+[ ] Invoice Disetujui dapat diterbitkan setelah seluruh flow WO/MR selesai.
+[ ] Nomor Invoice Terbit muncul pada endpoint/menu CRM Invoice.
+[ ] Record CRM memuat nomor SO dan seluruh relasi WO.
+[ ] Invoice Terbit lama dibuat otomatis di CRM saat daftar Invoice dibuka.
+[ ] Item dan total CRM sama dengan Invoice V1.
+[ ] Pencatatan pembayaran memperbarui saldo/status pada CRM.
+[ ] Pemeriksaan sintaks JavaScript lulus.

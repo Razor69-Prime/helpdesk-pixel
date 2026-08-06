@@ -49,11 +49,22 @@ async function requireMaterialTaken(req, res, next) {
   }
 }
 
+function requireCompletionSignatures(req, res, next) {
+  if (!String(req.body?.tech_signature || '').trim()) {
+    return res.status(409).json({ error: 'WO belum dapat diselesaikan. Tanda tangan teknisi wajib diisi.' });
+  }
+  if (!String(req.body?.customer_signature || '').trim()) {
+    return res.status(409).json({ error: 'WO belum dapat diselesaikan. Tanda tangan customer wajib diisi.' });
+  }
+  return next();
+}
+
 express.application.post = function pxl0008a30Post(path, ...handlers) {
   if (path === '/api/tickets/:id/stage' && handlers.length) {
-    const guard = (req, res, next) => norm(req.body?.stage) === 'selesai'
-      ? requireMaterialTaken(req, res, next)
-      : next();
+    const guard = (req, res, next) => {
+      if (norm(req.body?.stage) !== 'selesai') return next();
+      return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
+    };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
   }
   return originalPost.call(this, path, ...handlers);
@@ -61,11 +72,11 @@ express.application.post = function pxl0008a30Post(path, ...handlers) {
 
 express.application.patch = function pxl0008a30Patch(path, ...handlers) {
   if (path === '/api/tickets/:id' && handlers.length) {
-    const guard = (req, res, next) => isDoneStatus(req.body?.status)
-      ? requireMaterialTaken(req, res, next)
-      : next();
+    const guard = (req, res, next) => {
+      if (!isDoneStatus(req.body?.status)) return next();
+      return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
+    };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
   }
   return originalPatch.call(this, path, ...handlers);
 };
-
