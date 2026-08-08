@@ -1,0 +1,11 @@
+VERIFICATION PXL-STG-0009A2
+
+[x] JavaScript server lulus node --check.
+[x] JavaScript browser lulus node --check.
+[x] API create tidak lagi mengisi user CFO/HR & GA.
+[x] Endpoint sign hanya menerima Pemohon dan PIC; Manager melalui endpoint decision.
+[x] Admin HR tidak lagi menampilkan setup akun CFO/HR & GA.
+[x] Daftar pengajuan tidak lagi menampilkan tombol TTD CFO/HR & GA.
+[x] PDF A5 menonaktifkan gambar/nama tanda tangan sistem CFO/HR & GA.
+[x] Kolom CFO dan HR & GA tetap tersedia untuk tanda tangan manual.
+[x] Tidak ada SQL baru.
