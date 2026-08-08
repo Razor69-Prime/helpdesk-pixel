@@ -944,6 +944,8 @@ async function updateWorkOrderPhoto(id,patch){
 const LEAVE_REQUESTS_FILE=path.join(__dirname,'data','leave_requests.json');
 const LEAVE_BALANCES_FILE=path.join(__dirname,'data','leave_balances.json');
 const LEAVE_HISTORY_FILE=path.join(__dirname,'data','leave_request_history.json');
+const LEAVE_OPTIONS_FILE=path.join(__dirname,'data','leave_hr_options.json');
+const LEAVE_SIGNATORIES_FILE=path.join(__dirname,'data','leave_signatory_settings.json');
 function readLeaveLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
 function writeLeaveLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
 async function getLeaveRequests(){return USE_SUPABASE?sbFetch('GET','/leave_requests?order=created_at.desc'):readLeaveLocal(LEAVE_REQUESTS_FILE).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
@@ -952,6 +954,11 @@ async function updateLeaveRequest(id,patch){patch={...patch,updated_at:new Date(
 async function getLeaveBalances(){return USE_SUPABASE?sbFetch('GET','/leave_balances?order=year.desc'):readLeaveLocal(LEAVE_BALANCES_FILE);}
 async function upsertLeaveBalance(data){if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_balances',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_BALANCES_FILE),i=all.findIndex(x=>String(x.user_id)===String(data.user_id)&&Number(x.year)===Number(data.year));const row={id:i>=0?all[i].id:crypto.randomUUID(),...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_BALANCES_FILE,all);return row;}
 async function insertLeaveHistory(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),...data};if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_request_history',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_HISTORY_FILE);all.push(row);writeLeaveLocal(LEAVE_HISTORY_FILE,all);return row;}
+async function getLeaveHrOptions(){return USE_SUPABASE?sbFetch('GET','/leave_hr_options?order=option_type.asc,sort_order.asc,option_value.asc'):readLeaveLocal(LEAVE_OPTIONS_FILE);}
+async function insertLeaveHrOption(data){const row={id:crypto.randomUUID(),is_active:true,sort_order:0,...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_hr_options',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE);all.push(row);writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return row;}
+async function updateLeaveHrOption(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_SUPABASE){const rows=await sbFetch('PATCH',`/leave_hr_options?id=eq.${encodeURIComponent(id)}`,patch);return rows?.[0]||null;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pilihan HRD tidak ditemukan');all[i]={...all[i],...patch};writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return all[i];}
+async function getLeaveSignatories(){return USE_SUPABASE?sbFetch('GET','/leave_signatory_settings?order=signatory_type.asc'):readLeaveLocal(LEAVE_SIGNATORIES_FILE);}
+async function upsertLeaveSignatory(data){if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_signatory_settings',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_SIGNATORIES_FILE),i=all.findIndex(x=>x.signatory_type===data.signatory_type);const row={...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_SIGNATORIES_FILE,all);return row;}
 
 async function getCrmReport(){
   const [customers,sos,wos,mrs,amrs,invoices,projects,visits,tickets]=await Promise.all([
@@ -988,6 +995,7 @@ module.exports = {
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
   getLeaveRequests, insertLeaveRequest, updateLeaveRequest, getLeaveBalances, upsertLeaveBalance, insertLeaveHistory,
+  getLeaveHrOptions, insertLeaveHrOption, updateLeaveHrOption, getLeaveSignatories, upsertLeaveSignatory,
   getSalesOrders, insertSalesOrder, updateSalesOrder, deleteSalesOrder,
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder, deleteCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest, issueInventoryMaterialRequest,

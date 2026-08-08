@@ -1,0 +1,16 @@
+VERIFICATION PXL-STG-0009A3
+
+[x] db.js mendefinisikan getLeaveHrOptions
+[x] db.js mengekspor getLeaveHrOptions
+[x] API Form Cuti memanggil fungsi yang tersedia pada db.js
+[x] Sintaks db.js lulus node --check
+[x] Sintaks API Form Cuti lulus node --check
+[x] Sintaks frontend Form Cuti lulus node --check
+[x] Tidak ada SQL baru
+
+Uji staging:
+1. Redeploy/restart server setelah file di-push.
+2. Login dengan salah satu role aktif.
+3. Buka Administrasi > Form Cuti / Izin.
+4. Pastikan daftar dan dropdown HRD termuat tanpa error.
+5. Buka submenu Admin HR dengan Manager/Admin/Superadmin.
