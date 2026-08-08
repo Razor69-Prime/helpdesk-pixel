@@ -81,4 +81,47 @@ renderHr=async function(){
     p.innerHTML=`<div class="card"><div class="card-title">Setup Dropdown Form</div><div class="leave-grid"><div class="form-group"><label>Kategori</label><select id="hr-opt-type"><option value="company">Company</option><option value="division">Divisi</option><option value="job_title">Jabatan</option><option value="leave_type">Jenis Cuti</option></select></div><div class="form-group"><label>Nama Pilihan</label><input id="hr-opt-value"></div></div><button class="btn primary" onclick="pxlLeaveAddOption()">Tambah Pilihan</button><div style="margin-top:10px">${['company','division','job_title','leave_type'].map(t=>`<b>${({company:'Company',division:'Divisi',job_title:'Jabatan',leave_type:'Jenis Cuti'})[t]}:</b> ${state.options.filter(x=>x.option_type===t&&x.is_active!==false).map(x=>esc(x.option_value)).join(', ')||'-'}`).join('<br>')}</div></div><div class="card" style="margin-top:12px"><div class="card-title">Setup Saldo Awal Cuti</div><div class="leave-grid"><div class="form-group"><label>User</label><select id="hr-user">${userOpts}</select></div><div class="form-group"><label>Tahun</label><input id="hr-year" type="number" value="${year}"></div><div class="form-group"><label>Jatah Cuti Awal</label><input id="hr-opening" type="number" min="0" step="0.5" value="12"></div><div class="form-group"><label>Catatan</label><input id="hr-notes"></div></div><button class="btn primary" onclick="pxlLeaveSaveBalance()">Simpan Saldo</button></div><div class="card" style="margin-top:12px"><div class="card-title">History & Sisa Cuti</div><div style="overflow:auto"><table class="leave-hr-table"><thead><tr><th>Nama</th><th>Tahun</th><th>Saldo Awal</th><th>Last Request</th><th>Terpakai</th><th>Sisa</th></tr></thead><tbody>${state.balances.map(b=>{const last=state.requests.filter(r=>String(r.applicant_user_id)===String(b.user_id)).sort((a,c)=>new Date(c.created_at)-new Date(a.created_at))[0];return`<tr><td><b>${esc(b.user_name)}</b></td><td>${b.year}</td><td>${b.opening_balance}</td><td>${last?`${esc(last.request_number)} · ${fmt(last.start_date)}`:'-'}</td><td>${b.used_days}</td><td><b>${b.remaining_balance} hari</b></td></tr>`}).join('')}</tbody></table></div></div>`;
   }catch(e){p.innerHTML=`<div class="alert error" style="display:block">${esc(e.message)}</div>`;}
 };
+
+// PXL-STG-0009A4: saldo upsert, PDF tahan kegagalan logo, dan hapus master dropdown.
+function leaveError(e,fallback='Terjadi kesalahan yang tidak dikenal.'){
+  if(typeof e==='string'&&e.trim())return e;
+  if(e?.message)return e.message;
+  if(e?.error)return typeof e.error==='string'?e.error:JSON.stringify(e.error);
+  try{const text=JSON.stringify(e);if(text&&text!=='{}')return text;}catch(_){ }
+  return fallback;
+}
+const imageDataA4=imageData;
+const transparentPngA4='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8WQAAAABJRU5ErkJggg==';
+async function optionalImageData(url){try{return await imageDataA4(`${url}?rev=PXL-STG-0009A4`);}catch(_){return transparentPngA4;}}
+const pxlLeavePdfA2=window.pxlLeavePdf;
+window.pxlLeavePdf=async function(id){
+  const r=state.requests.find(x=>String(x.id)===String(id));
+  if(!r){alert('PDF gagal dibuat: data pengajuan tidak ditemukan.');return;}
+  if(!window.jspdf?.jsPDF){alert('PDF gagal dibuat: library PDF belum siap. Lakukan Ctrl + F5 lalu coba kembali.');return;}
+  try{
+    const originalImageData=imageData;
+    imageData=optionalImageData;
+    try{await pxlLeavePdfA2(id);}finally{imageData=originalImageData;}
+  }catch(e){alert(`PDF gagal dibuat: ${leaveError(e,'browser gagal memproses file PDF.')}`);}
+};
+
+window.pxlLeaveDeleteOption=async function(id,name){
+  if(!confirm(`Hapus pilihan "${name}"? Form lama tetap menyimpan nilai yang sudah dipakai.`))return;
+  try{await api('DELETE',`/leave/hr/options/${id}`);await renderHr();}
+  catch(e){alert(leaveError(e,'Pilihan dropdown gagal dihapus.'));}
+};
+
+const renderHrA4=renderHr;
+renderHr=async function(){
+  await renderHrA4();
+  const cards=document.querySelectorAll('#leave-panel .card');
+  const setup=cards[0];
+  if(!setup)return;
+  const old=setup.querySelector('.leave-option-list');
+  if(old)old.remove();
+  const box=document.createElement('div');box.className='leave-option-list';box.style.marginTop='12px';
+  const labels={company:'Company',division:'Divisi',job_title:'Jabatan',leave_type:'Jenis Cuti'};
+  box.innerHTML=Object.keys(labels).map(t=>`<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;margin:7px 0"><b>${labels[t]}</b><div style="display:flex;gap:6px;flex-wrap:wrap">${state.options.filter(x=>x.option_type===t&&x.is_active!==false).map(x=>`<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:99px;padding:4px 5px 4px 9px">${esc(x.option_value)}<button type="button" class="btn sm danger" style="padding:1px 6px" title="Hapus" onclick="pxlLeaveDeleteOption('${x.id}','${esc(x.option_value).replace(/'/g,'&#39;')}')">×</button></span>`).join('')||'<span>-</span>'}</div></div>`).join('');
+  setup.appendChild(box);
+};
 })();

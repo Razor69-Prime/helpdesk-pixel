@@ -1,0 +1,15 @@
+VERIFICATION PXL-STG-0009A4
+
+[x] db.js memakai on_conflict=user_id,year pada upsert leave_balances.
+[x] API DELETE master dropdown dibatasi untuk Manager/Admin/Superadmin.
+[x] Frontend menyediakan konfirmasi sebelum menghapus pilihan dropdown.
+[x] PDF memvalidasi data pengajuan dan menangani kegagalan aset tanpa pesan undefined.
+[x] Logo Labda dan logo companies tersedia dalam paket.
+[x] Sintaks db.js, API, dan frontend lulus node --check.
+[x] Tidak ada SQL baru.
+
+UAT staging:
+1. Simpan saldo user/tahun yang belum ada.
+2. Simpan ulang user/tahun yang sama dengan nilai berbeda dan pastikan baris diperbarui.
+3. Download PDF A5 dan periksa logo serta isi form.
+4. Hapus satu pilihan dropdown, pastikan hilang dari form baru dan form lama tetap dapat dibuka.
