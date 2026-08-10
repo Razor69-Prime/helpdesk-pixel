@@ -634,6 +634,53 @@ async function deleteProjectReportAchievement(id){
   await sbFetch('DELETE',`/project_report_achievements?id=eq.${id}`);
 }
 
+
+// PXL-STG-0011 — PROJECT REPORT DETAIL BOQ
+async function getProjectReportItems(projectId=null){
+  if(!USE_SUPABASE) return [];
+  let q='/project_report_items?order=sort_order.asc,created_at.asc';
+  if(projectId) q+=`&project_id=eq.${encodeURIComponent(projectId)}`;
+  return await sbFetch('GET',q)||[];
+}
+async function insertProjectReportItem(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/project_report_items',entry);
+  return rows?.[0]||entry;
+}
+async function updateProjectReportItem(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return {id,...data};
+  const rows=await sbFetch('PATCH',`/project_report_items?id=eq.${encodeURIComponent(id)}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function deleteProjectReportItem(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/project_report_items?id=eq.${encodeURIComponent(id)}`);
+}
+async function getProjectReportItemAchievements(itemId=null){
+  if(!USE_SUPABASE) return [];
+  let q='/project_report_item_achievements?order=achievement_date.desc,created_at.desc';
+  if(itemId) q+=`&item_id=eq.${encodeURIComponent(itemId)}`;
+  return await sbFetch('GET',q)||[];
+}
+async function insertProjectReportItemAchievement(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/project_report_item_achievements',entry);
+  return rows?.[0]||entry;
+}
+async function updateProjectReportItemAchievement(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return {id,...data};
+  const rows=await sbFetch('PATCH',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function deleteProjectReportItemAchievement(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`);
+}
+
 // ─────────────────────────────────────────
 //  SUPPLIERS
 // ─────────────────────────────────────────
@@ -1030,6 +1077,7 @@ module.exports = {
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
+  getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
   getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,

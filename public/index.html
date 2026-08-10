@@ -7630,10 +7630,18 @@ const PR_APPROVERS={
 //  PROJECT TRACKER
 // ══════════════════════════════════════════
 let projectsData=[];
+window.pxlProjectReportSummaries=window.pxlProjectReportSummaries||{};
 
 async function loadProjects(){
-  try{ projectsData=await api('GET','/projects'); }
+  try{ projectsData=await api('GET','/projects')||[]; }
   catch(e){ projectsData=[]; }
+  try{
+    const reports=await api('GET','/project-reports');
+    window.pxlProjectReportSummaries={};
+    (reports||[]).forEach(r=>{
+      window.pxlProjectReportSummaries[String(r.id)]={material:r.material_summary||{},jasa:r.jasa_summary||{},progress:Number(r.progress)||0};
+    });
+  }catch(e){ window.pxlProjectReportSummaries=window.pxlProjectReportSummaries||{}; }
   populateProjectPicFilter();
   renderProjectList();
 }
@@ -7709,6 +7717,7 @@ function renderProjectList(){
       <td><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${p.prioritas||'P2'}</span></td>
       <td>
         <div class="proj-name">${p.nama_project}</div>
+        ${(()=>{const s=(window.pxlProjectReportSummaries||{})[String(p.id)]||{};const m=Number(s.material?.progress)||0,j=Number(s.jasa?.progress)||0;return `<div class="proj-report-mini"><span class="proj-report-pill mat">Material ${m.toFixed(1)}%</span><span class="proj-report-pill jasa">Jasa ${j.toFixed(1)}%</span></div>`})()}
         ${histToggle}
       </td>
       <td>${p.pic||'—'}</td>
@@ -10487,6 +10496,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0010-project-report.js?v=PXL-STG-0010"></script>
+<script src="/pxl-stg-0011-project-report.js?v=PXL-STG-0011"></script>
 </body>
 </html>

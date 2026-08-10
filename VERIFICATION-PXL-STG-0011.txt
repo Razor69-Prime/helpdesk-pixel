@@ -1,0 +1,22 @@
+PXL-STG-0011 — VERIFICATION / UAT STAGING
+
+[ ] Project Tracker tetap dapat dibuka.
+[ ] Setiap nama project menampilkan Material % dan Jasa %.
+[ ] Project Report dapat dibuka.
+[ ] Detail BOQ dipisah Material dan Jasa.
+[ ] Tambah item Material berhasil.
+[ ] Tambah item Jasa berhasil.
+[ ] Edit BOQ item berhasil.
+[ ] Achievement per item berhasil ditambahkan.
+[ ] Today, Total Done, Remain berubah sesuai item.
+[ ] Progress item berubah otomatis.
+[ ] Progress Material dihitung dari total BOQ Material vs Done Material.
+[ ] Progress Jasa dihitung dari total BOQ Jasa vs Done Jasa.
+[ ] Overall Project dihitung dari gabungan Material + Jasa.
+[ ] Achievement tidak dapat melebihi remain item.
+[ ] BOQ item tidak dapat diedit di bawah Total Done.
+[ ] History achievement per item tampil.
+[ ] Hapus achievement menghitung ulang progress.
+[ ] 13 dummy Material tampil pada CCTV Desa Tumbak Bayuh.
+[ ] 5 dummy Jasa tampil pada CCTV Desa Tumbak Bayuh.
+[ ] Tidak ada perubahan pada production.
