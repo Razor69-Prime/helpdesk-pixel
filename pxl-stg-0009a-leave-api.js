@@ -16,7 +16,8 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
   };
   const annual=v=>['annualleave','cutitahunan'].includes(norm(v));
   const consumed=(requests,userId,year,excludeId)=>requests.filter(x=>String(x.applicant_user_id)===String(userId)&&String(x.id)!==String(excludeId)&&Number(String(x.start_date||'').slice(0,4))===Number(year)&&annual(x.leave_type)&&x.status==='approved').reduce((s,x)=>s+Number(x.duration_days||0),0);
-  const dates=(start,end)=>{const a=new Date(`${start}T00:00:00Z`),b=new Date(`${end}T00:00:00Z`);if(!start||!end||Number.isNaN(+a)||Number.isNaN(+b)||b<a)throw new Error('Rentang tanggal tidak valid.');const duration=Math.floor((b-a)/86400000)+1,back=new Date(b.getTime()+86400000).toISOString().slice(0,10);return{duration,back};};
+  const dates=(start,end)=>{const a=new Date(`${start}T00:00:00Z`),b=new Date(`${end}T00:00:00Z`);if(!start||!end||Number.isNaN(+a)||Number.isNaN(+b)||b<a)throw new Error('Rentang tanggal tidak valid.');return{duration:Math.floor((b-a)/86400000)+1};};
+  const validReturnDate=(end,returnDate)=>{const a=new Date(`${end}T00:00:00Z`),b=new Date(`${returnDate}T00:00:00Z`);return Boolean(returnDate)&&!Number.isNaN(+b)&&b>=a;};
 
   app.get('/api/leave/requests',requireAuth,async(req,res)=>{try{
     const rows=await db.getLeaveRequests(),balances=await db.getLeaveBalances();
@@ -26,8 +27,9 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
 
   app.post('/api/leave/requests',requireAuth,async(req,res)=>{try{
     const me=user(req),rows=await db.getLeaveRequests(),b=req.body||{},period=dates(b.start_date,b.end_date);
-    if(!b.start_date||!b.end_date||!b.leave_type||!b.reason)return res.status(400).json({error:'Tanggal, jenis izin/cuti, dan alasan wajib diisi.'});
-    const row=await db.insertLeaveRequest({request_number:nextNo(rows),applicant_user_id:me.id,applicant_name:me.name,company:b.company||'',division:b.division||'',job_title:b.job_title||'',start_date:b.start_date,end_date:b.end_date,duration_days:period.duration,return_date:period.back,leave_type:b.leave_type,leave_type_other:b.leave_type_other||null,reason:b.reason,pic_user_id:b.pic_user_id||null,pic_name:b.pic_name||null,opening_balance:Number(b.opening_balance||0),remaining_balance:Number(b.remaining_balance||0),status:'draft',created_by:me.name,created_by_id:me.id});
+    if(!b.start_date||!b.end_date||!b.return_date||!b.leave_type||!b.reason)return res.status(400).json({error:'Tanggal mulai, tanggal selesai, tanggal kembali bekerja, jenis izin/cuti, dan alasan wajib diisi.'});
+    if(!validReturnDate(b.end_date,b.return_date))return res.status(400).json({error:'Tanggal kembali bekerja tidak boleh lebih awal dari tanggal selesai.'});
+    const row=await db.insertLeaveRequest({request_number:nextNo(rows),applicant_user_id:me.id,applicant_name:me.name,company:b.company||'',division:b.division||'',job_title:b.job_title||'',start_date:b.start_date,end_date:b.end_date,duration_days:period.duration,return_date:b.return_date,leave_type:b.leave_type,leave_type_other:b.leave_type_other||null,reason:b.reason,pic_user_id:b.pic_user_id||null,pic_name:b.pic_name||null,opening_balance:Number(b.opening_balance||0),remaining_balance:Number(b.remaining_balance||0),status:'draft',created_by:me.name,created_by_id:me.id});
     await audit(req,row,'CREATE','Draft dibuat');res.status(201).json(row);
   }catch(e){res.status(500).json({error:e.message});}});
 
@@ -36,9 +38,10 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     const me=user(req),manager=norm(me.role)==='manager';
     if(!manager&&String(old.created_by_id)!==String(me.id))return res.status(403).json({error:'Anda hanya dapat mengedit pengajuan sendiri. Manager dapat mengedit semua pengajuan.'});
     if(['approved','rejected','cancelled'].includes(old.status)&&!manager)return res.status(409).json({error:'Pengajuan yang sudah diproses hanya dapat diedit Manager.'});
-    const allowed=['company','division','job_title','start_date','end_date','leave_type','leave_type_other','reason','pic_user_id','pic_name'];
+    const allowed=['company','division','job_title','start_date','end_date','return_date','leave_type','leave_type_other','reason','pic_user_id','pic_name'];
     const patch={};allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(req.body,k))patch[k]=req.body[k];});
-    if(patch.start_date||patch.end_date){const period=dates(patch.start_date||old.start_date,patch.end_date||old.end_date);patch.duration_days=period.duration;patch.return_date=period.back;}
+    if(patch.start_date||patch.end_date){const period=dates(patch.start_date||old.start_date,patch.end_date||old.end_date);patch.duration_days=period.duration;}
+    if(!validReturnDate(patch.end_date||old.end_date,patch.return_date||old.return_date))return res.status(400).json({error:'Tanggal kembali bekerja wajib diisi dan tidak boleh lebih awal dari tanggal selesai.'});
     const row=await db.updateLeaveRequest(old.id,patch);await audit(req,row,'EDIT','Data pengajuan diperbarui');res.json(row);
   }catch(e){res.status(500).json({error:e.message});}});
 

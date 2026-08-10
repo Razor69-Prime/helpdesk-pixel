@@ -1,0 +1,12 @@
+VERIFICATION PXL-STG-0009A9
+
+[PASS] public/pxl-stg-0009a-leave.js lolos node --check.
+[PASS] pxl-stg-0009a-leave-api.js lolos node --check.
+[PASS] Tanggal Kembali Bekerja bukan lagi field disabled/otomatis.
+[PASS] Frontend mengirim return_date dari input user.
+[PASS] API create dan edit menyimpan return_date manual.
+[PASS] Total Hari tetap dihitung otomatis dari start_date dan end_date.
+[PASS] Validasi menolak return_date kosong atau lebih awal dari end_date.
+[PASS] Tidak ada SQL baru.
+[PASS] Generator/layout PDF tidak diubah.
+[PASS] Integrasi Kanban tidak diubah.
