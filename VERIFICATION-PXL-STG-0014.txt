@@ -1,0 +1,13 @@
+PXL-STG-0014 VERIFICATION — STAGING
+[ ] Login Teknisi
+[ ] Buka Project Report
+[ ] Tidak ada tombol Simpan per item
+[ ] Isi beberapa Today Achievement Material
+[ ] Klik Simpan Material sekali
+[ ] Semua nilai valid tersimpan dan progress berubah
+[ ] Isi beberapa Today Achievement Jasa
+[ ] Klik Simpan Jasa sekali
+[ ] Semua nilai valid tersimpan dan progress berubah
+[ ] Nilai > Remain ditolak/ditandai
+[ ] BOQ tetap read only
+[ ] Badge Material/Jasa di Project Tracker tetap sinkron
