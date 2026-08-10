@@ -116,33 +116,42 @@ window.pxlLeavePdf=async function(id){
     doc.addImage(rightLogo,'PNG',165,11,34,7.2);
     doc.setFont('helvetica','bold');doc.setFontSize(10.5);
     text('FORMULIR PENGAJUAN IZIN/CUTI',cx,16.5,{align:'center'});doc.line(70,17.6,140,17.6);
-    doc.setFont('helvetica','normal');doc.setFontSize(6.8);
+    doc.setFont('helvetica','normal');doc.setFontSize(6.6);
     text('Saya yang bertanda-tangan dibawah ini:',18,27);
-    field('Nama',r.applicant_name,25,34,17,82);field('Divisi',r.division,112,34,17,76);
-    field('Company',r.company,25,40,17,82);field('Jabatan',r.job_title,112,40,17,76);
+    // Grid identitas: label, titik dua, nilai, dan ujung garis konsisten pada kedua kolom.
+    field('Nama',r.applicant_name,25,34,17,72);field('Divisi',r.division,111,34,17,72);
+    field('Company',r.company,25,40,17,72);field('Jabatan',r.job_title,111,40,17,72);
     text('Dengan ini mengajukan permohonan izin tidak bekerja pada,',18,47);
-    field('Tanggal',dmy(r.start_date),25,54,17,62);text('s/d',91,54);
-    field('Tanggal',dmy(r.end_date),103,54,17,58);
-    field('Selama',`${r.duration_days||0} Hari`,25,61,17,62);
-    // Label dan nilai tanggal kembali memakai kolom terpisah agar tidak bertumpuk.
-    text('Tanggal Kembali Bekerja',103,61);text(':',140,61);text(dmy(r.return_date),144,61);doc.line(144,62,188,62);
+    field('Tanggal',dmy(r.start_date),25,54,17,72);text('s/d',101,54,{align:'center'});
+    field('Tanggal',dmy(r.end_date),111,54,17,72);
+    field('Selama',`${r.duration_days||0} Hari`,25,61,17,72);
+    // Kolom kanan memakai grid yang sama; label panjang diberi ruang khusus.
+    text('Tanggal Kembali Bekerja',111,61);text(':',148,61);text(dmy(r.return_date),152,61);doc.line(152,62,183,62);
     text('Jenis Izin/Cuti',18,71);text(':',42,71);
     const configured=state.options.filter(x=>x.option_type==='leave_type'&&x.is_active!==false).slice(0,4).map(x=>x.option_value);
     const types=configured.length?configured:['Izin','Cuti Tahunan','Cuti Bersalin','Lainnya'],selected=typeName(r);
-    types.forEach((t,i)=>{const x=47+i*29;doc.rect(x,67.5,4.5,4.5);if(String(t)===String(selected)){doc.setFont('helvetica','bold');doc.setFontSize(8);text('X',x+.9,71.3);doc.setFont('helvetica','normal');doc.setFontSize(6.8);}text(t,x+6,71);});
-    text(`Jumlah Cuti Awal: ${r.opening_balance||0} Hari`,165,69);text(`Sisa Cuti: ${r.remaining_balance||0} Hari`,165,75);
+    const typeX=[47,76,108,139];
+    types.forEach((t,i)=>{const x=typeX[i];doc.rect(x,67.5,4.5,4.5);if(String(t)===String(selected)){doc.setFont('helvetica','bold');doc.setFontSize(8);text('X',x+.9,71.3);doc.setFont('helvetica','normal');doc.setFontSize(6.6);}text(t,x+6,71);});
+    // Saldo dipindahkan ke kanan pada dua baris agar tidak bertabrakan dengan checklist.
+    text('Jumlah Cuti Awal',166,68.5);text(':',187,68.5);text(`${r.opening_balance||0} Hari`,190,68.5);
+    text('Sisa Cuti',166,74);text(':',187,74);text(`${r.remaining_balance||0} Hari`,190,74);
     text('Alasan',25,81);text(':',42,81);doc.rect(46,77,142,14);text(doc.splitTextToSize(r.reason||'-',138),48,81.5);
     doc.setFont('helvetica','bold');text('PIC Pengganti Selama Izin Tidak Bekerja:',18,97);doc.setFont('helvetica','normal');text(r.pic_name||'-',83,97);doc.line(83,98,127,98);
     text('Demikian permohonan izin tidak bekerja ini saya ajukan untuk dapat disetujui dan dimaklumi.',18,103);
-    text(`Badung, ${dmy(r.submitted_at||r.created_at)}`,178,103,{align:'center'});
+    text(`Badung, ${dmy(r.submitted_at||r.created_at)}`,177,103,{align:'center'});
     const signature=(title,name,img,x,y,w)=>{text(title,x+w/2,y,{align:'center'});if(img)try{doc.addImage(img,'PNG',x+w/2-13,y+1,26,8)}catch(_){ }doc.line(x+7,y+11,x+w-7,y+11);text(name||'-',x+w/2,y+14.5,{align:'center'});};
     signature('Yang Mengajukan,',r.applicant_signed_by||r.applicant_name,r.applicant_signature,23,107,55);
     signature('PIC Pengganti,',r.pic_signed_by||r.pic_name,r.pic_signature,132,107,55);
     doc.line(m+1.3,123,W-m-1.3,123);
-    text('Menyetujui,',52,127.5,{align:'center'});text('Mengetahui,',139,127.5,{align:'center'});
-    if(r.approver_signature)try{doc.addImage(r.approver_signature,'PNG',39,128,26,7)}catch(_){ }
-    doc.line(35,136,69,136);doc.line(91,136,123,136);doc.line(140,136,176,136);
-    text(r.approver_name||'Head/Manager',52,139.5,{align:'center'});text('CFO',107,139.5,{align:'center'});text('HR & GA',158,139.5,{align:'center'});
+    // Footer dibagi menjadi tiga kolom sama besar dengan baseline tanda tangan sejajar.
+    const footerCenters=[43,105,167],footerLineY=136;
+    text('Menyetujui,',footerCenters[0],127.5,{align:'center'});
+    text('Mengetahui,',footerCenters[1],127.5,{align:'center'});
+    if(r.approver_signature)try{doc.addImage(r.approver_signature,'PNG',footerCenters[0]-13,128,26,7)}catch(_){ }
+    footerCenters.forEach(x=>doc.line(x-18,footerLineY,x+18,footerLineY));
+    text(r.approver_name||'Head/Manager',footerCenters[0],139.5,{align:'center'});
+    text('CFO',footerCenters[1],139.5,{align:'center'});
+    text('HR & GA',footerCenters[2],139.5,{align:'center'});
     doc.save(`${r.request_number||'form-cuti'}.pdf`);
   }catch(e){alert(`PDF gagal dibuat: ${leaveError(e,'browser gagal memproses file PDF.')}`);}
 };

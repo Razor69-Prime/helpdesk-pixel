@@ -1,0 +1,10 @@
+VERIFICATION PXL-STG-0009A6
+
+[OK] Sintaks JavaScript lulus node --check.
+[OK] Generator PDF memakai A5 landscape.
+[OK] Grid identitas kiri/kanan simetris.
+[OK] Baris tanggal dan tanggal kembali bekerja tidak bertumpuk.
+[OK] Checklist dan saldo cuti tidak saling menutup.
+[OK] Tiga garis tanda tangan footer memiliki baseline yang sama.
+[OK] Render verifikasi satu halaman diperiksa secara visual.
+[OK] Tidak ada SQL baru.
