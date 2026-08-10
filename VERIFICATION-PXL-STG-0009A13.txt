@@ -1,0 +1,14 @@
+VERIFICATION PXL-STG-0009A13
+
+1. Login sebagai Superadmin dan buka Manajemen Akun.
+2. Edit akun yang akan menjadi approver lalu centang Approve Cuti dan simpan.
+3. Login menggunakan akun approver tersebut.
+4. Buka Administrasi > Form Cuti/Izin.
+5. Pada pengajuan berstatus Diajukan, pastikan tombol Setujui dan Tolak tampil.
+6. Klik Setujui, isi/gunakan tanda tangan, lalu Konfirmasi.
+7. Pastikan status menjadi Disetujui dan tanda tangan approver muncul pada PDF.
+8. Uji assignment teknisi pada periode cuti; assignment biasa harus diblokir dengan notifikasi.
+
+Pemeriksaan statis:
+- node --check pxl-stg-0009a-leave-api.js
+- node --check public/pxl-stg-0009a-leave.js

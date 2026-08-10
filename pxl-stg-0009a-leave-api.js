@@ -4,6 +4,11 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
   const norm=v=>String(v||'').trim().toLowerCase().replace(/[ _-]/g,'');
   const hrRoles=new Set(['manager','admin','superadmin']);
   const user=req=>req.session.user;
+  const canApproveLeave=async req=>{
+    const users=await db.getUsers();
+    const account=users.find(x=>String(x.id)===String(user(req).id));
+    return Array.isArray(account?.pr_roles)&&account.pr_roles.includes('leave_approve');
+  };
   const find=async id=>(await db.getLeaveRequests()).find(x=>String(x.id)===String(id));
   const audit=async(req,row,action,note='')=>{
     await db.insertLeaveHistory({leave_request_id:row.id,action,note,actor_user_id:user(req).id,actor_name:user(req).name,actor_role:user(req).role});
@@ -21,7 +26,7 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
 
   app.get('/api/leave/requests',requireAuth,async(req,res)=>{try{
     const rows=await db.getLeaveRequests(),balances=await db.getLeaveBalances();
-    res.json({requests:rows,balances,options:await db.getLeaveHrOptions()});
+    res.json({requests:rows,balances,options:await db.getLeaveHrOptions(),can_approve:await canApproveLeave(req)});
   }catch(e){res.status(500).json({error:e.message});}});
   app.get('/api/leave/users',requireAuth,async(req,res)=>{try{res.json((await db.getUsers()).filter(x=>x.is_active!==false).map(x=>({id:x.id,name:x.name,role:x.role})));}catch(e){res.status(500).json({error:e.message});}});
 
@@ -68,7 +73,7 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
 
   app.post('/api/leave/requests/:id/decision',requireAuth,async(req,res)=>{try{
     const old=await find(req.params.id),me=user(req),decision=String(req.body.decision||'');if(!old)return res.status(404).json({error:'Pengajuan tidak ditemukan.'});
-    if(norm(me.role)!=='manager')return res.status(403).json({error:'Hanya Manager yang dapat menyetujui atau menolak pengajuan.'});
+    if(!await canApproveLeave(req))return res.status(403).json({error:'Akun Anda belum diberi checklist Approve Cuti pada Manajemen Akun.'});
     if(!['approved','rejected'].includes(decision))return res.status(400).json({error:'Keputusan tidak valid.'});
     if(decision==='approved'&&!old.pic_signature)return res.status(400).json({error:'PIC Incharge harus tanda tangan sebelum Manager menyetujui.'});
     const sig=String(req.body.signature||'');if(!sig.startsWith('data:image/'))return res.status(400).json({error:'Tanda tangan Manager wajib diisi.'});
