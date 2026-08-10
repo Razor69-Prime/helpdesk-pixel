@@ -1,0 +1,21 @@
+VERIFICATION PXL-STG-0009A15
+
+[x] JavaScript frontend lulus node --check
+[x] JavaScript backend lulus node --check
+[x] Service worker lulus node --check
+[x] Endpoint API tidak dicache oleh service worker
+[x] GET Form Cuti menggunakan cache-buster setelah mutasi
+[x] GET Admin HR menggunakan cache-buster
+[x] Saldo dihitung dari cuti tahunan berstatus approved/disetujui
+[x] Snapshot saldo dipakai oleh Form Cuti, Detail, dan PDF
+[x] Tidak ada perubahan SQL
+
+UAT staging:
+1. Pastikan akun approver sudah dicentang Approve Cuti.
+2. Ajukan cuti tahunan dan lengkapi tanda tangan Pemohon serta PIC.
+3. Setujui dan tanda tangani menggunakan akun approver.
+4. Pastikan status Form Cuti langsung berubah menjadi Disetujui.
+5. Buka Admin HR: Terpakai bertambah sesuai durasi dan Sisa berkurang.
+6. Buka Detail/PDF: tanda tangan approver dan saldo terbaru harus tampil.
+7. Download PDF: isi harus sama dengan Detail/Report Form terbaru.
+8. Pastikan tidak ada error Only the active worker can claim clients.
