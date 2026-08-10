@@ -1,0 +1,10 @@
+VERIFIKASI PXL-STG-0009A16
+
+[ ] Login berhasil tanpa error JavaScript baru.
+[ ] Buka Detail/PDF lalu tombol Tutup menutup modal.
+[ ] Buka form, tanda tangan, dan dialog approval lalu tombol Batal bekerja.
+[ ] Cuti tahunan berstatus Disetujui dihitung pada kolom Terpakai.
+[ ] Sisa = Saldo Awal - Terpakai.
+[ ] Nilai sisa yang sama tampil pada report form, detail, dan PDF.
+[ ] Console tidak menampilkan `$ is not defined`.
+[ ] Console tidak menampilkan `Only the active worker can claim clients` setelah worker v58 aktif.

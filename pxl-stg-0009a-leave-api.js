@@ -19,8 +19,10 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     const n=rows.reduce((m,x)=>Math.max(m,Number(String(x.request_number||'').split('-').pop())||0),0)+1;
     return prefix+String(n).padStart(4,'0');
   };
-  const annual=v=>['annualleave','cutitahunan'].includes(norm(v));
-  const approved=v=>['approved','disetujui'].includes(norm(v));
+  // Master dropdown lama dapat menyimpan "Cuti", "Cuti Tahunan", atau
+  // annual_leave. Ketiganya mengurangi saldo; cuti khusus tidak.
+  const annual=v=>['annualleave','cutitahunan','cuti'].includes(norm(v));
+  const approved=v=>['approved','approve','disetujui','setuju'].includes(norm(v));
   const consumed=(requests,userId,year,excludeId)=>requests.filter(x=>String(x.applicant_user_id)===String(userId)&&String(x.id)!==String(excludeId)&&Number(String(x.start_date||'').slice(0,4))===Number(year)&&annual(x.leave_type)&&approved(x.status)).reduce((s,x)=>s+Number(x.duration_days||0),0);
   const currentSnapshot=async()=>{
     const requests=await db.getLeaveRequests(),stored=await db.getLeaveBalances();
