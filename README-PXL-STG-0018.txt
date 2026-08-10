@@ -1,0 +1,1 @@
+PXL-STG-0018 — KPI Unified Dashboard\nSTAGING ONLY\n- History WO dirapikan.\n- KPI Sales dari invoice per Sales PIC.\n- KPI Kunjungan dari Data Kunjungan.\n- KPI Umum merangkum Teknisi, Sales, Kunjungan.\n- Dummy SQL untuk ketiga KPI.\n

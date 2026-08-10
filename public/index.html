@@ -776,6 +776,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
 
       <!-- SUB: UMUM -->
       <div id="kpi-panel-general">
+        <div id="kpi18-overview" style="margin-bottom:16px"></div>
         <div class="period-row">
           <span class="period-label">Periode:</span>
           <button class="period-btn active" onclick="setPeriod('k','all',this)">Semua</button>
@@ -6867,21 +6868,23 @@ function openKpiDetail(techName){
     <!-- Daftar tiket -->
     <div class="dash-chart-card">
       <div class="dash-chart-title" style="margin-bottom:12px">History Work Order (${all.length})</div>
-      <div style="max-height:300px;overflow-y:auto">
-        ${all.length?all.sort((a,b)=>new Date(b.worked_at||b.created_at)-new Date(a.worked_at||a.created_at)).map(t=>{
-          const dt=t.worked_at?new Date(t.worked_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'2-digit'}):'—';
-          const statusMap={done:'✅',ongoing:'🔧',travelling:'🚗',assigned:'📋',pending:'⏳'};
-          const st=t.job_stages||[];
-          const compMs=calcStageTime(st,'berangkat','selesai');
-          return`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
-            <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;min-width:80px">${t.wo_number}</div>
-            <div style="flex:1;font-size:12px"><div style="font-weight:600">${t.customer_name||'—'}</div><div style="font-size:10px;color:var(--muted)">${t.project_name||'—'} · ${(t.job_stages||[]).map(s=>s.stage).join(' → ')||'Belum ada timeline'}</div></div>
-            <div style="font-size:11px;color:var(--muted)">${dt}</div>
-            <div>${statusMap[t.status]||'—'}</div>
-            
-            ${compMs?`<div style="font-size:11px;color:var(--purple)">${fmtDuration(compMs)}</div>`:''}
-          </div>`;
-        }).join(''):'<div class="empty">📭 Belum ada tiket</div>'}
+      <div style="overflow:auto;border:1px solid var(--border);border-radius:10px">
+        <table style="width:100%;border-collapse:collapse;min-width:760px;font-size:11px">
+          <thead><tr style="background:var(--surface2);text-align:left"><th style="padding:9px">No. WO</th><th style="padding:9px">Customer / Project</th><th style="padding:9px">Tanggal</th><th style="padding:9px">Status</th><th style="padding:9px">Timeline</th><th style="padding:9px">Durasi</th></tr></thead>
+          <tbody>${all.length?all.sort((a,b)=>new Date(b.worked_at||b.created_at)-new Date(a.worked_at||a.created_at)).map(t=>{
+            const dt=t.worked_at?new Date(t.worked_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'—';
+            const statusLabel={done:'Selesai',ongoing:'Dikerjakan',travelling:'Perjalanan',assigned:'Assigned',pending:'Pending'}[t.status]||t.status||'—';
+            const st=t.job_stages||[]; const compMs=calcStageTime(st,'berangkat','selesai');
+            return`<tr style="border-top:1px solid var(--border)">
+              <td style="padding:9px;font-family:'DM Mono',monospace;font-weight:700">${t.wo_number||'—'}</td>
+              <td style="padding:9px"><div style="font-weight:700">${t.customer_name||'—'}</div><div style="color:var(--muted);margin-top:2px">${t.project_name||'—'}</div></td>
+              <td style="padding:9px;white-space:nowrap">${dt}</td>
+              <td style="padding:9px"><span class="badge ${t.status||'pending'}">${statusLabel}</span></td>
+              <td style="padding:9px;color:var(--muted)">${st.map(s=>s.stage).join(' → ')||'Belum ada timeline'}</td>
+              <td style="padding:9px;white-space:nowrap">${compMs?fmtDuration(compMs):'—'}</td>
+            </tr>`;
+          }).join(''):'<tr><td colspan="6" class="empty">Belum ada Work Order</td></tr>'}</tbody>
+        </table>
       </div>
     </div>`;
 }
@@ -10525,6 +10528,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script>
 </body>
 </html>
