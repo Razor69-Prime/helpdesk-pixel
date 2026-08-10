@@ -123,7 +123,7 @@ window.pxlLeavePdf=async function(id){
     field('Company',r.company,25,40,17,72);field('Jabatan',r.job_title,111,40,17,72);
     text('Dengan ini mengajukan permohonan izin tidak bekerja pada,',18,47);
     field('Tanggal',dmy(r.start_date),25,54,17,72);text('s/d',101,54,{align:'center'});
-    field('Tanggal',dmy(r.end_date),111,54,17,72);
+    text('Tanggal Akhir Cuti',111,54);text(':',148,54);text(dmy(r.end_date),152,54);doc.line(152,55,183,55);
     field('Selama',`${r.duration_days||0} Hari`,25,61,17,72);
     // Kolom kanan memakai grid yang sama; label panjang diberi ruang khusus.
     text('Tanggal Kembali Bekerja',111,61);text(':',148,61);text(dmy(r.return_date),152,61);doc.line(152,62,183,62);

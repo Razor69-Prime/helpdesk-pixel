@@ -1,0 +1,7 @@
+PXL-STG-0009A7 - VERIFICATION
+
+[OK] JavaScript lulus pemeriksaan sintaks.
+[OK] Perubahan kode hanya pada baris Tanggal Akhir Cuti.
+[OK] Tanggal Akhir Cuti dan Tanggal Kembali Bekerja memakai posisi titik dua x=148.
+[OK] Kedua nilai tanggal dan garis bawah dimulai pada x=152 dan berakhir pada x=183.
+[OK] Tidak ada perubahan SQL.
