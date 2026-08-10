@@ -1,0 +1,16 @@
+VERIFIKASI PXL-STG-0009A10
+
+1. Pastikan cuti teknisi berstatus Approved dan ditandatangani Manager.
+2. Pastikan tanggal kerja WO berada di antara tanggal mulai dan tanggal selesai cuti.
+3. Dari Laporan, buka Assign/Ganti Teknisi dan pilih teknisi tersebut.
+4. Klik Simpan: harus muncul reminder teknisi sedang cuti.
+5. Pilih Batal: assignment tidak boleh berubah.
+6. Ulangi dan pilih Paksa Assign: assignment boleh tersimpan.
+7. Buat laporan/WO baru pada tanggal cuti dengan teknisi yang sama; reminder yang sama harus muncul.
+8. Buka Kanban/Timeline: label OFF/Cuti dan pengurangan slot tetap bekerja.
+
+Pemeriksaan teknis:
+- node --check server.js
+- node --check pxl-stg-0004f.js
+- node --check public/pxl-stg-0009a8-kanban-leave.js
+- Tidak ada SQL baru.

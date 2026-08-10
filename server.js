@@ -491,6 +491,44 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
   }
 });
 
+// PXL-STG-0009A10 — validasi cuti approved juga berlaku untuk assign dari halaman Laporan/WO.
+const leaveDateOnly = value => {
+  if (!value) return null;
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const get = type => parts.find(part => part.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+const leaveKey = value => String(value ?? '').trim().toLowerCase();
+async function approvedLeaveConflicts(technicians, workDate) {
+  if (!workDate || !Array.isArray(technicians) || !technicians.length || typeof db.getLeaveRequests !== 'function') return [];
+  const keys = new Set(technicians.map(leaveKey).filter(Boolean));
+  const requests = await db.getLeaveRequests();
+  return (Array.isArray(requests) ? requests : []).filter(row => {
+    const start = leaveDateOnly(row.start_date), end = leaveDateOnly(row.end_date);
+    return leaveKey(row.status) === 'approved' && start && end && workDate >= start && workDate <= end &&
+      [row.applicant_user_id, row.applicant_name].map(leaveKey).some(key => keys.has(key));
+  });
+}
+function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
+  const rows = [...new Map(conflicts.map(row => [String(row.id), row])).values()];
+  const names = [...new Set(rows.map(row => row.applicant_name).filter(Boolean))];
+  return res.status(409).json({
+    error: `Teknisi ${names.join(', ')} sedang cuti pada ${workDate}. Assignment diblokir.`,
+    code: 'TECHNICIAN_ON_APPROVED_LEAVE', can_force: Boolean(canForce), scheduled_date: workDate,
+    conflicts: rows.map(row => ({
+      request_id: row.id, request_number: row.request_number || null,
+      user_id: row.applicant_user_id || null, technician: row.applicant_name || null,
+      start_date: leaveDateOnly(row.start_date), end_date: leaveDateOnly(row.end_date), leave_type: row.leave_type || null
+    }))
+  });
+}
+
 app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), blockStagingDemoOnProduction, async (req, res) => {
   try {
     const now   = new Date().toISOString();
@@ -515,6 +553,12 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       technicians = [req.session.user.name];
     }
     if (!technicians.length) technicians = [req.session.user.name];
+    const workDate = leaveDateOnly(req.body.worked_at || req.body.scheduled_date);
+    const leaveConflicts = await approvedLeaveConflicts(technicians, workDate);
+    const canForceLeave = ['manager','admin','superadmin'].includes(leaveKey(role));
+    if (leaveConflicts.length && (req.body.force_leave_assignment !== true || !canForceLeave)) {
+      return sendLeaveAssignmentConflict(res, leaveConflicts, workDate, canForceLeave);
+    }
 
     const ticket = await db.insertTicket({
       wo_number:      req.body.wo_number,
@@ -601,9 +645,17 @@ app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
     // Manager ke atas bisa update teknisi
     const canAssign = ['admin','superadmin','manager','operator'].includes(role);
     if (canAssign && technicians && Array.isArray(technicians) && technicians.length) {
+      const existing = (await db.getTickets(null, true)).find(ticket => String(ticket.id) === String(req.params.id));
+      if (!existing) return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
+      const workDate = leaveDateOnly(req.body.worked_at || req.body.scheduled_date || existing.worked_at || existing.scheduled_date);
+      const leaveConflicts = await approvedLeaveConflicts(technicians, workDate);
+      const canForceLeave = ['manager','admin','superadmin'].includes(leaveKey(role));
+      if (leaveConflicts.length && (req.body.force_leave_assignment !== true || !canForceLeave)) {
+        return sendLeaveAssignmentConflict(res, leaveConflicts, workDate, canForceLeave);
+      }
       patch.technicians = technicians;
       patch.technician  = technicians[0];
-      logActivity(req, 'ticket', 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${technicians.join(', ')}`);
+      logActivity(req, 'ticket', req.body.force_leave_assignment === true ? 'PAKSA ASSIGN TEKNISI CUTI' : 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${technicians.join(', ')}`);
     } else if (!canAssign && technicians) {
       return res.status(403).json({ error: 'Anda tidak memiliki izin untuk mengubah teknisi yang ditugaskan.' });
     }

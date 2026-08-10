@@ -1,4 +1,4 @@
-/* PXL-STG-0009A8 — integrasi cuti approved ke Kanban/Timeline teknisi. */
+/* PXL-STG-0009A10 — integrasi cuti approved ke Kanban, Timeline, dan assignment Laporan/WO. */
 (function(){
   'use strict';
   const state={technicians:[],leaves:[],tickets:[]};
@@ -19,7 +19,10 @@
     const url=typeof input==='string'?input:(input?.url||'');
     let response=await originalFetch(input,options);
     await remember(response,url);
-    if(!url.includes('/api/technician-kanban/')||String(options?.method||'GET').toUpperCase()!=='PATCH'||response.status!==409)return response;
+    const method=String(options?.method||'GET').toUpperCase();
+    const kanbanAssign=url.includes('/api/technician-kanban/')&&method==='PATCH';
+    const reportAssign=/\/api\/tickets(?:\/[^/?]+)?(?:\?|$)/.test(url)&&(method==='POST'||method==='PATCH');
+    if((!kanbanAssign&&!reportAssign)||response.status!==409)return response;
     let problem={};try{problem=await response.clone().json();}catch(_){ }
     if(problem.code!=='TECHNICIAN_ON_APPROVED_LEAVE'||problem.can_force!==true)return response;
     const names=(problem.conflicts||[]).map(x=>x.technician).filter(Boolean).join(', ')||'Teknisi';
