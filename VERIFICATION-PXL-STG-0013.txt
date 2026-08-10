@@ -1,0 +1,13 @@
+PXL-STG-0013 VERIFICATION — STAGING ONLY
+
+[ ] Login Superadmin: semua menu utama tampil.
+[ ] Buka Project Tracker: submenu Project Tracker, Project Report, Input Total BOQ tampil.
+[ ] Superadmin dapat membuka Input Total BOQ tanpa lock/403.
+[ ] Login Manager: Project Tracker tampil.
+[ ] Di Project Tracker, submenu Input Total BOQ tampil otomatis tanpa checklist tambahan.
+[ ] Manager dapat tambah/edit/import BOQ.
+[ ] Login Teknisi: Project Report tampil dan Total BOQ read-only.
+[ ] Teknisi tidak melihat menu Input Total BOQ.
+[ ] Akun non-Manager dengan project_boq_manage dapat melihat Input Total BOQ setelah relogin.
+[ ] Tidak ada regression pada Project Tracker existing.
+[ ] Production tidak disentuh.

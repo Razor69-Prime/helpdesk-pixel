@@ -3028,7 +3028,7 @@ function switchTab(tab,btn){
     if(frame && !frame.dataset.loaded){ frame.src='/inventory.html'; frame.dataset.loaded='1'; }
   }
   if(tab==='pr')        loadPurchaseRequests();
-  if(tab==='projects')  { if(String(currentUser?.role||'').toLowerCase()==='technician'){ if(window.pxlProjectReport?.open) window.pxlProjectReport.open('report'); } else { loadProjects(); updateImportButtonVisibility(); if(window.pxlProjectReport?.refreshSummaries) window.pxlProjectReport.refreshSummaries(); } }
+  if(tab==='projects')  { if(window.pxlProjectReport?.refreshAccess) window.pxlProjectReport.refreshAccess(); if(String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='technician'){ if(window.pxlProjectReport?.open) window.pxlProjectReport.open('report'); } else { loadProjects(); updateImportButtonVisibility(); if(window.pxlProjectReport?.refreshSummaries) window.pxlProjectReport.refreshSummaries(); } }
   if(tab==='supplier')  loadSuppliers();
 }
 
@@ -10507,6 +10507,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0012-project-report.js?v=PXL-STG-0012"></script>
+<script src="/pxl-stg-0013-project-report.js?v=PXL-STG-0013"></script>
 </body>
 </html>
