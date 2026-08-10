@@ -1,0 +1,36 @@
+VERIFICATION — PXL-STG-0010
+Baseline: PXL-STG-0009A17
+Scope: Project Tracker > Project Report
+Environment: STAGING ONLY
+
+STATIC CHECK (dilakukan saat build paket)
+[PASS] node --check server.js
+[PASS] node --check db.js
+[PASS] node --check public/pxl-stg-0010-project-report.js
+[PASS] Script PXL-STG-0010 terpasang setelah modul leave PXL-STG-0009A17.
+[PASS] Endpoint Project Report memiliki requireRole.
+[PASS] Tidak ada konfigurasi/deploy production yang diubah.
+
+UAT STAGING YANG WAJIB DIJALANKAN SETELAH MIGRATION + DEPLOY
+[ ] Login staging sebagai role yang punya akses Project Tracker.
+[ ] Buka Project Tracker; tombol Project Tracker dan Project Report tampil.
+[ ] Buka Project Report; semua project existing tampil otomatis.
+[ ] 3 project [DUMMY] tampil.
+[ ] Dummy Tumbak Bayuh: BOQ 120, Today 15, Done 60, Remain 60, Progress 50%.
+[ ] Dummy Villa Cemagi: BOQ 80, Today 8, Done 64, Remain 16, Progress 80%.
+[ ] Dummy Restaurant Canggu: BOQ 50, Today 5, Done 20, Remain 30, Progress 40%.
+[ ] Ubah Total BOQ salah satu dummy; Remain dan Progress ikut berubah.
+[ ] Tambah Today Achievement; Total Done naik dan Remain turun.
+[ ] Coba achievement > Remain; sistem menolak.
+[ ] Edit achievement; Total Done dihitung ulang.
+[ ] Hapus achievement sebagai Admin/Manager/Superadmin; Total Done dihitung ulang.
+[ ] Pastikan role Sales tidak mendapat tombol hapus history.
+[ ] Search Project Report bekerja.
+[ ] Kembali ke submenu Project Tracker; fungsi existing tetap berjalan.
+[ ] Cek Form Izin/Cuti PXL-STG-0009A17 tetap normal.
+[ ] Cek console browser tidak ada error baru.
+
+STATUS RELEASE
+Static package: PASS
+UAT staging: PENDING — wajib dilakukan pada environment staging setelah SQL dan deploy.
+Production: BLOCKED / TIDAK BOLEH DISENTUH.

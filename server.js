@@ -1140,6 +1140,101 @@ app.delete('/api/projects/:id', requireRole('superadmin','admin'), async (req,re
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
+
+// ══════════════════════════════════════════
+//  PXL-STG-0010 — PROJECT REPORT
+// ══════════════════════════════════════════
+async function buildProjectReportRows(){
+  const [projects,reports,achievements]=await Promise.all([
+    db.getProjects(), db.getProjectReports(), db.getProjectReportAchievements()
+  ]);
+  const reportByProject=new Map(reports.map(r=>[String(r.project_id),r]));
+  const achByProject=new Map();
+  achievements.forEach(a=>{
+    const k=String(a.project_id);
+    if(!achByProject.has(k)) achByProject.set(k,[]);
+    achByProject.get(k).push(a);
+  });
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  return projects.map(p=>{
+    const report=reportByProject.get(String(p.id))||null;
+    const hist=achByProject.get(String(p.id))||[];
+    const totalBoq=Number(report?.total_boq)||0;
+    const totalDone=hist.reduce((n,a)=>n+(Number(a.achievement)||0),0);
+    const todayAchievement=hist.filter(a=>String(a.achievement_date).slice(0,10)===today).reduce((n,a)=>n+(Number(a.achievement)||0),0);
+    const remain=Math.max(totalBoq-totalDone,0);
+    const progress=totalBoq>0?Math.min(100,Math.round((totalDone/totalBoq)*10000)/100):0;
+    return {...p,report_id:report?.id||null,total_boq:totalBoq,today_achievement:todayAchievement,total_done:totalDone,remain,progress,achievements:hist};
+  });
+}
+
+app.get('/api/project-reports', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{ res.json(await buildProjectReportRows()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/project-reports/:projectId/boq', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const totalBoq=Number(req.body.total_boq);
+    if(!Number.isFinite(totalBoq)||totalBoq<=0) return res.status(400).json({error:'Total BOQ wajib lebih dari 0.'});
+    const rows=await buildProjectReportRows();
+    const current=rows.find(r=>String(r.id)===String(req.params.projectId));
+    if(!current) return res.status(404).json({error:'Project tidak ditemukan.'});
+    if(current.total_done>totalBoq) return res.status(400).json({error:`Total BOQ tidak boleh lebih kecil dari Total Done (${current.total_done}).`});
+    await db.upsertProjectReport(req.params.projectId,totalBoq,req.session.user.name);
+    logActivity(req,'project','UPDATE PROJECT REPORT BOQ',`${current.nama_project}: ${totalBoq}`);
+    res.json((await buildProjectReportRows()).find(r=>String(r.id)===String(req.params.projectId)));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/project-reports/:projectId/achievements', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const achievement=Number(req.body.achievement);
+    const date=String(req.body.achievement_date||new Date().toISOString().slice(0,10));
+    if(!Number.isFinite(achievement)||achievement<=0) return res.status(400).json({error:'Today Achievement wajib lebih dari 0.'});
+    const rows=await buildProjectReportRows();
+    const current=rows.find(r=>String(r.id)===String(req.params.projectId));
+    if(!current) return res.status(404).json({error:'Project tidak ditemukan.'});
+    if(!current.total_boq) return res.status(400).json({error:'Isi Total BOQ terlebih dahulu.'});
+    if(current.total_done+achievement>current.total_boq) return res.status(400).json({error:`Achievement melebihi sisa BOQ. Remain saat ini ${current.remain}.`});
+    await db.insertProjectReportAchievement({
+      project_id:req.params.projectId, achievement_date:date, achievement,
+      notes:req.body.notes?String(req.body.notes).trim():null,
+      created_by:req.session.user.name
+    });
+    logActivity(req,'project','TAMBAH PROJECT ACHIEVEMENT',`${current.nama_project}: +${achievement}`);
+    res.status(201).json((await buildProjectReportRows()).find(r=>String(r.id)===String(req.params.projectId)));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/project-report-achievements/:id', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const all=await db.getProjectReportAchievements();
+    const existing=all.find(a=>String(a.id)===String(req.params.id));
+    if(!existing) return res.status(404).json({error:'History achievement tidak ditemukan.'});
+    const projectRows=await buildProjectReportRows();
+    const current=projectRows.find(r=>String(r.id)===String(existing.project_id));
+    const achievement=req.body.achievement===undefined?Number(existing.achievement):Number(req.body.achievement);
+    if(!Number.isFinite(achievement)||achievement<=0) return res.status(400).json({error:'Achievement wajib lebih dari 0.'});
+    const otherDone=current.total_done-Number(existing.achievement||0);
+    if(otherDone+achievement>current.total_boq) return res.status(400).json({error:`Achievement melebihi Total BOQ. Maksimal ${Math.max(current.total_boq-otherDone,0)}.`});
+    const patch={achievement};
+    if(req.body.achievement_date!==undefined) patch.achievement_date=String(req.body.achievement_date);
+    if(req.body.notes!==undefined) patch.notes=req.body.notes?String(req.body.notes).trim():null;
+    await db.updateProjectReportAchievement(req.params.id,patch);
+    logActivity(req,'project','EDIT PROJECT ACHIEVEMENT',req.params.id);
+    res.json((await buildProjectReportRows()).find(r=>String(r.id)===String(existing.project_id)));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/project-report-achievements/:id', requireRole('superadmin','manager','admin'), async (req,res)=>{
+  try{
+    await db.deleteProjectReportAchievement(req.params.id);
+    logActivity(req,'project','HAPUS PROJECT ACHIEVEMENT',req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
 // ══════════════════════════════════════════
 //  MATERIAL REQUEST (akses: superadmin, akunting, manager)
 // ══════════════════════════════════════════

@@ -595,6 +595,45 @@ async function deleteProject(id){
   await sbFetch('DELETE',`/projects?id=eq.${id}`);
 }
 
+// PXL-STG-0010 — PROJECT REPORT
+async function getProjectReports(){
+  if(!USE_SUPABASE) return [];
+  return await sbFetch('GET','/project_reports?order=updated_at.desc')||[];
+}
+async function upsertProjectReport(projectId,totalBoq,updatedBy){
+  const payload={project_id:projectId,total_boq:Number(totalBoq),updated_by:updatedBy||null,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return {id:require('crypto').randomUUID(),...payload};
+  const existing=await sbFetch('GET',`/project_reports?project_id=eq.${projectId}&limit=1`);
+  if(existing?.length){
+    const rows=await sbFetch('PATCH',`/project_reports?project_id=eq.${projectId}`,payload);
+    return rows?.[0]||{...existing[0],...payload};
+  }
+  const rows=await sbFetch('POST','/project_reports',payload);
+  return rows?.[0]||payload;
+}
+async function getProjectReportAchievements(projectId=null){
+  if(!USE_SUPABASE) return [];
+  let q='/project_report_achievements?order=achievement_date.desc,created_at.desc';
+  if(projectId) q+=`&project_id=eq.${projectId}`;
+  return await sbFetch('GET',q)||[];
+}
+async function insertProjectReportAchievement(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return entry;
+  const rows=await sbFetch('POST','/project_report_achievements',entry);
+  return rows?.[0]||entry;
+}
+async function updateProjectReportAchievement(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_SUPABASE) return {id,...data};
+  const rows=await sbFetch('PATCH',`/project_report_achievements?id=eq.${id}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function deleteProjectReportAchievement(id){
+  if(!USE_SUPABASE) return;
+  await sbFetch('DELETE',`/project_report_achievements?id=eq.${id}`);
+}
+
 // ─────────────────────────────────────────
 //  SUPPLIERS
 // ─────────────────────────────────────────
@@ -990,6 +1029,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
+  getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
   getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
