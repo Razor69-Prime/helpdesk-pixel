@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="Helpdesk"/>
-<title>Helpdesk Teknisi — Pixel Solusindo</title>
+<title>PixelApps — Pixel Solusindo</title>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -32,6 +32,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .login-logo-dot{width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
 .login-logo-text{font-size:15px;font-weight:600;line-height:1.3}
 .login-logo-sub{font-size:12px;color:var(--muted)}
+.pxl19-login-brand{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:24px}
+.pxl19-login-brand img{display:block;width:100%;max-width:300px;height:auto;object-fit:contain;margin:0 auto 12px}
+.pxl19-app-name{font-size:22px;font-weight:800;letter-spacing:-.4px;color:var(--text)}
+.pxl19-app-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.pxl19-top-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;white-space:nowrap}
+.pxl19-top-logo img{height:34px;width:auto;max-width:180px;object-fit:contain}
+.pxl19-top-name{line-height:1.05}.pxl19-top-name small{display:block;font-size:9px;font-weight:500;color:var(--muted);margin-top:3px}
+@media(max-width:600px){.pxl19-top-logo img{height:26px;max-width:105px}.pxl19-top-name{font-size:12px}.pxl19-top-name small{display:none}.pxl19-login-brand img{max-width:260px}}
+
 .login-error{background:var(--red-bg);color:var(--red);border:1px solid #F09595;border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;margin-bottom:14px;display:none}
 .login-error.show{display:block}
 .gps-notice{background:var(--blue-bg);border:1px solid #B5D4F4;border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--blue);margin-bottom:14px}
@@ -539,9 +548,10 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
 <div id="login-screen">
   <div class="login-card">
     <div id="staging-login-badge">STAGING / DATA UJI</div>
-    <div class="login-logo">
-      <div class="login-logo-dot">P</div>
-      <div><div class="login-logo-text">Pixel Solusindo</div><div class="login-logo-sub">Helpdesk Teknisi</div></div>
+    <div class="pxl19-login-brand">
+      <img src="/pixel-solusindo-logo.png?v=PXL-STG-0019" alt="Pixel Solusindo"/>
+      <div class="pxl19-app-name">PixelApps</div>
+      <div class="pxl19-app-sub">Internal Business Application</div>
     </div>
     <div style="font-size:20px;font-weight:600;margin-bottom:4px">Masuk</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Gunakan username yang diberikan supervisor.</div>
@@ -557,7 +567,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
 <!-- APP -->
 <div id="app">
   <div class="topbar">
-    <div class="logo"><div class="logo-dot"></div>Helpdesk Pixel</div>
+    <div class="pxl19-top-logo"><img src="/pixel-solusindo-logo.png?v=PXL-STG-0019" alt="Pixel Solusindo"/><div class="pxl19-top-name">PixelApps<small>Pixel Solusindo</small></div></div>
     <div class="topbar-right">
       <button class="btn sm" id="btn-install-pwa-app" onclick="installPWA()" style="display:none">📲 Install</button>
       <div class="notif-wrap" style="position:relative">
@@ -2622,7 +2632,7 @@ async function installPWA(){
     }else if(/Android/.test(ua)){
       msg+='1. Tap menu (⋮) di pojok kanan atas browser\n2. Pilih "Install app" atau "Add to Home screen"';
     }else{
-      msg+='1. Klik ikon install (⊕) di address bar browser\n2. Atau buka menu browser → "Install Helpdesk Pixel..."';
+      msg+='1. Klik ikon install (⊕) di address bar browser\n2. Atau buka menu browser → "Install PixelApps..."';
     }
     alert(msg);
     return;
@@ -5843,7 +5853,7 @@ function exportPDF(){
   doc.text('PIXEL SOLUSINDO',14,16);
   doc.setTextColor(26,25,22);
   doc.setFontSize(11);
-  doc.text('Laporan Tiket Helpdesk Teknisi',14,23);
+  doc.text('Laporan Tiket PixelApps',14,23);
   doc.setFont('helvetica','normal');
   doc.setFontSize(9);
   doc.setTextColor(122,118,112);
@@ -10495,7 +10505,7 @@ async function pxlApplyEnvironmentIdentity(){
       document.body.classList.add('pxl-staging');
       document.getElementById('staging-banner')?.classList.add('show');
       document.getElementById('staging-login-badge')?.classList.add('show');
-      document.title='[STAGING] Helpdesk Teknisi — Pixel Solusindo';
+      document.title='[STAGING] PixelApps — Pixel Solusindo';
     }
   }catch(_){ /* identitas environment tidak boleh mengganggu login */ }
 }
@@ -10539,6 +10549,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script>
 </body>
 </html>

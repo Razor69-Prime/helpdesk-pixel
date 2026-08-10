@@ -1,0 +1,7 @@
+VERIFICATION PXL-STG-0019
+1. Ctrl+Shift+R.
+2. Pastikan halaman login menampilkan logo Pixel Solusindo dan PixelApps.
+3. Login dan cek header/menu utama menampilkan logo + PixelApps.
+4. Cek tampilan desktop dan mobile.
+5. Pastikan title browser PixelApps.
+6. Pastikan seluruh modul existing tetap dapat dibuka.
