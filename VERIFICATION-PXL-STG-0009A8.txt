@@ -1,0 +1,16 @@
+VERIFICATION PXL-STG-0009A8
+
+1. Buat cuti untuk akun dengan role Technician dan setujui oleh Manager.
+2. Buka Kanban pada tanggal cuti.
+3. Pastikan teknisi tampil pada daftar OFF/Cuti dan tidak dihitung pada slot tersedia.
+4. Buka Timeline harian dan mingguan; pastikan tanggal cuti diberi label OFF/Cuti.
+5. Jadwalkan WO teknisi tersebut ke tanggal cuti.
+6. Pastikan reminder tampil dan penyimpanan awal diblokir.
+7. Pilih Batal; pastikan jadwal tidak berubah.
+8. Ulangi lalu pilih Paksa Assign; pastikan jadwal tersimpan dan kartu WO menampilkan peringatan.
+9. Pastikan tanggal SO, quotation, item, harga, status WO, dan PDF Form Cuti tidak berubah.
+
+Pemeriksaan statis:
+- node --check pxl-stg-0007.js
+- node --check pxl-stg-0004f.js
+- node --check public/pxl-stg-0009a8-kanban-leave.js
