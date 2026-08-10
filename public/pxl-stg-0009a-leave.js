@@ -93,15 +93,57 @@ function leaveError(e,fallback='Terjadi kesalahan yang tidak dikenal.'){
 const imageDataA4=imageData;
 const transparentPngA4='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8WQAAAABJRU5ErkJggg==';
 async function optionalImageData(url){try{return await imageDataA4(`${url}?rev=PXL-STG-0009A4`);}catch(_){return transparentPngA4;}}
-const pxlLeavePdfA2=window.pxlLeavePdf;
 window.pxlLeavePdf=async function(id){
   const r=state.requests.find(x=>String(x.id)===String(id));
   if(!r){alert('PDF gagal dibuat: data pengajuan tidak ditemukan.');return;}
   if(!window.jspdf?.jsPDF){alert('PDF gagal dibuat: library PDF belum siap. Lakukan Ctrl + F5 lalu coba kembali.');return;}
   try{
-    const originalImageData=imageData;
-    imageData=optionalImageData;
-    try{await pxlLeavePdfA2(id);}finally{imageData=originalImageData;}
+    const {jsPDF}=window.jspdf;
+    const [leftLogo,rightLogo]=await Promise.all([
+      optionalImageData('/leave-logo-labda.png'),
+      optionalImageData('/leave-logo-companies.png')
+    ]);
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a5'});
+    const W=210,H=148,m=6.5,cx=W/2;
+    const text=(value,x,y,options)=>doc.text(String(value??'-'),x,y,options);
+    const field=(label,value,x,y,labelWidth,lineWidth)=>{
+      text(label,x,y);text(':',x+labelWidth,y);text(value||'-',x+labelWidth+3,y);
+      doc.line(x+labelWidth+3,y+1,x+lineWidth,y+1);
+    };
+    doc.setLineWidth(.7);doc.rect(m,m,W-2*m,H-2*m);
+    doc.setLineWidth(.25);doc.rect(m+1.2,m+1.2,W-2*m-2.4,H-2*m-2.4);
+    doc.addImage(leftLogo,'PNG',10,10,35,10.8);
+    doc.addImage(rightLogo,'PNG',165,11,34,7.2);
+    doc.setFont('helvetica','bold');doc.setFontSize(10.5);
+    text('FORMULIR PENGAJUAN IZIN/CUTI',cx,16.5,{align:'center'});doc.line(70,17.6,140,17.6);
+    doc.setFont('helvetica','normal');doc.setFontSize(6.8);
+    text('Saya yang bertanda-tangan dibawah ini:',18,27);
+    field('Nama',r.applicant_name,25,34,17,82);field('Divisi',r.division,112,34,17,76);
+    field('Company',r.company,25,40,17,82);field('Jabatan',r.job_title,112,40,17,76);
+    text('Dengan ini mengajukan permohonan izin tidak bekerja pada,',18,47);
+    field('Tanggal',dmy(r.start_date),25,54,17,62);text('s/d',91,54);
+    field('Tanggal',dmy(r.end_date),103,54,17,58);
+    field('Selama',`${r.duration_days||0} Hari`,25,61,17,62);
+    // Label dan nilai tanggal kembali memakai kolom terpisah agar tidak bertumpuk.
+    text('Tanggal Kembali Bekerja',103,61);text(':',140,61);text(dmy(r.return_date),144,61);doc.line(144,62,188,62);
+    text('Jenis Izin/Cuti',18,71);text(':',42,71);
+    const configured=state.options.filter(x=>x.option_type==='leave_type'&&x.is_active!==false).slice(0,4).map(x=>x.option_value);
+    const types=configured.length?configured:['Izin','Cuti Tahunan','Cuti Bersalin','Lainnya'],selected=typeName(r);
+    types.forEach((t,i)=>{const x=47+i*29;doc.rect(x,67.5,4.5,4.5);if(String(t)===String(selected)){doc.setFont('helvetica','bold');doc.setFontSize(8);text('X',x+.9,71.3);doc.setFont('helvetica','normal');doc.setFontSize(6.8);}text(t,x+6,71);});
+    text(`Jumlah Cuti Awal: ${r.opening_balance||0} Hari`,165,69);text(`Sisa Cuti: ${r.remaining_balance||0} Hari`,165,75);
+    text('Alasan',25,81);text(':',42,81);doc.rect(46,77,142,14);text(doc.splitTextToSize(r.reason||'-',138),48,81.5);
+    doc.setFont('helvetica','bold');text('PIC Pengganti Selama Izin Tidak Bekerja:',18,97);doc.setFont('helvetica','normal');text(r.pic_name||'-',83,97);doc.line(83,98,127,98);
+    text('Demikian permohonan izin tidak bekerja ini saya ajukan untuk dapat disetujui dan dimaklumi.',18,103);
+    text(`Badung, ${dmy(r.submitted_at||r.created_at)}`,178,103,{align:'center'});
+    const signature=(title,name,img,x,y,w)=>{text(title,x+w/2,y,{align:'center'});if(img)try{doc.addImage(img,'PNG',x+w/2-13,y+1,26,8)}catch(_){ }doc.line(x+7,y+11,x+w-7,y+11);text(name||'-',x+w/2,y+14.5,{align:'center'});};
+    signature('Yang Mengajukan,',r.applicant_signed_by||r.applicant_name,r.applicant_signature,23,107,55);
+    signature('PIC Pengganti,',r.pic_signed_by||r.pic_name,r.pic_signature,132,107,55);
+    doc.line(m+1.3,123,W-m-1.3,123);
+    text('Menyetujui,',52,127.5,{align:'center'});text('Mengetahui,',139,127.5,{align:'center'});
+    if(r.approver_signature)try{doc.addImage(r.approver_signature,'PNG',39,128,26,7)}catch(_){ }
+    doc.line(35,136,69,136);doc.line(91,136,123,136);doc.line(140,136,176,136);
+    text(r.approver_name||'Head/Manager',52,139.5,{align:'center'});text('CFO',107,139.5,{align:'center'});text('HR & GA',158,139.5,{align:'center'});
+    doc.save(`${r.request_number||'form-cuti'}.pdf`);
   }catch(e){alert(`PDF gagal dibuat: ${leaveError(e,'browser gagal memproses file PDF.')}`);}
 };
 

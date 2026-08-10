@@ -1,0 +1,11 @@
+PXL-STG-0009A5 - VERIFICATION
+
+[OK] Sintaks JavaScript lulus node --check.
+[OK] Generator aktif menggunakan jsPDF orientation landscape, format A5.
+[OK] Dimensi koordinat PDF menggunakan 210 x 148 mm.
+[OK] Font isi menggunakan 6.8 pt dan judul 10.5 pt.
+[OK] Label Tanggal Kembali Bekerja, tanda titik dua, nilai tanggal, dan garis isian memiliki koordinat terpisah.
+[OK] Seluruh isi berada di dalam batas halaman A5 landscape.
+[OK] Area tanda tangan digital berhenti pada Manager.
+[OK] CFO dan HR & GA tetap disediakan untuk tanda tangan manual.
+[OK] Tidak memerlukan SQL baru.
