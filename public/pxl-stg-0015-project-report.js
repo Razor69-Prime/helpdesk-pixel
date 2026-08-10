@@ -1,0 +1,174 @@
+/* PXL-STG-0015 — Daily Project Report WhatsApp/PDF. STAGING ONLY. */
+(function(){
+  'use strict';
+  const REV='PXL-STG-0015';
+  let rows=[], activeProjectId=null, boqProjectId=null;
+  const $=s=>document.querySelector(s);
+  const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const n=v=>Number(v)||0;
+  const fmt=v=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(n(v));
+  const pct=v=>`${n(v).toFixed(1)}%`;
+  const role=()=>String((typeof currentUser!=='undefined'&&currentUser?.role)||'').toLowerCase().replace(/[ _-]/g,'');
+  const customs=()=>Array.isArray(typeof currentUser!=='undefined'&&currentUser?.custom_menus)?currentUser.custom_menus:[];
+  const canReport=()=>['technician','superadmin'].includes(role());
+  const canBoq=()=>['manager','superadmin'].includes(role())||customs().includes('project_boq_manage');
+  const canTracker=()=>role()!=='technician';
+  const localDate=()=>{const d=new Date(),p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+  const current=()=>rows.find(r=>String(r.id)===String(activeProjectId));
+  const currentBoq=()=>rows.find(r=>String(r.id)===String(boqProjectId));
+
+  function style(){
+    if($('#pxl-pr12-style'))return;
+    const s=document.createElement('style');s.id='pxl-pr12-style';s.textContent=`
+      .pxl-pr12-subnav{display:flex;gap:8px;margin:-4px 0 14px;flex-wrap:wrap}.pxl-pr12-subnav .btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+      #pxl-project-report,#pxl-project-boq{display:none}.pr12-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-bottom:12px}.pr12-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}.pr12-label{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.06em}.pr12-value{font-size:22px;font-weight:800;margin-top:5px}.pr12-muted{font-size:11px;color:var(--muted)}
+      .pr12-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.pr12-toolbar input,.pr12-toolbar select{min-width:220px}.pr12-toolbar input{flex:1}.pr12-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface)}.pr12-table{width:100%;border-collapse:collapse;min-width:1080px;font-size:12px}.pr12-table th{background:var(--surface2);padding:10px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase}.pr12-table td{padding:10px;border-top:1px solid var(--border);vertical-align:middle}.pr12-num{font-weight:700}.pr12-project{font-weight:800}.pr12-progress{height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;min-width:95px}.pr12-progress span{display:block;height:100%;background:var(--accent);border-radius:99px}.pr12-progress.material span{background:#3b82f6}.pr12-progress.jasa span{background:#16a34a}.pr12-empty{text-align:center;padding:22px;color:var(--muted)}
+      .pr12-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10020;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto}.pr12-modal.show{display:flex}.pr12-dialog{width:min(1180px,96vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.pr12-dialog-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.pr12-title{font-size:18px;font-weight:800}.pr12-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.pr12-summary>div{border:1px solid var(--border);border-radius:10px;padding:10px}.pr12-summary b{font-size:16px}.pr12-section-title{font-size:14px;font-weight:800;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center}.pr12-detail{width:100%;border-collapse:collapse;font-size:11px;min-width:1050px}.pr12-detail th{background:var(--surface2);padding:8px;text-align:left;color:var(--muted);font-size:10px}.pr12-detail td{padding:8px;border-top:1px solid var(--border);vertical-align:middle}.pr12-today{width:74px!important;min-width:74px}.pr12-status{font-size:10px;border-radius:99px;padding:3px 7px;display:inline-block;border:1px solid var(--border)}.pr12-status.done{color:#15803d}.pr12-status.progress{color:#b45309}.pr12-status.not{color:var(--muted)}.pr12-error{display:none;background:#fee2e2;color:#991b1b;padding:8px 10px;border-radius:8px;margin:10px 0;font-size:11px}.pr12-history{margin-top:8px;padding:8px;border-radius:8px;background:var(--surface2)}.pr12-history-row{display:grid;grid-template-columns:100px 70px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border)}.pr12-history-row:last-child{border:0}
+      .pr12-boq-form{display:grid;grid-template-columns:120px 1fr 100px 110px 1fr auto;gap:8px;align-items:end;padding:12px;background:var(--surface2);border-radius:10px;margin:12px 0}.pr12-boq-form label{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}.pr12-boq-form input,.pr12-boq-form select{width:100%}.pr12-readonly{background:var(--surface2)!important;color:var(--muted)!important}.pr12-import-box{border:1px dashed var(--border);border-radius:10px;padding:12px;margin:12px 0;background:var(--surface2)}
+      .proj-report-mini{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}.proj-report-pill{font-size:9.5px;border:1px solid var(--border);border-radius:99px;padding:2px 6px;background:var(--surface2);font-weight:700}.proj-report-pill.mat{color:#2563eb}.proj-report-pill.jasa{color:#15803d}
+      @media(max-width:800px){.pr12-grid,.pr12-summary{grid-template-columns:1fr 1fr}.pr12-boq-form{grid-template-columns:1fr 1fr}.pr12-boq-form>div:nth-child(2),.pr12-boq-form>div:nth-child(5){grid-column:span 2}}
+    `;document.head.appendChild(s);
+  }
+
+  let builtAccessSignature='';
+  function accessSignature(){return [role(),canTracker()?'1':'0',canReport()?'1':'0',canBoq()?'1':'0'].join('|')}
+  function clearProjectSubnav(){
+    $('#pxl-pr12-subnav')?.remove();
+    $('#pxl-project-report')?.remove();
+    $('#pxl-project-boq')?.remove();
+    $('#pr12-modal')?.remove();
+  }
+  function build(force=false){
+    style();
+    const top=$('#tab-projects > div:first-child'); if(!top)return false;
+    const sig=accessSignature();
+    if($('#pxl-pr12-subnav') && !force && builtAccessSignature===sig)return true;
+    if($('#pxl-pr12-subnav')) clearProjectSubnav();
+    builtAccessSignature=sig;
+    const buttons=[];
+    if(canTracker())buttons.push('<button class="btn sm" id="pr12-tab-tracker">📁 Project Tracker</button>');
+    if(canReport())buttons.push('<button class="btn sm" id="pr12-tab-report">📊 Project Report</button>');
+    if(canBoq())buttons.push('<button class="btn sm" id="pr12-tab-boq">📐 Input Total BOQ</button>');
+    const sub=document.createElement('div');sub.id='pxl-pr12-subnav';sub.className='pxl-pr12-subnav';sub.innerHTML=buttons.join('');top.insertAdjacentElement('afterend',sub);
+
+    const report=document.createElement('div');report.id='pxl-project-report';report.innerHTML=`
+      <div class="pr12-grid"><div class="pr12-card"><div class="pr12-label">TOTAL PROJECT</div><div class="pr12-value" id="pr12-total-project">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL BOQ</div><div class="pr12-value" id="pr12-total-boq">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL DONE</div><div class="pr12-value" id="pr12-total-done">0</div></div><div class="pr12-card"><div class="pr12-label">OVERALL PROGRESS</div><div class="pr12-value" id="pr12-progress">0%</div></div></div>
+      <div class="pr12-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800">📊 Project Report</div><div class="pr12-muted">Khusus teknisi. Total BOQ read only; teknisi hanya menginput Today Achievement per item/jasa.</div></div><span class="pr12-status">${REV}</span></div><div class="pr12-toolbar"><input id="pr12-search" placeholder="Cari project atau PIC..."><button class="btn sm" id="pr12-refresh">↻ Refresh</button></div><div class="pr12-table-wrap"><table class="pr12-table"><thead><tr><th>Project</th><th>Total BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Material</th><th>Jasa</th><th>Overall</th><th>Aksi</th></tr></thead><tbody id="pr12-body"></tbody></table></div></div>`;
+    sub.insertAdjacentElement('afterend',report);
+
+    const boq=document.createElement('div');boq.id='pxl-project-boq';boq.innerHTML=`
+      <div class="pr12-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800">📐 Input Total BOQ Project</div><div class="pr12-muted">Khusus Manager atau akun yang diberi permission Input Total BOQ pada Manajemen Akun.</div></div><span class="pr12-status">${REV}</span></div>
+      <div class="pr12-toolbar"><select id="pr12-boq-project"><option value="">Pilih project...</option></select><button class="btn sm" id="pr12-boq-refresh">↻ Refresh</button><button class="btn sm" id="pr12-template">⬇ Template Excel</button><button class="btn blue sm" id="pr12-import-btn">📥 Import Excel</button><input type="file" id="pr12-import-file" accept=".xlsx,.xls" style="display:none"></div>
+      <div id="pr12-boq-summary" class="pr12-grid" style="grid-template-columns:repeat(3,minmax(150px,1fr));display:none"><div class="pr12-card"><div class="pr12-label">TOTAL BOQ MATERIAL</div><div class="pr12-value" id="pr12-boq-mat">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL BOQ JASA</div><div class="pr12-value" id="pr12-boq-jasa">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL BOQ PROJECT</div><div class="pr12-value" id="pr12-boq-all">0</div></div></div>
+      <div id="pr12-boq-editor" style="display:none"><div id="pr12-boq-error" class="pr12-error"></div><div class="pr12-boq-form"><div><label>Kategori</label><select id="pr12-boq-cat"><option value="material">Material</option><option value="jasa">Jasa</option></select></div><div><label>Nama Item / Jasa</label><input id="pr12-boq-name" placeholder="Nama material / pekerjaan jasa"></div><div><label>BOQ</label><input id="pr12-boq-qty" type="number" min="0.01" step="0.01"></div><div><label>Satuan</label><input id="pr12-boq-unit" placeholder="unit/titik/m"></div><div><label>Catatan</label><input id="pr12-boq-notes" placeholder="Opsional"></div><button class="btn primary" id="pr12-boq-add">+ Tambah BOQ</button></div>
+      <div class="pr12-import-box"><b>Import massal Excel</b><div class="pr12-muted" style="margin-top:4px">Pilih project terlebih dahulu. Kolom template: Kategori, Nama Item/Jasa, BOQ, Satuan, Catatan, Urutan. Import menambahkan detail BOQ ke project terpilih.</div></div><div id="pr12-boq-list"></div></div></div>`;
+    report.insertAdjacentElement('afterend',boq);
+
+    document.body.insertAdjacentHTML('beforeend',`<div class="pr12-modal" id="pr12-modal"><div class="pr12-dialog"><div class="pr12-dialog-head"><div><div class="pr12-title" id="pr12-modal-title">Project Report</div><div class="pr12-muted" id="pr12-modal-sub"></div></div><button class="btn ghost sm" id="pr12-close">✕</button></div><div id="pr12-error" class="pr12-error"></div><div class="pr12-summary"><div><div class="pr12-label">MATERIAL</div><b id="pr12-sum-mat">0%</b><div class="pr12-muted" id="pr12-sum-mat-sub"></div></div><div><div class="pr12-label">JASA</div><b id="pr12-sum-jasa">0%</b><div class="pr12-muted" id="pr12-sum-jasa-sub"></div></div><div><div class="pr12-label">PROJECT</div><b id="pr12-sum-all">0%</b><div class="pr12-muted" id="pr12-sum-all-sub"></div></div></div><div id="pr12-detail-wrap"></div></div></div>`);
+
+    $('#pr12-tab-tracker')?.addEventListener('click',()=>show('tracker'));
+    $('#pr12-tab-report')?.addEventListener('click',()=>show('report'));
+    $('#pr12-tab-boq')?.addEventListener('click',()=>show('boq'));
+    $('#pr12-refresh')?.addEventListener('click',loadFull); $('#pr12-search')?.addEventListener('input',renderReport);
+    $('#pr12-close')?.addEventListener('click',closeReport); $('#pr12-modal')?.addEventListener('click',e=>{if(e.target.id==='pr12-modal')closeReport()});
+    $('#pr12-boq-refresh')?.addEventListener('click',loadFull); $('#pr12-boq-project')?.addEventListener('change',()=>{boqProjectId=$('#pr12-boq-project').value||null;renderBoqEditor()});
+    $('#pr12-boq-add')?.addEventListener('click',addBoqItem); $('#pr12-template')?.addEventListener('click',downloadTemplate); $('#pr12-import-btn')?.addEventListener('click',()=>$('#pr12-import-file')?.click()); $('#pr12-import-file')?.addEventListener('change',importExcel);
+
+    if(role()==='technician')show('report'); else if(canTracker())show('tracker'); else if(canBoq())show('boq');
+    return true;
+  }
+
+  function refreshAccess(){
+    if(!role())return false;
+    const changed=builtAccessSignature!==accessSignature()||!$('#pxl-pr12-subnav');
+    if(changed) build(true);
+    return true;
+  }
+
+  function show(which){
+    if(which==='report'&&!canReport())return;
+    if(which==='boq'&&!canBoq())return;
+    if(which==='tracker'&&!canTracker())return;
+    ['tracker','report','boq'].forEach(x=>$('#pr12-tab-'+x)?.classList.toggle('active',x===which));
+    const list=$('#proj-list-section'),form=$('#proj-form-section'),report=$('#pxl-project-report'),boq=$('#pxl-project-boq');
+    if(list)list.style.display=which==='tracker'?'block':'none'; if(form)form.style.display='none'; if(report)report.style.display=which==='report'?'block':'none'; if(boq)boq.style.display=which==='boq'?'block':'none';
+    const top=$('#tab-projects > div:first-child');
+    if(top){const add=top.querySelector('button.btn.primary'),imp=top.querySelector('#proj-import-btn-wrap'); if(add)add.style.display=which==='tracker'?'':'none'; if(imp&&which!=='tracker')imp.style.display='none';}
+    if(which==='report'||which==='boq')loadFull();
+  }
+
+  function bar(v,cls=''){const p=Math.max(0,Math.min(100,n(v)));return `<div class="pr12-progress ${cls}"><span style="width:${p}%"></span></div><div class="pr12-muted" style="margin-top:3px">${pct(p)}</div>`}
+  function statusClass(st){return st==='Done'?'done':st==='On Progress'?'progress':'not'}
+  function summaryText(s){return `${fmt(s?.total_done)}/${fmt(s?.boq)} · Remain ${fmt(s?.remain)}`}
+  function setError(id,msg){const e=$(id);if(!e)return;e.textContent=msg||'';e.style.display=msg?'block':'none'}
+
+  async function loadFull(){
+    try{rows=await api('GET','/project-reports')||[];renderReport();populateBoqProjects();renderBoqEditor();syncTrackerFromRows();}
+    catch(e){if(canReport())setError('#pr12-error',e.message||'Gagal memuat Project Report.'); if(canBoq())setError('#pr12-boq-error',e.message||'Gagal memuat BOQ.');}
+  }
+  async function refreshSummaries(){
+    try{const sum=await api('GET','/project-report-summaries');window.pxlProjectReportSummaries={};(sum||[]).forEach(r=>window.pxlProjectReportSummaries[String(r.id)]={material:r.material_summary||{},jasa:r.jasa_summary||{},progress:n(r.progress)});if(typeof renderProjectList==='function')renderProjectList();}catch(_){ }
+  }
+  function syncTrackerFromRows(){window.pxlProjectReportSummaries={};rows.forEach(r=>window.pxlProjectReportSummaries[String(r.id)]={material:r.material_summary||{},jasa:r.jasa_summary||{},progress:n(r.progress)});if(canTracker()&&typeof renderProjectList==='function')renderProjectList()}
+
+  function renderReport(){
+    if(!canReport())return;
+    const q=String($('#pr12-search')?.value||'').toLowerCase();const list=rows.filter(r=>!q||String(r.nama_project||'').toLowerCase().includes(q)||String(r.pic||'').toLowerCase().includes(q));
+    const totalBoq=list.reduce((s,r)=>s+n(r.total_boq),0),totalDone=list.reduce((s,r)=>s+n(r.total_done),0),overall=totalBoq?totalDone/totalBoq*100:0;
+    if($('#pr12-total-project'))$('#pr12-total-project').textContent=list.length;if($('#pr12-total-boq'))$('#pr12-total-boq').textContent=fmt(totalBoq);if($('#pr12-total-done'))$('#pr12-total-done').textContent=fmt(totalDone);if($('#pr12-progress'))$('#pr12-progress').textContent=pct(overall);
+    const body=$('#pr12-body');if(!body)return;if(!list.length){body.innerHTML='<tr><td colspan="9" class="pr12-empty">Belum ada project / BOQ belum diinput.</td></tr>';return}
+    body.innerHTML=list.map(r=>`<tr><td><div class="pr12-project">${h(r.nama_project||'-')}</div><div class="pr12-muted">PIC: ${h(r.pic||'-')} · ${(r.items||[]).length} detail</div></td><td class="pr12-num">${fmt(r.total_boq)}</td><td class="pr12-num">${fmt(r.today_achievement)}</td><td class="pr12-num">${fmt(r.total_done)}</td><td class="pr12-num">${fmt(r.remain)}</td><td>${bar(r.material_summary?.progress,'material')}</td><td>${bar(r.jasa_summary?.progress,'jasa')}</td><td>${bar(r.progress)}</td><td><button class="btn sm" data-pr12-open="${h(r.id)}">Input Today</button></td></tr>`).join('');
+    body.querySelectorAll('[data-pr12-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.pr12Open));
+  }
+  function openReport(id){activeProjectId=id;const r=current();if(!r)return;$('#pr12-modal-title').textContent=r.nama_project||'Project Report';$('#pr12-modal-sub').textContent=`Total BOQ ${fmt(r.total_boq)} · read only · Done ${fmt(r.total_done)} · Remain ${fmt(r.remain)}`;setError('#pr12-error','');renderReportDetail();$('#pr12-modal').classList.add('show')}
+  function closeReport(){$('#pr12-modal')?.classList.remove('show');activeProjectId=null}
+  function renderReportDetail(){
+    const r=current();if(!r)return;$('#pr12-sum-mat').textContent=pct(r.material_summary?.progress);$('#pr12-sum-mat-sub').textContent=summaryText(r.material_summary);$('#pr12-sum-jasa').textContent=pct(r.jasa_summary?.progress);$('#pr12-sum-jasa-sub').textContent=summaryText(r.jasa_summary);$('#pr12-sum-all').textContent=pct(r.progress);$('#pr12-sum-all-sub').textContent=`${fmt(r.total_done)}/${fmt(r.total_boq)} · Remain ${fmt(r.remain)}`;
+    const items=r.items||[],wrap=$('#pr12-detail-wrap');const group=(cat,label)=>{const list=items.filter(i=>String(i.category).toLowerCase()===cat);return `<div class="pr12-section-title"><span>${label} <span class="pr12-muted">(${list.length})</span></span></div><div class="pr12-table-wrap"><table class="pr12-detail"><thead><tr><th>No</th><th>Nama</th><th>BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Progress</th><th>Status</th><th>Today Achievement</th><th>History</th></tr></thead><tbody>${list.length?list.map((i,idx)=>reportItemRow(i,idx,cat)).join(''):`<tr><td colspan="10" class="pr12-empty">BOQ ${label} belum diinput Manager.</td></tr>`}</tbody></table></div>${list.length?`<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:10px 0 18px"><span class="pr12-muted" id="pr12-dirty-${cat}"></span><button class="btn primary" data-pr12-save-group="${cat}">Simpan ${label}</button></div>`:''}`};wrap.innerHTML=group('material','Material')+group('jasa','Jasa')+`<div class="pr12-card" style="margin-top:14px"><div style="font-weight:800;margin-bottom:4px">Report Hari Ini</div><div class="pr12-muted" style="margin-bottom:10px">Semua Material dan Jasa tetap masuk ke report, termasuk item dengan Today = 0.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="pr15-copy-report">Copy Report WhatsApp</button><button class="btn" id="pr15-pdf-report">Download PDF</button></div></div>`;
+    $('#pr15-copy-report').onclick=copyDailyReport;
+    $('#pr15-pdf-report').onclick=downloadDailyReportPdf;
+    wrap.querySelectorAll('.pr12-today').forEach(input=>input.addEventListener('input',()=>markDirty(input.dataset.pr12Category)));
+    wrap.querySelectorAll('[data-pr12-save-group]').forEach(b=>b.onclick=()=>saveAchievementGroup(b.dataset.pr12SaveGroup,b));wrap.querySelectorAll('[data-pr12-hist]').forEach(b=>b.onclick=()=>toggleHistory(b.dataset.pr12Hist));
+  }
+  function reportItemRow(i,idx,cat){const today=(i.achievements||[]).filter(a=>String(a.achievement_date).slice(0,10)===localDate()).reduce((s,a)=>s+n(a.achievement),0);return `<tr><td>${idx+1}</td><td><b>${h(i.item_name)}</b>${i.unit?`<div class="pr12-muted">Satuan: ${h(i.unit)}</div>`:''}${i.notes?`<div class="pr12-muted">${h(i.notes)}</div>`:''}<div id="pr12-hist-${h(i.id)}"></div></td><td class="pr12-num pr12-readonly">${fmt(i.boq_qty)}</td><td class="pr12-num">${fmt(today)}</td><td class="pr12-num">${fmt(i.total_done)}</td><td class="pr12-num">${fmt(i.remain)}</td><td>${bar(i.progress,i.category==='material'?'material':'jasa')}</td><td><span class="pr12-status ${statusClass(i.status)}">${h(i.status)}</span></td><td><input class="pr12-today" data-pr12-category="${h(cat)}" data-pr12-item="${h(i.id)}" type="number" min="0" step="0.01" max="${n(i.remain)}" placeholder="0" ${n(i.remain)<=0?'disabled':''}></td><td><button class="btn ghost sm" data-pr12-hist="${h(i.id)}">Lihat</button></td></tr>`}
+  function markDirty(cat){const el=$(`#pr12-dirty-${CSS.escape(String(cat))}`);if(el){el.textContent='● Perubahan belum disimpan';el.style.color='#b45309'}}
+  async function saveAchievementGroup(cat,button){const inputs=[...document.querySelectorAll(`.pr12-today[data-pr12-category="${CSS.escape(String(cat))}"]`)].filter(x=>!x.disabled&&String(x.value).trim()!=='');if(!inputs.length){setError('#pr12-error',`Tidak ada Today Achievement ${cat==='material'?'Material':'Jasa'} yang perlu disimpan.`);return}const valid=[],invalid=[];for(const input of inputs){const value=Number(input.value),max=Number(input.max),id=input.dataset.pr12Item;if(!Number.isFinite(value)||value<=0||value>max){invalid.push(input);input.style.borderColor='#dc2626'}else{valid.push({input,id,value});input.style.borderColor=''}}if(!valid.length){setError('#pr12-error','Tidak ada nilai valid untuk disimpan. Pastikan achievement > 0 dan tidak melebihi Remain.');return}const original=button.textContent;button.disabled=true;button.textContent='Menyimpan...';let ok=0,failed=invalid.length;for(const row of valid){try{const u=await api('POST',`/project-report-items/${encodeURIComponent(row.id)}/achievements`,{achievement:row.value,achievement_date:localDate()});replace(u);ok++;row.input.value=''}catch(e){failed++;row.input.style.borderColor='#dc2626'}}button.disabled=false;button.textContent=original;renderReport();renderReportDetail();syncTrackerFromRows();if(failed){setError('#pr12-error',`${ok} data berhasil disimpan, ${failed} data gagal/invalid. Periksa baris yang ditandai.`)}else{setError('#pr12-error','');const el=$(`#pr12-dirty-${CSS.escape(String(cat))}`);if(el){el.textContent='✓ Semua perubahan berhasil disimpan';el.style.color='#15803d'}}}
+  function itemToday(i,date=localDate()){return (i.achievements||[]).filter(a=>String(a.achievement_date).slice(0,10)===date).reduce((s,a)=>s+n(a.achievement),0)}
+  function dailyReportData(){const r=current();if(!r)return null;const date=localDate();const groups=['material','jasa'].map(category=>({category,label:category==='material'?'MATERIAL':'JASA',items:(r.items||[]).filter(i=>String(i.category).toLowerCase()===category).map(i=>({...i,today_report:itemToday(i,date)}))}));return {r,date,groups}}
+  function dailyReportText(){const d=dailyReportData();if(!d)return '';const {r,date,groups}=d;const lines=['PROJECT DAILY REPORT',`Project: ${r.nama_project||'-'}`,`Tanggal: ${date}`,`Teknisi: ${r.pic||currentUser()?.name||currentUser()?.nama||'-'}`,''];groups.forEach(g=>{lines.push(g.label);if(!g.items.length)lines.push('- Belum ada BOQ');g.items.forEach((i,idx)=>{lines.push(`${idx+1}. ${i.item_name||'-'}`);lines.push(`   BOQ: ${fmt(i.boq_qty)} | Today: ${fmt(i.today_report)} | Total Done: ${fmt(i.total_done)} | Remain: ${fmt(i.remain)} | ${i.status||'-'}`)});lines.push('')});lines.push('SUMMARY',`Material: ${pct(r.material_summary?.progress)}`,`Jasa: ${pct(r.jasa_summary?.progress)}`,`Overall: ${pct(r.progress)}`);return lines.join('\n')}
+  async function copyDailyReport(){const text=dailyReportText();if(!text)return;try{await navigator.clipboard.writeText(text);alert('Report hari ini berhasil dicopy. Silakan paste ke WhatsApp.')}catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Report hari ini berhasil dicopy. Silakan paste ke WhatsApp.')}}
+  function downloadDailyReportPdf(){const d=dailyReportData();if(!d)return;if(!window.jspdf?.jsPDF){alert('Library PDF belum siap. Refresh halaman lalu coba kembali.');return}const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});const {r,date,groups}=d;doc.setFontSize(15);doc.text('PROJECT DAILY REPORT',14,16);doc.setFontSize(10);doc.text(`Project: ${r.nama_project||'-'}`,14,23);doc.text(`Tanggal: ${date}`,14,28);doc.text(`Teknisi/PIC: ${r.pic||currentUser()?.name||currentUser()?.nama||'-'}`,14,33);let y=39;groups.forEach(g=>{doc.setFontSize(11);doc.text(g.label,14,y);y+=3;const body=g.items.map((i,idx)=>[idx+1,i.item_name||'-',fmt(i.boq_qty),fmt(i.today_report),fmt(i.total_done),fmt(i.remain),i.status||'-']);doc.autoTable({startY:y,head:[['No','Nama','BOQ','Today','Done','Remain','Status']],body:body.length?body:[['','Belum ada BOQ','','','','','']],styles:{fontSize:7,cellPadding:1.5},headStyles:{fontStyle:'bold'},columnStyles:{0:{cellWidth:8},1:{cellWidth:78},2:{cellWidth:16},3:{cellWidth:16},4:{cellWidth:16},5:{cellWidth:16},6:{cellWidth:27}},margin:{left:14,right:14}});y=doc.lastAutoTable.finalY+7;if(y>250){doc.addPage();y=16}});doc.setFontSize(11);doc.text('SUMMARY',14,y);doc.setFontSize(10);doc.text(`Material: ${pct(r.material_summary?.progress)}   Jasa: ${pct(r.jasa_summary?.progress)}   Overall: ${pct(r.progress)}`,14,y+6);const safe=String(r.nama_project||'project').replace(/[^\w\-]+/g,'_').slice(0,50);doc.save(`Project_Daily_Report_${safe}_${date}.pdf`)}
+  function toggleHistory(id){const r=current(),item=(r?.items||[]).find(i=>String(i.id)===String(id)),box=$(`#pr12-hist-${CSS.escape(String(id))}`);if(!item||!box)return;if(box.innerHTML){box.innerHTML='';return}const hist=[...(item.achievements||[])].sort((a,b)=>String(b.achievement_date).localeCompare(String(a.achievement_date)));box.innerHTML=`<div class="pr12-history">${hist.length?hist.map(a=>`<div class="pr12-history-row"><b>${h(String(a.achievement_date).slice(0,10))}</b><span>+${fmt(a.achievement)}</span><span>${h(a.notes||'-')} <span class="pr12-muted">oleh ${h(a.created_by||'-')}</span></span></div>`).join(''):'Belum ada history.'}</div>`}
+
+  function populateBoqProjects(){if(!canBoq())return;const sel=$('#pr12-boq-project');if(!sel)return;const keep=boqProjectId||sel.value;sel.innerHTML='<option value="">Pilih project...</option>'+rows.map(r=>`<option value="${h(r.id)}">${h(r.nama_project||'-')}</option>`).join('');if(keep&&rows.some(r=>String(r.id)===String(keep))){sel.value=String(keep);boqProjectId=String(keep)}}
+  function renderBoqEditor(){if(!canBoq())return;const r=currentBoq(),sum=$('#pr12-boq-summary'),edit=$('#pr12-boq-editor');if(!r){if(sum)sum.style.display='none';if(edit)edit.style.display='none';return}sum.style.display='grid';edit.style.display='block';$('#pr12-boq-mat').textContent=fmt(r.material_summary?.boq);$('#pr12-boq-jasa').textContent=fmt(r.jasa_summary?.boq);$('#pr12-boq-all').textContent=fmt(r.total_boq);setError('#pr12-boq-error','');const items=r.items||[],wrap=$('#pr12-boq-list');const group=(cat,label)=>{const list=items.filter(i=>String(i.category).toLowerCase()===cat);return `<div class="pr12-section-title"><span>${label} <span class="pr12-muted">(${list.length})</span></span></div><div class="pr12-table-wrap"><table class="pr12-detail"><thead><tr><th>No</th><th>Nama</th><th>BOQ</th><th>Satuan</th><th>Catatan</th><th>Total Done</th><th>Aksi BOQ</th></tr></thead><tbody>${list.length?list.map((i,idx)=>boqItemRow(i,idx)).join(''):`<tr><td colspan="7" class="pr12-empty">Belum ada ${label}.</td></tr>`}</tbody></table></div>`};wrap.innerHTML=group('material','Material')+group('jasa','Jasa');wrap.querySelectorAll('[data-pr12-edit-boq]').forEach(b=>b.onclick=()=>editBoqItem(b.dataset.pr12EditBoq));wrap.querySelectorAll('[data-pr12-del-boq]').forEach(b=>b.onclick=()=>deleteBoqItem(b.dataset.pr12DelBoq))}
+  function boqItemRow(i,idx){return `<tr><td>${idx+1}</td><td><b>${h(i.item_name)}</b></td><td class="pr12-num">${fmt(i.boq_qty)}</td><td>${h(i.unit||'-')}</td><td>${h(i.notes||'-')}</td><td>${fmt(i.total_done)}</td><td><button class="btn ghost sm" data-pr12-edit-boq="${h(i.id)}">Edit</button> <button class="btn ghost sm" data-pr12-del-boq="${h(i.id)}">Hapus</button></td></tr>`}
+  async function addBoqItem(){const r=currentBoq();if(!r)return;const payload={category:$('#pr12-boq-cat').value,item_name:$('#pr12-boq-name').value.trim(),boq_qty:Number($('#pr12-boq-qty').value),unit:$('#pr12-boq-unit').value.trim(),notes:$('#pr12-boq-notes').value.trim()};if(!payload.item_name){setError('#pr12-boq-error','Nama item/jasa wajib diisi.');return}if(!Number.isFinite(payload.boq_qty)||payload.boq_qty<=0){setError('#pr12-boq-error','BOQ wajib lebih dari 0.');return}try{const u=await api('POST',`/project-reports/${encodeURIComponent(r.id)}/items`,payload);replace(u);['#pr12-boq-name','#pr12-boq-qty','#pr12-boq-unit','#pr12-boq-notes'].forEach(x=>{if($(x))$(x).value=''});renderBoqEditor();syncTrackerFromRows()}catch(e){setError('#pr12-boq-error',e.message||'Gagal menambah BOQ.')}}
+  async function editBoqItem(id){const r=currentBoq(),i=(r?.items||[]).find(x=>String(x.id)===String(id));if(!i)return;const name=prompt('Nama item/jasa:',i.item_name);if(name===null)return;const q=prompt('Total BOQ:',String(i.boq_qty));if(q===null)return;const boq=Number(q);if(!name.trim()||!Number.isFinite(boq)||boq<=0){alert('Nama atau BOQ tidak valid.');return}const unit=prompt('Satuan:',i.unit||'');if(unit===null)return;const notes=prompt('Catatan:',i.notes||'');if(notes===null)return;try{const u=await api('PATCH',`/project-report-items/${encodeURIComponent(id)}`,{item_name:name.trim(),boq_qty:boq,unit:unit.trim(),notes:notes.trim()});replace(u);renderBoqEditor();syncTrackerFromRows()}catch(e){alert('Gagal edit BOQ: '+(e.message||'Unknown error'))}}
+  async function deleteBoqItem(id){if(!confirm('Hapus item BOQ ini? Jika sudah memiliki achievement, penghapusan akan ikut menghapus history item.'))return;try{await api('DELETE',`/project-report-items/${encodeURIComponent(id)}`);await loadFull()}catch(e){alert('Gagal hapus BOQ: '+(e.message||'Unknown error'))}}
+
+  function downloadTemplate(){if(typeof XLSX==='undefined'){alert('Library Excel belum siap. Refresh halaman lalu coba kembali.');return}const data=[{'Kategori':'Material','Nama Item/Jasa':'DS-2CD2T46G2H-4I 4MP Fixed Bullet Network Camera','BOQ':17,'Satuan':'unit','Catatan':'','Urutan':1},{'Kategori':'Jasa','Nama Item/Jasa':'Instalasi Kamera CCTV','BOQ':17,'Satuan':'titik','Catatan':'','Urutan':2}];const ws=XLSX.utils.json_to_sheet(data,{header:['Kategori','Nama Item/Jasa','BOQ','Satuan','Catatan','Urutan']});ws['!cols']=[{wch:14},{wch:55},{wch:12},{wch:14},{wch:35},{wch:10}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'BOQ');XLSX.writeFile(wb,'template_import_boq_project.xlsx')}
+  async function importExcel(e){const file=e.target.files?.[0];e.target.value='';const r=currentBoq();if(!r){alert('Pilih project terlebih dahulu sebelum import Excel.');return}if(!file)return;if(typeof XLSX==='undefined'){alert('Library Excel belum siap.');return}try{const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:''});if(!raw.length)throw new Error('File Excel kosong.');const norm=v=>String(v??'').trim();const rowsImport=raw.filter(x=>Object.values(x).some(v=>norm(v)!=='')).map((x,idx)=>({category:norm(x['Kategori']||x['kategori']).toLowerCase(),item_name:norm(x['Nama Item/Jasa']||x['Nama Item']||x['Item']||x['item_name']),boq_qty:Number(x['BOQ']||x['boq_qty']),unit:norm(x['Satuan']||x['unit']),notes:norm(x['Catatan']||x['notes']),sort_order:Number(x['Urutan']||x['sort_order']||idx+1)}));if(!confirm(`Import ${rowsImport.length} baris BOQ ke project "${r.nama_project}"?`))return;const u=await api('POST',`/project-reports/${encodeURIComponent(r.id)}/items/import`,{rows:rowsImport});replace(u);renderBoqEditor();syncTrackerFromRows();alert(`Import BOQ berhasil: ${rowsImport.length} baris.`)}catch(err){alert('Import BOQ gagal: '+(err.message||'Unknown error'))}}
+
+  function replace(u){const i=rows.findIndex(r=>String(r.id)===String(u.id));if(i>=0)rows[i]=u;else rows.push(u)}
+  function init(){
+    let tries=0;
+    const ready=()=>{
+      tries++;
+      if(refreshAccess()){
+        if(canReport()||canBoq())loadFull();else refreshSummaries();
+        return;
+      }
+      if(tries<80)setTimeout(ready,250);
+    };
+    ready();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  window.pxlProjectReport={
+    revision:REV,
+    open:(view='report')=>{refreshAccess();show(view)},
+    refresh:loadFull,
+    refreshSummaries,
+    refreshAccess
+  };
+})();

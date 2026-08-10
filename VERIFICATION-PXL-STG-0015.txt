@@ -1,0 +1,8 @@
+VERIFICATION PXL-STG-0015
+1. Login Teknisi dan buka Project Report.
+2. Pilih project lalu submit Material/Jasa.
+3. Pastikan tombol Copy Report WhatsApp dan Download PDF tampil.
+4. Copy report dan pastikan semua Material/Jasa masuk termasuk Today 0.
+5. Download PDF dan pastikan tabel Material/Jasa serta summary tampil.
+6. Pastikan BOQ tetap read only.
+7. Production tidak disentuh.
