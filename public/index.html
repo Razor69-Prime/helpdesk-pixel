@@ -3019,7 +3019,18 @@ function switchTab(tab,btn){
     else renderTickets();
   }
   if(tab==='kpi'){
-    renderKPI();
+    // PXL-STG-0018C: KPI harus memuat sumber WO sendiri, tanpa bergantung pada Daftar Tiket pernah dibuka.
+    if(!allTickets.length){
+      loadTickets(true).then(()=>{
+        renderKPI();
+        if(document.getElementById('kpi-panel-teknisi')?.style.display!=='none' && typeof renderKpiTech==='function') renderKpiTech();
+        if(window.PXL_STG_0018?.refreshOverview) window.PXL_STG_0018.refreshOverview();
+      });
+    }else{
+      renderKPI();
+      if(document.getElementById('kpi-panel-teknisi')?.style.display!=='none' && typeof renderKpiTech==='function') renderKpiTech();
+      if(window.PXL_STG_0018?.refreshOverview) window.PXL_STG_0018.refreshOverview();
+    }
     // Sales role langsung ke sub-tab KPI Sales
     if(currentUser.role==='sales'){
       const salesBtn=document.getElementById('kpi-sub-sales');
