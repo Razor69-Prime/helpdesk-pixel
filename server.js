@@ -1010,6 +1010,37 @@ app.delete('/api/purchase-requests/:id', requireRole('superadmin'), async (req,r
 // ══════════════════════════════════════════
 const PROJECT_ROLES = ['superadmin','manager','admin','sales'];
 
+// PXL-STG-0012 — pemisahan akses Project Report (teknisi) dan Input BOQ (manager/permission khusus)
+function hasProjectBoqAccess(req) {
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(role==='superadmin') return true;
+  if(role==='manager') return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  return custom.includes('project_boq_manage');
+}
+function requireProjectBoqAccess(req,res,next){
+  if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+  if(!hasProjectBoqAccess(req)) return res.status(403).json({error:'Anda tidak memiliki izin Input Total BOQ Project.'});
+  next();
+}
+function canReadProjectReport(req){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  return role==='technician'||role==='superadmin'||hasProjectBoqAccess(req);
+}
+function requireProjectReportRead(req,res,next){
+  if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+  if(!canReadProjectReport(req)) return res.status(403).json({error:'Project Report hanya untuk Teknisi atau akun pengelola BOQ.'});
+  next();
+}
+function requireProjectAchievementInput(req,res,next){
+  if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+  const role=String(req.session.user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(!['technician','superadmin'].includes(role)) return res.status(403).json({error:'Today Achievement hanya dapat diinput oleh Teknisi.'});
+  next();
+}
+
 app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
   try{ res.json(await db.getProjects()); }
   catch(e){ res.status(500).json({error:e.message}); }
@@ -1206,13 +1237,27 @@ async function buildProjectReportRows(){
   });
 }
 
-app.get('/api/project-reports', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.get('/api/project-reports', requireProjectReportRead, async (req,res)=>{
   try{ res.json(await buildProjectReportRows()); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
+
+// Ringkasan progress untuk badge di Project Tracker; tidak membuka detail BOQ/history.
+app.get('/api/project-report-summaries', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const rows=await buildProjectReportRows();
+    res.json(rows.map(r=>({
+      id:r.id,
+      material_summary:r.material_summary,
+      jasa_summary:r.jasa_summary,
+      progress:r.progress
+    })));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
 // Legacy PXL-STG-0010 endpoints dipertahankan untuk kompatibilitas project yang belum memiliki detail BOQ.
-app.put('/api/project-reports/:projectId/boq', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.put('/api/project-reports/:projectId/boq', requireProjectBoqAccess, async (req,res)=>{
   try{
     const totalBoq=Number(req.body.total_boq);
     if(!Number.isFinite(totalBoq)||totalBoq<=0) return res.status(400).json({error:'Total BOQ wajib lebih dari 0.'});
@@ -1227,7 +1272,7 @@ app.put('/api/project-reports/:projectId/boq', requireRole(...PROJECT_ROLES), as
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/project-reports/:projectId/achievements', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.post('/api/project-reports/:projectId/achievements', requireProjectAchievementInput, async (req,res)=>{
   try{
     const achievement=Number(req.body.achievement);
     const date=String(req.body.achievement_date||new Date().toISOString().slice(0,10));
@@ -1244,7 +1289,7 @@ app.post('/api/project-reports/:projectId/achievements', requireRole(...PROJECT_
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.patch('/api/project-report-achievements/:id', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.patch('/api/project-report-achievements/:id', requireRole('superadmin'), async (req,res)=>{
   try{
     const all=await db.getProjectReportAchievements();
     const existing=all.find(a=>String(a.id)===String(req.params.id));
@@ -1264,13 +1309,13 @@ app.patch('/api/project-report-achievements/:id', requireRole(...PROJECT_ROLES),
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/project-report-achievements/:id', requireRole('superadmin','manager','admin'), async (req,res)=>{
+app.delete('/api/project-report-achievements/:id', requireRole('superadmin'), async (req,res)=>{
   try{ await db.deleteProjectReportAchievement(req.params.id); logActivity(req,'project','HAPUS PROJECT ACHIEVEMENT',req.params.id); res.json({ok:true}); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
 // Detail BOQ Material/Jasa
-app.post('/api/project-reports/:projectId/items', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.post('/api/project-reports/:projectId/items', requireProjectBoqAccess, async (req,res)=>{
   try{
     const rows=await buildProjectReportRows();
     const current=rows.find(r=>String(r.id)===String(req.params.projectId));
@@ -1287,7 +1332,44 @@ app.post('/api/project-reports/:projectId/items', requireRole(...PROJECT_ROLES),
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.patch('/api/project-report-items/:id', requireRole(...PROJECT_ROLES), async (req,res)=>{
+
+// Import massal Detail BOQ dari Excel (hasil parsing frontend).
+app.post('/api/project-reports/:projectId/items/import', requireProjectBoqAccess, async (req,res)=>{
+  try{
+    const rows=await buildProjectReportRows();
+    const current=rows.find(r=>String(r.id)===String(req.params.projectId));
+    if(!current) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const importRows=Array.isArray(req.body.rows)?req.body.rows:[];
+    if(!importRows.length) return res.status(400).json({error:'Data import BOQ kosong.'});
+    if(importRows.length>1000) return res.status(400).json({error:'Maksimal 1000 baris per import.'});
+    const normalized=[];
+    for(let idx=0;idx<importRows.length;idx++){
+      const x=importRows[idx]||{};
+      const category=String(x.category||'').trim().toLowerCase();
+      const itemName=String(x.item_name||'').trim();
+      const boq=Number(x.boq_qty);
+      if(!['material','jasa'].includes(category)) return res.status(400).json({error:`Baris ${idx+2}: Kategori harus Material atau Jasa.`});
+      if(!itemName) return res.status(400).json({error:`Baris ${idx+2}: Nama Item/Jasa wajib diisi.`});
+      if(!Number.isFinite(boq)||boq<=0) return res.status(400).json({error:`Baris ${idx+2}: BOQ wajib lebih dari 0.`});
+      normalized.push({
+        project_id:req.params.projectId,
+        category,
+        item_name:itemName,
+        boq_qty:boq,
+        unit:x.unit?String(x.unit).trim():null,
+        notes:x.notes?String(x.notes).trim():null,
+        sort_order:Number.isFinite(Number(x.sort_order))?Number(x.sort_order):idx+1,
+        status_override:null,
+        created_by:req.session.user.name
+      });
+    }
+    for(const item of normalized) await db.insertProjectReportItem(item);
+    logActivity(req,'project','IMPORT DETAIL BOQ',`${current.nama_project}: ${normalized.length} baris`);
+    res.status(201).json((await buildProjectReportRows()).find(r=>String(r.id)===String(req.params.projectId)));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.patch('/api/project-report-items/:id', requireProjectBoqAccess, async (req,res)=>{
   try{
     const all=await db.getProjectReportItems();
     const existing=all.find(i=>String(i.id)===String(req.params.id));
@@ -1308,12 +1390,12 @@ app.patch('/api/project-report-items/:id', requireRole(...PROJECT_ROLES), async 
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/project-report-items/:id', requireRole('superadmin','manager','admin'), async (req,res)=>{
+app.delete('/api/project-report-items/:id', requireProjectBoqAccess, async (req,res)=>{
   try{ await db.deleteProjectReportItem(req.params.id); logActivity(req,'project','HAPUS DETAIL BOQ',req.params.id); res.json({ok:true}); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/project-report-items/:id/achievements', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.post('/api/project-report-items/:id/achievements', requireProjectAchievementInput, async (req,res)=>{
   try{
     const all=await db.getProjectReportItems();
     const item=all.find(i=>String(i.id)===String(req.params.id));
@@ -1330,7 +1412,7 @@ app.post('/api/project-report-items/:id/achievements', requireRole(...PROJECT_RO
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.patch('/api/project-report-item-achievements/:id', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.patch('/api/project-report-item-achievements/:id', requireRole('superadmin'), async (req,res)=>{
   try{
     const allAch=await db.getProjectReportItemAchievements();
     const existing=allAch.find(a=>String(a.id)===String(req.params.id));
@@ -1352,7 +1434,7 @@ app.patch('/api/project-report-item-achievements/:id', requireRole(...PROJECT_RO
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/project-report-item-achievements/:id', requireRole('superadmin','manager','admin'), async (req,res)=>{
+app.delete('/api/project-report-item-achievements/:id', requireRole('superadmin'), async (req,res)=>{
   try{ await db.deleteProjectReportItemAchievement(req.params.id); logActivity(req,'project','HAPUS ACHIEVEMENT ITEM',req.params.id); res.json({ok:true}); }
   catch(e){ res.status(500).json({error:e.message}); }
 });

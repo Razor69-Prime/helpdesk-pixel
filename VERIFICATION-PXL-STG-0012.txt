@@ -1,0 +1,23 @@
+PXL-STG-0012 — STAGING VERIFICATION
+
+[ ] Login Manager -> Project Tracker memiliki menu/submenu Input Total BOQ.
+[ ] Manager tidak melihat tombol Project Report (kecuali Super Admin).
+[ ] Pilih project -> tambah Material manual berhasil.
+[ ] Pilih project -> tambah Jasa manual berhasil.
+[ ] Total BOQ Material/Jasa/Project terakumulasi otomatis.
+[ ] Download Template Excel berhasil.
+[ ] Import Excel beberapa Material/Jasa berhasil ke project terpilih.
+[ ] Edit BOQ berhasil jika BOQ baru >= Total Done item.
+[ ] Hapus BOQ mengikuti konfirmasi.
+[ ] Manajemen Akun menampilkan permission "Input Total BOQ Project".
+[ ] Beri permission ke akun non-Manager -> logout/login -> menu Input Total BOQ muncul.
+[ ] Login Teknisi -> menu Project Tracker langsung membuka Project Report.
+[ ] Teknisi tidak melihat Project Tracker list/form dan tidak melihat menu Input Total BOQ kecuali secara eksplisit diberi permission.
+[ ] Di Project Report, kolom BOQ hanya read only/tidak ada Edit/Hapus BOQ.
+[ ] Teknisi hanya dapat input Today Achievement per Material/Jasa.
+[ ] Today Achievement menambah Total Done dan mengurangi Remain.
+[ ] Progress Material dan Jasa ikut berubah.
+[ ] Kembali/login Manager/Sales -> badge Material % dan Jasa % pada nama project tetap muncul.
+[ ] Endpoint edit BOQ menolak akun tanpa project_boq_manage.
+[ ] Endpoint Today Achievement menolak role non-Technician (kecuali Super Admin untuk verifikasi staging).
+[ ] Production tidak disentuh.
