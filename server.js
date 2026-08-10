@@ -505,6 +505,22 @@ const leaveDateOnly = value => {
   return `${get('year')}-${get('month')}-${get('day')}`;
 };
 const leaveKey = value => String(value ?? '').trim().toLowerCase();
+const leaveTechniciansFromBody = body => {
+  const source = body || {};
+  const values = [];
+  const add = value => {
+    if (Array.isArray(value)) value.forEach(add);
+    else if (value && typeof value === 'object') values.push(value.id || value.user_id || value.technician_id || value.name || value.username);
+    else if (value != null && String(value).trim()) values.push(value);
+  };
+  add(source.technicians);
+  add(source.technician);
+  add(source.assigned_to);
+  add(source.assigned_to2);
+  add(source.technician_1);
+  add(source.technician_2);
+  return [...new Map(values.filter(Boolean).map(value => [leaveKey(value), value])).values()].slice(0, 2);
+};
 const leaveDayBefore = value => {
   const date = leaveDateOnly(value); if (!date) return null;
   const parsed = new Date(`${date}T00:00:00Z`); parsed.setUTCDate(parsed.getUTCDate() - 1);
@@ -636,7 +652,7 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
 app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
   try {
     const role = req.session.user.role;
-    const { status, lat, lng, technicians, technician } = req.body;
+    const { status, lat, lng } = req.body;
     const now = new Date().toISOString();
 
     // Validasi kepemilikan untuk teknisi
@@ -663,19 +679,22 @@ app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
 
     // Manager ke atas bisa update teknisi
     const canAssign = ['admin','superadmin','manager','operator'].includes(role);
-    if (canAssign && technicians && Array.isArray(technicians) && technicians.length) {
+    const hasTechnicianEdit = ['technicians','technician','assigned_to','assigned_to2','technician_1','technician_2']
+      .some(key => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+    const requestedTechnicians = leaveTechniciansFromBody(req.body);
+    if (canAssign && hasTechnicianEdit && requestedTechnicians.length) {
       const existing = (await db.getTickets(null, true)).find(ticket => String(ticket.id) === String(req.params.id));
       if (!existing) return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
       const workDate = leaveDateOnly(req.body.worked_at || req.body.scheduled_date || existing.worked_at || existing.scheduled_date);
-      const leaveConflicts = await approvedLeaveConflicts(technicians, workDate);
+      const leaveConflicts = await approvedLeaveConflicts(requestedTechnicians, workDate);
       const canForceLeave = ['manager','admin','superadmin'].includes(leaveKey(role));
       if (leaveConflicts.length && (req.body.force_leave_assignment !== true || !canForceLeave)) {
         return sendLeaveAssignmentConflict(res, leaveConflicts, workDate, canForceLeave);
       }
-      patch.technicians = technicians;
-      patch.technician  = technicians[0];
-      logActivity(req, 'ticket', req.body.force_leave_assignment === true ? 'PAKSA ASSIGN TEKNISI CUTI' : 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${technicians.join(', ')}`);
-    } else if (!canAssign && technicians) {
+      patch.technicians = requestedTechnicians;
+      patch.technician  = requestedTechnicians[0];
+      logActivity(req, 'ticket', req.body.force_leave_assignment === true ? 'PAKSA ASSIGN TEKNISI CUTI' : 'REASSIGN TEKNISI', `Ticket: ${req.params.id} → ${requestedTechnicians.join(', ')}`);
+    } else if (!canAssign && hasTechnicianEdit) {
       return res.status(403).json({ error: 'Anda tidak memiliki izin untuk mengubah teknisi yang ditugaskan.' });
     }
 

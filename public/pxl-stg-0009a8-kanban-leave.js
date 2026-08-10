@@ -25,9 +25,12 @@
     const reportAssign=/\/api\/tickets(?:\/[^/?]+)?(?:\?|$)/.test(url)&&(method==='POST'||method==='PATCH');
     if((!kanbanAssign&&!reportAssign)||response.status!==409)return response;
     let problem={};try{problem=await response.clone().json();}catch(_){ }
-    if(problem.code!=='TECHNICIAN_ON_APPROVED_LEAVE'||problem.can_force!==true)return response;
+    if(problem.code!=='TECHNICIAN_ON_APPROVED_LEAVE')return response;
     const names=(problem.conflicts||[]).map(x=>x.technician).filter(Boolean).join(', ')||'Teknisi';
-    const ok=window.confirm(`${names} sedang cuti pada ${problem.scheduled_date||'tanggal tersebut'} dan tidak tersedia pada slot Kanban.\n\nTetap Paksa Assign?`);
+    const periods=(problem.conflicts||[]).map(x=>`${x.start_date||'-'} s/d ${x.end_date||'-'}`).filter(Boolean).join(', ');
+    const message=`Tidak dapat assign ${names}. Teknisi sedang cuti pada ${problem.scheduled_date||'tanggal tersebut'}${periods?` (periode ${periods})`:''}.`;
+    if(problem.can_force!==true){window.alert(message);return response;}
+    const ok=window.confirm(`${message}\n\nTetap Paksa Assign?`);
     if(!ok)return response;
     let body={};try{body=JSON.parse(options?.body||'{}');}catch(_){body={};}
     response=await originalFetch(input,{...(options||{}),body:JSON.stringify({...body,force_leave_assignment:true})});

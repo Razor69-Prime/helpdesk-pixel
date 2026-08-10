@@ -1,0 +1,25 @@
+VERIFICATION PXL-STG-0009A12
+
+[LULUS] node --check server.js
+[LULUS] node --check pxl-stg-0007.js
+[LULUS] node --check pxl-stg-0004f.js
+[LULUS] node --check public/pxl-stg-0009a8-kanban-leave.js
+[LULUS] PATCH /api/tickets/:id memvalidasi field assignment tunggal dan array
+[LULUS] PATCH Kanban menormalisasi semua alias field teknisi
+[LULUS] Konflik cuti mengembalikan HTTP 409 sebelum db.updateTicket
+[LULUS] Notifikasi blokir menampilkan nama, tanggal kerja, dan periode cuti
+[LULUS] Role tanpa hak paksa tidak dapat melanjutkan assignment
+[LULUS] Cache script menggunakan PXL-STG-0009A12
+[LULUS] Tidak ada SQL baru
+
+UAT staging:
+1. Pastikan cuti teknisi berstatus approved.
+2. Buka Laporan/WO dengan tanggal yang masuk periode OFF.
+3. Klik Edit/Ganti Teknisi dan pilih teknisi yang sedang cuti.
+4. Klik Simpan.
+5. Pastikan notifikasi "Tidak dapat assign" muncul.
+6. Pilih Batal dan pastikan teknisi sebelumnya tetap tersimpan.
+7. Uji role Operator: hanya notifikasi blokir, tanpa Paksa Assign.
+8. Uji Manager/Admin/Superadmin: pilihan Paksa Assign muncul dan hanya menyimpan
+   bila dikonfirmasi.
+
