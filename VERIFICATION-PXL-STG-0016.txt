@@ -1,0 +1,10 @@
+VERIFICATION PXL-STG-0016
+1. Submit achievement Material/Jasa sebagai Teknisi.
+2. Copy Report WhatsApp.
+3. Cek Date/Days = tanggal submit terakhir dan nama hari benar.
+4. Cek Project Name sesuai Project Tracker.
+5. Cek Project ID dari nomor SO/WO jika relasinya tersedia.
+6. Cek PIC = user yang melakukan submit terakhir.
+7. Cek Team = '-'.
+8. Download PDF dan pastikan header sama.
+9. Semua item Today=0 tetap tampil.
