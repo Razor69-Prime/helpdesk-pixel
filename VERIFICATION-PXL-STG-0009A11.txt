@@ -1,0 +1,13 @@
+VERIFICATION PXL-STG-0009A11
+
+[ ] node --check server.js
+[ ] node --check pxl-stg-0007.js
+[ ] node --check pxl-stg-0004f.js
+[ ] node --check public/pxl-stg-0009a8-kanban-leave.js
+[ ] Cuti Made status Disetujui
+[ ] Periode 12–15 Agustus 2026, kembali bekerja 17 Agustus 2026
+[ ] Timeline menandai Made OFF pada 12–16 Agustus
+[ ] Assignment tanggal 16 Agustus diblokir/reminder
+[ ] Assignment tanggal 17 Agustus diperbolehkan
+[ ] PDF tidak berubah
+[ ] Tidak ada SQL baru

@@ -505,14 +505,32 @@ const leaveDateOnly = value => {
   return `${get('year')}-${get('month')}-${get('day')}`;
 };
 const leaveKey = value => String(value ?? '').trim().toLowerCase();
+const leaveDayBefore = value => {
+  const date = leaveDateOnly(value); if (!date) return null;
+  const parsed = new Date(`${date}T00:00:00Z`); parsed.setUTCDate(parsed.getUTCDate() - 1);
+  return parsed.toISOString().slice(0, 10);
+};
+const leaveEffectiveEnd = row => {
+  const end = leaveDateOnly(row?.end_date), beforeReturn = leaveDayBefore(row?.return_date);
+  return beforeReturn && (!end || beforeReturn > end) ? beforeReturn : end;
+};
 async function approvedLeaveConflicts(technicians, workDate) {
   if (!workDate || !Array.isArray(technicians) || !technicians.length || typeof db.getLeaveRequests !== 'function') return [];
-  const keys = new Set(technicians.map(leaveKey).filter(Boolean));
+  const keys = new Set(technicians.flatMap(value => value && typeof value === 'object'
+    ? [value.id, value.user_id, value.technician_id, value.name, value.full_name, value.username]
+    : [value]).map(leaveKey).filter(Boolean));
+  if (typeof db.getUsers === 'function') {
+    const allUsers = await db.getUsers();
+    for (const account of Array.isArray(allUsers) ? allUsers : []) {
+      const aliases = [account.id, account.user_id, account.name, account.full_name, account.username].map(leaveKey).filter(Boolean);
+      if (aliases.some(alias => keys.has(alias))) aliases.forEach(alias => keys.add(alias));
+    }
+  }
   const requests = await db.getLeaveRequests();
   return (Array.isArray(requests) ? requests : []).filter(row => {
-    const start = leaveDateOnly(row.start_date), end = leaveDateOnly(row.end_date);
+    const start = leaveDateOnly(row.start_date), end = leaveEffectiveEnd(row);
     return leaveKey(row.status) === 'approved' && start && end && workDate >= start && workDate <= end &&
-      [row.applicant_user_id, row.applicant_name].map(leaveKey).some(key => keys.has(key));
+      [row.applicant_user_id, row.applicant_name, row.created_by_id, row.created_by].map(leaveKey).some(key => keys.has(key));
   });
 }
 function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
@@ -524,7 +542,8 @@ function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
     conflicts: rows.map(row => ({
       request_id: row.id, request_number: row.request_number || null,
       user_id: row.applicant_user_id || null, technician: row.applicant_name || null,
-      start_date: leaveDateOnly(row.start_date), end_date: leaveDateOnly(row.end_date), leave_type: row.leave_type || null
+      start_date: leaveDateOnly(row.start_date), end_date: leaveEffectiveEnd(row),
+      requested_end_date: leaveDateOnly(row.end_date), return_date: leaveDateOnly(row.return_date), leave_type: row.leave_type || null
     }))
   });
 }

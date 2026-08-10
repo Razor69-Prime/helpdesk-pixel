@@ -1,4 +1,4 @@
-/* PXL-STG-0009A10 — integrasi cuti approved ke Kanban, Timeline, dan assignment Laporan/WO. */
+/* PXL-STG-0009A11 — pencocokan akun teknisi dan render OFF/Cuti yang deterministik. */
 (function(){
   'use strict';
   const state={technicians:[],leaves:[],tickets:[]};
@@ -9,6 +9,7 @@
   const covers=(leave,date)=>Boolean(date&&dateOnly(leave.start_date)<=date&&dateOnly(leave.end_date)>=date);
   const keys=value=>value&&typeof value==='object'?[value.id,value.user_id,value.name,value.username].filter(Boolean).map(norm):[norm(value)].filter(Boolean);
   function leaveFor(tech,date){const set=new Set(keys(tech));return state.leaves.find(x=>covers(x,date)&&[x.user_id,x.technician].filter(Boolean).map(norm).some(v=>set.has(v)));}
+  function techFromLabel(label){const value=norm(String(label?.textContent||'').replace(/OFF\s*\/\s*CUTI/ig,'').trim());return state.technicians.find(x=>keys(x).includes(value));}
   function ticket(id){return state.tickets.find(x=>String(x.id)===String(id));}
 
   async function remember(response,url){
@@ -49,11 +50,11 @@
   }
   function enhanceDailyTimeline(){
     const date=document.querySelector('#k7lDate')?.value;if(!date)return;
-    document.querySelectorAll('.k7l-row').forEach(row=>{const label=row.querySelector('.k7l-label'),tech=state.technicians.find(x=>norm(x.name)===norm(label?.textContent));if(!label||!tech)return;const leave=leaveFor(tech,date);label.classList.toggle('k9a8-off-row',!!leave);let tag=label.querySelector('.k9a8-off-tag');if(!leave){tag?.remove();return;}if(!tag){tag=document.createElement('span');tag.className='k9a8-off-tag';label.appendChild(tag);}tag.textContent='OFF / CUTI';});
+    document.querySelectorAll('.k7l-row').forEach(row=>{const label=row.querySelector('.k7l-label'),tech=techFromLabel(label);if(!label||!tech)return;const leave=leaveFor(tech,date);label.classList.toggle('k9a8-off-row',!!leave);let tag=label.querySelector('.k9a8-off-tag');if(!leave){tag?.remove();return;}if(!tag){tag=document.createElement('span');tag.className='k9a8-off-tag';label.appendChild(tag);}tag.textContent='OFF / CUTI';});
   }
   function enhanceWeeklyTimeline(){
     const grid=document.querySelector('.k7l-week');if(!grid)return;const cells=[...grid.children];
-    for(let i=8;i+7<cells.length;i+=8){const label=cells[i],tech=state.technicians.find(x=>norm(x.name)===norm(label.textContent));if(!tech)continue;for(let d=1;d<=7;d++){const cell=cells[i+d],date=cell?.dataset.weekDate,leave=leaveFor(tech,date);cell?.classList.toggle('k9a8-off-cell',!!leave);let tag=cell?.querySelector(':scope > .k9a8-off-tag');if(!leave){tag?.remove();continue;}if(!tag){tag=document.createElement('span');tag.className='k9a8-off-tag';cell.prepend(tag);}tag.textContent='OFF / CUTI';}}
+    for(let i=8;i+7<cells.length;i+=8){const label=cells[i],tech=techFromLabel(label);if(!tech)continue;for(let d=1;d<=7;d++){const cell=cells[i+d],date=cell?.dataset.weekDate,leave=leaveFor(tech,date);cell?.classList.toggle('k9a8-off-cell',!!leave);let tag=cell?.querySelector(':scope > .k9a8-off-tag');if(!leave){tag?.remove();continue;}if(!tag){tag=document.createElement('span');tag.className='k9a8-off-tag';cell.prepend(tag);}tag.textContent='OFF / CUTI';}}
   }
   function enhance(){enhanceKanban();enhanceDailyTimeline();enhanceWeeklyTimeline();}
   const style=document.createElement('style');style.textContent=`.k9a8-off{color:#a32d2d;font-weight:700;margin-top:4px}.k9a8-warning{color:#a32d2d!important;font-weight:700}.k9a8-off-tag{display:block;width:max-content;margin:4px 0;padding:2px 6px;border-radius:999px;background:#fce8e6;color:#a32d2d;font-size:9px;font-weight:800}.k9a8-off-row{background:#fff0ef!important;color:#a32d2d}.k9a8-off-cell{background:repeating-linear-gradient(135deg,#fff5f4,#fff5f4 7px,#fce8e6 7px,#fce8e6 14px)!important}`;document.head.appendChild(style);
