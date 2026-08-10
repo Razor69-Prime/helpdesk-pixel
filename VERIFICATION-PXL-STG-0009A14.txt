@@ -1,0 +1,10 @@
+VERIFICATION PXL-STG-0009A14
+
+[OK] public/index.html lengkap dan memiliki penutup script/body/html.
+[OK] JavaScript inline lulus node --check.
+[OK] public/pxl-stg-0009a-leave.js lulus node --check.
+[OK] pxl-stg-0009a-leave-api.js lulus node --check.
+[OK] Fungsi doLogin tersedia.
+[OK] Checklist Approve Cuti tersedia di Manajemen Akun.
+[OK] Hak leave_approve dibaca dan disimpan melalui pr_roles.
+[OK] Tidak memerlukan SQL.
