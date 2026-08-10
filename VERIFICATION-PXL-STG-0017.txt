@@ -1,0 +1,9 @@
+VERIFICATION PXL-STG-0017
+1. Login Manager/Admin/Superadmin.
+2. Buka KPI > KPI Teknisi.
+3. Pastikan panel History & Laporan WO Teknisi tampil.
+4. Uji pencarian WO/customer/project.
+5. Uji filter status.
+6. Klik teknisi dan cek KPI + History Work Order.
+7. Pastikan timeline stage WO tampil bila tersedia.
+8. Pastikan data berasal dari WO existing dan tidak ada form input History WO baru.

@@ -808,6 +808,16 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
           <button class="period-btn" onclick="setKpiTechPeriod('all',this)">Semua</button>
         </div>
 
+        <!-- PXL-STG-0017 — History/Laporan WO dibawa ke KPI Teknisi -->
+        <div class="dash-chart-card" style="margin-bottom:16px">
+          <div class="dash-chart-title">History & Laporan WO Teknisi</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:end">
+            <div class="form-group" style="margin:0;min-width:170px"><label>Cari WO / Customer / Project</label><input id="kpi-tech-wo-search" type="text" placeholder="Cari..." oninput="renderKpiTech()"/></div>
+            <div class="form-group" style="margin:0;min-width:150px"><label>Status WO</label><select id="kpi-tech-wo-status" onchange="renderKpiTech()"><option value="">Semua Status</option><option value="assigned">Assigned</option><option value="travelling">Dalam Perjalanan</option><option value="ongoing">Dikerjakan</option><option value="pending">Pending</option><option value="done">Selesai</option></select></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">KPI, History WO, dan laporan menggunakan sumber data Work Order yang sama — tidak ada input laporan WO terpisah.</div>
+        </div>
+
         <!-- Leaderboard -->
         <div id="kpi-tech-leaderboard" style="margin-bottom:20px"></div>
 
@@ -6657,10 +6667,19 @@ function renderKpiTech(){
   const all=allTicketsForReport();
 
   // Filter by period
+  const woSearch=(document.getElementById('kpi-tech-wo-search')?.value||'').trim().toLowerCase();
+  const woStatus=document.getElementById('kpi-tech-wo-status')?.value||'';
   const data=all.filter(t=>{
-    if(!from) return true;
-    const d=new Date(t.worked_at||t.created_at);
-    return d>=from&&d<=to;
+    if(from){
+      const d=new Date(t.worked_at||t.created_at);
+      if(d<from||d>to) return false;
+    }
+    if(woStatus&&t.status!==woStatus) return false;
+    if(woSearch){
+      const hay=[t.wo_number,t.customer_name,t.project_name,t.description].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(woSearch)) return false;
+    }
+    return true;
   });
 
   // Build per-technician stats
@@ -6706,7 +6725,6 @@ function renderKpiTech(){
       const pct=tm.total>0?Math.round(tm.done/tm.total*100):0;
       const barW=Math.round(tm.done/maxDone*100);
       const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`;
-      const ratingColor=avgRating>=4?'var(--green)':avgRating>=3?'var(--amber)':'var(--red)';
       return`<div class="ticket-item" style="margin-bottom:10px;cursor:pointer" onclick="openKpiDetail('${tm.name}')">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
           <div style="font-size:20px;flex-shrink:0">${medal}</div>
@@ -6733,8 +6751,8 @@ function renderKpiTech(){
             <div style="font-size:10px;color:var(--muted)">Berjalan</div>
           </div>
           <div style="text-align:center;min-width:60px">
-            <div style="font-size:13px;font-weight:600;color:${ratingColor}">${avgRating?'⭐'+avgRating:'—'}</div>
-            <div style="font-size:10px;color:var(--muted)">Avg Rating</div>
+            <div style="font-size:13px;font-weight:600;color:var(--amber)">${tm.tickets.filter(t=>t.status==='pending').length}</div>
+            <div style="font-size:10px;color:var(--muted)">Pending</div>
           </div>
           ${avgResp?`<div style="text-align:center;min-width:60px">
             <div style="font-size:13px;font-weight:600;color:var(--purple)">${avgResp}</div>
@@ -6765,7 +6783,7 @@ function openKpiDetail(techName){
 
   document.getElementById('kpi-tech-leaderboard').style.display='none';
   document.getElementById('kpi-tech-detail').style.display='';
-  document.getElementById('kpi-detail-title').textContent=`👷 Detail KPI — ${techName}`;
+  document.getElementById('kpi-detail-title').textContent=`KPI Teknisi & History WO — ${techName}`;
 
   const done=all.filter(t=>t.status==='done');
   const ongoing=all.filter(t=>['ongoing','travelling'].includes(t.status));
@@ -6848,7 +6866,7 @@ function openKpiDetail(techName){
 
     <!-- Daftar tiket -->
     <div class="dash-chart-card">
-      <div class="dash-chart-title" style="margin-bottom:12px">📄 Daftar Tiket (${all.length})</div>
+      <div class="dash-chart-title" style="margin-bottom:12px">History Work Order (${all.length})</div>
       <div style="max-height:300px;overflow-y:auto">
         ${all.length?all.sort((a,b)=>new Date(b.worked_at||b.created_at)-new Date(a.worked_at||a.created_at)).map(t=>{
           const dt=t.worked_at?new Date(t.worked_at).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'2-digit'}):'—';
@@ -6857,7 +6875,7 @@ function openKpiDetail(techName){
           const compMs=calcStageTime(st,'berangkat','selesai');
           return`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
             <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;min-width:80px">${t.wo_number}</div>
-            <div style="flex:1;font-size:12px">${t.customer_name||t.project_name||'—'}</div>
+            <div style="flex:1;font-size:12px"><div style="font-weight:600">${t.customer_name||'—'}</div><div style="font-size:10px;color:var(--muted)">${t.project_name||'—'} · ${(t.job_stages||[]).map(s=>s.stage).join(' → ')||'Belum ada timeline'}</div></div>
             <div style="font-size:11px;color:var(--muted)">${dt}</div>
             <div>${statusMap[t.status]||'—'}</div>
             
@@ -10507,6 +10525,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script>
 </body>
 </html>
