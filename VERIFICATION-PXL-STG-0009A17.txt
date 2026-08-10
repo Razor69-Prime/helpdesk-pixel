@@ -1,0 +1,13 @@
+VERIFICATION PXL-STG-0009A17
+
+[ ] Login staging berhasil.
+[ ] Form Cuti dapat dibuka tanpa error console.
+[ ] Admin HR menampilkan kolom Status Last Request.
+[ ] Request dengan status/bukti approval Manager lengkap bertanda Disetujui.
+[ ] Request cuti tahunan approved bertanda Mengurangi saldo.
+[ ] Saldo awal 10 dan durasi 4 menghasilkan Terpakai 4, Sisa 6.
+[ ] Detail/report menampilkan sisa terbaru.
+[ ] PDF baru menampilkan sisa terbaru.
+[ ] Teknisi cuti tidak dapat di-assign pada periode OFF.
+[ ] Tombol Tutup tetap berfungsi.
+[ ] Tidak ada error clients.claim().

@@ -191,4 +191,24 @@ const pxlLeavePdfA15=window.pxlLeavePdf;
 window.pxlLeavePdf=async function(id){
   try{await refreshLeaveSnapshot();await pxlLeavePdfA15(id);}catch(e){alert(leaveError(e,'Data PDF Cuti gagal diperbarui.'));}
 };
+
+// PXL-STG-0009A17: tampilkan status sumber yang menentukan pengurangan saldo.
+const renderHrA17=renderHr;
+renderHr=async function(){
+  await renderHrA17();
+  const table=document.querySelector('#leave-panel .leave-hr-table');
+  if(!table)return;
+  const head=table.querySelector('thead tr');
+  if(head&&!head.querySelector('[data-leave-status]')){
+    const th=document.createElement('th');th.dataset.leaveStatus='1';th.textContent='Status Last Request';head.appendChild(th);
+  }
+  table.querySelectorAll('tbody tr').forEach((tr,index)=>{
+    if(tr.querySelector('[data-leave-status]'))return;
+    const balance=state.balances[index]||{};
+    const last=state.requests.filter(r=>(String(r.applicant_user_id)===String(balance.user_id)||String(r.applicant_name||'').trim().toLowerCase()===String(balance.user_name||'').trim().toLowerCase())&&Number(String(r.start_date||'').slice(0,4))===Number(balance.year)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
+    const td=document.createElement('td');td.dataset.leaveStatus='1';
+    td.innerHTML=last?`${badge(last.approval_effective?'approved':last.status)}<div style="font-size:10px;color:var(--muted);margin-top:3px">${last.balance_counted?'Mengurangi saldo':'Tidak mengurangi saldo'}</div>`:'-';
+    tr.appendChild(td);
+  });
+};
 })();
