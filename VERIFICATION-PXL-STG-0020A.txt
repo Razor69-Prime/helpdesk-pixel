@@ -1,0 +1,12 @@
+UAT wajib:
+1 Dashboard Teknisi no ReferenceError.
+2 Dashboard Invoice no ReferenceError.
+3 Kanban opens without null error.
+4 Create PR qty normal.
+5 Account Management check Setujui SO/Buat WO.
+6 User without permission receives 403 and button hidden.
+7 Sales login: Sales PIC auto-filled.
+8 Draft Invoice defaults +14 days and editable.
+9 Quotation PDF official logo.
+10 Regression SO->WO, Inventory, Project, KPI, HR, CRM.
+Do NOT push main until explicit user approval.

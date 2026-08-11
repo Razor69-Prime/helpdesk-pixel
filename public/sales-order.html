@@ -97,7 +97,7 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
 <script>
 let runtimeToken = '';
 let D = { sales_orders: [] };
-let OPT = { sales_users: [], inventory_items: [], can_approve: false };
+let OPT = { sales_users: [], inventory_items: [], can_approve: false, can_issue:false, current_user:null };
 let editId = null;
 
 const byId = id => document.getElementById(id);
@@ -306,7 +306,7 @@ function reset() {
     if (element) element.value = '';
   });
   const salesPic = byId('salesPic');
-  if (salesPic) salesPic.value = '';
+  if (salesPic) { salesPic.value = ''; if(OPT.current_user&&String(OPT.current_user.role||'').toLowerCase()==='sales'){const mine=OPT.sales_users.find(u=>String(u.id)===String(OPT.current_user.id))||OPT.sales_users.find(u=>u.name===OPT.current_user.name);if(mine){salesPic.value=mine.id;salesPic.disabled=true;}} }
   if (byId('materialItems')) byId('materialItems').innerHTML = '';
   if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
   addMaterial();
@@ -478,7 +478,7 @@ function render() {
       actions += `<button class="btn good" data-act="approve" data-id="${item.id}">Setujui SO</button>`;
       actions += `<button class="btn bad" data-act="cancel" data-id="${item.id}">Batalkan</button>`;
     }
-    if (item.status === 'approved') {
+    if (item.status === 'approved' && (OPT.can_issue || item.linked_work_order_id || item.linked_crm_work_order_id)) {
       actions += `<button class="btn primary" data-act="wo" data-id="${item.id}">${item.linked_work_order_id || item.linked_crm_work_order_id ? 'Buka Work Order' : 'Buat Work Order'}</button>`;
     }
     return `<tr>
@@ -513,7 +513,9 @@ async function load() {
     OPT = {
       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
       inventory_items: Array.isArray(options.inventory_items) ? options.inventory_items : [],
-      can_approve: options.can_approve === true
+      can_approve: options.can_approve === true,
+      can_issue: options.can_issue === true,
+      current_user: options.current_user || null
     };
     D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
     const salesPic = byId('salesPic');
@@ -522,6 +524,11 @@ async function load() {
       salesPic.innerHTML = '<option value="">Pilih akun Sales</option>'
         + OPT.sales_users.map(user => `<option value="${user.id}">${esc(user.name)}</option>`).join('');
       if (selectedValue) salesPic.value = selectedValue;
+      const me=OPT.current_user;
+      if(!editId && me && String(me.role||'').toLowerCase()==='sales'){
+        const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>u.name===me.name);
+        if(mine){salesPic.value=mine.id;salesPic.disabled=true;} else salesPic.disabled=false;
+      }else salesPic.disabled=false;
     }
     render();
   } catch (error) {

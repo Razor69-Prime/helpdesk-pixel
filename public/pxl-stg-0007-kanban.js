@@ -32,7 +32,7 @@
     state.open=true;page.hidden=false;page.style.display='block';
     qsa('.sidebar .nav-btn').forEach(b=>b.classList.remove('active'));
     qsa('[data-k7-nav]').forEach(b=>b.classList.add('active'));
-    try{await load();}catch(err){qs('#k7Body').innerHTML=`<div class="alert error show">${esc(err.message)}</div>`;}
+    try{await load();}catch(err){const body=qs('#k7Body');if(body)body.innerHTML=`<div class="alert error show">${esc(err.message)}</div>`;else console.error('[PXL-STG-0020A] Kanban body belum tersedia',err);}
   }
 
   function install(){

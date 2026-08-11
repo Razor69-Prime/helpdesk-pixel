@@ -2235,7 +2235,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div>
+      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
     <hr class="divider"/>
@@ -4083,6 +4083,10 @@ const MATERIAL_REQUEST_PERMISSIONS=[
 const PROJECT_PERMISSIONS=[
   {id:'project_boq_manage',label:'📐 Input Total BOQ Project'}
 ];
+const SALES_ORDER_PERMISSIONS=[
+  {id:'sales_order_approve',label:'✅ Setujui Sales Order'},
+  {id:'sales_order_create_wo',label:'🛠️ Buat Work Order'}
+];
 
 // Default menu per role/divisi. Default tidak dapat dicabut oleh custom access.
 function getDefaultMenus(role){
@@ -4119,7 +4123,7 @@ function getEffectiveMenus(role, customMenus){
 
 function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const box=document.getElementById('menu-checkboxes');
-  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS].map(m=>m.id);
+  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id);
   if(forceSuperAdmin) currentMenus=allPermissionIds;
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
@@ -4146,7 +4150,8 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const mrBox=document.getElementById('material-request-permission-checkboxes');
   if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const projectBox=document.getElementById('project-permission-checkboxes');
-  if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+  if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');  const soBox=document.getElementById('sales-order-permission-checkboxes');
+  if(soBox) soBox.innerHTML=SALES_ORDER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
 }
 
 
@@ -4160,13 +4165,13 @@ function ensureCrmChecklist(){
 }
 
 function getCheckedMenus(){
-  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS].map(m=>m.id).filter(id=>
+  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id).filter(id=>
     document.querySelector(`[data-menu="${id}"]`)?.checked
   );
 }
 
 function setAllMenus(val){
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=val;
   });
@@ -4178,7 +4183,7 @@ function resetMenuToRole(){
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
   const projectDefaults=['manager','superadmin'].includes(role)?PROJECT_PERMISSIONS.map(x=>x.id):[];
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id);
   });
@@ -4221,7 +4226,7 @@ function openEditModal(userId){
   // Default divisi selalu aktif dan tidak dapat dicabut. Custom access hanya menambah menu.
   const defaultsLocked=getDefaultMenus(u.role);
   const forbiddenLocked=getForbiddenMenus(u.role);
-  document.querySelectorAll('#menu-checkboxes [data-menu],#inventory-permission-checkboxes [data-menu],#material-request-permission-checkboxes [data-menu],#project-permission-checkboxes [data-menu]').forEach(el=>{
+  document.querySelectorAll('#menu-checkboxes [data-menu],#inventory-permission-checkboxes [data-menu],#material-request-permission-checkboxes [data-menu],#project-permission-checkboxes [data-menu],#sales-order-permission-checkboxes [data-menu]').forEach(el=>{
     const id=el.dataset.menu;
     const label=el.closest('label');
     if(defaultsLocked.includes(id)){
@@ -4294,7 +4299,7 @@ async function saveEditUser(){
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
     let checkedMenus=role==='superadmin'
-      ? [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS].map(m=>m.id)
+      ? [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id)
       : getCheckedMenus();
     const forbiddenMenus=getForbiddenMenus(role);
     if(role==='technician') forbiddenMenus.push('inventory',...INVENTORY_PERMISSIONS.map(x=>x.id));
@@ -8376,13 +8381,7 @@ async function submitPR(){
 
   if(!outlet){errEl.textContent='Pilih outlet terlebih dahulu.';errEl.style.display='block';return;}
   if(!items.length){errEl.textContent='Minimal 1 item harus diisi.';errEl.style.display='block';return;}
-  for(const item of items){
-    if(item.qty_out<=0){errEl.textContent='Jumlah Pengambilan harus lebih dari 0.';errEl.style.display='block';return;}
-    if(item.qty_use<0||item.qty_use>item.qty_out){errEl.textContent=`Pemakaian ${item.name} harus antara 0 dan jumlah pengambilan.`;errEl.style.display='block';return;}
-    item.qty_return=Math.max(0,Number((item.qty_out-item.qty_use).toFixed(2)));
-  }
-  const invalidStock=items.find(x=>x.inventory_item_id&&x.qty_out<=0);
-  if(invalidStock){errEl.textContent='Jumlah pengambilan item Inventory harus lebih dari 0.';errEl.style.display='block';return;}
+  if(items.some(item=>Number(item.qty||0)<=0)){errEl.textContent='Qty Purchase Request harus lebih dari 0.';errEl.style.display='block';return;}
 
   const payload={
     pr_number: document.getElementById('pr-no').value,
@@ -10549,6 +10548,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020a-uat-fix.js?v=PXL-STG-0020A"></script>
 </body>
 </html>

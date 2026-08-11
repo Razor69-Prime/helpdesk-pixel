@@ -2070,6 +2070,18 @@ app.delete('/api/staging/demo/wo-foundation', requireRole('superadmin'), async (
 // CRM + SALES ORDER FLOW — PXL-REV-0035 CUMULATIVE
 // ══════════════════════════════════════════
 const CRM_WRITE_ROLES=['sales','manager','admin','superadmin'];
+function hasSalesOrderPermission(req, permission){
+  const u=req.session?.user||{};
+  if(String(u.role||'').toLowerCase()==='superadmin') return true;
+  return Array.isArray(u.custom_menus)&&u.custom_menus.includes(permission);
+}
+function requireSalesOrderPermission(permission){
+  return (req,res,next)=>{
+    if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+    if(!hasSalesOrderPermission(req,permission))return res.status(403).json({error:permission==='sales_order_approve'?'Anda tidak memiliki izin Setujui Sales Order.':'Anda tidak memiliki izin Buat Work Order.'});
+    next();
+  };
+}
 app.get('/api/crm/report',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmReport())}catch(e){res.status(500).json({error:e.message})}});
 app.get('/api/crm/customers',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmCustomers())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/customers',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.name)return res.status(400).json({error:'Nama customer wajib diisi'});const x=await db.insertCrmCustomer({...req.body,created_by:req.session.user.name});logActivity(req,'crm','BUAT CUSTOMER',x.name);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
@@ -2084,11 +2096,11 @@ app.get('/api/sales-orders/options',requireRole(...SO_READ_ROLES),async(req,res)
     const salesUsers=(users||[]).filter(u=>u.is_active!==false&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
       .map(u=>({id:u.id,name:u.name,email:u.email||null,role:u.role}));
     const items=(inventory||[]).filter(i=>i.is_active!==false).map(i=>({id:i.id,name:i.name,sku:i.sku||null,unit:i.unit||'pcs',stock:Number(i.stock||0),tracking_mode:i.tracking_mode||'quantity'}));
-    res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:['manager','admin','superadmin'].includes(req.session.user.role),can_issue:['manager','admin','superadmin'].includes(req.session.user.role)});
+    res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
   }catch(e){res.status(500).json({error:e.message})}
 });
 
-app.post('/api/sales-orders/:id/approve',requireRole('manager','admin','superadmin'),async(req,res)=>{
+app.post('/api/sales-orders/:id/approve',requireSalesOrderPermission('sales_order_approve'),async(req,res)=>{
   try{
     const so=(await db.getSalesOrders()).find(x=>String(x.id)===String(req.params.id));
     if(!so)return res.status(404).json({error:'SO tidak ditemukan'});
@@ -2149,7 +2161,7 @@ app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)
 
 // PXL-STG-0003 — konversi Sales Order menjadi WO operasional existing.
 // Idempotent: satu Sales Order hanya boleh terhubung ke satu ticket/WO.
-app.post('/api/sales-orders/:id/work-order',requireRole('sales','manager','admin','superadmin'),async(req,res)=>{
+app.post('/api/sales-orders/:id/work-order',requireSalesOrderPermission('sales_order_create_wo'),async(req,res)=>{
   try{
     const salesOrders=await db.getSalesOrders();
     const so=salesOrders.find(x=>String(x.id)===String(req.params.id));

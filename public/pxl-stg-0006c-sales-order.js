@@ -104,12 +104,12 @@
     doc.setFillColor(...PEACH);
     doc.rect(10, 10, 190, 29, 'F');
     if (logo) {
-      try { doc.addImage(logo, 'PNG', 14, 13, 23, 23); } catch (_) {}
+      try { doc.addImage(logo, 'PNG', 14, 15, 58, 18); } catch (_) {}
     }
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text('PIXEL SOLUSINDO', 43, 27);
+    doc.text('PIXEL SOLUSINDO', 76, 27);
     doc.setFontSize(25);
     doc.text('QUOTATION', 196, 28, { align: 'right' });
     doc.setFillColor(...NAVY);
@@ -182,7 +182,7 @@
 
     try {
       const JsPDF = await ensureJsPDF();
-      const logo = await imageData('/icons/icon-192.png');
+      const logo = await imageData('/pixel-solusindo-logo.png?v=PXL-STG-0019');
       const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const { material, service } = splitLines(so.items);
       const state = { y: 49 };
