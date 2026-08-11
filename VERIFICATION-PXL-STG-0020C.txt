@@ -1,0 +1,1 @@
+UAT: Kanban direct open; invoice 11/08/2026 => 25/08/2026; ubah tanggal => +14 hari; manual due date tetap.

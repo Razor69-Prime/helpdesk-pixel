@@ -25,8 +25,9 @@
   async function openKanban(e){
     e?.preventDefault();e?.stopPropagation();
     const host=contentHost();if(!host)return;
-    if(!qs('#pxlKanbanPage')) install();
-    const page=qs('#pxlKanbanPage');if(!page)return;
+    let page=host.querySelector('#pxlKanbanPage')||document.getElementById('pxlKanbanPage');
+    if(!page){install();page=host.querySelector('#pxlKanbanPage')||document.getElementById('pxlKanbanPage');}
+    if(!page)return;
     if(!state.open){
       state.snapshot.clear();
       [...host.children].forEach(node=>{if(node===page)return;state.snapshot.set(node,node.style.display);node.style.display='none';});
@@ -34,7 +35,7 @@
     state.open=true;page.hidden=false;page.style.display='block';
     qsa('.sidebar .nav-btn').forEach(b=>b.classList.remove('active'));
     qsa('[data-k7-nav]').forEach(b=>b.classList.add('active'));
-    try{await load();}catch(err){const body=qs('#k7Body');if(body)body.innerHTML=`<div class="alert error show">${esc(err.message)}</div>`;else console.error('[PXL-STG-0020A] Kanban body belum tersedia',err);}
+    try{await load(page);}catch(err){const body=qs('#k7Body');if(body)body.innerHTML=`<div class="alert error show">${esc(err.message)}</div>`;else console.error('[PXL-STG-0020A] Kanban body belum tersedia',err);}
   }
 
   function install(){
@@ -69,8 +70,8 @@
     qsa('[data-k7view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.k7view;render();});
   }
 
-  async function load(){
-    const page=qs('#pxlKanbanPage');if(!page)throw new Error('Halaman Kanban belum siap.');
+  async function load(pageArg){
+    const page=pageArg||document.getElementById('pxlKanbanPage');if(!page)throw new Error('Halaman Kanban belum siap.');
     const range=page.querySelector('#k7Range');if(!range)throw new Error('Komponen rentang Kanban belum siap.');
     state.weekStart=state.weekStart||monday(new Date());const end=addDays(state.weekStart,6);
     range.textContent=`${state.weekStart.toLocaleDateString('id-ID')} – ${end.toLocaleDateString('id-ID')}`;
