@@ -1,0 +1,9 @@
+UAT PXL-STG-0020B
+1. Buka Kanban langsung setelah login: tidak boleh ada null/textContent error.
+2. Dashboard > Invoice: tidak boleh ada renderSalesChart ReferenceError.
+3. Buat SO baru: Sales PIC default akun login; Sales tidak dapat mengganti PIC.
+4. Draft Invoice baru: due date = invoice date +14 hari.
+5. Ubah invoice date: due date ikut +14 hari.
+6. Ubah due date manual lalu ubah invoice date: due date manual tetap.
+7. Regression Dashboard Teknisi, SO permission, PR.
+MAIN/PRODUCTION JANGAN DISENTUH.

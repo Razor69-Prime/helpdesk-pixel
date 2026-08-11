@@ -306,7 +306,7 @@ function reset() {
     if (element) element.value = '';
   });
   const salesPic = byId('salesPic');
-  if (salesPic) { salesPic.value = ''; if(OPT.current_user&&String(OPT.current_user.role||'').toLowerCase()==='sales'){const mine=OPT.sales_users.find(u=>String(u.id)===String(OPT.current_user.id))||OPT.sales_users.find(u=>u.name===OPT.current_user.name);if(mine){salesPic.value=mine.id;salesPic.disabled=true;}} }
+  if (salesPic) { salesPic.value=''; const me=OPT.current_user;if(me){const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());if(mine){salesPic.value=String(mine.id);salesPic.disabled=String(me.role||'').toLowerCase()==='sales';}} }
   if (byId('materialItems')) byId('materialItems').innerHTML = '';
   if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
   addMaterial();
@@ -525,9 +525,15 @@ async function load() {
         + OPT.sales_users.map(user => `<option value="${user.id}">${esc(user.name)}</option>`).join('');
       if (selectedValue) salesPic.value = selectedValue;
       const me=OPT.current_user;
-      if(!editId && me && String(me.role||'').toLowerCase()==='sales'){
-        const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>u.name===me.name);
-        if(mine){salesPic.value=mine.id;salesPic.disabled=true;} else salesPic.disabled=false;
+      if(!editId && me){
+        let mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());
+        if(!mine){
+          mine={id:me.id,name:me.name,role:me.role};
+          OPT.sales_users.unshift(mine);
+          salesPic.insertAdjacentHTML('beforeend',`<option value="${esc(mine.id)}">${esc(mine.name)}</option>`);
+        }
+        salesPic.value=String(mine.id);
+        salesPic.disabled=String(me.role||'').toLowerCase()==='sales';
       }else salesPic.disabled=false;
     }
     render();

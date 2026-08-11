@@ -24,7 +24,9 @@
 
   async function openKanban(e){
     e?.preventDefault();e?.stopPropagation();
-    const host=contentHost(),page=qs('#pxlKanbanPage');if(!host||!page)return;
+    const host=contentHost();if(!host)return;
+    if(!qs('#pxlKanbanPage')) install();
+    const page=qs('#pxlKanbanPage');if(!page)return;
     if(!state.open){
       state.snapshot.clear();
       [...host.children].forEach(node=>{if(node===page)return;state.snapshot.set(node,node.style.display);node.style.display='none';});
@@ -68,8 +70,10 @@
   }
 
   async function load(){
+    const page=qs('#pxlKanbanPage');if(!page)throw new Error('Halaman Kanban belum siap.');
+    const range=page.querySelector('#k7Range');if(!range)throw new Error('Komponen rentang Kanban belum siap.');
     state.weekStart=state.weekStart||monday(new Date());const end=addDays(state.weekStart,6);
-    qs('#k7Range').textContent=`${state.weekStart.toLocaleDateString('id-ID')} – ${end.toLocaleDateString('id-ID')}`;
+    range.textContent=`${state.weekStart.toLocaleDateString('id-ID')} – ${end.toLocaleDateString('id-ID')}`;
     const d=await api(`/api/technician-kanban?date_from=${ymd(state.weekStart)}&date_to=${ymd(end)}`);
     state.tickets=d.tickets||[];state.technicians=d.technicians||[];state.canEdit=!!d.can_edit;render();
   }
