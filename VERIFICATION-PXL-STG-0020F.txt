@@ -1,0 +1,7 @@
+UAT PXL-STG-0020F
+1. Login dan buka Akun tanpa pernah membuka Kanban: Kanban tidak boleh muncul di footer.
+2. Cek Dashboard/SO/PR/Inventory/Project Tracker/KPI: tidak ada Kanban di footer.
+3. Buka Kanban Teknisi: Kanban tampil normal.
+4. Dari Kanban klik Akun, SO, PR, Inventory, Project Tracker, KPI: Kanban harus hilang total.
+5. Buka Kanban lagi: tetap normal dan console bersih.
+6. Regression: Invoice +14 hari dan Sales PIC tetap PASS (tidak disentuh).
