@@ -2848,35 +2848,20 @@ function buildNav(){
   ];
 
   let tabs;
-  if(isSuperAdmin){
-    // superadmin selalu dapat semua tab, tidak bisa dibatasi custom menu
-    tabs=ALL_TAB_DEFS.map(t=>({...t,show:true})); // Super Admin selalu melihat semua menu
+  if(isSuperAdmin && currentUser.custom_menus_override!==true){
+    tabs=ALL_TAB_DEFS.map(t=>({...t,show:true}));
   } else {
-    const defaults=getDefaultMenus(role);
-    const forbidden=getForbiddenMenus(role);
-    const effective=[...new Set([...defaults,...customMenus])].filter(id=>!forbidden.includes(id));
+    const effective=currentUser.custom_menus_override===true
+      ? [...new Set(customMenus)]
+      : [...new Set([...getDefaultMenus(role),...customMenus])];
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id));
   }
 
-  // PXL-REV-0048: seluruh akun Sales selalu mendapat akses pembuatan WO/Input Laporan, meski custom_menus lama belum memuatnya.
-  if(role==='sales' && !tabs.some(t=>t.id==='report')){
-    const reportDef=ALL_TAB_DEFS.find(t=>t.id==='report');
-    if(reportDef) tabs.push({...reportDef,show:true});
-  }
-
-  const soAllowed=['superadmin','admin','manager','sales','accounting'].includes(role);
-  if(soAllowed && !tabs.some(t=>t.id==='sales_order')){
-    const soDef=ALL_TAB_DEFS.find(t=>t.id==='sales_order');
-    if(soDef) tabs.push({...soDef,show:true});
-  }
   // PXL-STG-0009A: Form Cuti / Izin wajib dapat diakses seluruh role.
   if(!tabs.some(t=>t.id==='leave')){
     const leaveDef=ALL_TAB_DEFS.find(t=>t.id==='leave');
     if(leaveDef) tabs.push({...leaveDef,show:true});
   }
-  // Role Teknisi tidak boleh membuka modul Inventory, termasuk bila custom menu lama masih menyimpannya.
-  if(role==='technician') tabs=tabs.filter(t=>t.id!=='inventory');
-
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','materials']},
@@ -4113,12 +4098,10 @@ function getForbiddenMenus(role){
   return [];
 }
 
-function getEffectiveMenus(role, customMenus){
-  if(String(role||'').toLowerCase()==='superadmin') return ALL_MENUS.map(m=>m.id);
+function getEffectiveMenus(role, customMenus, exact=false){
   const defaults=getDefaultMenus(role);
   const custom=Array.isArray(customMenus)?customMenus:[];
-  const forbidden=getForbiddenMenus(role);
-  return [...new Set([...defaults,...custom])].filter(id=>!forbidden.includes(id));
+  return exact ? [...new Set(custom)] : [...new Set([...defaults,...custom])];
 }
 
 function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
@@ -4213,35 +4196,11 @@ function openEditModal(userId){
   const superOpt=document.getElementById('edit-role-superadmin');
   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
   // populate menu checkboxes
-  const currentMenus=getEffectiveMenus(u.role,u.custom_menus);
-  buildMenuCheckboxes(currentMenus, u.role==='superadmin');
+  const currentMenus=getEffectiveMenus(u.role,u.custom_menus,u.custom_menus_override===true);
+  buildMenuCheckboxes(currentMenus, false);
   ensureCrmChecklist();
-  const menuBox=document.getElementById('menu-checkboxes');
-  if(menuBox && u.role==='superadmin'){
-    const info=document.createElement('div');
-    info.style.cssText='margin-bottom:10px;padding:9px 11px;border-radius:8px;background:#F3E8FF;color:#5B21B6;font-size:12px;font-weight:700';
-    info.textContent='Super Admin selalu memiliki akses penuh. Semua menu dan permission wajib aktif dan tidak dapat dinonaktifkan.';
-    menuBox.prepend(info);
-  }
-  // Default divisi selalu aktif dan tidak dapat dicabut. Custom access hanya menambah menu.
-  const defaultsLocked=getDefaultMenus(u.role);
-  const forbiddenLocked=getForbiddenMenus(u.role);
-  document.querySelectorAll('#menu-checkboxes [data-menu],#inventory-permission-checkboxes [data-menu],#material-request-permission-checkboxes [data-menu],#project-permission-checkboxes [data-menu],#sales-order-permission-checkboxes [data-menu]').forEach(el=>{
-    const id=el.dataset.menu;
-    const label=el.closest('label');
-    if(defaultsLocked.includes(id)){
-      el.checked=true; el.disabled=true;
-      if(label){label.title='Akses default divisi dan tidak dapat dinonaktifkan.';}
-    }
-    if(id==='project_boq_manage' && ['manager','superadmin'].includes(u.role)){
-      el.checked=true; el.disabled=true;
-      if(label){label.title='Manager/Super Admin memiliki akses default Input Total BOQ.';}
-    }
-    if(forbiddenLocked.includes(id) || (u.role==='technician' && (id==='inventory'||String(id).startsWith('inventory_')))){
-      el.checked=false; el.disabled=true;
-      if(label){label.style.opacity='.45';label.title='Modul sensitif dikunci untuk divisi ini.';}
-    }
-  });
+  // Semua permission adalah preset/default role dan tetap dapat dicustom.
+  // Tidak ada permission yang dikunci berdasarkan role.
   // load signature preview if exists
   document.getElementById('edit-signature-file').value='';
   document.getElementById('edit-signature-url').value=u.signature_url||'';
@@ -4298,15 +4257,8 @@ async function saveEditUser(){
   if(!name){errEl.textContent='Nama tidak boleh kosong.';errEl.style.display='block';return;}
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
-    let checkedMenus=role==='superadmin'
-      ? [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id)
-      : getCheckedMenus();
-    const forbiddenMenus=getForbiddenMenus(role);
-    if(role==='technician') forbiddenMenus.push('inventory',...INVENTORY_PERMISSIONS.map(x=>x.id));
-    checkedMenus=checkedMenus.filter(m=>!forbiddenMenus.includes(m));
-    if(['manager','superadmin'].includes(role) && !checkedMenus.includes('project_boq_manage')) checkedMenus.push('project_boq_manage');
+    const checkedMenus=getCheckedMenus();
     const defaultMenus=getDefaultMenus(role);
-    // Simpan custom_menus hanya jika berbeda dari default role
     // Collect PR roles
     const prRoles=[];
     if(document.getElementById('pr-role-maker').checked) prRoles.push('maker_pr');
@@ -4322,7 +4274,8 @@ async function saveEditUser(){
     if(document.getElementById('edit-extra-technician').checked) extraRoles.push('technician');
     const patch={
       username, name, role,
-      custom_menus: role==='superadmin' ? [] : checkedMenus.filter(m=>!defaultMenus.includes(m)),
+      custom_menus: checkedMenus,
+      custom_menus_override: true,
       signature_url: document.getElementById('edit-signature-url').value||null,
       pr_roles: prRoles,
       extra_roles: extraRoles,
@@ -4338,6 +4291,7 @@ async function saveEditUser(){
       currentUser.name=updated.name;
       currentUser.username=updated.username;
       currentUser.custom_menus=updated.custom_menus||[];
+      currentUser.custom_menus_override=updated.custom_menus_override===true;
       currentUser.pr_roles=updated.pr_roles||[];
       currentUser.signature_url=updated.signature_url||null;
       document.getElementById('user-pill').textContent=`${updated.name} (Admin)`;

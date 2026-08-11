@@ -235,6 +235,7 @@ app.post('/api/login', async (req, res) => {
       name:          u.name,
       role:          u.role,
       custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
+      custom_menus_override: u.custom_menus_override === true,
       pr_roles:      Array.isArray(u.pr_roles) ? u.pr_roles : [],
       extra_roles:   Array.isArray(u.extra_roles) ? u.extra_roles : [],
       allow_invoice_no_wo: u.allow_invoice_no_wo === true,
@@ -334,13 +335,14 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
       if (clash) return res.status(409).json({ error: 'Username sudah digunakan oleh akun lain.' });
     }
 
-    const { username, name, password, role, custom_menus, signature_url, pr_roles, extra_roles, allow_invoice_no_wo, is_active } = req.body;
+    const { username, name, password, role, custom_menus, custom_menus_override, signature_url, pr_roles, extra_roles, allow_invoice_no_wo, is_active } = req.body;
     const patch = {};
     if (username)                     patch.username      = username;
     if (name)                         patch.name          = name;
     if (password)                     patch.password      = password;
     if (role)                         patch.role          = role;
     if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
+    if (custom_menus_override !== undefined) patch.custom_menus_override = custom_menus_override === true;
     if (signature_url !== undefined)  patch.signature_url = signature_url;
     if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
     if (extra_roles !== undefined)    patch.extra_roles   = extra_roles;
@@ -1017,9 +1019,9 @@ const PROJECT_ROLES = ['superadmin','manager','admin','sales'];
 function hasProjectBoqAccess(req) {
   const user=req.session?.user||{};
   const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
-  if(role==='superadmin') return true;
-  if(role==='manager') return true;
   const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  if(user.custom_menus_override===true) return custom.includes('project_boq_manage');
+  if(role==='superadmin'||role==='manager') return true;
   return custom.includes('project_boq_manage');
 }
 function requireProjectBoqAccess(req,res,next){
@@ -2072,8 +2074,10 @@ app.delete('/api/staging/demo/wo-foundation', requireRole('superadmin'), async (
 const CRM_WRITE_ROLES=['sales','manager','admin','superadmin'];
 function hasSalesOrderPermission(req, permission){
   const u=req.session?.user||{};
+  const custom=Array.isArray(u.custom_menus)?u.custom_menus:[];
+  if(u.custom_menus_override===true) return custom.includes(permission);
   if(String(u.role||'').toLowerCase()==='superadmin') return true;
-  return Array.isArray(u.custom_menus)&&u.custom_menus.includes(permission);
+  return custom.includes(permission);
 }
 function requireSalesOrderPermission(permission){
   return (req,res,next)=>{

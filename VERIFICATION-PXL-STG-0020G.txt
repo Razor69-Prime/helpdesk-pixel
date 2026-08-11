@@ -1,0 +1,8 @@
+UAT PXL-STG-0020G
+1. Edit Manager: semua checkbox bisa dilepas, termasuk Input Total BOQ.
+2. Klik Default Role: preset kembali tercentang tetapi tetap editable.
+3. Edit Sales/Teknisi/Akunting: permission bisa tambah/kurangi bebas.
+4. Setujui SO dan Buat WO bisa on/off.
+5. Simpan, logout/login akun target, cek menu sesuai exact selection.
+6. BOQ dan SO backend harus 403 saat permission dilepas dan sukses saat dipasang.
+7. Regression Kanban, Invoice +14, Sales PIC.
