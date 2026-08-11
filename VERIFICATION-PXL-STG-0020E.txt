@@ -1,0 +1,1 @@
+Test: open Kanban, then every sidebar menu; reopen Kanban; console clean; Draft Invoice +14; Sales PIC regression.

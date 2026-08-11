@@ -24,22 +24,22 @@
 
   async function openKanban(e){
     e?.preventDefault();e?.stopPropagation();
-    const host=contentHost();if(!host)return;
-    let page=host.querySelector('#pxlKanbanPage')||document.getElementById('pxlKanbanPage');
-    if(!page){install();page=host.querySelector('#pxlKanbanPage')||document.getElementById('pxlKanbanPage');}
-    if(!page)return;
-    if(!state.open){
-      state.snapshot.clear();
-      [...host.children].forEach(node=>{if(node===page)return;state.snapshot.set(node,node.style.display);node.style.display='none';});
-    }
-    state.open=true;page.hidden=false;page.style.display='block';
-    qsa('.sidebar .nav-btn').forEach(b=>b.classList.remove('active'));
-    qsa('[data-k7-nav]').forEach(b=>b.classList.add('active'));
-    try{await load(page);}catch(err){const body=qs('#k7Body');if(body)body.innerHTML=`<div class="alert error show">${esc(err.message)}</div>`;else console.error('[PXL-STG-0020A] Kanban body belum tersedia',err);}
+    closeKanban();
+    const modern=document.querySelector('[data-k7k-open]');
+    if(modern){modern.click();return;}
+    const page=document.getElementById('pxlKanbanPage');
+    if(page){page.hidden=false;page.style.display='block';}
   }
 
   function install(){
     const host=contentHost();if(!host)return;
+    if(!window.__PXL_K7_NAV_GUARD__){
+      window.__PXL_K7_NAV_GUARD__=true;
+      document.addEventListener('click',ev=>{
+        const nav=ev.target.closest('.sidebar .nav-btn, .sidebar button, .sidebar a, [onclick*="switchPage"], [onclick*="openSalesOrder"], [onclick*="openPurchase"]');
+        if(nav && !nav.matches('[data-k7-nav]') && !nav.closest('[data-k7-nav]')) closeKanban();
+      },true);
+    }
     let page=qs('#pxlKanbanPage');
     if(!page){
       page=document.createElement('section');page.id='pxlKanbanPage';page.hidden=true;page.style.display='none';

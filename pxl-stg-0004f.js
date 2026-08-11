@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-STG-0008A20 — Invoice V1 auto-fill Sales Order, route installer JWT tetap aktif.
+// PXL-STG-0020E — Invoice V1 auto-fill Sales Order, route installer JWT tetap aktif.
 // Paket PXL-STG-0006A–0006N dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
@@ -45,27 +45,28 @@ express.static=function pxl0008a20Static(root,options){
         html=removeScript(html,'/pxl-stg-0008a-invoice-ui.js');
         const tags=[
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
-          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0008A20"></script>',
+          '<script src="/pxl-stg-0004f.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-stg-0005d.js?v=PXL-STG-0006J"></script>',
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
           '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>',
           '<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>',
           '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>',
-          '<script src="/pxl-stg-0007h-auth.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007j-layout.js?v=PXL-STG-0020D"></script>',
-          '<script src="/pxl-stg-0007l-timeline.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007n-move-mode.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007o-fix.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007r-pwa-timeline.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007t-daily-completeness.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007u-custom-date-pwa.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007w-ticket-date-filter.js?v=PXL-STG-0008A20"></script>',
-          '<script src="/pxl-stg-0007x-weekly-completeness.js?v=PXL-STG-0008A20"></script>',
+          '<script src="/pxl-stg-0007h-auth.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007-kanban.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007j-layout.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007l-timeline.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007n-move-mode.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007o-fix.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007r-pwa-timeline.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007t-daily-completeness.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007u-custom-date-pwa.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007w-ticket-date-filter.js?v=PXL-STG-0020E"></script>',
+          '<script src="/pxl-stg-0007x-weekly-completeness.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-stg-0009a8-kanban-leave.js?v=PXL-STG-0009A12"></script>',
-          '<script src="/pxl-stg-0008a6-invoice-menu.js?v=PXL-STG-0008A20"></script>'
+          '<script src="/pxl-stg-0008a6-invoice-menu.js?v=PXL-STG-0020E"></script>'
         ];
-        for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0008A20');}
+        for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
       if(isSalesOrder)html=forceSalesOrderScriptOrder(html);
       if(isCrm)html=replaceOrAppendScript(html,'/pxl-stg-0006e-crm.js','PXL-STG-0008A34');

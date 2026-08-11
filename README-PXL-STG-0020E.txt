@@ -1,0 +1,1 @@
+PXL-STG-0020E — Emergency fix: Kanban no longer traps navigation; legacy renderer delegates to modern layout. Invoice +14 on active iframe. No SQL. STAGING ONLY.
