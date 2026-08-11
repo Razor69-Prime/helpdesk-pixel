@@ -1,0 +1,7 @@
+UAT PXL-STG-0020D
+1. Hard refresh staging.
+2. Kanban dibuka langsung: tidak ada error k7Range/k7kRange dan board tampil.
+3. Draft Invoice baru tanggal 11/08/2026 -> Jatuh Tempo 25/08/2026.
+4. Ubah tanggal invoice -> Jatuh Tempo mengikuti +14 hari.
+5. Ubah Jatuh Tempo manual -> nilai manual dipertahankan.
+6. Regression singkat Sales PIC dan Dashboard; keduanya tidak diubah patch ini.
