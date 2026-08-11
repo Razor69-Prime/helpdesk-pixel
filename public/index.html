@@ -3117,7 +3117,7 @@ async function api(method,path,body){
   try{ return await r.json(); }
   catch{ return null; }
   };
-  if(!requestKey) return execute();
+  if(!requestKey){const result=await execute();apiShortCache.clear();return result;}
   const pending=execute()
     .then(data=>{apiShortCache.set(requestKey,{at:Date.now(),data});return data;})
     .finally(()=>apiInFlight.delete(requestKey));
@@ -3125,19 +3125,24 @@ async function api(method,path,body){
   return pending;
 }
 let ticketsLoading=false;
+let ticketsLoadPromise=null;
 async function loadTickets(force=false){
   // Polling boleh berhenti saat tab tersembunyi, tetapi initial/manual load tidak boleh diblokir.
-  if(ticketsLoading || (!force && document.hidden)) return;
+  if(ticketsLoadPromise) return ticketsLoadPromise;
+  if(!force && document.hidden) return null;
   ticketsLoading=true;
-  try{
-    allTickets=await api('GET','/tickets');
-    setConn(true); renderTickets(); renderKPI();
-    // also refresh dashboard data if manager
-    if(currentUser&&currentUser.role==='manager') dashData=allTickets;
-    const el=document.getElementById('last-updated');
-    if(el) el.textContent=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-  }catch(e){setConn(false);}
-  finally{ticketsLoading=false;}
+  ticketsLoadPromise=(async()=>{
+    try{
+      allTickets=await api('GET','/tickets');
+      setConn(true); renderTickets(); renderKPI();
+      if(currentUser&&currentUser.role==='manager') dashData=allTickets;
+      const el=document.getElementById('last-updated');
+      if(el) el.textContent=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+      return allTickets;
+    }catch(e){setConn(false);console.error('[PXL-STG-0020] loadTickets gagal:',e);return null;}
+    finally{ticketsLoading=false;ticketsLoadPromise=null;}
+  })();
+  return ticketsLoadPromise;
 }
 
 async function loadSalesPics(){
@@ -10512,12 +10517,7 @@ async function pxlApplyEnvironmentIdentity(){
 
 window.addEventListener('load',()=>{
   pxlApplyEnvironmentIdentity();
-  // Hapus service worker lama agar index terbaru tidak tertahan cache PWA.
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations()
-      .then(regs=>Promise.all(regs.map(r=>r.unregister())))
-      .catch(()=>{});
-  }
+  // PXL-STG-0020: service worker tetap aktif; versi cache dikendalikan oleh public/sw.js.
   pxlShowPermanentCrmFallback();
   pxlForceCrmChecklist();
   setTimeout(pxlShowPermanentCrmFallback,500);
@@ -10549,6 +10549,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script>
 </body>
 </html>

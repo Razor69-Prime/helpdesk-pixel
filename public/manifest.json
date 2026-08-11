@@ -1,7 +1,7 @@
 {
-  "name": "Helpdesk Teknisi — Pixel Solusindo",
-  "short_name": "Helpdesk",
-  "description": "Aplikasi Helpdesk Teknisi Pixel Solusindo",
+  "name": "PixelApps — Pixel Solusindo",
+  "short_name": "PixelApps",
+  "description": "Aplikasi internal Pixel Solusindo",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

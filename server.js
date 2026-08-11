@@ -112,6 +112,9 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 // Header dan endpoint identitas environment dipakai UI untuk menampilkan penanda STAGING.
 app.use((req, res, next) => {
   res.setHeader('X-PXL-Environment', IS_STAGING ? 'staging' : 'production');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  if (req.path.startsWith('/api/')) {res.setHeader('Cache-Control', 'no-store, max-age=0');res.setHeader('Pragma', 'no-cache');}
   next();
 });
 app.get('/api/environment', (req, res) => {

@@ -1,5 +1,5 @@
-const CACHE='helpdesk-v59';
-const ASSETS=['/','/index.html','/track.html','/manifest.json'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));});
-self.addEventListener('fetch',e=>{if(e.request.url.includes('/api/')||e.request.url.includes('/uploads/')) return;e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));});
+const CACHE='pixelapps-v60';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png'];
+self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));self.skipWaiting();});
+self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))));self.clients.claim();});
+self.addEventListener('fetch',event=>{const request=event.request;if(request.method!=='GET')return;const url=new URL(request.url);if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/uploads/'))return;event.respondWith(fetch(request).then(response=>{if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});}return response;}).catch(()=>caches.match(request).then(hit=>hit||caches.match('/index.html'))));});

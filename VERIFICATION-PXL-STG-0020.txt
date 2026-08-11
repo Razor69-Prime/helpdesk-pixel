@@ -1,0 +1,1 @@
+UAT: Login/logout; Dashboard; KPI Teknisi direct; Tickets/KPI/Project Tracker; SO->WO; Inventory/MR; BOQ/Achievement/WA/PDF; KPI Umum/Sales/Kunjungan; HR; CRM/Invoice; desktop/mobile; reopen PWA; staging banner.
