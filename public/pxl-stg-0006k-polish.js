@@ -146,7 +146,7 @@
       ]);
       const so=orders.find(x=>String(x.id)===String(id));if(!so)throw new Error('Sales Order tidak ditemukan.');
       const {material,service}=splitSOItems(so);const doc=new JsPDF({unit:'mm',format:'a4'});
-      doc.setFillColor(...PEACH);doc.rect(10,10,190,29,'F');
+      doc.setFillColor(255,255,255);doc.rect(10,10,190,29,'F');
       if(logo){
         try{doc.addImage(logo,'PNG',14,15,58,18);}catch(_){}
       }
