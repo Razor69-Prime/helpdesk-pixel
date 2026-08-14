@@ -33,6 +33,22 @@
     });
     return window.jspdf.jsPDF;
   }
+  async function imageData(url){
+    try{
+      const response=await fetch(url,{cache:'no-store'});
+      if(!response.ok)return null;
+      const blob=await response.blob();
+      return await new Promise(resolve=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(reader.result);
+        reader.onerror=()=>resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    }catch(_){
+      return null;
+    }
+  }
+
   async function getTickets(){
     const tries=['/api/tickets?include_archived=true','/api/tickets','/tickets'];
     for(const url of tries){
@@ -123,11 +139,19 @@
 
   async function exportQuotationPdf(id){
     try{
-      const [JsPDF,orders]=await Promise.all([ensureJsPDF(),getSalesOrders()]);
+      const [JsPDF,orders,logo]=await Promise.all([
+        ensureJsPDF(),
+        getSalesOrders(),
+        imageData('/pixel-solusindo-logo.png?v=PXL-PROD-0021A')
+      ]);
       const so=orders.find(x=>String(x.id)===String(id));if(!so)throw new Error('Sales Order tidak ditemukan.');
       const {material,service}=splitSOItems(so);const doc=new JsPDF({unit:'mm',format:'a4'});
-      doc.setFillColor(...PEACH);doc.rect(10,10,190,29,'F');doc.setFillColor(...ORANGE);doc.rect(14,14,23,23,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(22);doc.text('P',25.5,29,{align:'center'});
-      doc.setTextColor(0);doc.setFontSize(18);doc.text('PIXEL SOLUSINDO',43,27);doc.setFontSize(25);doc.text('QUOTATION',196,28,{align:'right'});doc.setFillColor(...NAVY);doc.rect(10,39,126,1.4,'F');doc.setFillColor(...ORANGE);doc.rect(136,39,64,1.4,'F');
+      doc.setFillColor(...PEACH);doc.rect(10,10,190,29,'F');
+      if(logo){
+        try{doc.addImage(logo,'PNG',14,15,58,18);}catch(_){}
+      }
+      doc.setTextColor(0);doc.setFont('helvetica','bold');doc.setFontSize(25);doc.text('QUOTATION',196,28,{align:'right'});
+      doc.setFillColor(...NAVY);doc.rect(10,39,126,1.4,'F');doc.setFillColor(...ORANGE);doc.rect(136,39,64,1.4,'F');
       doc.setFontSize(8);doc.text('Customer:',10,50);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(doc.splitTextToSize([so.customer_name,so.address||so.location,so.customer_phone].filter(Boolean).join('\n'),90),10,57);
       const details=[['Quotation No.',so.quotation_number||'-'],['SO No.',so.so_number||'-'],['Date',dateId(so.quotation_date||so.created_at)],['Expired',dateId(so.quotation_valid_until||so.valid_until)]];
       details.forEach((d,i)=>{const yy=51+i*5.5;doc.setFontSize(8.5);doc.text(d[0],137,yy);doc.text(String(d[1]),199,yy,{align:'right'});});
