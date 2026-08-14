@@ -1509,10 +1509,45 @@ app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
 
 app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
   try{
-    const entry=await db.insertMRForm({...req.body, created_by:req.session.user.name});
+    const requestedStatus=String(req.body.status||'draft').toLowerCase();
+
+    const entry=await db.insertMRForm({
+      ...req.body,
+      status:requestedStatus==='taken'?'draft':requestedStatus,
+      created_by:req.session.user.name
+    });
+
+    let finalEntry=entry;
+
+    if(requestedStatus==='taken'){
+      const items=(Array.isArray(entry.items)?entry.items:[]).map(i=>({
+        inventory_item_id:i.inventory_item_id||null,
+        qty_out:Number(i.qty_out??i.qty??0)
+      }));
+
+      if(!items.length){
+        throw new Error('Material Request tidak memiliki item Inventory.');
+      }
+
+      if(items.some(i=>!i.inventory_item_id||i.qty_out<=0)){
+        throw new Error('Ada item Material Request yang belum terhubung ke Inventory atau quantity tidak valid.');
+      }
+
+      await db.issueInventoryMaterialRequest(
+        entry.id,
+        items,
+        req.session.user.name,
+        entry.wo_number||''
+      );
+
+      finalEntry=await db.updateMRForm(entry.id,{status:'taken'});
+    }
+
     logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number}`);
-    res.status(201).json(entry);
-  }catch(e){ res.status(500).json({error:e.message}); }
+    res.status(201).json(finalEntry);
+  }catch(e){
+    res.status(500).json({error:e.message});
+  }
 });
 
 app.patch('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
