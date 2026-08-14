@@ -167,6 +167,28 @@ async function insertStatusHistory(data) {
 
 // ── INVOICES ──────────────────────────────
 
+async function getInvoiceV1ByTicket(ticketId) {
+  if (!USE_SUPABASE) return [];
+
+  const relations = await sbFetch(
+    'GET',
+    `/invoice_work_orders?ticket_id=eq.${encodeURIComponent(ticketId)}&select=invoice_id,ticket_id`
+  ) || [];
+
+  const invoiceIds = [...new Set(
+    relations.map(x => x.invoice_id).filter(Boolean).map(String)
+  )];
+
+  if (!invoiceIds.length) return [];
+
+  const inFilter = invoiceIds.map(id => encodeURIComponent(id)).join(',');
+
+  return await sbFetch(
+    'GET',
+    `/invoices?id=in.(${inFilter})&select=*&order=issued_at.desc.nullslast,updated_at.desc.nullslast`
+  ) || [];
+}
+
 async function getInvoicesByTicket(ticketId) {
   if (!USE_SUPABASE) {
     const t = readLocal().find(t => t.id === ticketId);
@@ -1061,7 +1083,7 @@ module.exports = {
   getTickets, getArchivedTickets, getTicketByToken,
   insertTicket, updateTicket, deleteTicket,
   getStatusHistory, insertStatusHistory,
-  getInvoicesByTicket, getTicketRelationsBatch, insertInvoice, deleteInvoice,
+  getInvoicesByTicket, getInvoiceV1ByTicket, getTicketRelationsBatch, insertInvoice, deleteInvoice,
   getStandaloneInvoices, insertStandaloneInvoice, deleteStandaloneInvoice,
   insertNotification, getNotificationsForUser, markNotificationRead, markAllNotificationsRead,
   getJobStages, insertJobStage,

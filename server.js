@@ -1911,32 +1911,51 @@ app.delete('/api/tickets/:id/photos/:photoId', requireAuth, async(req,res)=>{
 app.get('/api/track/:token', async (req, res) => {
   try {
     const ticket = await db.getTicketByToken(req.params.token);
-    if (!ticket)        return res.status(404).json({ error: 'Tiket tidak ditemukan.' });
+    if (!ticket) return res.status(404).json({ error: 'Tiket tidak ditemukan.' });
     if (isExpired(ticket)) return res.status(410).json({ error: 'Link tracking sudah kedaluwarsa.' });
-    const [invoices, status_history, job_stages, photos] = await Promise.all([
+
+    const [legacyInvoices, invoiceV1, status_history, job_stages, photos] = await Promise.all([
       db.getInvoicesByTicket(ticket.id),
+      db.getInvoiceV1ByTicket(ticket.id),
       db.getStatusHistory(ticket.id),
       db.getJobStages(ticket.id),
-      db.getWorkOrderPhotos(ticket.id,true)
+      db.getWorkOrderPhotos(ticket.id, true)
     ]);
+
+    const invoiceMap = new Map();
+    [...(legacyInvoices || []), ...(invoiceV1 || [])].forEach((invoice, index) => {
+      const key = String(invoice?.id || `legacy-${index}`);
+      if (!invoiceMap.has(key)) invoiceMap.set(key, invoice);
+    });
+    const invoices = [...invoiceMap.values()];
+
     logActivity(req, 'tracking', 'LIHAT TRACKING', `WO: ${ticket.wo_number} · Customer: ${ticket.customer_name||'-'}`);
     res.json({
-      wo_number: ticket.wo_number, project_name: ticket.project_name,
+      wo_number: ticket.wo_number,
+      project_name: ticket.project_name,
       customer_name: ticket.customer_name,
       customer_phone: ticket.customer_phone || null,
       technician: ticket.technician,
       technicians: ticket.technicians || (ticket.technician ? [ticket.technician] : []),
-      status: ticket.status, worked_at: ticket.worked_at,
-      description: ticket.description, last_lat: ticket.last_lat,
-      last_lng: ticket.last_lng, last_gps_at: ticket.last_gps_at,
-      created_at: ticket.created_at, expires_at: trackExpiry(ticket).toISOString(),
-      invoices: invoices || [], status_history: status_history || [],
+      status: ticket.status,
+      worked_at: ticket.worked_at,
+      description: ticket.description,
+      last_lat: ticket.last_lat,
+      last_lng: ticket.last_lng,
+      last_gps_at: ticket.last_gps_at,
+      created_at: ticket.created_at,
+      expires_at: trackExpiry(ticket).toISOString(),
+      invoices,
+      invoice_count: invoices.length,
+      status_history: status_history || [],
       job_stages: job_stages || [],
       tech_signature: ticket.tech_signature || null,
       customer_signature: ticket.customer_signature || null,
-      photos: photos || [],
+      photos: photos || []
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/track/:token', (req, res) => {

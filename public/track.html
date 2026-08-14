@@ -16,7 +16,41 @@ document.getElementById('app').innerHTML=`
 <section class="card hero"><div class="hero-icon">${st[2]}</div><div class="status">${esc(st[0])}</div><h1>${esc(st[1])}</h1><div class="project">📁 ${esc(d.project_name||'-')}</div><div class="wo">Nomor WO: ${esc(d.wo_number||'-')}</div>${expiry?`<div class="expiry">⌛ Link aktif ${days} hari lagi · s/d ${expiry.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}</div>`:''}</section>
 <section class="card"><h2 class="section-title">INFORMASI PEKERJAAN</h2><div class="row"><span>Customer</span><span>${esc(d.customer_name||'-')}</span></div><div class="row"><span>Project</span><span>${esc(d.project_name||'-')}</span></div><div class="row"><span>Tim Teknisi</span><span>${esc((d.technicians||[]).join(' & ')||d.technician||'-')}</span></div><div class="row"><span>Waktu Pekerjaan</span><span>${dt(d.worked_at)}</span></div><div class="row"><span>Keterangan</span><span>${esc(d.description||'-')}</span></div></section>
 <section class="card"><h2 class="section-title">PROGRESS PEKERJAAN</h2><div class="timeline">${(d.job_stages||[]).length?(d.job_stages||[]).map(x=>`<div class="stage"><div class="stage-dot"></div><div><b>${esc(x.stage||'-')}</b><small>${esc(x.technician||'-')} · ${dt(x.timestamp)}</small></div></div>`).join(''):'<div class="empty">Belum ada progress pekerjaan.</div>'}</div></section>
-<section class="card"><h2 class="section-title">INVOICE</h2>${inv.length?inv.map(x=>`<div class="file"><div><b>${esc(x.original_name||'Invoice')}</b><br><small>${x.total_amount?'Rp '+Number(x.total_amount).toLocaleString('id-ID'):''}</small></div>${x.file_url&&!x.file_deleted?`<a href="${x.file_url}" target="_blank">Lihat Invoice</a>`:'<span style="color:var(--muted)">File tidak tersedia</span>'}</div>`).join(''):'<div class="empty">Invoice belum tersedia.</div>'}</section>
+<section class="card">
+<h2 class="section-title">INVOICE (${inv.length})</h2>
+${inv.length ? inv.map(x=>{
+  const number=x.invoice_number||x.temporary_number||x.original_name||'Invoice';
+  const invoiceStatus=String(x.invoice_status||x.status||'draft').toLowerCase();
+  const paymentStatus=String(x.payment_status||'unpaid').toLowerCase();
+
+  const statusLabel={
+    draft:'Draft',
+    pending_approval:'Menunggu Persetujuan',
+    approved:'Disetujui',
+    issued:'Terbit',
+    partially_paid:'Terbayar Sebagian',
+    paid:'Lunas',
+    rejected:'Ditolak'
+  }[invoiceStatus]||invoiceStatus;
+
+  const paymentLabel={
+    unpaid:'Belum Dibayar',
+    partially_paid:'Terbayar Sebagian',
+    paid:'Lunas'
+  }[paymentStatus]||paymentStatus;
+
+  const total=Number(x.total_amount||x.grand_total||0);
+
+  return `<div class="file">
+    <div>
+      <b>${esc(number)}</b><br>
+      <small>${esc(statusLabel)} · ${esc(paymentLabel)}</small><br>
+      <small>Rp ${total.toLocaleString('id-ID')}</small>
+    </div>
+    <span style="color:var(--muted)">${esc(statusLabel)}</span>
+  </div>`;
+}).join('') : '<div class="empty">Invoice belum tersedia.</div>'}
+</section>
 <section class="card"><h2 class="section-title">BAST</h2><div class="signature-grid"><div class="signature">${d.tech_signature?`<img src="${d.tech_signature}" alt="Tanda tangan teknisi">`:'<div class="empty">Belum ditandatangani</div>'}<small>Teknisi</small></div><div class="signature">${d.customer_signature?`<img src="${d.customer_signature}" alt="Tanda tangan customer">`:'<div class="empty">Belum ditandatangani</div>'}<small>Customer</small></div></div></section>
 <section class="card"><h2 class="section-title">📷 DOKUMENTASI PEKERJAAN</h2>${photos.length?`<div class="photos">${photos.map(x=>`<div class="photo"><img src="${x.secure_url||x.image_url}" alt="Foto pekerjaan" onclick="openLightbox('${x.secure_url||x.image_url}')"><div class="photo-info"><b>${esc(x.caption||'Dokumentasi pekerjaan')}</b><small>${esc(x.uploaded_by||'Teknisi')} · ${dt(x.uploaded_at||x.created_at)}</small></div></div>`).join('')}</div>`:'<div class="empty">Belum ada dokumentasi pekerjaan.</div>'}</section>`}
 load();
