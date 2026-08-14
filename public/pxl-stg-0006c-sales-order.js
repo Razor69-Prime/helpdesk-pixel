@@ -101,7 +101,7 @@
   }
 
   function drawHeader(doc, logo) {
-    doc.setFillColor(...PEACH);
+    doc.setFillColor(255,255,255);
     doc.rect(10, 10, 190, 29, 'F');
     if (logo) {
       try { doc.addImage(logo, 'PNG', 14, 15, 58, 18); } catch (_) {}
