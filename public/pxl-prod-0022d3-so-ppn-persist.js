@@ -1,8 +1,8 @@
-/* PXL-PROD-0022D4 — Fix payload PPN tanpa kolom ppn_total di sales_orders. */
+/* PXL-PROD-0022D9 — Sinkron subtotal include PPN tanpa kolom ppn_total. */
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022D4';
+  const REV='PXL-PROD-0022D9';
   let installed=false;
 
   const n=v=>{
@@ -38,11 +38,11 @@
 
     const material=so.items
       .filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase()))
-      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price),0);
+      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price)+taxAmount(x),0);
 
     const service=so.items
       .filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase()))
-      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price),0);
+      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price)+taxAmount(x),0);
 
     so.material_subtotal=material;
     so.service_subtotal=service;
@@ -90,14 +90,14 @@
 
     const material=payload.items
       .filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase()))
-      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price),0);
+      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price)+taxAmount(x),0);
 
     const service=payload.items
       .filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase()))
-      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price),0);
+      .reduce((sum,x)=>sum+n(x.qty)*n(x.unit_price)+taxAmount(x),0);
 
     const ppn=payload.items.reduce((sum,x)=>sum+taxAmount(x),0);
-    const grand=material+service+ppn;
+    const grand=material+service;
 
     payload.material_subtotal=material;
     payload.service_subtotal=service;

@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022D';
+  const REV='PXL-PROD-0022D9';
   const $=id=>document.getElementById(id);
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
   const uid=()=> (crypto?.randomUUID?.() || ('site-'+Date.now()+'-'+Math.random().toString(16).slice(2)));
@@ -252,9 +252,11 @@
     const sales=(getOPT().sales_users||[]).find(u=>String(u.id)===String(salesPic?.value||''));
     const items=allItems();
     validateSites(items);
-    const materialSubtotal=items.filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase())).reduce((s,x)=>s+num(x.qty)*num(x.unit_price),0);
-    const serviceSubtotal=items.filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())).reduce((s,x)=>s+num(x.qty)*num(x.unit_price),0);
-    const ppnTotal=items.reduce((s,x)=>s+(x.ppn_applied?num(x.qty)*num(x.unit_price)*num(x.ppn_rate)/100:0),0);
+    const itemBase=x=>num(x.qty)*num(x.unit_price);
+    const itemTax=x=>x.ppn_applied ? itemBase(x)*num(x.ppn_rate)/100 : 0;
+    const materialSubtotal=items.filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
+    const serviceSubtotal=items.filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
+    const ppnTotal=items.reduce((s,x)=>s+itemTax(x),0);
     return {
       customer_name:$('customer')?.value.trim()||'',
       customer_phone:$('phone')?.value.trim()||'',
@@ -313,7 +315,6 @@
       sites=buildSitesFromItems(so.items);
       activeSiteId=sites[0].id;
       setMode('project',{fromEdit:true});
-      writeActive();
     }else{
       operationalItems=clone(readDomItems());
       sites=[blankSite('Site 01')];
@@ -330,17 +331,19 @@
     sites.forEach(s=>{
       const rows=String(s.id)===String(activeSiteId)?current:(s.items||[]);
       rows.forEach(x=>{
-        const t=num(x.qty)*num(x.unit_price);
-        if(['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())) svc+=t; else mat+=t;
-        if(x.ppn_applied) ppn+=t*num(x.ppn_rate)/100;
+        const baseTotal=num(x.qty)*num(x.unit_price);
+        const tax=x.ppn_applied ? baseTotal*num(x.ppn_rate)/100 : 0;
+        const inclusiveTotal=baseTotal+tax;
+        if(['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())) svc+=inclusiveTotal; else mat+=inclusiveTotal;
+        ppn+=tax;
       });
     });
     const rp=v=>'Rp '+Math.round(v).toLocaleString('id-ID');
     if($('materialSubtotal')) $('materialSubtotal').textContent=rp(mat);
     if($('serviceSubtotal')) $('serviceSubtotal').textContent=rp(svc);
     if($('ppnTotal')) $('ppnTotal').textContent=rp(ppn);
-    if($('grandTotal')) $('grandTotal').textContent=rp(mat+svc+ppn);
-    return {materialSubtotal:mat,serviceSubtotal:svc,ppnTotal:ppn,grandTotal:mat+svc+ppn};
+    if($('grandTotal')) $('grandTotal').textContent=rp(mat+svc);
+    return {materialSubtotal:mat,serviceSubtotal:svc,ppnTotal:ppn,grandTotal:mat+svc};
   }
 
   async function loadTemplates(){
