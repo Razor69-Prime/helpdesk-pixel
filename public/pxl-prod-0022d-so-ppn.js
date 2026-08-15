@@ -1,8 +1,8 @@
-/* PXL-PROD-0022D5 — Harga item PDF mengikuti PPN per item. */
+/* PXL-PROD-0022D6 — Total per item form mengikuti PPN per item. */
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022D5';
+  const REV='PXL-PROD-0022D6';
   const NAVY=[18,49,88], ORANGE=[231,126,50], SITE_GRAY=[224,224,224];
   let installed=false;
   const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0;};
@@ -127,7 +127,33 @@
     const oldAddMaterial=window.addMaterial,oldAddService=window.addService,oldCollect=window.collect,oldTotals=window.updateTotals,oldEdit=window.editSO,oldReset=window.reset;
     window.addMaterial=function(data={}){const before=document.querySelectorAll('.material-row').length;const r=oldAddMaterial(data);const rows=document.querySelectorAll('.material-row');decorateRow(rows[rows.length-1],data);return r;};
     window.addService=function(data={}){const r=oldAddService(data);const rows=document.querySelectorAll('.service-row');decorateRow(rows[rows.length-1],data);return r;};
-    window.updateTotals=function(){const result=oldTotals?.()||{};if(isProjectMode()){if($('ppnTotal'))$('ppnTotal').textContent=rp(result.ppnTotal||0);return result;}const ppn=taxForRows(document.querySelectorAll('.line-row'));const mat=n(result.materialSubtotal),svc=n(result.serviceSubtotal);if($('ppnTotal'))$('ppnTotal').textContent=rp(ppn);if($('grandTotal'))$('grandTotal').textContent=rp(mat+svc+ppn);return {...result,ppnTotal:ppn,grandTotal:mat+svc+ppn};};
+    window.updateTotals=function(){
+      const result=oldTotals?.()||{};
+
+      // PXL-PROD-0022D6:
+      // "Harga Satuan" tetap harga dasar. Kolom TOTAL per item menampilkan
+      // Qty x Harga Satuan + PPN hanya jika item tersebut dicentang.
+      document.querySelectorAll('.line-row').forEach(row=>{
+        const qty=n(row.querySelector('.qty')?.value);
+        const price=n(row.querySelector('.price')?.value);
+        const applied=row.dataset.ppnApplied==='1';
+        const rowRate=applied?n(row.dataset.ppnRate):0;
+        const inclusiveTotal=qty*price*(1+rowRate/100);
+        const output=row.querySelector('.line-total');
+        if(output) output.value=rp(inclusiveTotal);
+      });
+
+      if(isProjectMode()){
+        if($('ppnTotal'))$('ppnTotal').textContent=rp(result.ppnTotal||0);
+        return result;
+      }
+
+      const ppn=taxForRows(document.querySelectorAll('.line-row'));
+      const mat=n(result.materialSubtotal),svc=n(result.serviceSubtotal);
+      if($('ppnTotal'))$('ppnTotal').textContent=rp(ppn);
+      if($('grandTotal'))$('grandTotal').textContent=rp(mat+svc+ppn);
+      return {...result,ppnTotal:ppn,grandTotal:mat+svc+ppn};
+    };
     window.collect=function(){const payload=oldCollect();if(isProjectMode())return payload;const taxes=taxDataFromDom();(payload.items||[]).forEach((x,i)=>{const t=taxes[i]||{};x.ppn_applied=!!t.applied;x.ppn_rate=t.applied?n(t.rate):0;x.ppn_amount=t.applied?n(x.qty)*n(x.unit_price)*n(t.rate)/100:0;});const ppn=(payload.items||[]).reduce((s,x)=>s+n(x.ppn_amount),0);const base=n(payload.material_subtotal)+n(payload.service_subtotal);payload.quotation_total=base+ppn;payload.total_amount=base+ppn;return payload;};
     window.editSO=function(id){const r=oldEdit?.(id);setTimeout(()=>{decorateExisting();syncRateFromRows();window.updateTotals?.();},0);return r;};
     window.reset=function(){const r=oldReset?.();setTimeout(()=>{if($('pxlPpnRate'))$('pxlPpnRate').value='0';decorateExisting();syncCheckAll();window.updateTotals?.();},0);return r;};
