@@ -915,6 +915,7 @@ async function importInventoryCutoff(rows, actor) {
 const CRM_FILES = {
   customers: path.join(__dirname,'data','crm_customers.json'),
   sales_orders: path.join(__dirname,'data','sales_orders.json'),
+  sales_order_site_templates: path.join(__dirname,'data','sales_order_site_templates.json'),
   work_orders: path.join(__dirname,'data','crm_work_orders.json'),
   crm_material_requests: path.join(__dirname,'data','crm_material_requests.json'),
   additional_material_requests: path.join(__dirname,'data','additional_material_requests.json'),
@@ -969,6 +970,11 @@ async function insertSalesOrder(data){
 }
 async function updateSalesOrder(id,data){return updateEntity('sales_orders','sales_orders',id,data)}
 async function deleteSalesOrder(id){return deleteEntity('sales_orders','sales_orders',id)}
+async function getSalesOrderSiteTemplates(){return listEntity('sales_order_site_templates','sales_order_site_templates','template_name.asc')}
+async function insertSalesOrderSiteTemplate(data){return insertEntity('sales_order_site_templates','sales_order_site_templates',data)}
+async function updateSalesOrderSiteTemplate(id,data){return updateEntity('sales_order_site_templates','sales_order_site_templates',id,data)}
+async function deleteSalesOrderSiteTemplate(id){return deleteEntity('sales_order_site_templates','sales_order_site_templates',id)}
+
 async function getCrmWorkOrders(){return listEntity('crm_work_orders','work_orders')}
 async function insertCrmWorkOrder(data){
   const rows=await getCrmWorkOrders();
@@ -1108,6 +1114,7 @@ module.exports = {
   getLeaveRequests, insertLeaveRequest, updateLeaveRequest, getLeaveBalances, upsertLeaveBalance, insertLeaveHistory,
   getLeaveHrOptions, insertLeaveHrOption, updateLeaveHrOption, deleteLeaveHrOption, getLeaveSignatories, upsertLeaveSignatory,
   getSalesOrders, insertSalesOrder, updateSalesOrder, deleteSalesOrder,
+  getSalesOrderSiteTemplates, insertSalesOrderSiteTemplate, updateSalesOrderSiteTemplate, deleteSalesOrderSiteTemplate,
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder, deleteCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest, issueInventoryMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,

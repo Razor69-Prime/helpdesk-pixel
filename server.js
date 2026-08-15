@@ -2213,7 +2213,43 @@ app.post('/api/crm/material-requests/:id/issue',requireRole('manager','admin','s
 });
 
 app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{try{if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});if(!req.body.project_name)return res.status(400).json({error:'Nama project wajib diisi'});if(!req.body.address)return res.status(400).json({error:'Alamat/lokasi pekerjaan wajib diisi'});const items=Array.isArray(req.body.items)?req.body.items:[];if(!items.length||items.some(i=>!i.inventory_item_id||!i.name||Number(i.qty||0)<=0))return res.status(400).json({error:'Minimal satu item Inventory dengan quantity valid wajib dipilih'});const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const x=await db.insertSalesOrder({...req.body,status:'draft',items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});logActivity(req,'so','BUAT SALES ORDER',x.so_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+// PXL-PROD-0022B — reusable Site templates for Sales Order.
+app.get('/api/sales-orders/site-templates',requireRole(...SO_READ_ROLES),async(req,res)=>{
+  try{res.json(await db.getSalesOrderSiteTemplates())}catch(e){res.status(500).json({error:e.message})}
+});
+app.post('/api/sales-orders/site-templates',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{
+  try{
+    const template_name=String(req.body.template_name||'').trim();
+    const items=Array.isArray(req.body.items)?req.body.items:[];
+    if(!template_name)return res.status(400).json({error:'Nama template wajib diisi'});
+    if(!items.length)return res.status(400).json({error:'Template Site harus memiliki minimal satu Material/Jasa'});
+    const invalid=items.some(i=>{const service=['service','jasa'].includes(String(i.item_type||i.type||'item').toLowerCase());return !i.name||Number(i.qty||0)<=0||(!service&&!i.inventory_item_id)});
+    if(invalid)return res.status(400).json({error:'Ada item template yang belum lengkap atau Material belum terhubung ke Inventory'});
+    const row=await db.insertSalesOrderSiteTemplate({template_name,description:req.body.description||null,items,created_by:req.session.user.name});
+    logActivity(req,'so','BUAT TEMPLATE SITE',template_name);
+    res.status(201).json(row);
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
+app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{
+  try{
+    // PXL-PROD-0022A — validate Material + Jasa per Site without changing existing SO→WO→MR flow.
+    if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});
+    if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});
+    if(!req.body.project_name)return res.status(400).json({error:'Nama project wajib diisi'});
+    if(!req.body.address)return res.status(400).json({error:'Alamat/lokasi pekerjaan wajib diisi'});
+    const items=Array.isArray(req.body.items)?req.body.items:[];
+    const invalid=items.some(i=>{
+      const service=['service','jasa'].includes(String(i.item_type||i.type||'item').toLowerCase());
+      return !i.name||Number(i.qty||0)<=0||(!service&&!i.inventory_item_id);
+    });
+    if(!items.length||invalid)return res.status(400).json({error:'Minimal satu Material/Jasa valid wajib diisi. Material wajib dipilih dari Inventory.'});
+    const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);
+    const x=await db.insertSalesOrder({...req.body,status:'draft',items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});
+    logActivity(req,'so','BUAT SALES ORDER',x.so_number);
+    res.status(201).json(x);
+  }catch(e){res.status(500).json({error:e.message})}
+});
 app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
 
 
