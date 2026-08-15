@@ -1,8 +1,8 @@
-/* PXL-PROD-0022D3 — Sinkron PPN ke daftar SO dan payload simpan. */
+/* PXL-PROD-0022D4 — Fix payload PPN tanpa kolom ppn_total di sales_orders. */
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022D3';
+  const REV='PXL-PROD-0022D4';
   let installed=false;
 
   const n=v=>{
@@ -101,7 +101,9 @@
 
     payload.material_subtotal=material;
     payload.service_subtotal=service;
-    payload.ppn_total=ppn;
+    // PXL-PROD-0022D4: sales_orders tidak memiliki kolom ppn_total.
+    // Nilai PPN tetap tersimpan per item (ppn_applied/ppn_rate/ppn_amount).
+    delete payload.ppn_total;
     payload.quotation_total=grand;
     payload.total_amount=grand;
 
