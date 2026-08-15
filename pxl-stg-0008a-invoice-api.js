@@ -234,13 +234,15 @@ function register(app) {
     try {
       const old=await one(api,req.params.id);
       const requestedSourceType=String(req.body.source_type||old.source_type||'').toLowerCase();
-      const directSales=requestedSourceType==='direct_sales';
+      // PXL-PROD-0021G7: once a draft is Direct Sales, editing must never
+      // convert it back into the approval flow.
+      const directSales=String(old.source_type||'').toLowerCase()==='direct_sales'||old.approval_required===false||requestedSourceType==='direct_sales';
       const editable=old.invoice_status==='draft'||(directSales&&['issued','partially_paid'].includes(String(old.invoice_status||'')));
       if(!editable)return res.status(400).json({error:'Invoice ini tidak dapat diedit pada status sekarang.'});
       const calculated=calculate(req.body||{});
       const patch={
         invoice_date:req.body.invoice_date||old.invoice_date,due_date:req.body.due_date||null,
-        source_type:requestedSourceType||null,source_so_id:directSales?null:(req.body.source_so_id||null),
+        source_type:directSales?'direct_sales':(requestedSourceType||null),source_so_id:directSales?null:(req.body.source_so_id||null),
         invoice_type:req.body.invoice_type||'full_payment',term_name:req.body.term_name||null,
         term_percent:num(req.body.term_percent),customer_id:req.body.customer_id||null,
         customer_name_snapshot:text(req.body.customer_name),billing_address_snapshot:text(req.body.billing_address),
