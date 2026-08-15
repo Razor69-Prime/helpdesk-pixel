@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022AB';
+  const REV='PXL-PROD-0022AB1';
   const $=id=>document.getElementById(id);
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
   const uid=()=> (crypto?.randomUUID?.() || ('site-'+Date.now()+'-'+Math.random().toString(16).slice(2)));
@@ -13,6 +13,8 @@
   let activeSiteId='';
   let templates=[];
   let installed=false;
+  let mode='operational';
+  let operationalItems=[];
 
   const base={
     collect: window.collect,
@@ -28,6 +30,63 @@
 
   function esc(v){
     return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function isProjectMode(){ return mode==='project'; }
+
+  function setMode(next,{fromEdit=false}={}){
+    const target=next==='project'?'project':'operational';
+    const previous=mode;
+
+    if(previous==='operational' && target==='project' && !fromEdit){
+      operationalItems=clone(readDomItems());
+    }
+    if(previous==='project' && target==='operational') captureActive();
+
+    mode=target;
+    const select=$('pxlSoMode');
+    if(select) select.value=mode;
+
+    if(isProjectMode()){
+      if(!sites.length){
+        sites=[blankSite('Site 01')];
+        activeSiteId=sites[0].id;
+      }
+      if(!fromEdit && operationalItems.length && !(sites[0]?.items||[]).length){
+        sites[0].items=clone(operationalItems);
+      }
+      if(!activeSiteId && sites[0]) activeSiteId=sites[0].id;
+      writeActive();
+    }else{
+      if(fromEdit) operationalItems=clone(readDomItems());
+      writeOperational();
+      renderSiteBar();
+      try{ base.updateTotals?.(); }catch(_){ }
+    }
+    syncModeUI();
+  }
+
+  function writeOperational(){
+    if($('materialItems')) $('materialItems').innerHTML='';
+    if($('serviceItems')) $('serviceItems').innerHTML='';
+    const items=Array.isArray(operationalItems)?operationalItems:[];
+    items.filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase())).forEach(x=>window.addMaterial?.(x));
+    items.filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())).forEach(x=>window.addService?.(x));
+    if(!items.length) window.addMaterial?.();
+    window.updateEmptyHints?.();
+  }
+
+  function syncModeUI(){
+    const manager=$('pxlSiteManager');
+    if(manager) manager.style.display=isProjectMode()?'block':'none';
+    const badge=$('pxlSoModeNote');
+    if(badge) badge.textContent=isProjectMode()
+      ? 'Project: aktifkan Site, Copy Site, dan Template.'
+      : 'Operasional: gunakan form SO sederhana seperti sebelumnya.';
+    const materialTitle=document.querySelector('#materialItems')?.closest('.line-section')?.querySelector('.section-title');
+    const serviceTitle=document.querySelector('#serviceItems')?.closest('.line-section')?.querySelector('.section-title');
+    if(materialTitle) materialTitle.textContent=isProjectMode()?'A. Material / Barang — Site Aktif':'A. Material / Barang';
+    if(serviceTitle) serviceTitle.textContent=isProjectMode()?'B. Jasa / Pekerjaan — Site Aktif':'B. Jasa / Pekerjaan';
   }
 
   function blankSite(name){
@@ -182,6 +241,7 @@
   }
 
   function collectPatched(){
+    if(!isProjectMode()) return base.collect?.();
     const salesPic=$('salesPic');
     const sales=(getOPT().sales_users||[]).find(u=>String(u.id)===String(salesPic?.value||''));
     const items=allItems();
@@ -229,19 +289,34 @@
 
   function resetPatched(){
     base.reset?.();
-    setTimeout(resetSites,0);
+    sites=[blankSite('Site 01')];
+    activeSiteId=sites[0].id;
+    mode='operational';
+    operationalItems=clone(readDomItems());
+    setTimeout(()=>{ renderSiteBar(); syncModeUI(); },0);
   }
 
   function editPatched(id){
     const so=(getD().sales_orders||[]).find(x=>String(x.id)===String(id));
     base.editSO?.(id);
     if(!so || so.status!=='draft') return;
-    sites=buildSitesFromItems(so.items);
-    activeSiteId=sites[0].id;
-    writeActive();
+    const projectItems=(Array.isArray(so.items)?so.items:[]).some(x=>x.site_id||x.site_name);
+    if(projectItems){
+      operationalItems=[];
+      sites=buildSitesFromItems(so.items);
+      activeSiteId=sites[0].id;
+      setMode('project',{fromEdit:true});
+      writeActive();
+    }else{
+      operationalItems=clone(readDomItems());
+      sites=[blankSite('Site 01')];
+      activeSiteId=sites[0].id;
+      setMode('operational',{fromEdit:true});
+    }
   }
 
   function updateProjectTotals(){
+    if(!isProjectMode()) return base.updateTotals?.();
     try{ base.updateTotals?.(); }catch(_){ }
     const current=readDomItems();
     let mat=0,svc=0;
@@ -299,6 +374,21 @@
     if($('pxlSiteManager')) return;
     const materialSection=$('materialItems')?.closest('.line-section');
     if(!materialSection) return;
+
+    const modeBox=document.createElement('div');
+    modeBox.id='pxlSoModeBox';
+    modeBox.className='full pxl-so-mode-box';
+    modeBox.innerHTML=`
+      <div>
+        <label>Jenis Sales Order</label>
+        <select id="pxlSoMode">
+          <option value="operational">Operasional</option>
+          <option value="project">Project</option>
+        </select>
+      </div>
+      <div class="sub" id="pxlSoModeNote">Operasional: gunakan form SO sederhana seperti sebelumnya.</div>`;
+    materialSection.parentElement.insertBefore(modeBox,materialSection);
+
     const box=document.createElement('div');
     box.id='pxlSiteManager'; box.className='full pxl-site-manager';
     box.innerHTML=`
@@ -322,6 +412,8 @@
 
     const style=document.createElement('style');
     style.textContent=`
+      .pxl-so-mode-box{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:12px;align-items:end;border:1px solid #d9d5cb;border-radius:11px;padding:12px;background:#fff;margin-bottom:4px}
+      .pxl-so-mode-box label{display:block;margin-bottom:5px}.pxl-so-mode-box .sub{padding-bottom:9px}
       .pxl-site-manager{border:1px solid #d9d5cb;border-radius:11px;padding:12px;background:#fffaf6;margin-bottom:4px}
       .pxl-site-head,.pxl-site-actions,.pxl-template-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}
       .pxl-site-tabs{display:flex;gap:7px;overflow:auto;padding:10px 0 4px}
@@ -329,9 +421,10 @@
       .pxl-site-tab.active{border-color:#df7b3b;background:#fff1e6;box-shadow:inset 0 0 0 1px #df7b3b}
       .pxl-site-tab b,.pxl-site-tab small{display:block}.pxl-site-tab small{margin-top:3px;color:#756f66}
       .pxl-template-row{margin-top:8px;padding-top:9px;border-top:1px solid #eadfd3}.pxl-template-row select{width:auto;min-width:210px}
-      @media(max-width:700px){.pxl-template-row>*{width:100%!important}.pxl-site-actions{width:100%}.pxl-site-actions .btn{flex:1}}
+      @media(max-width:700px){.pxl-so-mode-box{grid-template-columns:1fr}.pxl-template-row>*{width:100%!important}.pxl-site-actions{width:100%}.pxl-site-actions .btn{flex:1}}
     `;
     document.head.appendChild(style);
+    $('pxlSoMode').onchange=e=>setMode(e.target.value);
     $('pxlAddSite').onclick=addSite;
     $('pxlCopySite').onclick=copySite;
     $('pxlRenameSite').onclick=renameSite;
@@ -349,7 +442,12 @@
     window.editSO=editPatched;
     window.updateTotals=updateProjectTotals;
     installUI();
-    resetSites();
+    sites=[blankSite('Site 01')];
+    activeSiteId=sites[0].id;
+    mode='operational';
+    operationalItems=clone(readDomItems());
+    renderSiteBar();
+    syncModeUI();
     loadTemplates();
   }
 
