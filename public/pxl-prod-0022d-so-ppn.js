@@ -1,8 +1,8 @@
-/* PXL-PROD-0022D — PPN manual per item / check all untuk SO Operasional & Project. */
+/* PXL-PROD-0022D1 — Fix render loop PPN pada menu Sales Order. */
 (function(){
   'use strict';
 
-  const REV='PXL-PROD-0022D';
+  const REV='PXL-PROD-0022D1';
   const NAVY=[18,49,88], ORANGE=[231,126,50], SITE_GRAY=[224,224,224];
   let installed=false;
   const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0;};
@@ -107,7 +107,28 @@
     window.reset=function(){const r=oldReset?.();setTimeout(()=>{if($('pxlPpnRate'))$('pxlPpnRate').value='0';decorateExisting();syncCheckAll();window.updateTotals?.();},0);return r;};
 
     decorateExisting();
-    const observer=new MutationObserver(()=>{decorateExisting();window.updateTotals?.();});observer.observe(document.body,{childList:true,subtree:true});
+
+    // PXL-PROD-0022D1:
+    // Jangan panggil updateTotals() dari MutationObserver. updateTotals mengubah
+    // textContent total, perubahan itu memicu observer lagi dan membuat render loop.
+    let decorateQueued=false;
+    const observer=new MutationObserver(mutations=>{
+      const hasNewLineRow=mutations.some(m=>
+        [...(m.addedNodes||[])].some(node=>
+          node?.nodeType===1 && (
+            node.matches?.('.line-row') ||
+            node.querySelector?.('.line-row')
+          )
+        )
+      );
+      if(!hasNewLineRow || decorateQueued) return;
+      decorateQueued=true;
+      requestAnimationFrame(()=>{
+        decorateQueued=false;
+        decorateExisting();
+      });
+    });
+    observer.observe(document.body,{childList:true,subtree:true});
 
     window.downloadQuotationPDF=exportQuotation;
     document.addEventListener('click',e=>{const btn=e.target.closest?.('[data-quote-pdf],[data-act="pdf"]');if(!btn)return;const id=btn.dataset.quotePdf||btn.dataset.id;if(!id)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();exportQuotation(id);},true);
