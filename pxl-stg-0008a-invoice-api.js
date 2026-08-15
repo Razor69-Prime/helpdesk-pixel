@@ -233,13 +233,14 @@ function register(app) {
   app.patch('/api/invoice-v1/:id', auth, accounting, async (req,res) => {
     try {
       const old=await one(api,req.params.id);
-      const directSales=String(old.source_type||'')==='direct_sales';
+      const requestedSourceType=String(req.body.source_type||old.source_type||'').toLowerCase();
+      const directSales=requestedSourceType==='direct_sales';
       const editable=old.invoice_status==='draft'||(directSales&&['issued','partially_paid'].includes(String(old.invoice_status||'')));
       if(!editable)return res.status(400).json({error:'Invoice ini tidak dapat diedit pada status sekarang.'});
       const calculated=calculate(req.body||{});
       const patch={
         invoice_date:req.body.invoice_date||old.invoice_date,due_date:req.body.due_date||null,
-        source_type:req.body.source_type||null,source_so_id:req.body.source_so_id||null,
+        source_type:requestedSourceType||null,source_so_id:directSales?null:(req.body.source_so_id||null),
         invoice_type:req.body.invoice_type||'full_payment',term_name:req.body.term_name||null,
         term_percent:num(req.body.term_percent),customer_id:req.body.customer_id||null,
         customer_name_snapshot:text(req.body.customer_name),billing_address_snapshot:text(req.body.billing_address),
@@ -254,7 +255,7 @@ function register(app) {
       };
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await replaceItems(api,req.params.id,calculated.items);
-      await replaceWos(api,req.params.id,req.body.work_order_ids||[]);
+      await replaceWos(api,req.params.id,directSales?[]:(req.body.work_order_ids||[]));
       await audit(api,req,req.params.id,'UPDATE_DRAFT',old,patch,req.body.change_reason||null);
       res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
