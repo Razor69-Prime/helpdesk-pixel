@@ -51,14 +51,18 @@ function register(app) {
 
   app.get('/api/invoice-v1/sources', auth, readable, async (req,res) => {
     try {
-      const [sos,wos,customers] = await Promise.all([
+      const [sos,wos,customers,inventory,users] = await Promise.all([
         api.get('/sales_orders?select=*&order=created_at.desc&limit=300'),
         api.get('/tickets?select=*&order=created_at.desc&limit=500'),
-        api.safeGet('/crm_customers?select=*&order=name.asc&limit=500', [])
+        api.safeGet('/crm_customers?select=*&order=name.asc&limit=500', []),
+        api.safeGet('/inventory_items?select=*&is_active=is.true&order=name.asc&limit=1000', []),
+        api.safeGet('/users?select=id,name,username,role,extra_roles,is_active&order=name.asc&limit=500', [])
       ]);
       res.json({
         sales_orders:(sos||[]).filter(x=>['approved','setujui','disetujui'].includes(String(x.status||'').toLowerCase())),
-        work_orders:wos||[], customers:customers||[]
+        work_orders:wos||[], customers:customers||[],
+        inventory_items:inventory||[],
+        sales_users:(users||[]).filter(u=>u.is_active!==false&&(String(u.role||'')==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales'))))
       });
     } catch(e) { res.status(500).json({error:clean(e)}); }
   });
@@ -214,8 +218,8 @@ function register(app) {
         item_discount_amount:calculated.itemDiscount, invoice_discount_amount:calculated.invoiceDiscount,
         hg_amount:calculated.hg, dpp_amount:calculated.dpp, ppn_amount:calculated.ppn,
         pph_amount:calculated.pph, total_amount:calculated.total, balance_amount:calculated.total,
-        invoice_status:'draft', payment_status:'unpaid', approval_required:true,
-        approval_reason:calculated.approvalReason, created_by:req.session.user.name,
+        invoice_status:'draft', payment_status:'unpaid', approval_required:req.body.source_type==='direct_sales'?false:true,
+        approval_reason:req.body.source_type==='direct_sales'?null:calculated.approvalReason, created_by:req.session.user.name,
         updated_by:req.session.user.name, updated_at:now
       };
       const saved=(await api.post('/invoices',header))[0];
@@ -229,7 +233,9 @@ function register(app) {
   app.patch('/api/invoice-v1/:id', auth, accounting, async (req,res) => {
     try {
       const old=await one(api,req.params.id);
-      if(old.invoice_status!=='draft')return res.status(400).json({error:'Hanya invoice Draft yang dapat diedit.'});
+      const directSales=String(old.source_type||'')==='direct_sales';
+      const editable=old.invoice_status==='draft'||(directSales&&['issued','partially_paid'].includes(String(old.invoice_status||'')));
+      if(!editable)return res.status(400).json({error:'Invoice ini tidak dapat diedit pada status sekarang.'});
       const calculated=calculate(req.body||{});
       const patch={
         invoice_date:req.body.invoice_date||old.invoice_date,due_date:req.body.due_date||null,
@@ -243,8 +249,8 @@ function register(app) {
         item_discount_amount:calculated.itemDiscount,invoice_discount_amount:calculated.invoiceDiscount,
         hg_amount:calculated.hg,dpp_amount:calculated.dpp,ppn_amount:calculated.ppn,pph_amount:calculated.pph,
         total_amount:calculated.total,balance_amount:calculated.total-Number(old.paid_amount||0),
-        approval_required:true,approval_reason:calculated.approvalReason,
-        approved_by:null,approved_at:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()
+        approval_required:directSales?false:true,approval_reason:directSales?null:calculated.approvalReason,
+        approved_by:directSales?old.approved_by:null,approved_at:directSales?old.approved_at:null,updated_by:req.session.user.name,updated_at:new Date().toISOString()
       };
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await replaceItems(api,req.params.id,calculated.items);
@@ -289,15 +295,20 @@ function register(app) {
   app.post('/api/invoice-v1/:id/issue', auth, accounting, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
-      if(old.invoice_status!=='approved' || !old.approved_at)return res.status(400).json({error:'Invoice harus berstatus Disetujui sebelum diterbitkan.'});
-      await validateIssueRules(api,old);
+      const directSales=String(old.source_type||'')==='direct_sales';
+      if(directSales){
+        if(old.invoice_status!=='draft')return res.status(400).json({error:'Direct Sales harus berstatus Draft sebelum diterbitkan.'});
+      }else{
+        if(old.invoice_status!=='approved' || !old.approved_at)return res.status(400).json({error:'Invoice harus berstatus Disetujui sebelum diterbitkan.'});
+        await validateIssueRules(api,old);
+      }
       const series=old.tax_mode==='non_ppn'?'INVPIXEL':'INVCK';
       const date=new Date(`${old.invoice_date}T00:00:00+08:00`); const year=date.getFullYear(); const month=String(date.getMonth()+1).padStart(2,'0');
       const seq=await nextSequence(api,series,year,req.body.manual_number||null,month);
       const number=`${series}-${month}${year}${String(seq).padStart(3,'0')}`;
       const snapshot={...old,invoice_number:number,issued_at:new Date().toISOString()};
       const patch={invoice_number:number,invoice_series:series,invoice_year:year,invoice_sequence:seq,manual_number:!!req.body.manual_number,invoice_status:'issued',issued_by:req.session.user.name,issued_at:new Date().toISOString(),snapshot_json:snapshot,updated_at:new Date().toISOString()};
-      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+      if(!directSales)await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'ISSUE',old,saved,null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -327,8 +338,13 @@ function register(app) {
       };
       // Pembayaran juga menjadi jalur repair untuk Invoice lama: pastikan master
       // customer dan relasi Invoice CRM tersedia sebelum saldo diperbarui.
-      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
-      await syncCrmPayment(api,{...old,...patch});
+      if(isPaid && String(old.source_type||'')==='direct_sales' && String(old.payment_status||'')!=='paid'){
+        await issueDirectSalesInventory(api,old,req.session.user.name);
+      }
+      if(String(old.source_type||'')!=='direct_sales'){
+        await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+        await syncCrmPayment(api,{...old,...patch});
+      }
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,isPaid?'MARK_PAID':'RECORD_PAYMENT',old,saved,text(req.body?.note));
       res.json(saved);
@@ -557,6 +573,18 @@ async function nextSequence(api,series,year,manual,month){
   return expected;
 }
 async function replaceItems(api,id,items){await api.del(`/invoice_items?invoice_id=eq.${enc(id)}`);if(items.length)await api.post('/invoice_items',items.map(x=>({...x,invoice_id:id})));}
+
+async function issueDirectSalesInventory(api,invoice,actor){
+  const items=await api.get(`/invoice_items?invoice_id=eq.${enc(invoice.id)}&order=line_no.asc`);
+  const inventoryItems=(items||[]).filter(x=>String(x.source_type||'')==='inventory'&&x.source_id);
+  if(!inventoryItems.length)return {ok:true,issued_items:0};
+  const prior=await api.safeGet(`/inventory_transactions?notes=like.*${enc(invoice.id)}*&select=id&limit=1`,[]);
+  if(prior?.length)return {ok:true,already_issued:true};
+  const payload=inventoryItems.map(x=>({inventory_item_id:x.source_id,qty_out:num(x.quantity)}));
+  const reference=invoice.invoice_number||invoice.temporary_number||'Direct Sales';
+  return api.post('/rpc/inventory_issue_material_request',{p_request_id:invoice.id,p_items:payload,p_actor:actor||'System',p_wo_number:`Direct Sales ${reference}`});
+}
+
 async function replaceWos(api,id,ids){await api.del(`/invoice_work_orders?invoice_id=eq.${enc(id)}`);if(ids.length)await api.post('/invoice_work_orders',ids.map(ticket_id=>({invoice_id:id,ticket_id,override_unfinished:false,override_reason:null})));}
 async function audit(api,req,id,action,oldValue,newValue,reason){await api.post('/invoice_audit_logs',{invoice_id:id,action,actor_id:req.session.user.id||null,actor_name:req.session.user.name,actor_role:req.session.user.role,reason:reason||null,old_value:oldValue,new_value:newValue});}
 async function one(api,id){const rows=await api.get(`/invoices?id=eq.${enc(id)}&limit=1`);if(!rows?.length){const e=bad('Invoice tidak ditemukan.');e.statusCode=404;throw e;}return rows[0];}

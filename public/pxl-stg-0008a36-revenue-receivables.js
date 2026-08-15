@@ -45,7 +45,7 @@
   window.buildInvoiceFlat=function(){
     const base=typeof oldBuild==='function'?oldBuild.call(this):[];
     const ids=new Set(base.map(x=>String(x.id||'')));
-    return [...base,...issued.filter(x=>!ids.has(String(x.id||'')))];
+    return [...base,...issued.filter(x=>!ids.has(String(x.id||''))&&(String(x.source_type||'')!=='direct_sales'||String(x.payment_status||'')==='paid'))];
   };
   const oldDashboard=window.loadDashboard;
   window.loadDashboard=async function(){
