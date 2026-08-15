@@ -207,7 +207,8 @@ function register(app) {
       const header={
         id:invoiceId, temporary_number:`DRAFT-${Date.now()}`,
         invoice_date:req.body.invoice_date||now.slice(0,10), due_date:req.body.due_date||null,
-        source_type:req.body.source_type||null, source_so_id:req.body.source_so_id||null,
+        source_type:String(req.body.source_type||'').toLowerCase()==='direct_sales'?'direct_sales':(req.body.source_type||null),
+        source_so_id:String(req.body.source_type||'').toLowerCase()==='direct_sales'?null:(req.body.source_so_id||null),
         billing_group_id:req.body.billing_group_id||crypto.randomUUID(),
         invoice_type:req.body.invoice_type||'full_payment', term_name:req.body.term_name||null,
         term_percent:num(req.body.term_percent), customer_id:req.body.customer_id||null,
@@ -218,13 +219,15 @@ function register(app) {
         item_discount_amount:calculated.itemDiscount, invoice_discount_amount:calculated.invoiceDiscount,
         hg_amount:calculated.hg, dpp_amount:calculated.dpp, ppn_amount:calculated.ppn,
         pph_amount:calculated.pph, total_amount:calculated.total, balance_amount:calculated.total,
-        invoice_status:'draft', payment_status:'unpaid', approval_required:req.body.source_type==='direct_sales'?false:true,
-        approval_reason:req.body.source_type==='direct_sales'?null:calculated.approvalReason, created_by:req.session.user.name,
+        invoice_status:'draft', payment_status:'unpaid',
+        approval_required:String(req.body.source_type||'').toLowerCase()==='direct_sales'?false:true,
+        approval_reason:String(req.body.source_type||'').toLowerCase()==='direct_sales'?null:calculated.approvalReason,
+        created_by:req.session.user.name,
         updated_by:req.session.user.name, updated_at:now
       };
       const saved=(await api.post('/invoices',header))[0];
       await replaceItems(api,invoiceId,calculated.items);
-      await replaceWos(api,invoiceId,req.body.work_order_ids||[]);
+      await replaceWos(api,invoiceId,String(req.body.source_type||'').toLowerCase()==='direct_sales'?[]:(req.body.work_order_ids||[]));
       await audit(api,req,invoiceId,'CREATE_DRAFT',null,header,null);
       res.status(201).json(saved);
     } catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -234,9 +237,14 @@ function register(app) {
     try {
       const old=await one(api,req.params.id);
       const requestedSourceType=String(req.body.source_type||old.source_type||'').toLowerCase();
-      // PXL-PROD-0021G7: once a draft is Direct Sales, editing must never
-      // convert it back into the approval flow.
-      const directSales=String(old.source_type||'').toLowerCase()==='direct_sales'||old.approval_required===false||requestedSourceType==='direct_sales';
+      // PXL-PROD-0021G8: Direct Sales is identified by explicit source OR by
+      // having no SO and no WO. Once identified, it can never fall back to approval.
+      const requestedWoIds=Array.isArray(req.body.work_order_ids)?req.body.work_order_ids.filter(Boolean):[];
+      const noRequestedSo=!req.body.source_so_id;
+      const noRequestedWo=requestedWoIds.length===0;
+      const directSales=String(old.source_type||'').toLowerCase()==='direct_sales'||
+        old.approval_required===false||requestedSourceType==='direct_sales'||
+        (noRequestedSo&&noRequestedWo);
       const editable=old.invoice_status==='draft'||(directSales&&['issued','partially_paid'].includes(String(old.invoice_status||'')));
       if(!editable)return res.status(400).json({error:'Invoice ini tidak dapat diedit pada status sekarang.'});
       const calculated=calculate(req.body||{});
@@ -266,6 +274,9 @@ function register(app) {
   app.post('/api/invoice-v1/:id/submit', auth, accounting, async(req,res)=>{
     try{
       const old=await one(api,req.params.id);
+      if(String(old.source_type||'').toLowerCase()==='direct_sales'||old.approval_required===false){
+        return res.status(400).json({error:'Direct Sales tidak menggunakan approval. Gunakan Terbitkan.'});
+      }
       if(old.invoice_status!=='draft')return res.status(400).json({error:'Invoice bukan Draft.'});
       await validateWorkOrderFlow(api,old);
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,{invoice_status:'pending_approval',updated_by:req.session.user.name,updated_at:new Date().toISOString()}))[0];
