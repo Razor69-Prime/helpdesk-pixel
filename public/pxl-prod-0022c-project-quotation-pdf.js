@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const REV = 'PXL-PROD-0022C';
+  const REV = 'PXL-PROD-0022C1';
   const NAVY = [18, 49, 88];
   const ORANGE = [231, 126, 50];
   const SITE_GRAY = [224, 224, 224];
@@ -37,7 +37,8 @@
   }
 
   function isProjectSO(so) {
-    return (Array.isArray(so?.items) ? so.items : []).some(item => item?.site_id || item?.site_name);
+    const items = Array.isArray(so?.items) ? so.items : [];
+    return items.some(item => item?.site_id || item?.site_name || item?.site_order || item?.site_item_order);
   }
 
   function notify(message) {
@@ -264,6 +265,28 @@
     }
   }
 
+  function resolvePdfButtonId(button) {
+    return button?.dataset?.quotePdf || button?.dataset?.id || '';
+  }
+
+  function installProjectPdfInterceptor() {
+    // PXL-PROD-0022C1: generator lama memasang onclick langsung ke tombol PDF.
+    // Intercept pada capture phase agar SO Project selalu memakai generator Project.
+    document.addEventListener('click', event => {
+      const button = event.target?.closest?.('[data-quote-pdf],[data-act=\"pdf\"]');
+      if (!button) return;
+      const id = resolvePdfButtonId(button);
+      if (!id) return;
+      const so = findSO(id);
+      if (!so || !isProjectSO(so)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      exportProjectQuotation(id);
+    }, true);
+  }
+
   function install() {
     if (installed) return;
     if (typeof window.downloadQuotationPDF !== 'function') return window.setTimeout(install,100);
@@ -275,6 +298,8 @@
       if (so && isProjectSO(so)) return exportProjectQuotation(id);
       return operationalDownload(id);
     };
+
+    installProjectPdfInterceptor();
   }
 
   if (document.readyState === 'loading') {
