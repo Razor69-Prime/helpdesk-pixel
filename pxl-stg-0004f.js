@@ -69,7 +69,10 @@ express.static=function pxl0008a20Static(root,options){
       }
       if(isSalesOrder)html=forceSalesOrderScriptOrder(html);
       if(isCrm)html=replaceOrAppendScript(html,'/pxl-stg-0006e-crm.js','PXL-STG-0008A34');
-      res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');res.setHeader('Pragma','no-cache');return res.type('html').send(html);
+      // PXL-PROD-0022DB2 — izinkan browser/PWA melakukan conditional revalidation.
+      // must-revalidate menjaga HTML terbaru, tanpa memaksa full no-store pada setiap buka.
+      res.setHeader('Cache-Control','private, max-age=0, must-revalidate');
+      return res.type('html').send(html);
     }catch(_){return middleware(req,res,next);}
   };
 };
