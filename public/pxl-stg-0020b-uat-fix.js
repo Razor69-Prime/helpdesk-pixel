@@ -1,6 +1,13 @@
-/* PXL-STG-0020A — Final UAT Fix & Optimization. STAGING ONLY. */
+/* PXL-STG-0020A + PXL-PROD-0022DB1 — Final UAT Fix & Dashboard Initial Load Recovery. */
 (()=>{
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+ // PXL-PROD-0022DB1:
+ // showApp() memanggil hook ini, tetapi implementasinya tidak ada pada bundle production.
+ // ReferenceError sebelumnya menghentikan showApp sebelum loadTickets(), polling, dan notif polling.
+ // Compatibility guard ini mempertahankan flow report existing tanpa mengubah modul lain.
+ window.installUniversalReportButtons=window.installUniversalReportButtons||function(){};
+
  window.renderTechChart=window.renderTechChart||function(data,target='dash-tech-chart'){
    const el=document.getElementById(target);if(!el)return;
    const map={};(data||[]).forEach(t=>{const a=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);a.forEach(n=>{map[n]=map[n]||{total:0,done:0};map[n].total++;if(t.status==='done')map[n].done++;});});
@@ -23,5 +30,5 @@
    const max=Math.max(1,...names.flatMap(n=>[Number(summary.targetMap?.[n]||0),Number(real[n]||0)]));
    el.innerHTML=names.length?`<div class="dash-bar-list">${names.slice(0,10).map(n=>{const t=Number(summary.targetMap?.[n]||0),r=Number(real[n]||0);return `<div class="dash-bar-row"><div class="dash-bar-label">${esc(n)}</div><div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(r/max*100)}%"></div></div><div class="dash-bar-val">${t?Math.round(r/t*100):0}%</div></div>`}).join('')}</div>`:'<div class="no-data">Belum ada target/invoice.</div>';
  };
- window.PXL_STG_0020A={revision:'PXL-STG-0020B',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation']};
+ window.PXL_STG_0020A={revision:'PXL-PROD-0022DB1',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation','dashboard-initial-load']};
 })();
