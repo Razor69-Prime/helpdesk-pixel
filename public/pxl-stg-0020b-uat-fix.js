@@ -1,98 +1,162 @@
-/* PXL-STG-0020A + PXL-PROD-0022DB3 — UAT Fix & Dashboard Submenu Preload/Cache. */
+/* PXL-STG-0020A + PXL-PROD-0022DB4 — UAT Fix & Shared Dashboard Data Initialization. */
 (()=>{
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
  // showApp() memanggil hook ini. Compatibility guard mencegah startup terhenti.
  window.installUniversalReportButtons=window.installUniversalReportButtons||function(){};
 
- // PXL-PROD-0022DB3 — cache GET dashboard/submenu agar klik ulang tidak menunggu network lagi.
- // Cache hanya untuk endpoint data referensi/dashboard; tiket/notifikasi/auth tetap fresh.
- if(typeof window.api==='function'&&!window.api.__pxlDb3){
-   const originalApi=window.api;
-   const cache=new Map();
-   const inflight=new Map();
-   const TTL=120000;
-   const noCache=/\/(tickets|notifications|login|logout|session|me)(?:\?|$)/i;
-   const cacheable=/\/(invoice|invoices|sales-visits|visits|purchase-requests|material-requests|material_request|projects|sales-targets)(?:\?|$)/i;
+ // PXL-PROD-0022DB4
+ // Root cause: data Kunjungan/PR/MR/Project/Standalone Invoice baru benar-benar
+ // masuk ke variable global Dashboard setelah loader tertentu berjalan. Gejalanya:
+ // sesudah Purchase Request dibuka, submenu lain mendadak responsif.
+ // DB4 menginisialisasi data shared tersebut langsung setelah login, paralel,
+ // dan setiap dataset langsung merender submenu terkait saat selesai — tidak menunggu PR.
+ const sharedJobs=new Map();
+ const sharedLoadedAt=new Map();
+ const TTL=120000;
 
-   window.api=async function(method,path,body){
-     const isGet=String(method||'GET').toUpperCase()==='GET';
-     if(!isGet||noCache.test(path)||!cacheable.test(path)) return originalApi(method,path,body);
-     const key='GET:'+path;
-     const hit=cache.get(key);
-     if(hit&&Date.now()-hit.at<TTL) return hit.data;
-     if(inflight.has(key)) return inflight.get(key);
-     const p=Promise.resolve(originalApi(method,path,body)).then(data=>{
-       cache.set(key,{at:Date.now(),data});
-       return data;
-     }).finally(()=>inflight.delete(key));
-     inflight.set(key,p);
-     return p;
-   };
-   window.api.__pxlDb3=true;
-   window.api.__pxlOriginal=originalApi;
-   window.PXL_DB3_CACHE={cache,inflight,clear:()=>cache.clear()};
+ function dashboardActive(){
+   return !!document.getElementById('tab-dashboard')?.classList.contains('active');
  }
 
- // Request sekunder tidak perlu berebut dengan initial ticket/dashboard load.
- if(typeof window.startNotifPolling==='function'&&!window.startNotifPolling.__pxlDb2){
+ function renderShared(name){
+   if(!dashboardActive())return;
+   try{
+     if(name==='visits'&&typeof currentDashSub!=='undefined'&&currentDashSub==='kunjungan'&&typeof renderDashSubKunjungan==='function') renderDashSubKunjungan();
+     else if(name==='mr'&&typeof currentDashSub!=='undefined'&&currentDashSub==='mr'&&typeof renderDashSubMR==='function') renderDashSubMR(dashMRData||[]);
+     else if(name==='pr'&&typeof currentDashSub!=='undefined'&&currentDashSub==='pr'&&typeof renderDashSubPR==='function') renderDashSubPR(dashPRData||[]);
+     else if(name==='project'&&typeof currentDashSub!=='undefined'&&currentDashSub==='project'&&typeof renderDashSubProject==='function') renderDashSubProject(dashProjectData||[]);
+     else if(name==='invoice'&&typeof currentDashSub!=='undefined'&&currentDashSub==='invoice'&&typeof renderDashboard==='function') renderDashboard();
+   }catch(e){console.warn('PXL-PROD-0022DB4 render '+name,e);}
+ }
+
+ function loadShared(name,force=false){
+   if(typeof api!=='function')return Promise.resolve(null);
+   if(!force){
+     const at=sharedLoadedAt.get(name)||0;
+     if(at&&Date.now()-at<TTL)return Promise.resolve(true);
+     if(sharedJobs.has(name))return sharedJobs.get(name);
+   }
+
+   const run=(async()=>{
+     try{
+       let data;
+       if(name==='visits'){
+         data=await api('GET','/sales-visits');
+         if(typeof kunjunganData!=='undefined') kunjunganData=Array.isArray(data)?data:[];
+       }else if(name==='mr'){
+         data=await api('GET','/material-requests');
+         if(typeof dashMRData!=='undefined') dashMRData=Array.isArray(data)?data:[];
+       }else if(name==='pr'){
+         data=await api('GET','/purchase-requests');
+         const rows=Array.isArray(data)?data:[];
+         if(typeof dashPRData!=='undefined') dashPRData=rows;
+         // Sinkronkan data menu PR utama juga. Jadi membuka PR tidak perlu menjadi
+         // pemicu request/inisialisasi lagi.
+         if(typeof prData!=='undefined') prData=rows;
+       }else if(name==='project'){
+         data=await api('GET','/projects');
+         if(typeof dashProjectData!=='undefined') dashProjectData=Array.isArray(data)?data:[];
+       }else if(name==='invoice'){
+         data=await api('GET','/invoices/standalone');
+         if(typeof standaloneInvoices!=='undefined') standaloneInvoices=Array.isArray(data)?data:[];
+       }else if(name==='targets'){
+         data=await api('GET','/sales-targets');
+         if(typeof salesTargets!=='undefined') salesTargets=Array.isArray(data)?data:[];
+       }
+       sharedLoadedAt.set(name,Date.now());
+       renderShared(name);
+       return data;
+     }catch(e){
+       console.warn('PXL-PROD-0022DB4 load '+name,e);
+       return null;
+     }finally{
+       sharedJobs.delete(name);
+     }
+   })();
+   sharedJobs.set(name,run);
+   return run;
+ }
+
+ function warmDashboardShared(force=false){
+   // Tidak await secara kolektif: setiap submenu menjadi siap begitu endpointnya selesai.
+   return [
+     loadShared('visits',force),
+     loadShared('mr',force),
+     loadShared('pr',force),
+     loadShared('project',force),
+     loadShared('invoice',force),
+     loadShared('targets',force)
+   ];
+ }
+
+ // Notifikasi dijalankan sedikit sesudah critical startup.
+ if(typeof window.startNotifPolling==='function'&&!window.startNotifPolling.__pxlDb4){
    const originalStartNotif=window.startNotifPolling;
    window.startNotifPolling=function(){
-     clearInterval(window.notifPollTimer);
-     setTimeout(()=>{
-       try{ if(typeof window.loadNotifications==='function') window.loadNotifications(); else originalStartNotif(); }catch(_){ originalStartNotif(); }
-       try{
-         clearInterval(window.notifPollTimer);
-         window.notifPollTimer=setInterval(()=>{if(!document.hidden&&typeof window.loadNotifications==='function')window.loadNotifications();},60000);
-       }catch(_){}
-     },1200);
+     setTimeout(()=>{try{originalStartNotif();}catch(_){}},1200);
    };
-   window.startNotifPolling.__pxlDb2=true;
+   window.startNotifPolling.__pxlDb4=true;
  }
 
- async function prefetchDashboardSubmenus(){
-   if(typeof window.api!=='function')return;
-   // Endpoint lama/newer berbeda antar modul; request yang tidak tersedia diabaikan.
-   // Endpoint yang valid langsung mengisi cache DB3 dan dipakai ketika submenu diklik.
-   const paths=[
-     '/invoices/standalone',
-     '/sales-visits',
-     '/purchase-requests',
-     '/material-requests',
-     '/sales-targets',
-     '/projects'
-   ];
-   await Promise.allSettled(paths.map(path=>window.api('GET',path)));
- }
-
- // Pastikan Dashboard langsung hydrate lalu preload data submenu secara paralel di background.
- if(typeof window.showApp==='function'&&!window.showApp.__pxlDb3){
+ // Initial ticket + shared dashboard data mulai hampir bersamaan.
+ if(typeof window.showApp==='function'&&!window.showApp.__pxlDb4){
    const originalShowApp=window.showApp;
    window.showApp=function(){
      const out=originalShowApp.apply(this,arguments);
-     requestAnimationFrame(async()=>{
-       try{
-         if(typeof window.loadTickets==='function') await window.loadTickets(true);
-         if(typeof allTickets!=='undefined'&&Array.isArray(allTickets)&&typeof dashData!=='undefined') dashData=allTickets;
-         const dash=document.getElementById('tab-dashboard');
-         if(dash?.classList.contains('active')&&typeof window.renderDashboard==='function') window.renderDashboard();
-       }catch(e){console.warn('PXL-PROD-0022DB3 dashboard hydrate:',e);}
-       setTimeout(()=>{prefetchDashboardSubmenus().catch(()=>{});},250);
+     requestAnimationFrame(()=>{
+       // Warm shared data tanpa menunggu user membuka Purchase Request.
+       setTimeout(()=>warmDashboardShared(false),100);
+       (async()=>{
+         try{
+           if(typeof loadTickets==='function') await loadTickets(true);
+           if(typeof allTickets!=='undefined'&&Array.isArray(allTickets)&&typeof dashData!=='undefined') dashData=allTickets;
+           if(dashboardActive()&&typeof renderDashboard==='function') renderDashboard();
+         }catch(e){console.warn('PXL-PROD-0022DB4 dashboard hydrate',e);}
+       })();
      });
      return out;
    };
-   window.showApp.__pxlDb3=true;
+   window.showApp.__pxlDb4=true;
  }
 
- // Tombol refresh Dashboard harus tetap dapat memaksa data terbaru.
- if(typeof window.loadDashboard==='function'&&!window.loadDashboard.__pxlDb3){
-   const originalLoadDashboard=window.loadDashboard;
-   window.loadDashboard=async function(){
-     const out=await originalLoadDashboard.apply(this,arguments);
-     setTimeout(()=>{prefetchDashboardSubmenus().catch(()=>{});},0);
+ // Saat submenu diklik, pastikan dataset spesifiknya sudah berjalan/siap.
+ if(typeof window.switchDashSub==='function'&&!window.switchDashSub.__pxlDb4){
+   const originalSwitchDashSub=window.switchDashSub;
+   window.switchDashSub=function(sub,btn){
+     const out=originalSwitchDashSub.apply(this,arguments);
+     const map={kunjungan:'visits',mr:'mr',pr:'pr',project:'project',invoice:'invoice'};
+     const name=map[sub];
+     if(name) loadShared(name,false).then(()=>renderShared(name));
      return out;
    };
-   window.loadDashboard.__pxlDb3=true;
+   window.switchDashSub.__pxlDb4=true;
+ }
+
+ // loadDashboard tetap cepat: kick data shared tetapi tidak menunggu semuanya selesai.
+ if(typeof window.loadDashboard==='function'&&!window.loadDashboard.__pxlDb4){
+   const originalLoadDashboard=window.loadDashboard;
+   window.loadDashboard=async function(){
+     warmDashboardShared(false);
+     return originalLoadDashboard.apply(this,arguments);
+   };
+   window.loadDashboard.__pxlDb4=true;
+ }
+
+ // Menu Purchase Request utama memakai hasil preload bila sudah tersedia.
+ if(typeof window.loadPurchaseRequests==='function'&&!window.loadPurchaseRequests.__pxlDb4){
+   const originalLoadPR=window.loadPurchaseRequests;
+   window.loadPurchaseRequests=async function(){
+     try{
+       if(typeof prData!=='undefined'&&Array.isArray(prData)&&prData.length){
+         if(typeof renderPRList==='function') renderPRList();
+         loadShared('pr',false);
+         return prData;
+       }
+     }catch(_){}
+     return originalLoadPR.apply(this,arguments);
+   };
+   window.loadPurchaseRequests.__pxlDb4=true;
  }
 
  window.renderTechChart=window.renderTechChart||function(data,target='dash-tech-chart'){
@@ -117,5 +181,7 @@
    const max=Math.max(1,...names.flatMap(n=>[Number(summary.targetMap?.[n]||0),Number(real[n]||0)]));
    el.innerHTML=names.length?`<div class="dash-bar-list">${names.slice(0,10).map(n=>{const t=Number(summary.targetMap?.[n]||0),r=Number(real[n]||0);return `<div class="dash-bar-row"><div class="dash-bar-label">${esc(n)}</div><div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(r/max*100)}%"></div></div><div class="dash-bar-val">${t?Math.round(r/t*100):0}%</div></div>`}).join('')}</div>`:'<div class="no-data">Belum ada target/invoice.</div>';
  };
- window.PXL_STG_0020A={revision:'PXL-PROD-0022DB3',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation','dashboard-initial-load','startup-request-priority','dashboard-submenu-prefetch-cache']};
+
+ window.PXL_DB4={revision:'PXL-PROD-0022DB4',warmDashboardShared,loadShared,sharedJobs,sharedLoadedAt};
+ window.PXL_STG_0020A={revision:'PXL-PROD-0022DB4',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation','dashboard-initial-load','startup-request-priority','shared-dashboard-data-init']};
 })();
