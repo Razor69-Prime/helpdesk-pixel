@@ -1,4 +1,4 @@
-const CACHE='pixelapps-db2-v61';
+const CACHE='pixelapps-inv1-v62';
 const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png'];
 
 self.addEventListener('install',event=>{
@@ -32,6 +32,21 @@ async function navigationNetworkFirst(request){
   }
 }
 
+// PXL-PROD-0022INV1: Invoice production tidak menampilkan kode revisi staging.
+// Transform hanya presentation text; logic Invoice tidak diubah.
+async function invoiceHtml(request){
+  try{
+    const response=await fetch(request,{cache:'no-store'});
+    if(!response.ok)return response;
+    const html=(await response.text()).replace('<small style="display:block;color:#777">PXL-STG-0008A28</small>','');
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    return new Response(html,{status:response.status,statusText:response.statusText,headers});
+  }catch(_){
+    return navigationNetworkFirst(request);
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const request=event.request;
   if(request.method!=='GET') return;
@@ -39,6 +54,11 @@ self.addEventListener('fetch',event=>{
 
   // API dan upload harus selalu fresh dan tidak ditahan service-worker cache.
   if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/uploads/')) return;
+
+  if(url.pathname==='/invoice-v1-a16.html'){
+    event.respondWith(invoiceHtml(request));
+    return;
+  }
 
   // HTML/navigation tetap network-first agar deploy terbaru segera terambil.
   if(request.mode==='navigate'||url.pathname==='/'||url.pathname.endsWith('.html')){
