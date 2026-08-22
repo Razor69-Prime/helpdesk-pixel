@@ -48,6 +48,14 @@
       return null;
     }
   }
+  function addPdfImage(doc,data,x,y,w,h){
+    if(!data)return false;
+    try{
+      const format=/^data:image\/(?:jpe?g)/i.test(String(data))?'JPEG':'PNG';
+      doc.addImage(data,format,x,y,w,h);
+      return true;
+    }catch(_){return false;}
+  }
 
   async function getTickets(){
     const tries=['/api/tickets?include_archived=true','/api/tickets','/tickets'];
@@ -98,6 +106,10 @@
       if(!t)throw new Error('Work Order tidak ditemukan.');
       const so=salesOrders.find(s=>String(s.id)===String(t.sales_order_id)||String(s.linked_work_order_id)===String(t.id)||String(s.linked_wo_number)===String(t.wo_number));
       const {material,service}=splitSOItems(so);
+      const [techSignature,customerSignature]=await Promise.all([
+        t.tech_signature?imageData(t.tech_signature):Promise.resolve(null),
+        t.customer_signature?imageData(t.customer_signature):Promise.resolve(null)
+      ]);
       const doc=new JsPDF({unit:'mm',format:'a4'}), PW=210,PH=297,ML=14,MR=14,CW=182;
       const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
       doc.setFillColor(...ORANGE);doc.rect(0,0,PW,18,'F');
@@ -131,7 +143,11 @@
       doc.setFillColor(250,249,247);doc.setDrawColor(215);doc.roundedRect(ML,y,CW,boxH,2,2,'FD');doc.setTextColor(35);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text(wrapped,ML+5,y+7,{lineHeightFactor:1.35});
       y+=boxH+10;
       if(y>235){doc.addPage();y=22;}
-      doc.setDrawColor(195);doc.rect(ML,y,86,38);doc.rect(PW-MR-86,y,86,38);doc.setTextColor(115);doc.setFontSize(6.5);doc.text('Teknisi Pelaksana',ML+4,y+6);doc.text('Customer / Penerima',PW-MR-82,y+6);doc.setTextColor(35);doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(String(t.technician||t.technician_1||'-'),ML+4,y+30);doc.text(String(t.customer_name||so?.customer_name||'-'),PW-MR-82,y+30);
+      doc.setDrawColor(195);doc.rect(ML,y,86,38);doc.rect(PW-MR-86,y,86,38);
+      doc.setTextColor(115);doc.setFontSize(6.5);doc.text('Teknisi Pelaksana',ML+4,y+6);doc.text('Customer / Penerima',PW-MR-82,y+6);
+      addPdfImage(doc,techSignature,ML+20,y+9,46,15);
+      addPdfImage(doc,customerSignature,PW-MR-66,y+9,46,15);
+      doc.setTextColor(35);doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(String(t.technician||t.technician_1||'-'),ML+4,y+30);doc.text(String(t.customer_name||so?.customer_name||'-'),PW-MR-82,y+30);
       const pages=doc.getNumberOfPages();for(let p=1;p<=pages;p++){doc.setPage(p);doc.setFillColor(...ORANGE);doc.rect(0,286,PW,8,'F');doc.setTextColor(255);doc.setFont('helvetica','normal');doc.setFontSize(6);doc.text(`WO: ${t.wo_number||'-'} | Pixel Solusindo | 0877-3477-2999 | Hal ${p}/${pages}`,PW/2,291,{align:'center'});}
       doc.save(`laporan_${safe(t.wo_number||'WO')}_${new Date().toISOString().slice(0,10)}.pdf`);
     }catch(e){alert(e.message||'Gagal membuat PDF WO.');}
