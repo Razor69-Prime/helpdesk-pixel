@@ -24,7 +24,7 @@ const originalStatic = express.static;
 function escapeRegex(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 function removeScript(html,base){const pattern=new RegExp(`<script[^>]+src=["']${escapeRegex(base)}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi');return html.replace(pattern,'');}
 function replaceOrAppendScript(html,base,version){const src=`${base}?v=${version}`;const pattern=new RegExp(escapeRegex(base)+'(?:\\?v=[^"\']+)?','g');if(html.includes(base))return html.replace(pattern,src);return html.replace('</body>',`<script src="${src}"></script>\n</body>`);}
-function forceSalesOrderScriptOrder(html){const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js'];for(const base of bases)html=removeScript(html,base);const ordered=['<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>'].join('\n');return html.replace('</body>',ordered+'\n</body>');}
+function forceSalesOrderScriptOrder(html){const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js'];for(const base of bases)html=removeScript(html,base);const ordered=['<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF4"></script>','<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF4"></script>'].join('\n');return html.replace('</body>',ordered+'\n</body>');}
 
 express.static=function pxl0008a20Static(root,options){
   const middleware=originalStatic(root,options);
@@ -50,8 +50,8 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-stg-0005i.js?v=PXL-STG-0005I"></script>',
           '<script src="/pxl-stg-0005k.js?v=PXL-STG-0005K"></script>',
           '<script src="/pxl-stg-0005l.js?v=PXL-STG-0005M"></script>',
-          '<script src="/pxl-stg-0006k-polish.js?v=PXL-STG-0006N"></script>',
-          '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-STG-0006N"></script>',
+          '<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF4"></script>',
+          '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF4"></script>',
           '<script src="/pxl-stg-0007h-auth.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-stg-0007j-layout.js?v=PXL-STG-0020F"></script>',
           '<script src="/pxl-stg-0007l-timeline.js?v=PXL-STG-0020E"></script>',
