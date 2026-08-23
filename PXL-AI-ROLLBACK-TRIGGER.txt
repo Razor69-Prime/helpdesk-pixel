@@ -1,0 +1,2 @@
+Emergency deployment trigger after rollback to stable PXL-AI-0001.
+No application/runtime code changes.
