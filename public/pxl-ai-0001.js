@@ -1,4 +1,4 @@
-/* PXL-AI-0001 — AI Report foundation. Additive/read-only only. */
+/* PXL-AI-0002B — AI Report safe health validation. Frontend/read-only only. */
 (function(){
   'use strict';
   const PERM='ai_report_read';
@@ -19,15 +19,30 @@
     section.querySelector('[data-access="'+PERM+'"]').checked=checked;
   }
 
+  function authHeaders(){
+    const h={'Accept':'application/json'};
+    try{const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('pxl_token')||'';if(token)h.Authorization='Bearer '+token;}catch(_){}
+    return h;
+  }
+  async function safeHealth(){
+    const el=$('#pxlAiHealth');if(!el)return;
+    el.textContent='Memeriksa session existing...';
+    try{
+      const r=await fetch('/api/me',{method:'GET',headers:authHeaders(),cache:'no-store',credentials:'same-origin'});
+      if(r.ok){el.textContent='PASS — session & routing existing normal';el.style.color='#2e7d32';return;}
+      el.textContent='Tidak dapat diverifikasi ('+r.status+')';el.style.color='#b26a00';
+    }catch(_){el.textContent='Tidak dapat diverifikasi';el.style.color='#b26a00';}
+  }
+
   function ensurePage(){
     const host=$('.app-content');if(!host)return null;
     let page=$('#pxlAiReportPage');if(page)return page;
     page=document.createElement('section');page.id='pxlAiReportPage';page.hidden=true;page.style.display='none';
-    page.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0 0 4px">AI Report</h2><div style="color:var(--muted);font-size:12px">Read-Only Management Intelligence</div></div><span class="badge blue">READ ONLY</span></div><div class="card"><div class="card-title">Report</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"><button class="btn" disabled>Daily Report</button><button class="btn" disabled>Weekly Report</button><button class="btn" disabled>Next Week Plan</button><button class="btn" disabled>Monthly Report</button></div><div style="margin-top:14px;font-size:12px;color:var(--muted)">Foundation aktif. Report Engine akan tersedia pada PXL-AI-0002.</div></div><div class="card"><div class="card-title">Status</div><div style="display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px"><span>Mode</span><b>READ ONLY</b><span>Report Engine</span><span>Belum aktif</span><span>Gemini AI</span><span>Belum aktif</span><span>Revision</span><span>PXL-AI-0001</span></div></div>';
+    page.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0 0 4px">AI Report</h2><div style="color:var(--muted);font-size:12px">Read-Only Management Intelligence</div></div><span class="badge blue">READ ONLY</span></div><div class="card"><div class="card-title">Report</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"><button class="btn" disabled>Daily Report</button><button class="btn" disabled>Weekly Report</button><button class="btn" disabled>Next Week Plan</button><button class="btn" disabled>Monthly Report</button></div><div style="margin-top:14px;font-size:12px;color:var(--muted)">Report Engine belum membaca database. Tahap ini hanya memvalidasi jalur existing yang sudah stabil.</div></div><div class="card"><div class="card-title">Status</div><div style="display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px"><span>Mode</span><b>READ ONLY</b><span>Safe Health</span><b id="pxlAiHealth">Belum diperiksa</b><span>Database AI</span><span>Tidak diakses</span><span>Gemini AI</span><span>Belum aktif</span><span>Revision</span><span>PXL-AI-0002B</span></div></div>';
     host.appendChild(page);return page;
   }
   function restore(){const host=$('.app-content');if(!host)return;[...host.children].forEach(n=>{if(n.id==='pxlAiReportPage'){n.hidden=true;n.style.display='none';}else if('aiOldDisplay' in n.dataset){n.style.display=n.dataset.aiOldDisplay;delete n.dataset.aiOldDisplay;}});}
-  function open(){if(!canView())return;const page=ensurePage(),host=$('.app-content');if(!page||!host)return;[...host.children].forEach(n=>{if(n===page)return;if(!('aiOldDisplay' in n.dataset))n.dataset.aiOldDisplay=n.style.display||'';n.style.display='none';});page.hidden=false;page.style.display='block';}
+  function open(){if(!canView())return;const page=ensurePage(),host=$('.app-content');if(!page||!host)return;[...host.children].forEach(n=>{if(n===page)return;if(!('aiOldDisplay' in n.dataset))n.dataset.aiOldDisplay=n.style.display||'';n.style.display='none';});page.hidden=false;page.style.display='block';safeHealth();}
   function ensureMenu(){
     const sidebar=$('.sidebar');if(!sidebar)return;
     let btn=$('[data-pxl-ai-report]',sidebar);
