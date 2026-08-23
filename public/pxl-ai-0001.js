@@ -1,68 +1,32 @@
-/* PXL-AI-0002B1 — AI Report safe health validation. Frontend/read-only only. */
+/* PXL-AI-0003 — Read-only Data Engine (Ticket/WO first, frontend-only). */
 (function(){
   'use strict';
-  const PERM='ai_report_read';
-  const LEGACY='ai_report';
-  const $=(s,r=document)=>r.querySelector(s);
-
+  const PERM='ai_report_read', LEGACY='ai_report', $=(s,r=document)=>r.querySelector(s);
+  let ticketCache=null, ticketCacheAt=0;
   function user(){try{return window.currentUser||currentUser||null;}catch(_){return window.currentUser||null;}}
   function role(){return String(user()?.role||'').trim().toLowerCase();}
-  function menus(){const u=user()||{};const raw=u.custom_menus||u.menus||u.permissions||[];if(Array.isArray(raw))return raw.map(String);if(typeof raw==='string'){try{const x=JSON.parse(raw);return Array.isArray(x)?x.map(String):raw.split(',').map(v=>v.trim());}catch(_){return raw.split(',').map(v=>v.trim());}}return[];}
+  function menus(){const u=user()||{},raw=u.custom_menus||u.menus||u.permissions||[];if(Array.isArray(raw))return raw.map(String);if(typeof raw==='string'){try{const x=JSON.parse(raw);return Array.isArray(x)?x.map(String):raw.split(',').map(v=>v.trim());}catch(_){return raw.split(',').map(v=>v.trim());}}return[];}
   function canView(){if(role()==='superadmin')return true;const p=new Set(menus());return p.has(PERM)||p.has(LEGACY)||p.has('ai_report_view');}
-
-  function ensurePermissionCheckbox(){
-    const box=$('#menu-checkboxes');if(!box||box.querySelector('[data-access="'+PERM+'"]'))return;
-    const section=document.createElement('section');section.dataset.pxlAiPermission='1';section.style.marginBottom='12px';
-    section.innerHTML='<b>AI & Management Intelligence</b><div style="margin-top:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden"><div style="display:grid;grid-template-columns:1fr 100px 80px;gap:8px;align-items:center;padding:8px"><span>AI Report</span><label style="margin:0;text-transform:none"><input type="checkbox" data-access="ai_report_read"> Read Only</label><span style="font-size:11px;color:var(--muted)">Read-only</span></div></div>';
-    box.appendChild(section);
-    const checked=role()==='superadmin'||menus().some(v=>[PERM,LEGACY,'ai_report_view'].includes(v));
-    section.querySelector('[data-access="'+PERM+'"]').checked=checked;
-  }
-
-  function authHeaders(){
-    const h={'Accept':'application/json'};
-    try{
-      const token=String(window.__pxlAuthToken
-        || localStorage.getItem('pixel_token')
-        || sessionStorage.getItem('pixel_token')
-        || localStorage.getItem('token')
-        || localStorage.getItem('authToken')
-        || localStorage.getItem('pxl_token')
-        || sessionStorage.getItem('token')
-        || '').trim();
-      if(token){h.Authorization='Bearer '+token;h['X-Auth-Token']=token;}
-    }catch(_){}
-    return h;
-  }
-  async function safeHealth(){
-    const el=$('#pxlAiHealth');if(!el)return;
-    el.textContent='Memeriksa session existing...';
-    try{
-      const r=await fetch('/api/me',{method:'GET',headers:authHeaders(),cache:'no-store',credentials:'same-origin'});
-      if(r.ok){el.textContent='PASS — session & routing existing normal';el.style.color='#2e7d32';return;}
-      el.textContent='Tidak dapat diverifikasi ('+r.status+')';el.style.color='#b26a00';
-    }catch(_){el.textContent='Tidak dapat diverifikasi';el.style.color='#b26a00';}
-  }
-
-  function ensurePage(){
-    const host=$('.app-content');if(!host)return null;
-    let page=$('#pxlAiReportPage');if(page)return page;
-    page=document.createElement('section');page.id='pxlAiReportPage';page.hidden=true;page.style.display='none';
-    page.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0 0 4px">AI Report</h2><div style="color:var(--muted);font-size:12px">Read-Only Management Intelligence</div></div><span class="badge blue">READ ONLY</span></div><div class="card"><div class="card-title">Report</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"><button class="btn" disabled>Daily Report</button><button class="btn" disabled>Weekly Report</button><button class="btn" disabled>Next Week Plan</button><button class="btn" disabled>Monthly Report</button></div><div style="margin-top:14px;font-size:12px;color:var(--muted)">Report Engine belum membaca database. Tahap ini hanya memvalidasi jalur existing yang sudah stabil.</div></div><div class="card"><div class="card-title">Status</div><div style="display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px"><span>Mode</span><b>READ ONLY</b><span>Safe Health</span><b id="pxlAiHealth">Belum diperiksa</b><span>Database AI</span><span>Tidak diakses</span><span>Gemini AI</span><span>Belum aktif</span><span>Revision</span><span>PXL-AI-0002B1</span></div></div>';
-    host.appendChild(page);return page;
-  }
+  function ensurePermissionCheckbox(){const box=$('#menu-checkboxes');if(!box||box.querySelector('[data-access="'+PERM+'"]'))return;const s=document.createElement('section');s.dataset.pxlAiPermission='1';s.style.marginBottom='12px';s.innerHTML='<b>AI & Management Intelligence</b><div style="margin-top:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden"><div style="display:grid;grid-template-columns:1fr 100px 80px;gap:8px;align-items:center;padding:8px"><span>AI Report</span><label style="margin:0;text-transform:none"><input type="checkbox" data-access="ai_report_read"> Read Only</label><span style="font-size:11px;color:var(--muted)">Read-only</span></div></div>';box.appendChild(s);s.querySelector('[data-access="'+PERM+'"]').checked=role()==='superadmin'||menus().some(v=>[PERM,LEGACY,'ai_report_view'].includes(v));}
+  function token(){try{return String(window.__pxlAuthToken||localStorage.getItem('pixel_token')||sessionStorage.getItem('pixel_token')||localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('pxl_token')||sessionStorage.getItem('token')||'').trim();}catch(_){return '';}}
+  function authHeaders(){const h={'Accept':'application/json'},t=token();if(t){h.Authorization='Bearer '+t;h['X-Auth-Token']=t;}return h;}
+  async function safeHealth(){const el=$('#pxlAiHealth');if(!el)return;try{const r=await fetch('/api/me',{headers:authHeaders(),cache:'no-store'});if(r.ok){el.textContent='PASS — session & routing existing normal';el.style.color='#2e7d32';}else{el.textContent='Tidak dapat diverifikasi ('+r.status+')';el.style.color='#b26a00';}}catch(_){el.textContent='Tidak dapat diverifikasi';el.style.color='#b26a00';}}
+  async function loadTickets(){if(ticketCache&&Date.now()-ticketCacheAt<60000)return ticketCache;const r=await fetch('/api/tickets',{headers:authHeaders(),cache:'no-store'});if(!r.ok)throw new Error('Ticket/WO HTTP '+r.status);const data=await r.json();ticketCache=Array.isArray(data)?data:[];ticketCacheAt=Date.now();return ticketCache;}
+  function dateKey(v){if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getTime()))return null;return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
+  function dayStart(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+  function monday(d){const x=dayStart(d),n=(x.getDay()+6)%7;x.setDate(x.getDate()-n);return x;}
+  function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+  function inRange(key,a,b){return key&&key>=dateKey(a)&&key<=dateKey(b);}
+  function eventKey(t){return dateKey(t.worked_at||t.scheduled_date||t.created_at);}
+  function planKey(t){return dateKey(t.scheduled_date||t.worked_at);}
+  function summary(rows){const status={};const customers=new Set(),techs=new Set();for(const t of rows){const s=String(t.status||'unknown').trim()||'unknown';status[s]=(status[s]||0)+1;if(t.customer_name)customers.add(t.customer_name);const arr=Array.isArray(t.technicians)?t.technicians:[t.technician];arr.filter(Boolean).forEach(v=>techs.add(String(v)));}return{total:rows.length,status,customers:customers.size,technicians:techs.size};}
+  function statusHtml(status){const e=Object.entries(status).sort((a,b)=>b[1]-a[1]);return e.length?e.map(([k,v])=>'<span style="display:inline-block;margin:3px 6px 3px 0;padding:4px 8px;border:1px solid var(--border);border-radius:999px">'+k+': <b>'+v+'</b></span>').join(''):'<span style="color:var(--muted)">Tidak ada data</span>';}
+  function renderResult(title,period,rows,extra){const box=$('#pxlAiResult');if(!box)return;const s=summary(rows);box.style.display='block';box.innerHTML='<div class="card-title">'+title+'</div><div style="font-size:12px;color:var(--muted);margin-bottom:12px">'+period+' · Source: Ticket/WO existing API · READ ONLY</div><div style="display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:10px;margin-bottom:12px"><div><small>Total WO</small><div style="font-size:24px;font-weight:700">'+s.total+'</div></div><div><small>Customer</small><div style="font-size:24px;font-weight:700">'+s.customers+'</div></div><div><small>Teknisi</small><div style="font-size:24px;font-weight:700">'+s.technicians+'</div></div></div><div><b>Status</b><div style="margin-top:6px">'+statusHtml(s.status)+'</div></div>'+(extra||'');}
+  async function run(type){const box=$('#pxlAiResult');if(box){box.style.display='block';box.innerHTML='Membaca Ticket/WO...';}try{const tickets=await loadTickets(),now=new Date();if(type==='daily'){const d=dayStart(now),rows=tickets.filter(t=>inRange(eventKey(t),d,d));renderResult('Daily Report',d.toLocaleDateString('id-ID',{dateStyle:'full'}),rows);}else if(type==='weekly'){const a=monday(now),b=addDays(a,6),pa=addDays(a,-7),pb=addDays(a,-1),cur=tickets.filter(t=>inRange(eventKey(t),a,b)),prev=tickets.filter(t=>inRange(eventKey(t),pa,pb)),delta=cur.length-prev.length;renderResult('Weekly Report',a.toLocaleDateString('id-ID')+' – '+b.toLocaleDateString('id-ID'),cur,'<div style="margin-top:12px"><b>Comparison Last Week</b><div style="margin-top:6px">Last Week: <b>'+prev.length+'</b> WO · This Week: <b>'+cur.length+'</b> WO · Selisih: <b>'+(delta>=0?'+':'')+delta+'</b></div></div>');}else if(type==='next'){const a=addDays(monday(now),7),b=addDays(a,6),rows=tickets.filter(t=>inRange(planKey(t),a,b));renderResult('Next Week Plan',a.toLocaleDateString('id-ID')+' – '+b.toLocaleDateString('id-ID'),rows,'<div style="margin-top:12px;color:var(--muted);font-size:12px">Hanya WO yang sudah memiliki scheduled_date/worked_at pada minggu depan. Tidak ada prediksi AI.</div>');}else if(type==='monthly'){const a=new Date(now.getFullYear(),now.getMonth(),1),b=new Date(now.getFullYear(),now.getMonth()+1,0),rows=tickets.filter(t=>inRange(eventKey(t),a,b));renderResult('Monthly Report',a.toLocaleDateString('id-ID',{month:'long',year:'numeric'}),rows);}}catch(e){if(box)box.innerHTML='<b style="color:#b3261e">Gagal membaca Ticket/WO</b><div style="margin-top:6px">'+String(e.message||e)+'</div>';}}
+  function ensurePage(){const host=$('.app-content');if(!host)return null;let page=$('#pxlAiReportPage');if(page)return page;page=document.createElement('section');page.id='pxlAiReportPage';page.hidden=true;page.style.display='none';page.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0 0 4px">AI Report</h2><div style="color:var(--muted);font-size:12px">Read-Only Management Intelligence</div></div><span class="badge blue">READ ONLY</span></div><div class="card"><div class="card-title">Report</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"><button class="btn" data-ai-run="daily">Daily Report</button><button class="btn" data-ai-run="weekly">Weekly Report</button><button class="btn" data-ai-run="next">Next Week Plan</button><button class="btn" data-ai-run="monthly">Monthly Report</button></div><div style="margin-top:14px;font-size:12px;color:var(--muted)">PXL-AI-0003 membaca Ticket/WO melalui API existing. Data hanya dimuat saat tombol report ditekan dan di-cache 60 detik.</div></div><div class="card" id="pxlAiResult" style="display:none"></div><div class="card"><div class="card-title">Status</div><div style="display:grid;grid-template-columns:160px 1fr;gap:8px;font-size:13px"><span>Mode</span><b>READ ONLY</b><span>Safe Health</span><b id="pxlAiHealth">Belum diperiksa</b><span>Data Engine</span><span>Ticket/WO aktif</span><span>Gemini AI</span><span>Belum aktif</span><span>Revision</span><span>PXL-AI-0003</span></div></div>';host.appendChild(page);page.querySelectorAll('[data-ai-run]').forEach(b=>b.onclick=()=>run(b.dataset.aiRun));return page;}
   function restore(){const host=$('.app-content');if(!host)return;[...host.children].forEach(n=>{if(n.id==='pxlAiReportPage'){n.hidden=true;n.style.display='none';}else if('aiOldDisplay' in n.dataset){n.style.display=n.dataset.aiOldDisplay;delete n.dataset.aiOldDisplay;}});}
   function open(){if(!canView())return;const page=ensurePage(),host=$('.app-content');if(!page||!host)return;[...host.children].forEach(n=>{if(n===page)return;if(!('aiOldDisplay' in n.dataset))n.dataset.aiOldDisplay=n.style.display||'';n.style.display='none';});page.hidden=false;page.style.display='block';safeHealth();}
-  function ensureMenu(){
-    const sidebar=$('.sidebar');if(!sidebar)return;
-    let btn=$('[data-pxl-ai-report]',sidebar);
-    if(!canView()){btn?.remove();return;}
-    if(!btn){btn=document.createElement('button');btn.className='nav-btn';btn.dataset.pxlAiReport='1';btn.innerHTML='<span>🤖</span><span class="nav-label">AI Report</span>';sidebar.appendChild(btn);}
-    btn.onclick=open;
-    if(!window.__PXL_AI_RESTORE__){window.__PXL_AI_RESTORE__=true;sidebar.addEventListener('click',e=>{const nav=e.target.closest('.nav-btn,button,a');if(nav&&!nav.closest('[data-pxl-ai-report]'))restore();},true);}
-  }
+  function ensureMenu(){const sidebar=$('.sidebar');if(!sidebar)return;let btn=$('[data-pxl-ai-report]',sidebar);if(!canView()){btn?.remove();return;}if(!btn){btn=document.createElement('button');btn.className='nav-btn';btn.dataset.pxlAiReport='1';btn.innerHTML='<span>🤖</span><span class="nav-label">AI Report</span>';sidebar.appendChild(btn);}btn.onclick=open;if(!window.__PXL_AI_RESTORE__){window.__PXL_AI_RESTORE__=true;sidebar.addEventListener('click',e=>{const nav=e.target.closest('.nav-btn,button,a');if(nav&&!nav.closest('[data-pxl-ai-report]'))restore();},true);}}
   function refresh(){ensurePermissionCheckbox();ensureMenu();}
-  const obs=new MutationObserver(()=>refresh());
-  function init(){ensurePage();refresh();obs.observe(document.body,{childList:true,subtree:true});setTimeout(refresh,300);setTimeout(refresh,1200);}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  const obs=new MutationObserver(refresh);function init(){ensurePage();refresh();obs.observe(document.body,{childList:true,subtree:true});setTimeout(refresh,300);setTimeout(refresh,1200);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
