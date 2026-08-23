@@ -34,8 +34,11 @@
     return window.jspdf.jsPDF;
   }
   async function imageData(url){
+    if(!url)return null;
+    const raw=String(url);
+    if(/^data:image\//i.test(raw))return raw;
     try{
-      const response=await fetch(url,{cache:'no-store'});
+      const response=await fetch(raw,{cache:'no-store'});
       if(!response.ok)return null;
       const blob=await response.blob();
       return await new Promise(resolve=>{
@@ -48,13 +51,13 @@
       return null;
     }
   }
-  function addPdfImage(doc,data,x,y,w,h){
+  function addPdfImage(doc,data,x,y,w,h,label){
     if(!data)return false;
     try{
       const format=/^data:image\/(?:jpe?g)/i.test(String(data))?'JPEG':'PNG';
       doc.addImage(data,format,x,y,w,h);
       return true;
-    }catch(_){return false;}
+    }catch(e){console.warn('[PXL-PROD-0022PDF2] Signature PDF gagal:',label||'',e);return false;}
   }
 
   async function getTickets(){
@@ -67,6 +70,16 @@
       }catch(_){}
     }
     return [];
+  }
+  async function getTrackingTicket(t){
+    if(!t?.tracking_token)return t||{};
+    try{
+      const detail=await json('/api/track/'+encodeURIComponent(t.tracking_token));
+      return {...t,...detail};
+    }catch(e){
+      console.warn('[PXL-PROD-0022PDF2] Detail tracking gagal, fallback data tiket:',e);
+      return t||{};
+    }
   }
   async function getSalesOrders(){
     const report=await json('/api/crm/report');
@@ -102,14 +115,17 @@
   async function exportWoPdf(ticketId){
     try{
       const [JsPDF,tickets,salesOrders]=await Promise.all([ensureJsPDF(),getTickets(),getSalesOrders().catch(()=>[])]);
-      const t=tickets.find(x=>String(x.id)===String(ticketId)||String(x.wo_number)===String(ticketId));
-      if(!t)throw new Error('Work Order tidak ditemukan.');
+      const baseTicket=tickets.find(x=>String(x.id)===String(ticketId)||String(x.wo_number)===String(ticketId));
+      if(!baseTicket)throw new Error('Work Order tidak ditemukan.');
+      const t=await getTrackingTicket(baseTicket);
       const so=salesOrders.find(s=>String(s.id)===String(t.sales_order_id)||String(s.linked_work_order_id)===String(t.id)||String(s.linked_wo_number)===String(t.wo_number));
       const {material,service}=splitSOItems(so);
       const [techSignature,customerSignature]=await Promise.all([
-        t.tech_signature?imageData(t.tech_signature):Promise.resolve(null),
-        t.customer_signature?imageData(t.customer_signature):Promise.resolve(null)
+        imageData(t.tech_signature),
+        imageData(t.customer_signature)
       ]);
+      if(t.tech_signature&&!techSignature)console.warn('[PXL-PROD-0022PDF2] tech_signature ada tetapi gagal dikonversi.');
+      if(t.customer_signature&&!customerSignature)console.warn('[PXL-PROD-0022PDF2] customer_signature ada tetapi gagal dikonversi.');
       const doc=new JsPDF({unit:'mm',format:'a4'}), PW=210,PH=297,ML=14,MR=14,CW=182;
       const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
       doc.setFillColor(...ORANGE);doc.rect(0,0,PW,18,'F');
@@ -126,12 +142,7 @@
       doc.setTextColor(25);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('DESKRIPSI PEKERJAAN',ML,y);doc.setDrawColor(...ORANGE);doc.line(ML,y+3,PW-MR,y+3);y+=9;
       const remarks=so?.notes||t.remarks||t.remark||'-';
       const location=so?.address||so?.location||t.address||t.location||'-';
-      const lines=[
-        'Dibuat otomatis dari: '+(so?.so_number||t.so_number||'-'),
-        'Lokasi pekerjaan: '+location,
-        'Remarks: '+remarks,
-        'Item:'
-      ];
+      const lines=['Dibuat otomatis dari: '+(so?.so_number||t.so_number||'-'),'Lokasi pekerjaan: '+location,'Remarks: '+remarks,'Item:'];
       material.forEach((it,i)=>lines.push(`${i+1}. ${it.name||it.item_name||'-'} — ${n(it.qty)} ${it.unit||'pcs'}`));
       if(!material.length)lines.push('-');
       lines.push('','Daftar Pekerjaan / Jasa:');
@@ -145,8 +156,8 @@
       if(y>235){doc.addPage();y=22;}
       doc.setDrawColor(195);doc.rect(ML,y,86,38);doc.rect(PW-MR-86,y,86,38);
       doc.setTextColor(115);doc.setFontSize(6.5);doc.text('Teknisi Pelaksana',ML+4,y+6);doc.text('Customer / Penerima',PW-MR-82,y+6);
-      addPdfImage(doc,techSignature,ML+20,y+9,46,15);
-      addPdfImage(doc,customerSignature,PW-MR-66,y+9,46,15);
+      addPdfImage(doc,techSignature,ML+20,y+9,46,15,'teknisi');
+      addPdfImage(doc,customerSignature,PW-MR-66,y+9,46,15,'customer');
       doc.setTextColor(35);doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(String(t.technician||t.technician_1||'-'),ML+4,y+30);doc.text(String(t.customer_name||so?.customer_name||'-'),PW-MR-82,y+30);
       const pages=doc.getNumberOfPages();for(let p=1;p<=pages;p++){doc.setPage(p);doc.setFillColor(...ORANGE);doc.rect(0,286,PW,8,'F');doc.setTextColor(255);doc.setFont('helvetica','normal');doc.setFontSize(6);doc.text(`WO: ${t.wo_number||'-'} | Pixel Solusindo | 0877-3477-2999 | Hal ${p}/${pages}`,PW/2,291,{align:'center'});}
       doc.save(`laporan_${safe(t.wo_number||'WO')}_${new Date().toISOString().slice(0,10)}.pdf`);
@@ -155,17 +166,11 @@
 
   async function exportQuotationPdf(id){
     try{
-      const [JsPDF,orders,logo]=await Promise.all([
-        ensureJsPDF(),
-        getSalesOrders(),
-        imageData('/pixel-solusindo-logo.png?v=PXL-PROD-0021A')
-      ]);
+      const [JsPDF,orders,logo]=await Promise.all([ensureJsPDF(),getSalesOrders(),imageData('/pixel-solusindo-logo.png?v=PXL-PROD-0021A')]);
       const so=orders.find(x=>String(x.id)===String(id));if(!so)throw new Error('Sales Order tidak ditemukan.');
       const {material,service}=splitSOItems(so);const doc=new JsPDF({unit:'mm',format:'a4'});
       doc.setFillColor(255,255,255);doc.rect(10,10,190,29,'F');
-      if(logo){
-        try{doc.addImage(logo,'PNG',14,15,58,18);}catch(_){}
-      }
+      if(logo){try{doc.addImage(logo,'PNG',14,15,58,18);}catch(_){}}
       doc.setTextColor(0);doc.setFont('helvetica','bold');doc.setFontSize(25);doc.text('QUOTATION',196,28,{align:'right'});
       doc.setFillColor(...NAVY);doc.rect(10,39,126,1.4,'F');doc.setFillColor(...ORANGE);doc.rect(136,39,64,1.4,'F');
       doc.setFontSize(8);doc.text('Customer:',10,50);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(doc.splitTextToSize([so.customer_name,so.address||so.location,so.customer_phone].filter(Boolean).join('\n'),90),10,57);
