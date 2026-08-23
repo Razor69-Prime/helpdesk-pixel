@@ -34,5 +34,7 @@
   }
   function salesOrderId(button){const direct=button.dataset.id||button.getAttribute('data-id');if(direct)return direct;const onclick=button.getAttribute('onclick')||'';return onclick.match(/["']([^"']+)["']/)?.[1]||'';}
   document.addEventListener('click',function(e){const b=e.target?.closest?.('button');if(!b)return;const label=String(b.textContent||'').trim().toLowerCase();if(label==='pdf penawaran'){const id=salesOrderId(b);if(id&&typeof window.downloadQuotationPDF==='function'){e.preventDefault();e.stopImmediatePropagation();window.downloadQuotationPDF(id);}}},true);
-  window.exportTicketPDF=exportWo;
+  // PXL-PROD-0022PDF4 — generator 0006K memuat TTD dari Tracking Ticket.
+  // Jangan override generator tersebut dengan generator legacy 0006L yang tidak menggambar TTD.
+  if(typeof window.exportTicketPDF!=='function') window.exportTicketPDF=exportWo;
 })();
