@@ -43,6 +43,7 @@ express.static=function pxl0008a20Static(root,options){
         html=removeScript(html,'/pxl-stg-0007f-fix.js');
         html=removeScript(html,'/pxl-stg-0007m-drag.js');
         html=removeScript(html,'/pxl-stg-0008a-invoice-ui.js');
+        html=removeScript(html,'/pxl-urg-0005.js');
         const tags=[
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
           '<script src="/pxl-stg-0004f.js?v=PXL-STG-0020E"></script>',
@@ -66,7 +67,7 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-stg-0008a6-invoice-menu.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-ai-0001.js?v=PXL-AI-0004D"></script>',
           '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>',
-          '<script src="/pxl-urg-0005.js?v=PXL-URG-0005A"></script>'
+          '<script src="/pxl-urg-0008.js?v=PXL-URG-0008"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
