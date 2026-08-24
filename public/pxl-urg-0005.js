@@ -1,41 +1,33 @@
-/* PXL-URG-0005 — AI Report navigation safety patch.
+/* PXL-URG-0005A — AI Report navigation safety patch.
  * Scope: UI navigation only. No API/database/business-flow changes.
- * Fixes blank content after leaving AI Report on desktop/mobile/PWA.
+ * AI Report owns content only while explicitly open; every other navigation releases it.
  */
 (function(){'use strict';
-  function aiPage(){return document.getElementById('pxlAiReportPage');}
-  function restoreNative(){
-    const host=document.querySelector('.app-content');
-    if(!host)return;
-    const page=aiPage();
-    if(page){page.hidden=true;page.style.display='none';}
-    [...host.children].forEach(function(node){
-      if(node===page)return;
-      if(Object.prototype.hasOwnProperty.call(node.dataset,'aiOldDisplay')){
-        node.style.display=node.dataset.aiOldDisplay;
-        delete node.dataset.aiOldDisplay;
+  function page(){return document.getElementById('pxlAiReportPage');}
+  function host(){return document.querySelector('.app-content');}
+  function release(){
+    const h=host(),p=page();
+    if(!h)return;
+    if(p){p.hidden=true;p.style.display='none';}
+    [...h.children].forEach(function(n){
+      if(n===p)return;
+      if(Object.prototype.hasOwnProperty.call(n.dataset,'aiOldDisplay')){
+        n.style.display=n.dataset.aiOldDisplay;
+        delete n.dataset.aiOldDisplay;
       }
     });
+    document.documentElement.removeAttribute('data-pxl-ai-open');
   }
-  function isAiControl(el){return !!el?.closest?.('[data-pxl-ai-report]');}
-  function isNativeNav(el){
-    if(!el?.closest)return false;
-    return !!el.closest('.nav-btn,[data-tab],[data-page],[data-view],.top-nav button,.mobile-nav button,.sidebar button,.sidebar a');
+  function isAi(el){return !!el?.closest?.('[data-pxl-ai-report]');}
+  function nativeControl(el){
+    if(!el?.closest)return null;
+    return el.closest('.nav-btn,[data-tab],[data-page],[data-view],[onclick*="switchTab"],[onclick*="showTab"],.top-nav button,.mobile-nav button,.sidebar button,.sidebar a');
   }
-  // Capture before native handlers so stale AI inline display overrides cannot survive navigation.
   document.addEventListener('click',function(e){
-    if(isAiControl(e.target))return;
-    if(isNativeNav(e.target))restoreNative();
+    if(isAi(e.target))return;
+    if(nativeControl(e.target))release();
   },true);
-
-  // Extra guard for navigation invoked programmatically via switchTab().
-  function patchSwitchTab(){
-    if(window.__PXL_URG_0005_SWITCHTAB__)return;
-    if(typeof window.switchTab!=='function')return;
-    const original=window.switchTab;
-    window.switchTab=function(){restoreNative();return original.apply(this,arguments);};
-    window.__PXL_URG_0005_SWITCHTAB__=true;
-  }
-  [0,250,750,1500,3000].forEach(ms=>setTimeout(patchSwitchTab,ms));
-  window.__PXL_AI_RESTORE_NATIVE__=restoreNative;
+  // Do not wrap native navigation functions: Kanban and several mobile tabs replace/rebind them at runtime.
+  // A capture-phase release is enough and avoids blocking their original handlers.
+  window.__PXL_AI_RESTORE_NATIVE__=release;
 })();
