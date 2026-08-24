@@ -1,4 +1,4 @@
-/* PXL-URG-0001 — flow MR berbasis WO + Superadmin full access matrix. */
+/* PXL-URG-0002 — flow MR berbasis WO + Superadmin full access matrix + nav hard lock. */
 (function(){
   'use strict';
 
@@ -70,6 +70,22 @@
     document.addEventListener('click',function(e){var btn=e.target&&e.target.closest?e.target.closest('#edit-user-save, [onclick*="saveEditUser"]'):null;if(!btn)return;var roleSelect=document.querySelector('#edit-user-modal select');var editRole=String(roleSelect?.value||'').toLowerCase();var checks=editRole==='superadmin'?defaults.superadmin.slice():[...document.querySelectorAll('#menu-checkboxes [data-access]:checked')].map(function(x){return x.dataset.access;});var hidden=document.getElementById('pxl-access-v2');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pxl-access-v2';document.body.appendChild(hidden);}hidden.value=JSON.stringify(['access_v2'].concat(checks));try{var originalGet=window.getCheckedMenus;window.getCheckedMenus=function(){return ['access_v2'].concat(checks);};setTimeout(function(){if(originalGet)window.getCheckedMenus=originalGet;},500);}catch(_){}},true);
   }
 
+  function installSuperadminNavGuard(){
+    if(typeof window.buildNav!=='function'||window.buildNav.__pxlSuperadminFullAccess)return;
+    var originalBuildNav=window.buildNav;
+    window.buildNav=function(){
+      var isSuper=false,oldOverride;
+      try{
+        isSuper=String(window.currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin';
+        if(isSuper){oldOverride=window.currentUser.custom_menus_override;window.currentUser.custom_menus_override=false;}
+      }catch(_){}
+      try{return originalBuildNav.apply(this,arguments);}
+      finally{try{if(isSuper)window.currentUser.custom_menus_override=oldOverride;}catch(_){}}
+    };
+    window.buildNav.__pxlSuperadminFullAccess=true;
+    try{if(String(window.currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin')window.buildNav();}catch(_){}
+  }
+
   function installMRFlow(){
     var originalShow=window.showMRForm;
     if(typeof originalShow==='function')window.showMRForm=function(editId){var result=originalShow.apply(this,arguments);if(!editId&&currentRole()==='technician')setTimeout(function(){var sel=document.getElementById('mr-wo');if(!sel)return;var allowed=[];try{allowed=(Array.isArray(allTickets)?allTickets:[]).filter(assignedToMe);}catch(_){}sel.innerHTML='<option value="">-- Pilih WO yang Ditugaskan --</option>';allowed.forEach(function(t){var o=document.createElement('option');o.value=t.id;o.dataset.wo=t.wo_number||'';o.dataset.project=t.project_name||t.description||'';o.textContent=(t.wo_number||t.id)+' — '+(t.project_name||t.customer_name||'');sel.appendChild(o);});sel.disabled=false;},0);return result;};
@@ -77,5 +93,5 @@
   }
 
   if(location.pathname.includes('sales-order')){disableSalesOrderMR();new MutationObserver(disableSalesOrderMR).observe(document.documentElement,{childList:true,subtree:true});return;}
-  setTimeout(function(){installMRFlow();installAccountHooks();},0);
+  setTimeout(function(){installMRFlow();installAccountHooks();installSuperadminNavGuard();},0);
 })();
