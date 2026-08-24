@@ -1,4 +1,4 @@
-/* PXL-STG-0005A — flow MR berbasis WO dan checklist akses sederhana. */
+/* PXL-URG-0001 — flow MR berbasis WO + Superadmin full access matrix. */
 (function(){
   'use strict';
 
@@ -44,10 +44,15 @@
     manager:['dashboard_read','kpi_read','tickets_read','tickets_write','materials_read','materials_write','inventory_view_read','inventory_view_write','sales_read','projects_read','crm_read','sales_order_read','invoice_read','pr_read','supplier_read'],
     admin:['dashboard_read','dashboard_write','kpi_read','kpi_write','tickets_read','tickets_write','materials_read','materials_write','inventory_view_read','inventory_view_write','sales_read','sales_write','projects_read','projects_write','crm_read','crm_write','sales_order_read','sales_order_write','invoice_read','invoice_write','pr_read','pr_write','supplier_read','supplier_write','archive_read','users_read','users_write','actlog_read']
   };
+  defaults.superadmin=['dashboard_read','dashboard_write','kpi_read','kpi_write'];
+  accessGroups.forEach(function(group){group.rows.forEach(function(row){var id=row[0];if(/_(view|edit|issue)$/.test(id)){defaults.superadmin.push(id);}else{defaults.superadmin.push(id+'_read',id+'_write');}});});
+  defaults.superadmin.push('ai_report_read');
 
   function renderAccessMatrix(role,selected){
     var box=document.getElementById('menu-checkboxes');if(!box)return;
-    var selectedSet=new Set(Array.isArray(selected)&&selected.length?selected:(defaults[role]||[]));
+    role=String(role||'').toLowerCase();
+    var base=role==='superadmin'?defaults.superadmin:(Array.isArray(selected)&&selected.length?selected:(defaults[role]||[]));
+    var selectedSet=new Set(base);
     box.innerHTML=accessGroups.map(function(group){
       return '<div style="margin-bottom:12px"><b style="font-size:12px">'+group.label+'</b><div style="margin-top:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+group.rows.map(function(row){
         var id=row[0],label=row[1];
@@ -62,7 +67,7 @@
     var originalOpen=window.openEditUserModal;
     if(typeof originalOpen==='function')window.openEditUserModal=function(id){var result=originalOpen.apply(this,arguments);setTimeout(function(){addWarehouseRoleOptions();var u=Array.isArray(window.allUsers)?window.allUsers.find(function(x){return String(x.id)===String(id);}):null;var role=document.querySelector('#edit-user-modal select')?.value||u?.role||'technician';renderAccessMatrix(role,u?.custom_menus);},0);return result;};
     document.addEventListener('change',function(e){if(e.target&&e.target.tagName==='SELECT'&&e.target.closest('#edit-user-modal'))renderAccessMatrix(e.target.value,defaults[e.target.value]||[]);});
-    document.addEventListener('click',function(e){var btn=e.target&&e.target.closest?e.target.closest('#edit-user-save, [onclick*="saveEditUser"]'):null;if(!btn)return;var checks=[...document.querySelectorAll('#menu-checkboxes [data-access]:checked')].map(function(x){return x.dataset.access;});var hidden=document.getElementById('pxl-access-v2');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pxl-access-v2';document.body.appendChild(hidden);}hidden.value=JSON.stringify(['access_v2'].concat(checks));try{var originalGet=window.getCheckedMenus;window.getCheckedMenus=function(){return ['access_v2'].concat(checks);};setTimeout(function(){if(originalGet)window.getCheckedMenus=originalGet;},500);}catch(_){}},true);
+    document.addEventListener('click',function(e){var btn=e.target&&e.target.closest?e.target.closest('#edit-user-save, [onclick*="saveEditUser"]'):null;if(!btn)return;var roleSelect=document.querySelector('#edit-user-modal select');var editRole=String(roleSelect?.value||'').toLowerCase();var checks=editRole==='superadmin'?defaults.superadmin.slice():[...document.querySelectorAll('#menu-checkboxes [data-access]:checked')].map(function(x){return x.dataset.access;});var hidden=document.getElementById('pxl-access-v2');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pxl-access-v2';document.body.appendChild(hidden);}hidden.value=JSON.stringify(['access_v2'].concat(checks));try{var originalGet=window.getCheckedMenus;window.getCheckedMenus=function(){return ['access_v2'].concat(checks);};setTimeout(function(){if(originalGet)window.getCheckedMenus=originalGet;},500);}catch(_){}},true);
   }
 
   function installMRFlow(){
