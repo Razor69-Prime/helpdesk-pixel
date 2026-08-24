@@ -1,11 +1,11 @@
 'use strict';
 
-// PXL-AI-0005A — isolated Gemini connection health endpoint.
+// PXL-AI-0005A1 — isolated Gemini connection health endpoint.
 // No PixelApps business data is sent to Gemini in this revision.
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const originalStatic = express.static;
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 function authorized(req){
   const auth = String(req.headers.authorization || '');
