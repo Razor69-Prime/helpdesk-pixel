@@ -65,7 +65,8 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-stg-0009a8-kanban-leave.js?v=PXL-STG-0009A12"></script>',
           '<script src="/pxl-stg-0008a6-invoice-menu.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-ai-0001.js?v=PXL-AI-0004D"></script>',
-          '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>'
+          '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>',
+          '<script src="/pxl-urg-0005.js?v=PXL-URG-0005"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
