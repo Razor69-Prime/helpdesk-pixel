@@ -1,69 +1,33 @@
-/* PXL-URG-0006 — AI Report Native Navigation Bridge.
+/* PXL-URG-0005A — AI Report navigation safety patch.
  * Scope: UI navigation only. No API/database/business-flow changes.
- * Keeps legacy AI Report content/data engine, but mounts it inside a native .tab-content wrapper.
+ * AI Report owns content only while explicitly open; every other navigation releases it.
  */
 (function(){'use strict';
-  const WRAP_ID='tab-ai_report';
-  function host(){return document.querySelector('.app-content');}
   function page(){return document.getElementById('pxlAiReportPage');}
-  function aiButton(){return document.querySelector('[data-pxl-ai-report]');}
-
-  function clearLegacyLocks(){
-    const h=host(); if(!h)return;
+  function host(){return document.querySelector('.app-content');}
+  function release(){
+    const h=host(),p=page();
+    if(!h)return;
+    if(p){p.hidden=true;p.style.display='none';}
     [...h.children].forEach(function(n){
+      if(n===p)return;
       if(Object.prototype.hasOwnProperty.call(n.dataset,'aiOldDisplay')){
         n.style.display=n.dataset.aiOldDisplay;
         delete n.dataset.aiOldDisplay;
       }
     });
+    document.documentElement.removeAttribute('data-pxl-ai-open');
   }
-
-  function mountNative(){
-    const h=host(),p=page(); if(!h||!p)return false;
-    clearLegacyLocks();
-    let wrap=document.getElementById(WRAP_ID);
-    if(!wrap){
-      wrap=document.createElement('div');
-      wrap.id=WRAP_ID;
-      wrap.className='tab-content';
-      h.appendChild(wrap);
-    }
-    if(p.parentElement!==wrap)wrap.appendChild(p);
-    // Visibility is controlled by native .tab-content.active, never by legacy inline display.
-    p.hidden=false;
-    p.style.display='';
-    return true;
+  function isAi(el){return !!el?.closest?.('[data-pxl-ai-report]');}
+  function nativeControl(el){
+    if(!el?.closest)return null;
+    return el.closest('.nav-btn,[data-tab],[data-page],[data-view],[onclick*="switchTab"],[onclick*="showTab"],.top-nav button,.mobile-nav button,.sidebar button,.sidebar a');
   }
-
-  function openNative(btn){
-    if(!mountNative())return;
-    const b=btn||aiButton();
-    if(typeof window.switchTab==='function'&&b){
-      window.switchTab('ai_report',b);
-    }else if(typeof switchTab==='function'&&b){
-      switchTab('ai_report',b);
-    }
-  }
-
-  function bindButton(){
-    const b=aiButton(); if(!b)return;
-    b.onclick=function(e){if(e)e.preventDefault();openNative(b);};
-  }
-
-  // Capture-phase rebinding guarantees the legacy AI observer cannot restore its old open() handler just before a tap.
   document.addEventListener('click',function(e){
-    const b=e.target?.closest?.('[data-pxl-ai-report]');
-    if(!b)return;
-    b.onclick=function(ev){if(ev)ev.preventDefault();openNative(b);};
+    if(isAi(e.target))return;
+    if(nativeControl(e.target))release();
   },true);
-
-  // When another native/custom menu is opened, leave AI visibility entirely to the app's own navigation.
-  // No wrapping/overriding of switchTab, Kanban, dashboard, or other handlers.
-  const obs=new MutationObserver(function(){mountNative();bindButton();});
-  function init(){
-    mountNative();bindButton();
-    obs.observe(document.body,{childList:true,subtree:true});
-    [100,300,800,1600,3000].forEach(ms=>setTimeout(function(){mountNative();bindButton();},ms));
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  // Do not wrap native navigation functions: Kanban and several mobile tabs replace/rebind them at runtime.
+  // A capture-phase release is enough and avoids blocking their original handlers.
+  window.__PXL_AI_RESTORE_NATIVE__=release;
 })();
