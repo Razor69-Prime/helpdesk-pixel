@@ -3,6 +3,8 @@
 //  Dapatkan nilai dari: https://supabase.com → Settings → API
 // ═══════════════════════════════════════════════════════════
 
+// PXL-AI-0005A — Gemini health wrapper only; no business data is sent.
+require('./pxl-ai-0005a');
 // Urutan wrapper penting: akses Inventory MR 0004E, pencarian 0004D,
 // formula qty 0004F, integrasi 0004C, reminder 0004B, hardening SO 0004A.
 require('./pxl-stg-0004e');
