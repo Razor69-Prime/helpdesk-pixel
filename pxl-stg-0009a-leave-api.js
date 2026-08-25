@@ -19,6 +19,17 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     const n=rows.reduce((m,x)=>Math.max(m,Number(String(x.request_number||'').split('-').pop())||0),0)+1;
     return prefix+String(n).padStart(4,'0');
   };
+  const leaveTypeDb=v=>{
+    const value=norm(v);
+    if(['permission','izin','ijin'].includes(value))return 'permission';
+    if(['annualleave','cutitahunan','cuti'].includes(value))return 'annual_leave';
+    if(['maternityleave','cutibersalin','cutimelahirkan','melahirkan'].includes(value))return 'maternity_leave';
+    if(['other','lainnya','lainlain','otherleave'].includes(value))return 'other';
+    if(value.includes('tahunan')||value.includes('annual'))return 'annual_leave';
+    if(value.includes('bersalin')||value.includes('melahirkan')||value.includes('maternity'))return 'maternity_leave';
+    if(value.includes('izin')||value.includes('ijin')||value.includes('permission'))return 'permission';
+    return 'other';
+  };
   // Data lama dapat menyimpan label dropdown/status yang berbeda. Saldo tetap
   // harus mengikuti bukti approval Manager yang tersimpan pada request.
   const annual=v=>{
@@ -47,8 +58,6 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     .reduce((sum,row)=>sum+requestDays(row),0);
   const currentSnapshot=async()=>{
     let requests=await db.getLeaveRequests();
-    // Pulihkan data approval lama yang bukti tanda tangannya lengkap tetapi
-    // kolom status tertinggal sebagai submitted/diajukan.
     const staleApprovals=requests.filter(row=>hasApprovalEvidence(row)&&!approvedStatus(row.status));
     if(staleApprovals.length){
       for(const row of staleApprovals)await db.updateLeaveRequest(row.id,{status:'approved'});
@@ -83,7 +92,7 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     const me=user(req),rows=await db.getLeaveRequests(),b=req.body||{},period=dates(b.start_date,b.end_date);
     if(!b.start_date||!b.end_date||!b.return_date||!b.leave_type||!b.reason)return res.status(400).json({error:'Tanggal mulai, tanggal selesai, tanggal kembali bekerja, jenis izin/cuti, dan alasan wajib diisi.'});
     if(!validReturnDate(b.end_date,b.return_date))return res.status(400).json({error:'Tanggal kembali bekerja tidak boleh lebih awal dari tanggal selesai.'});
-    const row=await db.insertLeaveRequest({request_number:nextNo(rows),applicant_user_id:me.id,applicant_name:me.name,company:b.company||'',division:b.division||'',job_title:b.job_title||'',start_date:b.start_date,end_date:b.end_date,duration_days:period.duration,return_date:b.return_date,leave_type:b.leave_type,leave_type_other:b.leave_type_other||null,reason:b.reason,pic_user_id:b.pic_user_id||null,pic_name:b.pic_name||null,opening_balance:Number(b.opening_balance||0),remaining_balance:Number(b.remaining_balance||0),status:'draft',created_by:me.name,created_by_id:me.id});
+    const row=await db.insertLeaveRequest({request_number:nextNo(rows),applicant_user_id:me.id,applicant_name:me.name,company:b.company||'',division:b.division||'',job_title:b.job_title||'',start_date:b.start_date,end_date:b.end_date,duration_days:period.duration,return_date:b.return_date,leave_type:leaveTypeDb(b.leave_type),leave_type_other:b.leave_type_other||null,reason:b.reason,pic_user_id:b.pic_user_id||null,pic_name:b.pic_name||null,opening_balance:Number(b.opening_balance||0),remaining_balance:Number(b.remaining_balance||0),status:'draft',created_by:me.name,created_by_id:me.id});
     await audit(req,row,'CREATE','Draft dibuat');res.status(201).json(row);
   }catch(e){res.status(500).json({error:e.message});}});
 
@@ -94,6 +103,7 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
     if(['approved','rejected','cancelled'].includes(old.status)&&!manager)return res.status(409).json({error:'Pengajuan yang sudah diproses hanya dapat diedit Manager.'});
     const allowed=['company','division','job_title','start_date','end_date','return_date','leave_type','leave_type_other','reason','pic_user_id','pic_name'];
     const patch={};allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(req.body,k))patch[k]=req.body[k];});
+    if(Object.prototype.hasOwnProperty.call(patch,'leave_type'))patch.leave_type=leaveTypeDb(patch.leave_type);
     if(patch.start_date||patch.end_date){const period=dates(patch.start_date||old.start_date,patch.end_date||old.end_date);patch.duration_days=period.duration;}
     if(!validReturnDate(patch.end_date||old.end_date,patch.return_date||old.return_date))return res.status(400).json({error:'Tanggal kembali bekerja wajib diisi dan tidak boleh lebih awal dari tanggal selesai.'});
     const row=await db.updateLeaveRequest(old.id,patch);await audit(req,row,'EDIT','Data pengajuan diperbarui');res.json(row);
