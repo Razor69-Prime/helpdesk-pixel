@@ -1,4 +1,4 @@
-/* PXL-URG-0015 — persist native Sales Order permissions without legacy checkbox collision. */
+/* PXL-URG-0015A — deterministic account permission persistence without event-handler race. */
 (function(){
   'use strict';
 
@@ -7,14 +7,14 @@
   function collectPermissions(){
     const values = new Set();
 
-    // Legacy access-v2 matrix still owns the main read/write permissions.
+    // Access V2 matrix owns the Read/Write permission rows rendered by PXL-STG-0005A.
     document.querySelectorAll('#menu-checkboxes [data-access]:checked').forEach(function(input){
       const value = String(input.dataset.access || '').trim();
       if(value && !SALES_PERMISSIONS.has(value)) values.add(value);
     });
     if(document.querySelector('#menu-checkboxes [data-access]')) values.add('access_v2');
 
-    // Native permission controls own special/custom permissions, including Sales Order.
+    // Native custom permission controls own Inventory, MR, Project and Sales Order specials.
     document.querySelectorAll('[data-menu]:checked').forEach(function(input){
       const value = String(input.dataset.menu || '').trim();
       if(value) values.add(value);
@@ -32,42 +32,59 @@
     });
   }
 
-  function installSaveBridge(){
-    if(document.documentElement.dataset.pxlUrg0015Installed === '1') return;
-    document.documentElement.dataset.pxlUrg0015Installed = '1';
+  function installSaveWrapper(){
+    const originalSave = window.saveEditUser;
+    if(typeof originalSave !== 'function' || originalSave.__pxlUrg0015A) return false;
 
-    document.addEventListener('click', function(event){
-      const button = event.target?.closest?.('[onclick*="saveEditUser"],#edit-user-save');
-      if(!button) return;
-
-      // PXL-STG-0005A installs an older capture handler that temporarily replaces
-      // getCheckedMenus(). This later capture handler intentionally wins before
-      // saveEditUser() executes in the bubble/onclick phase.
-      const previous = window.getCheckedMenus;
+    const wrapped = async function(){
+      // PXL-STG-0005A may replace getCheckedMenus() from its capture click handler.
+      // Override it here, immediately before the real save executes, so the payload
+      // always represents the checkbox state currently visible in Account Management.
+      const previousGetCheckedMenus = window.getCheckedMenus;
       window.getCheckedMenus = collectPermissions;
-      setTimeout(function(){
-        if(window.getCheckedMenus === collectPermissions && typeof previous === 'function') {
-          window.getCheckedMenus = previous;
+      try {
+        return await originalSave.apply(this, arguments);
+      } finally {
+        if(window.getCheckedMenus === collectPermissions) {
+          window.getCheckedMenus = previousGetCheckedMenus;
         }
-      }, 1200);
-    }, true);
+      }
+    };
+    wrapped.__pxlUrg0015A = true;
+    wrapped.__pxlUrg0015AOriginal = originalSave;
+    window.saveEditUser = wrapped;
+    return true;
+  }
 
+  function installOpenWrapper(){
     const originalOpen = window.openEditUserModal;
-    if(typeof originalOpen === 'function' && !originalOpen.__pxlUrg0015){
-      const wrapped = function(){
-        const result = originalOpen.apply(this, arguments);
-        setTimeout(removeLegacyApprovalUi, 0);
-        setTimeout(removeLegacyApprovalUi, 150);
-        return result;
-      };
-      wrapped.__pxlUrg0015 = true;
-      window.openEditUserModal = wrapped;
-    }
+    if(typeof originalOpen !== 'function' || originalOpen.__pxlUrg0015A) return false;
 
-    new MutationObserver(removeLegacyApprovalUi).observe(document.documentElement, {childList:true, subtree:true});
+    const wrapped = function(){
+      const result = originalOpen.apply(this, arguments);
+      setTimeout(removeLegacyApprovalUi, 0);
+      setTimeout(removeLegacyApprovalUi, 150);
+      return result;
+    };
+    wrapped.__pxlUrg0015A = true;
+    window.openEditUserModal = wrapped;
+    return true;
+  }
+
+  function install(){
+    installSaveWrapper();
+    installOpenWrapper();
     removeLegacyApprovalUi();
   }
 
-  setTimeout(installSaveBridge, 0);
-  setTimeout(installSaveBridge, 500);
+  new MutationObserver(function(){
+    removeLegacyApprovalUi();
+    // Functions may be replaced by legacy scripts after initial load; re-wrap safely.
+    installSaveWrapper();
+    installOpenWrapper();
+  }).observe(document.documentElement, {childList:true, subtree:true});
+
+  setTimeout(install, 0);
+  setTimeout(install, 300);
+  setTimeout(install, 1000);
 })();
