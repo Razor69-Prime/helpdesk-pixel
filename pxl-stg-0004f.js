@@ -17,6 +17,7 @@ require('./pxl-stg-0007f');
 require('./pxl-stg-0008a9-invoice-query-fix');
 require('./pxl-stg-0008a-invoice-api');
 require('./pxl-urg-0014');
+require('./pxl-urg-0021');
 
 const fs = require('fs');
 const path = require('path');
@@ -25,7 +26,7 @@ const originalStatic = express.static;
 function escapeRegex(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 function removeScript(html,base){const pattern=new RegExp(`<script[^>]+src=["']${escapeRegex(base)}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi');return html.replace(pattern,'');}
 function replaceOrAppendScript(html,base,version){const src=`${base}?v=${version}`;const pattern=new RegExp(escapeRegex(base)+'(?:\\?v=[^"\']+)?','g');if(html.includes(base))return html.replace(pattern,src);return html.replace('</body>',`<script src="${src}"></script>\n</body>`);}
-function forceSalesOrderScriptOrder(html){const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js','/pxl-urg-0014-sales-order-wo-date.js','/pxl-urg-0014a-sales-order-wo-date-direct.js','/pxl-urg-0019-native-wo-date.js'];for(const base of bases)html=removeScript(html,base);const ordered=['<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-urg-0019-native-wo-date.js?v=PXL-URG-0019"></script>'].join('\n');return html.replace('</body>',ordered+'\n</body>');}
+function forceSalesOrderScriptOrder(html){const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js','/pxl-urg-0014-sales-order-wo-date.js','/pxl-urg-0014a-sales-order-wo-date-direct.js','/pxl-urg-0019-native-wo-date.js','/pxl-urg-0021-sales-order-manual-material-maps.js'];for(const base of bases)html=removeScript(html,base);const ordered=['<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-urg-0019-native-wo-date.js?v=PXL-URG-0019"></script>','<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>'].join('\n');return html.replace('</body>',ordered+'\n</body>');}
 
 express.static=function pxl0008a20Static(root,options){
   const middleware=originalStatic(root,options);
@@ -50,6 +51,7 @@ express.static=function pxl0008a20Static(root,options){
         html=removeScript(html,'/pxl-urg-0016a-account-permission-single-source.js');
         html=removeScript(html,'/pxl-urg-0017-account-permission-hard-save.js');
         html=removeScript(html,'/pxl-urg-0018-account-permission-explicit-override.js');
+        html=removeScript(html,'/pxl-urg-0021-sales-order-manual-material-maps.js');
         const tags=[
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
           '<script src="/pxl-stg-0004f.js?v=PXL-STG-0020E"></script>',
@@ -75,7 +77,8 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>',
           '<script src="/pxl-urg-0008.js?v=PXL-URG-0008"></script>',
           '<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0010"></script>',
-          '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0018"></script>'
+          '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0018"></script>',
+          '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
