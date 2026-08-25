@@ -49,6 +49,7 @@ express.static=function pxl0008a20Static(root,options){
         html=removeScript(html,'/pxl-urg-0015-sales-order-permission-persistence.js');
         html=removeScript(html,'/pxl-urg-0016a-account-permission-single-source.js');
         html=removeScript(html,'/pxl-urg-0017-account-permission-hard-save.js');
+        html=removeScript(html,'/pxl-urg-0018-account-permission-explicit-override.js');
         const tags=[
           '<script src="/pxl-stg-0004d.js?v=PXL-STG-0004D"></script>',
           '<script src="/pxl-stg-0004f.js?v=PXL-STG-0020E"></script>',
@@ -74,7 +75,7 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>',
           '<script src="/pxl-urg-0008.js?v=PXL-URG-0008"></script>',
           '<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0010"></script>',
-          '<script src="/pxl-urg-0017-account-permission-hard-save.js?v=PXL-URG-0017"></script>'
+          '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0018"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
