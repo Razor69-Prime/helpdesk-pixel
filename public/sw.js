@@ -1,5 +1,5 @@
-const CACHE='pixelapps-inv1-v70';
-const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js'];
+const CACHE='pixelapps-inv1-v71';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));
@@ -89,7 +89,9 @@ async function kanbanHtml(request){
     if(!response.ok)return response;
     let html=await response.text();
     const compactTag='<link rel="stylesheet" href="/pxl-ui-0023-kanban-mobile-compact.css?v=PXL-UI-0023">';
+    const reportTag='<script src="/pxl-urg-0025-kanban-wa-report.js?v=PXL-URG-0025"></script>';
     if(!html.includes('/pxl-ui-0023-kanban-mobile-compact.css')) html=html.replace('</head>',compactTag+'\n</head>');
+    if(!html.includes('/pxl-urg-0025-kanban-wa-report.js')) html=html.replace('</body>',reportTag+'\n</body>');
     const headers=new Headers(response.headers);
     headers.delete('content-length');
     headers.set('Cache-Control','no-store, max-age=0');
