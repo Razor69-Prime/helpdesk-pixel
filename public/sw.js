@@ -1,5 +1,5 @@
-const CACHE='pixelapps-inv1-v67';
-const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css'];
+const CACHE='pixelapps-inv1-v68';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-urg-0010-wo-autonumber.js'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));
@@ -38,7 +38,9 @@ async function indexHtml(request){
     if(!response.ok)return response;
     let html=await response.text();
     const uiTag='<link rel="stylesheet" href="/pxl-ui-0022-mobile-cleanup.css?v=PXL-UI-0022">';
+    const woTag='<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0014"></script>';
     if(!html.includes('/pxl-ui-0022-mobile-cleanup.css')) html=html.replace('</head>',uiTag+'\n</head>');
+    if(!html.includes('/pxl-urg-0010-wo-autonumber.js')) html=html.replace('</body>',woTag+'\n</body>');
     const headers=new Headers(response.headers);
     headers.delete('content-length');
     headers.set('Cache-Control','no-store, max-age=0');
