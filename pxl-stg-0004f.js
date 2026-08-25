@@ -26,7 +26,22 @@ const originalStatic = express.static;
 function escapeRegex(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 function removeScript(html,base){const pattern=new RegExp(`<script[^>]+src=["']${escapeRegex(base)}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi');return html.replace(pattern,'');}
 function replaceOrAppendScript(html,base,version){const src=`${base}?v=${version}`;const pattern=new RegExp(escapeRegex(base)+'(?:\\?v=[^"\']+)?','g');if(html.includes(base))return html.replace(pattern,src);return html.replace('</body>',`<script src="${src}"></script>\n</body>`);}
-function forceSalesOrderScriptOrder(html){const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js','/pxl-urg-0014-sales-order-wo-date.js','/pxl-urg-0014a-sales-order-wo-date-direct.js','/pxl-urg-0019-native-wo-date.js','/pxl-urg-0021-sales-order-manual-material-maps.js'];for(const base of bases)html=removeScript(html,base);const ordered=['<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>','<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF5"></script>','<script src="/pxl-urg-0019-native-wo-date.js?v=PXL-URG-0019"></script>','<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>'].join('\n');return html.replace('</body>',ordered+'\n</body>');}
+function forceSalesOrderScriptOrder(html){
+  const bases=['/pxl-stg-0006c-sales-order.js','/pxl-stg-0006k-polish.js','/pxl-stg-0006l-pdf-fix.js','/pxl-urg-0014-sales-order-wo-date.js','/pxl-urg-0014a-sales-order-wo-date-direct.js','/pxl-urg-0019-native-wo-date.js','/pxl-urg-0021-sales-order-manual-material-maps.js'];
+  for(const base of bases)html=removeScript(html,base);
+  const pxl0021Path=path.join(__dirname,'public','pxl-urg-0021-sales-order-manual-material-maps.js');
+  const pxl0021Inline=fs.existsSync(pxl0021Path)
+    ? `<script data-pxl-urg-0021a="inline">\n${fs.readFileSync(pxl0021Path,'utf8')}\n</script>`
+    : '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021A"></script>';
+  const ordered=[
+    '<script src="/pxl-stg-0006c-sales-order.js?v=PXL-STG-0006N"></script>',
+    '<script src="/pxl-stg-0006k-polish.js?v=PXL-PROD-0022PDF5"></script>',
+    '<script src="/pxl-stg-0006l-pdf-fix.js?v=PXL-PROD-0022PDF5"></script>',
+    '<script src="/pxl-urg-0019-native-wo-date.js?v=PXL-URG-0019"></script>',
+    pxl0021Inline
+  ].join('\n');
+  return html.replace('</body>',ordered+'\n</body>');
+}
 
 express.static=function pxl0008a20Static(root,options){
   const middleware=originalStatic(root,options);
