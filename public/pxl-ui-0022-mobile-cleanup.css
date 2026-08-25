@@ -1,0 +1,19 @@
+/* PXL-UI-0022 — UI-only mobile cleanup. No flow/data/API changes. */
+.notif-text,.notif-time,.notif-content{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+@media(max-width:600px){
+  .topbar{padding-left:10px!important;padding-right:10px!important;gap:6px}
+  .topbar-right{gap:6px!important;min-width:0}
+  .notif-wrap{position:static!important}
+  #notif-panel.notif-panel{position:fixed!important;top:58px!important;left:8px!important;right:8px!important;width:auto!important;max-width:none!important;max-height:calc(100dvh - 70px)!important;border-radius:12px!important;overflow:hidden!important;z-index:1000!important}
+  #notif-list{max-height:calc(100dvh - 118px)!important;overflow-y:auto!important;overscroll-behavior:contain}
+  .notif-item{padding:11px 12px!important;gap:8px!important;align-items:flex-start}
+  .notif-icon{width:28px!important;height:28px!important;font-size:13px!important}
+  .notif-content{min-width:0!important;max-width:100%!important}
+  .notif-text{font-size:11.5px!important;line-height:1.45!important;max-width:100%!important}
+  .notif-time{font-size:10px!important;line-height:1.35!important}
+  .user-pill{max-width:210px;white-space:normal;line-height:1.25;text-align:center;padding:5px 10px!important}
+}
+@media(max-width:390px){
+  .user-pill{max-width:170px;font-size:11px!important}
+  #notif-panel.notif-panel{left:6px!important;right:6px!important}
+}
