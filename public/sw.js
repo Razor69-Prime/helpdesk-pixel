@@ -1,4 +1,4 @@
-const CACHE='pixelapps-inv1-v62';
+const CACHE='pixelapps-inv1-v63';
 const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png'];
 
 self.addEventListener('install',event=>{
@@ -32,8 +32,6 @@ async function navigationNetworkFirst(request){
   }
 }
 
-// PXL-PROD-0022INV1: Invoice production tidak menampilkan kode revisi staging.
-// Transform hanya presentation text; logic Invoice tidak diubah.
 async function invoiceHtml(request){
   try{
     const response=await fetch(request,{cache:'no-store'});
@@ -47,12 +45,27 @@ async function invoiceHtml(request){
   }
 }
 
+async function salesOrderHtml(request){
+  try{
+    const response=await fetch(request,{cache:'no-store'});
+    if(!response.ok)return response;
+    let html=await response.text();
+    const tag='<script src="/pxl-urg-0020-sales-order-work-date.js?v=PXL-URG-0020"></script>';
+    if(!html.includes('/pxl-urg-0020-sales-order-work-date.js')) html=html.replace('</body>',tag+'\n</body>');
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    headers.set('Cache-Control','no-store, max-age=0');
+    return new Response(html,{status:response.status,statusText:response.statusText,headers});
+  }catch(_){
+    return navigationNetworkFirst(request);
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const request=event.request;
   if(request.method!=='GET') return;
   const url=new URL(request.url);
 
-  // API dan upload harus selalu fresh dan tidak ditahan service-worker cache.
   if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/uploads/')) return;
 
   if(url.pathname==='/invoice-v1-a16.html'){
@@ -60,12 +73,15 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  // HTML/navigation tetap network-first agar deploy terbaru segera terambil.
+  if(url.pathname==='/sales-order.html'){
+    event.respondWith(salesOrderHtml(request));
+    return;
+  }
+
   if(request.mode==='navigate'||url.pathname==='/'||url.pathname.endsWith('.html')){
     event.respondWith(navigationNetworkFirst(request));
     return;
   }
 
-  // JS/CSS/image/font/manifest: tampilkan cache seketika, refresh di background.
   event.respondWith(staleWhileRevalidate(request));
 });
