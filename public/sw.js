@@ -1,5 +1,5 @@
-const CACHE='pixelapps-inv1-v68';
-const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-urg-0010-wo-autonumber.js'];
+const CACHE='pixelapps-inv1-v69';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));
@@ -81,6 +81,22 @@ async function salesOrderHtml(request){
   }
 }
 
+async function kanbanHtml(request){
+  try{
+    const response=await fetch(request,{cache:'no-store'});
+    if(!response.ok)return response;
+    let html=await response.text();
+    const compactTag='<link rel="stylesheet" href="/pxl-ui-0023-kanban-mobile-compact.css?v=PXL-UI-0023">';
+    if(!html.includes('/pxl-ui-0023-kanban-mobile-compact.css')) html=html.replace('</head>',compactTag+'\n</head>');
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    headers.set('Cache-Control','no-store, max-age=0');
+    return new Response(html,{status:response.status,statusText:response.statusText,headers});
+  }catch(_){
+    return navigationNetworkFirst(request);
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const request=event.request;
   if(request.method!=='GET') return;
@@ -95,6 +111,11 @@ self.addEventListener('fetch',event=>{
 
   if(url.pathname==='/sales-order.html'){
     event.respondWith(salesOrderHtml(request));
+    return;
+  }
+
+  if(url.pathname==='/kanban.html'){
+    event.respondWith(kanbanHtml(request));
     return;
   }
 
