@@ -1,4 +1,4 @@
-/* PXL-URG-0003 — flow MR berbasis WO + Superadmin full access/navigation hard lock. */
+/* PXL-URG-0016 — flow MR berbasis WO + deterministic account permission persistence. */
 (function(){
   'use strict';
 
@@ -62,11 +62,18 @@
     box.querySelectorAll('[data-access$="_write"]').forEach(function(write){write.addEventListener('change',function(){if(write.checked){var read=box.querySelector('[data-access="'+write.dataset.access.replace(/_write$/,'_read')+'"]');if(read)read.checked=true;}});});
   }
 
+  function collectAccountPermissions(editRole){
+    var values=new Set();
+    var accessChecks=editRole==='superadmin'?defaults.superadmin.slice():[...document.querySelectorAll('#menu-checkboxes [data-access]:checked')].map(function(x){return x.dataset.access;});
+    values.add('access_v2');
+    accessChecks.forEach(function(v){if(v)values.add(v);});
+    document.querySelectorAll('[data-menu]:checked').forEach(function(x){var v=String(x.dataset.menu||'').trim();if(v)values.add(v);});
+    return [...values];
+  }
+
   function forceSuperadminFullNavigation(){
     try{
       if(currentRole()!=='superadmin') return false;
-      // buildNav existing memberi seluruh menu jika override bukan true.
-      // Untuk Superadmin, override custom tidak boleh membatasi navigasi.
       currentUser.custom_menus_override=false;
       if(typeof window.buildNav==='function') window.buildNav();
       else if(typeof buildNav==='function') buildNav();
@@ -79,7 +86,20 @@
     var originalOpen=window.openEditUserModal;
     if(typeof originalOpen==='function')window.openEditUserModal=function(id){var result=originalOpen.apply(this,arguments);setTimeout(function(){addWarehouseRoleOptions();var u=Array.isArray(window.allUsers)?window.allUsers.find(function(x){return String(x.id)===String(id);}):null;var role=document.querySelector('#edit-user-modal select')?.value||u?.role||'technician';renderAccessMatrix(role,u?.custom_menus);},0);return result;};
     document.addEventListener('change',function(e){if(e.target&&e.target.tagName==='SELECT'&&e.target.closest('#edit-user-modal'))renderAccessMatrix(e.target.value,defaults[e.target.value]||[]);});
-    document.addEventListener('click',function(e){var btn=e.target&&e.target.closest?e.target.closest('#edit-user-save, [onclick*="saveEditUser"]'):null;if(!btn)return;var roleSelect=document.querySelector('#edit-user-modal select');var editRole=String(roleSelect?.value||'').toLowerCase();var checks=editRole==='superadmin'?defaults.superadmin.slice():[...document.querySelectorAll('#menu-checkboxes [data-access]:checked')].map(function(x){return x.dataset.access;});var hidden=document.getElementById('pxl-access-v2');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pxl-access-v2';document.body.appendChild(hidden);}hidden.value=JSON.stringify(['access_v2'].concat(checks));try{var originalGet=window.getCheckedMenus;window.getCheckedMenus=function(){return ['access_v2'].concat(checks);};setTimeout(function(){if(originalGet)window.getCheckedMenus=originalGet;},500);}catch(_){}},true);
+    document.addEventListener('click',function(e){
+      var btn=e.target&&e.target.closest?e.target.closest('#edit-user-save, [onclick*="saveEditUser"]'):null;if(!btn)return;
+      var roleSelect=document.querySelector('#edit-user-modal select');
+      var editRole=String(roleSelect?.value||'').toLowerCase();
+      var finalMenus=collectAccountPermissions(editRole);
+      var hidden=document.getElementById('pxl-access-v2');
+      if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pxl-access-v2';document.body.appendChild(hidden);}
+      hidden.value=JSON.stringify(finalMenus);
+      try{
+        var originalGet=window.getCheckedMenus;
+        window.getCheckedMenus=function(){return finalMenus.slice();};
+        setTimeout(function(){if(originalGet)window.getCheckedMenus=originalGet;},1200);
+      }catch(_){}
+    },true);
   }
 
   function installMRFlow(){
