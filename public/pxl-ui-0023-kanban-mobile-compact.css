@@ -1,4 +1,4 @@
-/* PXL-UI-0023 — compact Kanban/Timeline mobile UI only. No flow/data changes. */
+/* PXL-UI-0023 / PXL-UI-0026 — compact Kanban/Timeline mobile UI only. No flow/data changes. */
 @media (max-width: 600px){
   body{font-size:13px!important}
   .top{padding:9px 10px!important;gap:8px!important;min-height:48px!important}
@@ -14,13 +14,21 @@
   #range,.meta{font-size:10px!important;line-height:1.35!important}
   #range{margin-bottom:7px!important}
 
-  .board{gap:7px!important;padding-bottom:8px!important}
-  .day{min-width:78vw!important;padding:8px!important;border-radius:8px!important}
-  .day h3{font-size:14px!important;margin:4px 0 6px!important}
-  .card{padding:7px!important;margin-bottom:5px!important;border-radius:7px!important;font-size:12px!important;line-height:1.3!important}
-  .card b{font-size:12px!important}
-  .free{font-size:10px!important;margin:5px 0 6px!important;line-height:1.35!important}
-  .off{font-size:10px!important}
+  /* PXL-UI-0026: Kanban-only PWA compact layout. One day fills the viewport.
+     Status/time/duration remain in DOM/data, but are hidden visually only on Kanban mobile. */
+  .board{gap:7px!important;padding-bottom:8px!important;scroll-snap-type:x mandatory!important}
+  .day{box-sizing:border-box!important;min-width:calc(100vw - 20px)!important;max-width:calc(100vw - 20px)!important;width:calc(100vw - 20px)!important;padding:7px!important;border-radius:8px!important;scroll-snap-align:start!important}
+  .day h3{font-size:13px!important;line-height:1.2!important;margin:2px 0 3px!important}
+  .day>.meta{font-size:9px!important;margin-top:1px!important}
+  .free{font-size:9px!important;margin:3px 0 5px!important;line-height:1.25!important}
+  .off{font-size:9px!important}
+  .card{position:relative!important;padding:5px 52px 5px 6px!important;margin-bottom:4px!important;border-radius:6px!important;font-size:10px!important;line-height:1.2!important;min-height:0!important}
+  .card b{display:block!important;font-size:10px!important;line-height:1.15!important;margin-bottom:1px!important}
+  .card>div:not(.meta):not(.off){font-size:10px!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .card>.meta{font-size:9px!important;line-height:1.2!important;margin-top:1px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .card>.meta:nth-of-type(n+3){display:none!important}
+  .card>.btn{position:absolute!important;right:5px!important;bottom:5px!important;margin:0!important;padding:4px 6px!important;min-height:0!important;font-size:9px!important;line-height:1.1!important;border-radius:6px!important;max-width:42px!important;overflow:hidden!important;color:transparent!important}
+  .card>.btn::after{content:'Edit';color:#1a1916!important;position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
 
   .timeline-wrap{border-radius:8px!important}
   .timeline-grid{min-width:760px!important}
