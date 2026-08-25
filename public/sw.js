@@ -1,4 +1,4 @@
-const CACHE='pixelapps-inv1-v63';
+const CACHE='pixelapps-inv1-v64';
 const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png'];
 
 self.addEventListener('install',event=>{
@@ -50,8 +50,10 @@ async function salesOrderHtml(request){
     const response=await fetch(request,{cache:'no-store'});
     if(!response.ok)return response;
     let html=await response.text();
-    const tag='<script src="/pxl-urg-0020-sales-order-work-date.js?v=PXL-URG-0020"></script>';
-    if(!html.includes('/pxl-urg-0020-sales-order-work-date.js')) html=html.replace('</body>',tag+'\n</body>');
+    const workDateTag='<script src="/pxl-urg-0020-sales-order-work-date.js?v=PXL-URG-0020"></script>';
+    const featureTag='<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021B"></script>';
+    if(!html.includes('/pxl-urg-0020-sales-order-work-date.js')) html=html.replace('</body>',workDateTag+'\n</body>');
+    if(!html.includes('/pxl-urg-0021-sales-order-manual-material-maps.js')) html=html.replace('</body>',featureTag+'\n</body>');
     const headers=new Headers(response.headers);
     headers.delete('content-length');
     headers.set('Cache-Control','no-store, max-age=0');
