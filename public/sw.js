@@ -1,5 +1,5 @@
-const CACHE='pixelapps-inv1-v66';
-const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE='pixelapps-inv1-v67';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));
@@ -29,6 +29,22 @@ async function navigationNetworkFirst(request){
     return response;
   }catch(_){
     return (await cache.match(request)) || (await cache.match('/index.html')) || Response.error();
+  }
+}
+
+async function indexHtml(request){
+  try{
+    const response=await fetch(request,{cache:'no-store'});
+    if(!response.ok)return response;
+    let html=await response.text();
+    const uiTag='<link rel="stylesheet" href="/pxl-ui-0022-mobile-cleanup.css?v=PXL-UI-0022">';
+    if(!html.includes('/pxl-ui-0022-mobile-cleanup.css')) html=html.replace('</head>',uiTag+'\n</head>');
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    headers.set('Cache-Control','no-store, max-age=0');
+    return new Response(html,{status:response.status,statusText:response.statusText,headers});
+  }catch(_){
+    return navigationNetworkFirst(request);
   }
 }
 
@@ -80,7 +96,12 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  if(request.mode==='navigate'||url.pathname==='/'||url.pathname.endsWith('.html')){
+  if(url.pathname==='/'||url.pathname==='/index.html'){
+    event.respondWith(indexHtml(request));
+    return;
+  }
+
+  if(request.mode==='navigate'||url.pathname.endsWith('.html')){
     event.respondWith(navigationNetworkFirst(request));
     return;
   }
