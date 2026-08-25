@@ -1,9 +1,10 @@
 'use strict';
 
-// PXL-STG-0008A32 — server-side guard untuk urutan WO dan Material Request.
+// PXL-URG-0011 — server-side guard untuk urutan WO dan Material Request.
 // Material Request bersifat kondisional: WO tanpa kebutuhan/pengambilan material
 // tetap dapat diselesaikan. Jika MR ada, material wajib sudah diambil.
 // Pengembalian material tetap dilakukan setelah pekerjaan selesai.
+// Superadmin memiliki full override untuk penyelesaian WO tanpa signature/MR guard.
 
 const express = require('express');
 const originalPost = express.application.post;
@@ -13,6 +14,7 @@ const norm = value => String(value == null ? '' : value).trim().toLowerCase();
 const same = (a, b) => String(a == null ? '' : a) === String(b == null ? '' : b);
 const isDoneStatus = value => ['done', 'selesai', 'completed', 'closed', 'finished'].includes(norm(value));
 const isMaterialTaken = value => ['taken', 'diambil', 'issued', 'returned', 'dikembalikan'].includes(norm(value));
+const isSuperadmin = req => norm(req.session?.user?.role) === 'superadmin';
 
 async function materialRequestsForTicket(ticketId) {
   const db = require('./db');
@@ -62,6 +64,7 @@ express.application.post = function pxl0008a30Post(path, ...handlers) {
   if (path === '/api/tickets/:id/stage' && handlers.length) {
     const guard = (req, res, next) => {
       if (norm(req.body?.stage) !== 'selesai') return next();
+      if (isSuperadmin(req)) return next();
       return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
     };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
@@ -73,6 +76,7 @@ express.application.patch = function pxl0008a30Patch(path, ...handlers) {
   if (path === '/api/tickets/:id' && handlers.length) {
     const guard = (req, res, next) => {
       if (!isDoneStatus(req.body?.status)) return next();
+      if (isSuperadmin(req)) return next();
       return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
     };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
