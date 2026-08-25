@@ -1,5 +1,5 @@
-const CACHE='pixelapps-inv1-v72';
-const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js'];
+const CACHE='pixelapps-inv1-v73';
+const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js','/pxl-urg-0027-sales-visit-duplicate-alert.js'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));
@@ -40,9 +40,11 @@ async function indexHtml(request){
     const uiTag='<link rel="stylesheet" href="/pxl-ui-0022-mobile-cleanup.css?v=PXL-UI-0022">';
     const woTag='<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0014"></script>';
     const dashKpiTag='<script src="/pxl-urg-0024-dashboard-kpi-role-access.js?v=PXL-URG-0024"></script>';
+    const visitDupTag='<script src="/pxl-urg-0027-sales-visit-duplicate-alert.js?v=PXL-URG-0027"></script>';
     if(!html.includes('/pxl-ui-0022-mobile-cleanup.css')) html=html.replace('</head>',uiTag+'\n</head>');
     if(!html.includes('/pxl-urg-0010-wo-autonumber.js')) html=html.replace('</body>',woTag+'\n</body>');
     if(!html.includes('/pxl-urg-0024-dashboard-kpi-role-access.js')) html=html.replace('</body>',dashKpiTag+'\n</body>');
+    if(!html.includes('/pxl-urg-0027-sales-visit-duplicate-alert.js')) html=html.replace('</body>',visitDupTag+'\n</body>');
     const headers=new Headers(response.headers);
     headers.delete('content-length');
     headers.set('Cache-Control','no-store, max-age=0');
