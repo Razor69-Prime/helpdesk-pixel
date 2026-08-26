@@ -1,0 +1,5 @@
+PXL-URG-0024R
+Clean production rollback deployment marker.
+Baseline: 5334110efa43c58c6328c83653c8f60f24ea6b78 (PXL-URG-0023).
+Archive feature development remains removed from application source.
+This commit exists to trigger a fresh Vercel Production deployment from the rolled-back main branch.
