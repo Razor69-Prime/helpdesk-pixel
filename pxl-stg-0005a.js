@@ -1,6 +1,7 @@
 'use strict';
 
 // PXL-STG-0005C — MR dibuat teknisi dari WO yang ditugaskan.
+// PXL-URG-0022 — material manual SO tidak boleh masuk flow Inventory/MR UUID.
 // Route didaftarkan saat server.js mulai mendaftarkan route, bukan melalui app.listen,
 // agar tetap aktif pada Vercel serverless.
 const express=require('express');
@@ -16,6 +17,18 @@ function assigned(ticket,user){
   return techs.some(v=>String(v||'').trim().toLowerCase()===name||String(v||'')===id)
     ||String(ticket.technician||'').trim().toLowerCase()===name
     ||String(ticket.technician_id||'')===id;
+}
+
+function validUuid(value){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||'').trim());
+}
+function isInventorySOItem(item){
+  const type=String(item?.item_type||item?.type||'item').toLowerCase();
+  const inventoryId=String(item?.inventory_item_id||item?.item_id||'').trim();
+  return !['service','jasa'].includes(type)
+    && item?.manual_material!==true
+    && !inventoryId.startsWith('manual:')
+    && validUuid(inventoryId);
 }
 
 async function validateAssignedWO(req,res,next){
@@ -72,7 +85,10 @@ async function workOrderItems(req,res){
       return res.status(404).json({error:'Sales Order yang terhubung dengan '+String(ticket.wo_number||'WO ini')+' tidak ditemukan. Pastikan WO dibuat dari Sales Order.'});
     }
 
-    const sourceItems=Array.isArray(so.items)?so.items:[];
+    // PXL-URG-0022: hanya material Inventory dengan UUID valid yang boleh
+    // masuk Form Material Request / pengambilan stok. Material manual tetap
+    // menjadi informasi SO/WO, tetapi tidak pernah dikirim ke operasi Inventory.
+    const sourceItems=(Array.isArray(so.items)?so.items:[]).filter(isInventorySOItem);
     const items=sourceItems.map(i=>{
       const qty=Number(i.qty??i.quantity??i.qty_out??0);
       return {
@@ -86,7 +102,7 @@ async function workOrderItems(req,res){
         qty_return:qty,
         source_type:'sales_order'
       };
-    }).filter(i=>i.name&&i.qty_out>0);
+    }).filter(i=>i.name&&i.qty_out>0&&validUuid(i.inventory_item_id));
 
     return res.json({
       ticket_id:ticket.id,
