@@ -1,6 +1,7 @@
 'use strict';
 
 // PXL-STG-0005H — route MR dipasang setelah JWT session dan sebelum static.
+// PXL-URG-0023 — WO manual/Input Laporan tetap valid tanpa Sales Order.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
@@ -10,6 +11,7 @@ const ASSIGNED_ROUTE = '/api/material-requests-form/assigned-work-orders';
 
 function same(a,b){ return String(a == null ? '' : a) === String(b == null ? '' : b); }
 function normalized(value){ return String(value == null ? '' : value).trim().toLowerCase(); }
+function validUuid(value){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||'').trim()); }
 function assignmentValues(value){
   if(value == null) return [];
   if(typeof value === 'object'){
@@ -98,16 +100,30 @@ async function routeItems(req,res){
       return res.status(403).json({source:'PXL-STG-0005H',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
+
+    // PXL-URG-0023: WO yang dibuat manual / dari Input Laporan tidak wajib punya SO.
+    // Kembalikan tiket valid dengan items kosong agar laporan, foto dan PDF tetap dapat
+    // menggunakan data WO tanpa gagal hanya karena relasi Sales Order tidak ada.
     if(!so){
-      return res.status(404).json({
-        source:'PXL-STG-0005H',
-        error:'Sales Order yang terhubung dengan '+(ticket.wo_number || 'WO ini')+' tidak ditemukan.'
+      return res.json({
+        source:'PXL-URG-0023',
+        ticket_id:ticket.id,
+        wo_number:ticket.wo_number || null,
+        crm_work_order_id:crmWo?.id || null,
+        sales_order_id:null,
+        manual_work_order:true,
+        items:[]
       });
     }
+
+    // Hanya material Inventory dengan UUID valid yang boleh masuk MR/pengambilan stok.
+    // Material manual tetap boleh berada di SO/WO/laporan, tetapi tidak menyentuh Inventory.
     const items = (Array.isArray(so.items) ? so.items : []).map(i => {
       const qty = Number(i.qty ?? i.quantity ?? i.qty_out ?? 0);
+      const inventoryId = String(i.inventory_item_id || i.item_id || '').trim();
       return {
-        inventory_item_id:i.inventory_item_id || i.item_id || null,
+        inventory_item_id:inventoryId || null,
+        manual_material:i.manual_material === true || inventoryId.startsWith('manual:'),
         name:i.name || i.item_name || 'Item',
         sku:i.sku || null,
         unit:i.unit || 'pcs',
@@ -117,13 +133,14 @@ async function routeItems(req,res){
         qty_return:qty,
         source_type:'sales_order'
       };
-    }).filter(i => i.inventory_item_id && i.qty_out > 0);
+    }).filter(i => !i.manual_material && validUuid(i.inventory_item_id) && i.qty_out > 0);
     return res.json({
-      source:'PXL-STG-0005H',
+      source:'PXL-URG-0023',
       ticket_id:ticket.id,
       wo_number:ticket.wo_number || null,
       crm_work_order_id:crmWo?.id || null,
       sales_order_id:so.id,
+      manual_work_order:false,
       items
     });
   }catch(error){
