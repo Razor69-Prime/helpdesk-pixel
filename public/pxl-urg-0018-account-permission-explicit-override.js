@@ -1,4 +1,4 @@
-/* PXL-URG-0018 — Account Permission explicit override, fresh DB readback. */
+/* PXL-URG-0025 — Account Permission explicit override + Inventory navigation permission bridge. */
 (function(){
   'use strict';
 
@@ -21,6 +21,13 @@
     [...values].forEach(v=>{
       if(/_(read|write)$/.test(v)) values.push(v.replace(/_(read|write)$/,''));
     });
+
+    // Inventory memakai permission granular inventory_view_* pada matrix akun,
+    // sementara navigation legacy mengenali menu id "inventory".
+    // Simpan alias kompatibilitas tanpa mengubah database schema/logic Inventory.
+    if(values.some(v=>v==='inventory_view'||v==='inventory_view_read'||v==='inventory_view_write')){
+      values.push('inventory');
+    }
     return unique(values);
   }
 
@@ -48,6 +55,21 @@
     document.querySelectorAll('[data-menu]').forEach(el=>{
       el.checked=stored.has(String(el.dataset.menu||''));
     });
+  }
+
+  function bridgeInventoryNavigationPermission(){
+    try{
+      if(!currentUser||!Array.isArray(currentUser.custom_menus)) return false;
+      const menus=currentUser.custom_menus;
+      const allowed=menus.includes('inventory_view')||menus.includes('inventory_view_read')||menus.includes('inventory_view_write');
+      if(!allowed||menus.includes('inventory')) return false;
+      // Runtime-only bridge untuk akun yang permission Inventory-nya sudah tersimpan sebelum patch ini.
+      // Tidak menulis database dan tidak memperluas hak selain visibility menu yang sudah diberikan.
+      currentUser.custom_menus=unique([...menus,'inventory']);
+      if(typeof window.buildNav==='function') window.buildNav();
+      else if(typeof buildNav==='function') buildNav();
+      return true;
+    }catch(_){return false;}
   }
 
   const originalOpenEditModal=typeof openEditModal==='function'?openEditModal:null;
@@ -121,9 +143,14 @@
       if(typeof closeEditModal==='function') closeEditModal();
       alert('✅ Akun berhasil diperbarui!');
     }catch(e){
-      console.error('[PXL-URG-0018] account permission save failed',e);
+      console.error('[PXL-URG-0025] account permission save failed',e);
       if(err){err.textContent='Gagal menyimpan permission: '+(e.message||String(e));err.style.display='block';}
       else alert('Gagal menyimpan permission: '+(e.message||String(e)));
     }
   };
+
+  // Jalankan setelah currentUser/navigation selesai dimuat. Beberapa halaman memuat user async.
+  setTimeout(bridgeInventoryNavigationPermission,0);
+  setTimeout(bridgeInventoryNavigationPermission,500);
+  setTimeout(bridgeInventoryNavigationPermission,1500);
 })();
