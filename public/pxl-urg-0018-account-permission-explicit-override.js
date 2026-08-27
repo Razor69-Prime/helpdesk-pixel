@@ -1,4 +1,4 @@
-/* PXL-URG-0025 — Account Permission explicit override + Inventory navigation permission bridge. */
+/* PXL-URG-0026 — Account Permission explicit override + Inventory bridge + Leave Approval persistence. */
 (function(){
   'use strict';
 
@@ -47,14 +47,21 @@
 
     // Hanya akun explicit/custom yang harus mengikuti DB 100%.
     // Akun lama yang belum pernah dicustom masih boleh memakai preset role saat pertama dibuka.
-    if(!explicit) return;
+    if(explicit){
+      document.querySelectorAll('#menu-checkboxes [data-access]').forEach(el=>{
+        el.checked=stored.has(String(el.dataset.access||''));
+      });
+      document.querySelectorAll('[data-menu]').forEach(el=>{
+        el.checked=stored.has(String(el.dataset.menu||''));
+      });
+    }
 
-    document.querySelectorAll('#menu-checkboxes [data-access]').forEach(el=>{
-      el.checked=stored.has(String(el.dataset.access||''));
-    });
-    document.querySelectorAll('[data-menu]').forEach(el=>{
-      el.checked=stored.has(String(el.dataset.menu||''));
-    });
+    // Approval Cuti disimpan di pr_roles, bukan custom_menus.
+    // Restore dari snapshot user agar checkbox tidak kembali uncheck saat modal dibuka ulang.
+    const leaveApprove=document.getElementById('leave-role-approval');
+    if(leaveApprove){
+      leaveApprove.checked=Array.isArray(u.pr_roles)&&u.pr_roles.includes('leave_approve');
+    }
   }
 
   function bridgeInventoryNavigationPermission(){
@@ -63,8 +70,6 @@
       const menus=currentUser.custom_menus;
       const allowed=menus.includes('inventory_view')||menus.includes('inventory_view_read')||menus.includes('inventory_view_write');
       if(!allowed||menus.includes('inventory')) return false;
-      // Runtime-only bridge untuk akun yang permission Inventory-nya sudah tersimpan sebelum patch ini.
-      // Tidak menulis database dan tidak memperluas hak selain visibility menu yang sudah diberikan.
       currentUser.custom_menus=unique([...menus,'inventory']);
       if(typeof window.buildNav==='function') window.buildNav();
       else if(typeof buildNav==='function') buildNav();
@@ -76,8 +81,6 @@
   if(originalOpenEditModal){
     openEditModal=function(userId){
       const result=originalOpenEditModal.apply(this,arguments);
-      // Script legacy 0005d masih merender matrix sesudah modal dibuka.
-      // Re-apply data DB explicit setelah render legacy selesai.
       setTimeout(()=>applyExactStoredPermissions(userId),0);
       setTimeout(()=>applyExactStoredPermissions(userId),80);
       setTimeout(()=>applyExactStoredPermissions(userId),250);
@@ -104,6 +107,7 @@
     if(document.getElementById('pr-role-approval2')?.checked) prRoles.push('approval_pr2');
     if(document.getElementById('pr-role-purchasing')?.checked) prRoles.push('purchasing');
     if(document.getElementById('pr-role-supplier')?.checked) prRoles.push('supplier_admin');
+    if(document.getElementById('leave-role-approval')?.checked) prRoles.push('leave_approve');
 
     const extraRoles=[];
     if(document.getElementById('edit-extra-sales')?.checked) extraRoles.push('sales');
@@ -125,7 +129,6 @@
     try{
       await api('PATCH','/users/'+encodeURIComponent(id),patch);
 
-      // Jangan percaya snapshot lokal. Ambil ulang langsung dari database.
       const fresh=await api('GET','/users');
       allUsers=Array.isArray(fresh)?fresh:[];
       const saved=userById(id);
@@ -139,17 +142,23 @@
         throw new Error('Permission database tidak sama dengan checklist. Missing: '+(missing.join(', ')||'-')+' | Extra: '+(extra.join(', ')||'-')+' | Override: '+String(saved.custom_menus_override));
       }
 
+      // Verifikasi khusus Approval Cuti karena permission ini berada di pr_roles.
+      const expectedLeaveApprove=prRoles.includes('leave_approve');
+      const savedLeaveApprove=Array.isArray(saved.pr_roles)&&saved.pr_roles.includes('leave_approve');
+      if(expectedLeaveApprove!==savedLeaveApprove){
+        throw new Error('Permission Approval Cuti gagal tersimpan ke database.');
+      }
+
       if(typeof renderUserTable==='function') renderUserTable();
       if(typeof closeEditModal==='function') closeEditModal();
       alert('✅ Akun berhasil diperbarui!');
     }catch(e){
-      console.error('[PXL-URG-0025] account permission save failed',e);
+      console.error('[PXL-URG-0026] account permission save failed',e);
       if(err){err.textContent='Gagal menyimpan permission: '+(e.message||String(e));err.style.display='block';}
       else alert('Gagal menyimpan permission: '+(e.message||String(e)));
     }
   };
 
-  // Jalankan setelah currentUser/navigation selesai dimuat. Beberapa halaman memuat user async.
   setTimeout(bridgeInventoryNavigationPermission,0);
   setTimeout(bridgeInventoryNavigationPermission,500);
   setTimeout(bridgeInventoryNavigationPermission,1500);
