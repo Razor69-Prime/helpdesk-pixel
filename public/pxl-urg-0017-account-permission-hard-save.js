@@ -1,4 +1,4 @@
-/* PXL-URG-0017 — deterministic Account Management permission save + readback. */
+/* PXL-URG-0026B — deterministic Account Management permission save + readback + Leave Approval. */
 (function(){
   'use strict';
 
@@ -23,6 +23,24 @@
     try{return Array.isArray(window.allUsers)?window.allUsers.find(function(u){return String(u.id)===String(id);}):null;}catch(_){return null;}
   }
 
+  // A13 membuat checkbox Approve Cuti di matrix akun, tetapi implementasi lama tidak
+  // memberikan kontrak ID yang konsisten. Cari berdasarkan ID/name/value bila ada,
+  // lalu fallback ke teks container "Approval/Approve Cuti/Izin" agar kompatibel.
+  function getLeaveApprovalCheckbox(){
+    const directIds=['leave-role-approval','leave-approve','pr-role-leave-approve','edit-leave-approve','approve-leave'];
+    for(const id of directIds){
+      const el=document.getElementById(id);
+      if(el&&el.type==='checkbox') return el;
+    }
+    const boxes=Array.from(document.querySelectorAll('#edit-user-modal input[type="checkbox"], #menu-checkboxes input[type="checkbox"]'));
+    return boxes.find(function(input){
+      const key=[input.id,input.name,input.value,input.dataset?.role,input.dataset?.access,input.dataset?.permission].filter(Boolean).join(' ').toLowerCase();
+      if(key.includes('leave_approve')||key.includes('leave-approve')||key.includes('approve_leave')) return true;
+      const text=String(input.closest('label,div')?.textContent||'').toLowerCase().replace(/\s+/g,' ');
+      return (text.includes('approval')||text.includes('approve')||text.includes('setujui'))&&(text.includes('cuti')||text.includes('izin'));
+    })||null;
+  }
+
   function applyStoredPermissions(){
     const modal=document.getElementById('edit-user-modal');
     if(!modal||modal.style.display==='none') return;
@@ -36,6 +54,8 @@
     document.querySelectorAll('[data-menu]').forEach(function(input){
       input.checked=stored.has(input.dataset.menu);
     });
+    const leaveBox=getLeaveApprovalCheckbox();
+    if(leaveBox) leaveBox.checked=Array.isArray(user.pr_roles)&&user.pr_roles.includes('leave_approve');
   }
 
   function setError(message){
@@ -59,6 +79,8 @@
     if(document.getElementById('pr-role-approval2')?.checked) prRoles.push('approval_pr2');
     if(document.getElementById('pr-role-purchasing')?.checked) prRoles.push('purchasing');
     if(document.getElementById('pr-role-supplier')?.checked) prRoles.push('supplier_admin');
+    const leaveBox=getLeaveApprovalCheckbox();
+    if(leaveBox?.checked) prRoles.push('leave_approve');
 
     const extraRoles=[];
     if(document.getElementById('edit-extra-sales')?.checked) extraRoles.push('sales');
@@ -78,29 +100,40 @@
     if(password) patch.password=password;
 
     setError('');
-    const updated=await window.api('PATCH','/users/'+encodeURIComponent(id),patch);
-    const saved=new Set(Array.isArray(updated?.custom_menus)?updated.custom_menus:[]);
+    await window.api('PATCH','/users/'+encodeURIComponent(id),patch);
+
+    // Readback dari database, bukan response PATCH/snapshot lokal.
+    const fresh=await window.api('GET','/users');
+    window.allUsers=Array.isArray(fresh)?fresh:[];
+    const updated=getUserById(id);
+    if(!updated) throw new Error('User tidak ditemukan setelah penyimpanan.');
+
+    const saved=new Set(Array.isArray(updated.custom_menus)?updated.custom_menus:[]);
     const missing=expected.filter(function(v){return !saved.has(v);});
     const extra=Array.from(saved).filter(function(v){return !expected.includes(v);});
     if(missing.length||extra.length){
       throw new Error('Permission gagal tersimpan konsisten. Missing: '+missing.join(', ')+' | Extra: '+extra.join(', '));
     }
+    const expectedLeave=Boolean(leaveBox?.checked);
+    const savedLeave=Array.isArray(updated.pr_roles)&&updated.pr_roles.includes('leave_approve');
+    if(expectedLeave!==savedLeave){
+      throw new Error('Permission Approval Cuti gagal tersimpan. Expected: '+expectedLeave+' | Database: '+savedLeave);
+    }
 
-    const idx=Array.isArray(window.allUsers)?window.allUsers.findIndex(function(u){return String(u.id)===String(id);}):-1;
-    if(idx>=0) window.allUsers[idx]={...window.allUsers[idx],...updated};
     if(typeof window.renderUserTable==='function') window.renderUserTable();
     if(typeof window.closeEditModal==='function') window.closeEditModal();
     alert('✅ Akun berhasil diperbarui!');
     return true;
   }
 
+  // Ini adalah save path aktif: listener capture berjalan sebelum saveEditUser legacy/override.
   document.addEventListener('click',function(event){
     const btn=event.target?.closest?.('#edit-user-save,[onclick*="saveEditUser"]');
     if(!btn) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     hardSave().catch(function(error){
-      console.error('[PXL-URG-0017] save failed',error);
+      console.error('[PXL-URG-0026B] save failed',error);
       setError(error?.message||'Gagal menyimpan akun.');
     });
   },true);
