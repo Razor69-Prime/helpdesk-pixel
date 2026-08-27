@@ -4,12 +4,557 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sales Order</title>
-<!-- PXL-URG-0026: stable Sales Order rollback redeploy marker -->
 <style>
 :root{--bg:#f7f6f1;--card:#fff;--line:#e4e1d8;--text:#1f1d19;--muted:#756f66;--accent:#df7b3b;--green:#5b9220;--red:#b64036;--blue:#2563a8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:13px Arial,sans-serif;color:var(--text)}
+button,input,select,textarea{font:inherit}.wrap{padding:18px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+h2{margin:0;font-size:19px}.sub{font-size:11px;color:var(--muted);margin-top:3px}.btn{border:1px solid var(--line);background:#fff;padding:8px 11px;border-radius:8px;cursor:pointer;font-weight:700}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.good{background:var(--green);color:#fff;border-color:var(--green)}.btn.bad{background:var(--red);color:#fff;border-color:var(--red)}.btn.service{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.pdf{border-color:var(--blue);color:#174f85;background:#f3f8ff}
+.btn:disabled{opacity:.45;cursor:not-allowed}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px}
+.metric{border-left:4px solid var(--accent)}.metric b{font-size:24px;display:block;margin-top:5px}.label{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}textarea{min-height:70px}.items{display:grid;gap:7px}
+.line-row{display:grid;grid-template-columns:2fr .65fr .75fr 1fr 1fr auto;gap:7px;align-items:end;padding:9px;border:1px solid #eee;border-radius:9px;background:#fff}.item-picker{position:relative}.item-results{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;max-height:230px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.12)}
+.item-results.open{display:block}.item-option{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.item-option:hover{background:#fff4ea}.item-option b{display:block}.item-option small{color:var(--muted)}
+.selected-item{font-size:10px;color:var(--green);margin-top:4px}.notice{padding:10px;border-radius:8px;background:#fff4ea;border:1px solid #f0d1b5;margin-top:10px}.flow-note{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.flow-note div{padding:9px;border-radius:8px;border:1px solid var(--line);background:#fafafa}.flow-note b{display:block;margin-bottom:3px}
+.line-section{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfbfa}.line-section.service-box{border-color:#cbdcf0;background:#f7fbff}.section-title{font-size:13px}.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.total-box{border:1px solid var(--line);border-radius:9px;padding:10px;background:#fff}.total-box strong{display:block;font-size:16px;margin-top:4px}.total-box.grand{border-color:#efbd97;background:#fff7ef}
+.form-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.form-actions .btn{padding:11px 18px}.form-actions .primary{min-width:150px}
+.table{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}table{width:100%;border-collapse:collapse}th{background:#efede7;color:var(--muted);font-size:10px;text-transform:uppercase;text-align:left;padding:8px}
+td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3px 7px;border-radius:99px;background:#fff0e4;color:#9b541f;font-size:10px;font-weight:700}
+.status{padding:3px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#eef5e8;color:#52791f}.actions{display:flex;gap:5px;flex-wrap:wrap}.section{margin-top:12px}
+.empty-hint{padding:11px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}.msg{display:none;position:fixed;right:18px;bottom:18px;background:#222;color:#fff;padding:10px 13px;border-radius:9px;z-index:30}
+@media(max-width:1000px){.line-row{grid-template-columns:1fr 1fr 1fr}.line-row .wide{grid-column:1/-1}.line-row .remove{justify-self:start}.totals,.flow-note{grid-template-columns:1fr}}
+@media(max-width:850px){.grid4,.form{grid-template-columns:1fr}}
+@media(max-width:560px){.line-row{grid-template-columns:1fr 1fr}.line-row .wide{grid-column:1/-1}.form-actions{display:grid;grid-template-columns:1fr 1fr}.form-actions .btn{width:100%;min-width:0}}
 </style>
 </head>
 <body>
-<script>location.replace('/sales-order.html?stable=1');</script>
+<div class="wrap">
+  <div class="toolbar">
+    <div>
+      <h2>Sales Order</h2>
+      <div class="sub">PXL-STG-0006H — Form SO Material/Jasa, Submit di bagian akhir, PDF Penawaran.</div>
+    </div>
+    <button class="btn" id="refreshBtn">Refresh</button>
+  </div>
+
+  <div class="grid4" id="metrics"></div>
+
+  <div class="card section">
+    <div class="toolbar">
+      <div><b id="formTitle">Buat Sales Order</b><div class="sub">Material dan jasa disimpan dalam satu Draft SO.</div></div>
+    </div>
+
+    <div class="form">
+      <div><label>Customer</label><input id="customer" placeholder="Nama customer"></div>
+      <div><label>Nomor Telepon</label><input id="phone" placeholder="08..."></div>
+      <div><label>Sales PIC</label><select id="salesPic"><option value="">Memuat akun Sales...</option></select></div>
+      <div><label>Nama Project</label><input id="projectName" placeholder="Contoh: Instalasi CCTV Villa ABC"></div>
+      <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
+      <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
+
+      <div class="full line-section">
+        <div class="toolbar">
+          <div><b class="section-title">A. Material / Barang</b><div class="sub">Wajib dipilih dari Inventory. Material akan tersedia pada Form Material Request.</div></div>
+          <button class="btn" id="addMaterialBtn" type="button">Tambah Material</button>
+        </div>
+        <div class="items" id="materialItems"></div>
+      </div>
+
+      <div class="full line-section service-box">
+        <div class="toolbar">
+          <div><b class="section-title">B. Jasa / Pekerjaan</b><div class="sub">Input manual. Jasa akan menjadi daftar pekerjaan pada Work Order teknisi.</div></div>
+          <button class="btn service" id="addServiceBtn" type="button">Tambah Jasa</button>
+        </div>
+        <div class="items" id="serviceItems"></div>
+      </div>
+
+      <div class="full totals">
+        <div class="total-box"><span class="label">Subtotal Material</span><strong id="materialSubtotal">Rp 0</strong></div>
+        <div class="total-box"><span class="label">Subtotal Jasa</span><strong id="serviceSubtotal">Rp 0</strong></div>
+        <div class="total-box grand"><span class="label">Grand Total</span><strong id="grandTotal">Rp 0</strong></div>
+      </div>
+    </div>
+
+    <div class="flow-note">
+      <div><b>Material → Material Request</b>Stok tidak berkurang saat SO atau WO dibuat. Flow MR revisi 05 tetap digunakan.</div>
+      <div><b>Jasa → Work Order</b>Jasa tidak masuk Inventory dan tidak muncul pada Form Material Request.</div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" id="resetBtn" type="button">Reset</button>
+      <button class="btn primary" id="saveBtn" type="button">Submit</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="toolbar"><div><b>Daftar Sales Order</b><div class="sub">Draft dapat diedit. Manager/Admin/Superadmin dapat menyetujui atau membatalkan.</div></div></div>
+    <div id="soTable" class="table"></div>
+  </div>
+</div>
+
+<div id="msg" class="msg"></div>
+<script>
+let runtimeToken = '';
+let D = { sales_orders: [] };
+let OPT = { sales_users: [], inventory_items: [], can_approve: false, can_issue:false, current_user:null };
+let editId = null;
+
+const byId = id => document.getElementById(id);
+const numberValue = value => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const rp = value => 'Rp ' + numberValue(value).toLocaleString('id-ID');
+
+function token() {
+  try {
+    return runtimeToken
+      || (window.parent && window.parent !== window ? window.parent.localStorage.getItem('pixel_token') : '')
+      || localStorage.getItem('pixel_token')
+      || '';
+  } catch (_) {
+    return runtimeToken || '';
+  }
+}
+
+window.addEventListener('message', event => {
+  if (event.origin === location.origin && event.data?.type === 'PXL_AUTH_TOKEN') {
+    runtimeToken = event.data.token || runtimeToken;
+  }
+});
+
+const H = () => ({
+  'Content-Type': 'application/json',
+  ...(token() ? { Authorization: 'Bearer ' + token() } : {})
+});
+
+async function api(method, url, body) {
+  const response = await fetch(url, {
+    method,
+    headers: H(),
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store'
+  });
+  let data = {};
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok) throw new Error(data.error || 'Gagal');
+  return data;
+}
+
+function toast(text) {
+  const element = byId('msg');
+  if (!element) return;
+  element.textContent = String(text || '');
+  element.style.display = 'block';
+  setTimeout(() => {
+    if (element) element.style.display = 'none';
+  }, 4200);
+}
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
+function inventoryMatches(query) {
+  const value = String(query || '').trim().toLowerCase();
+  if (!value) return OPT.inventory_items.slice(0, 20);
+  return OPT.inventory_items.filter(item =>
+    String(item.name || '').toLowerCase().includes(value)
+    || String(item.sku || '').toLowerCase().includes(value)
+  ).slice(0, 30);
+}
+
+function renderMaterialResults(row, query = '') {
+  const box = row?.querySelector('.item-results');
+  if (!box) return;
+  const matches = inventoryMatches(query);
+  box.innerHTML = matches.length
+    ? matches.map(item => `<div class="item-option" data-id="${item.id}"><b>${esc(item.name)}</b><small>${item.sku ? esc(item.sku) + ' · ' : ''}stok ${numberValue(item.stock)} ${esc(item.unit || 'pcs')}</small></div>`).join('')
+    : '<div class="item-option"><small>Material tidak ditemukan.</small></div>';
+  box.classList.add('open');
+  box.querySelectorAll('[data-id]').forEach(element => {
+    element.addEventListener('mousedown', event => {
+      event.preventDefault();
+      selectInventory(row, element.dataset.id);
+    });
+  });
+}
+
+function selectInventory(row, id) {
+  const item = OPT.inventory_items.find(entry => String(entry.id) === String(id));
+  if (!item || !row) return;
+  row.dataset.inventoryId = item.id;
+  row.dataset.sku = item.sku || '';
+  const search = row.querySelector('.item-search');
+  const unit = row.querySelector('.unit');
+  const selected = row.querySelector('.selected-item');
+  const results = row.querySelector('.item-results');
+  if (search) search.value = item.name || '';
+  if (unit) unit.value = item.unit || 'pcs';
+  if (selected) selected.textContent = `Dipilih: ${item.name}${item.sku ? ' · ' + item.sku : ''} · stok ${numberValue(item.stock)} ${item.unit || 'pcs'}`;
+  if (results) results.classList.remove('open');
+  updateTotals();
+}
+
+function lineTotal(row) {
+  return numberValue(row.querySelector('.qty')?.value) * numberValue(row.querySelector('.price')?.value);
+}
+
+function bindLineEvents(row) {
+  row.querySelectorAll('.qty,.price').forEach(input => input.addEventListener('input', updateTotals));
+  row.querySelector('.remove')?.addEventListener('click', () => {
+    row.remove();
+    updateEmptyHints();
+    updateTotals();
+  });
+}
+
+function addMaterial(data = {}) {
+  const container = byId('materialItems');
+  if (!container) return;
+  container.querySelector('.empty-hint')?.remove();
+  const selected = OPT.inventory_items.find(item => String(item.id) === String(data.inventory_item_id || ''));
+  const row = document.createElement('div');
+  row.className = 'line-row material-row';
+  row.dataset.inventoryId = selected?.id || data.inventory_item_id || '';
+  row.dataset.sku = selected?.sku || data.sku || '';
+  row.innerHTML = `
+    <div class="wide item-picker">
+      <label>Cari Nama Material / SKU</label>
+      <input class="item-search" autocomplete="off" placeholder="Ketik nama atau SKU..." value="${esc(selected?.name || data.item_name || data.name || '')}">
+      <div class="item-results"></div>
+      <div class="selected-item">${selected ? `Dipilih: ${esc(selected.name)}${selected.sku ? ' · ' + esc(selected.sku) : ''} · stok ${numberValue(selected.stock)} ${esc(selected.unit || 'pcs')}` : ''}</div>
+    </div>
+    <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
+    <div><label>Satuan</label><input class="unit" value="${esc(data.unit || selected?.unit || 'pcs')}" readonly></div>
+    <div><label>Harga Satuan</label><input class="price" type="number" min="0" step="0.01" value="${numberValue(data.unit_price || 0)}"></div>
+    <div><label>Total</label><input class="line-total" value="Rp 0" readonly></div>
+    <button class="btn bad remove" type="button">Hapus</button>`;
+
+  const search = row.querySelector('.item-search');
+  search?.addEventListener('focus', () => renderMaterialResults(row, search.value));
+  search?.addEventListener('input', () => {
+    row.dataset.inventoryId = '';
+    row.dataset.sku = '';
+    const selectedText = row.querySelector('.selected-item');
+    if (selectedText) selectedText.textContent = '';
+    renderMaterialResults(row, search.value);
+  });
+  search?.addEventListener('blur', () => setTimeout(() => row.querySelector('.item-results')?.classList.remove('open'), 150));
+  bindLineEvents(row);
+  container.appendChild(row);
+  updateTotals();
+}
+
+function addService(data = {}) {
+  const container = byId('serviceItems');
+  if (!container) return;
+  container.querySelector('.empty-hint')?.remove();
+  const row = document.createElement('div');
+  row.className = 'line-row service-row';
+  row.innerHTML = `
+    <div class="wide"><label>Nama Jasa / Pekerjaan</label><input class="service-name" placeholder="Contoh: Jasa instalasi CCTV" value="${esc(data.item_name || data.name || '')}"></div>
+    <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
+    <div><label>Satuan</label><input class="unit" placeholder="jasa/titik/meter" value="${esc(data.unit || 'jasa')}"></div>
+    <div><label>Harga Satuan</label><input class="price" type="number" min="0" step="0.01" value="${numberValue(data.unit_price || 0)}"></div>
+    <div><label>Total</label><input class="line-total" value="Rp 0" readonly></div>
+    <button class="btn bad remove" type="button">Hapus</button>`;
+  bindLineEvents(row);
+  container.appendChild(row);
+  updateTotals();
+}
+
+function updateEmptyHints() {
+  const materialContainer = byId('materialItems');
+  const serviceContainer = byId('serviceItems');
+  if (materialContainer && !materialContainer.querySelector('.material-row')) {
+    materialContainer.innerHTML = '<div class="empty-hint">Belum ada material. Klik “Tambah Material” untuk memilih dari Inventory.</div>';
+  }
+  if (serviceContainer && !serviceContainer.querySelector('.service-row')) {
+    serviceContainer.innerHTML = '<div class="empty-hint">Belum ada jasa. Klik “Tambah Jasa” untuk menambahkan pekerjaan teknisi.</div>';
+  }
+}
+
+function updateTotals() {
+  let materialSubtotal = 0;
+  let serviceSubtotal = 0;
+  document.querySelectorAll('.material-row').forEach(row => {
+    const total = lineTotal(row);
+    materialSubtotal += total;
+    const output = row.querySelector('.line-total');
+    if (output) output.value = rp(total);
+  });
+  document.querySelectorAll('.service-row').forEach(row => {
+    const total = lineTotal(row);
+    serviceSubtotal += total;
+    const output = row.querySelector('.line-total');
+    if (output) output.value = rp(total);
+  });
+  if (byId('materialSubtotal')) byId('materialSubtotal').textContent = rp(materialSubtotal);
+  if (byId('serviceSubtotal')) byId('serviceSubtotal').textContent = rp(serviceSubtotal);
+  if (byId('grandTotal')) byId('grandTotal').textContent = rp(materialSubtotal + serviceSubtotal);
+  return { materialSubtotal, serviceSubtotal, grandTotal: materialSubtotal + serviceSubtotal };
+}
+
+function reset() {
+  editId = null;
+  ['customer', 'phone', 'projectName', 'address', 'notes'].forEach(id => {
+    const element = byId(id);
+    if (element) element.value = '';
+  });
+  const salesPic = byId('salesPic');
+  if (salesPic) { salesPic.value=''; const me=OPT.current_user;if(me){const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());if(mine){salesPic.value=String(mine.id);salesPic.disabled=String(me.role||'').toLowerCase()==='sales';}} }
+  if (byId('materialItems')) byId('materialItems').innerHTML = '';
+  if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
+  addMaterial();
+  updateEmptyHints();
+  updateTotals();
+  if (byId('formTitle')) byId('formTitle').textContent = 'Buat Sales Order';
+  if (byId('saveBtn')) byId('saveBtn').textContent = 'Submit';
+}
+
+function collect() {
+  const salesPic = byId('salesPic');
+  const sales = OPT.sales_users.find(user => String(user.id) === String(salesPic?.value || ''));
+  const items = [];
+
+  document.querySelectorAll('.material-row').forEach(row => {
+    const typedName = row.querySelector('.item-search')?.value.trim() || '';
+    const inventory = OPT.inventory_items.find(item => String(item.id) === String(row.dataset.inventoryId || ''));
+    if (!typedName && !inventory) return;
+    if (!inventory) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil pencarian Inventory.`);
+    const qty = numberValue(row.querySelector('.qty')?.value);
+    if (qty <= 0) throw new Error(`Qty material ${inventory.name} harus lebih dari 0.`);
+    items.push({
+      inventory_item_id: inventory.id,
+      name: inventory.name || '',
+      item_name: inventory.name || '',
+      sku: inventory.sku || null,
+      qty,
+      unit: row.querySelector('.unit')?.value || inventory.unit || 'pcs',
+      unit_price: numberValue(row.querySelector('.price')?.value),
+      item_type: 'item',
+      stock_at_select: inventory.stock ?? null
+    });
+  });
+
+  document.querySelectorAll('.service-row').forEach(row => {
+    const name = row.querySelector('.service-name')?.value.trim() || '';
+    if (!name) return;
+    const qty = numberValue(row.querySelector('.qty')?.value);
+    if (qty <= 0) throw new Error(`Qty jasa ${name} harus lebih dari 0.`);
+    items.push({
+      inventory_item_id: null,
+      name,
+      item_name: name,
+      qty,
+      unit: row.querySelector('.unit')?.value.trim() || 'jasa',
+      unit_price: numberValue(row.querySelector('.price')?.value),
+      item_type: 'service'
+    });
+  });
+
+  if (!items.length) throw new Error('Tambahkan minimal satu Material atau Jasa.');
+  const totals = updateTotals();
+
+  return {
+    customer_name: byId('customer')?.value.trim() || '',
+    customer_phone: byId('phone')?.value.trim() || '',
+    sales_pic_user_id: sales?.id || null,
+    sales_pic: sales?.name || '',
+    project_name: byId('projectName')?.value.trim() || '',
+    quotation_title: byId('projectName')?.value.trim() || '',
+    address: byId('address')?.value.trim() || '',
+    location: byId('address')?.value.trim() || '',
+    notes: byId('notes')?.value.trim() || '',
+    items,
+    material_subtotal: totals.materialSubtotal,
+    service_subtotal: totals.serviceSubtotal,
+    quotation_total: totals.grandTotal,
+    total_amount: totals.grandTotal
+  };
+}
+
+async function save() {
+  const button = byId('saveBtn');
+  if (button) button.disabled = true;
+  try {
+    const payload = collect();
+    if (editId) await api('PATCH', '/api/sales-orders/' + editId, payload);
+    else await api('POST', '/api/sales-orders', payload);
+    toast(editId ? 'Draft dan penawaran diperbarui' : 'SO Draft dibuat');
+    reset();
+    await load();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function editSO(id) {
+  const salesOrder = D.sales_orders.find(item => String(item.id) === String(id));
+  if (!salesOrder || salesOrder.status !== 'draft') return toast('Hanya Draft yang dapat diedit');
+  editId = salesOrder.id;
+  const values = {
+    customer: salesOrder.customer_name || '',
+    phone: salesOrder.customer_phone || '',
+    salesPic: salesOrder.sales_pic_user_id || '',
+    projectName: salesOrder.project_name || '',
+    address: salesOrder.address || salesOrder.location || '',
+    notes: salesOrder.notes || ''
+  };
+  Object.entries(values).forEach(([key, value]) => {
+    const element = byId(key);
+    if (element) element.value = value;
+  });
+
+  if (byId('materialItems')) byId('materialItems').innerHTML = '';
+  if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
+  const items = Array.isArray(salesOrder.items) ? salesOrder.items : [];
+  const materialItems = items.filter(item => !['service', 'jasa'].includes(String(item.item_type || item.type || 'item').toLowerCase()));
+  const serviceItems = items.filter(item => ['service', 'jasa'].includes(String(item.item_type || item.type || '').toLowerCase()));
+  materialItems.forEach(addMaterial);
+  serviceItems.forEach(addService);
+  updateEmptyHints();
+  updateTotals();
+
+  if (byId('formTitle')) byId('formTitle').textContent = `Edit ${salesOrder.so_number || 'SO'} · ${salesOrder.quotation_number || 'Penawaran'}`;
+  if (byId('saveBtn')) byId('saveBtn').textContent = 'Submit Perubahan';
+  scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function act(id, action) {
+  try {
+    if (action === 'approve') {
+      await api('POST', `/api/sales-orders/${id}/approve`, {});
+      toast('Sales Order berhasil disetujui');
+    } else if (action === 'cancel') {
+      await api('POST', `/api/sales-orders/${id}/cancel`, { status: 'cancelled' });
+      toast('Sales Order dibatalkan');
+    } else if (action === 'wo') {
+      const result = await api('POST', `/api/sales-orders/${id}/work-order`, {});
+      toast(result.created ? 'Work Order berhasil dibuat' : 'Work Order sudah tersedia');
+    } else if (action === 'pdf') {
+      if (typeof window.downloadQuotationPDF !== 'function') throw new Error('Generator PDF belum tersedia. Muat ulang halaman Sales Order.');
+      return window.downloadQuotationPDF(id);
+    } else if (action === 'history') {
+      if (typeof window.showQuotationRevisions !== 'function') throw new Error('Riwayat penawaran belum tersedia. Muat ulang halaman Sales Order.');
+      return window.showQuotationRevisions(id);
+    }
+    await load();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function render() {
+  const rows = Array.isArray(D.sales_orders) ? D.sales_orders : [];
+  const metrics = byId('metrics');
+  const table = byId('soTable');
+  if (!metrics || !table) {
+    toast('Komponen Sales Order tidak lengkap. Silakan refresh halaman.');
+    return;
+  }
+
+  const totalValue = rows.reduce((sum, item) => sum + numberValue(item.quotation_total ?? item.total_amount), 0);
+  metrics.innerHTML = [
+    ['Total SO', rows.length],
+    ['Draft', rows.filter(item => item.status === 'draft').length],
+    ['Disetujui', rows.filter(item => item.status === 'approved').length],
+    ['Total Nilai', rp(totalValue)]
+  ].map(item => `<div class="card metric"><div class="label">${item[0]}</div><b>${item[1]}</b></div>`).join('');
+
+  const body = rows.map(item => {
+    const items = Array.isArray(item.items) ? item.items : [];
+    const materialCount = items.filter(line => !['service', 'jasa'].includes(String(line.item_type || line.type || 'item').toLowerCase())).length;
+    const serviceCount = items.filter(line => ['service', 'jasa'].includes(String(line.item_type || line.type || '').toLowerCase())).length;
+    let actions = `<button class="btn pdf" data-act="pdf" data-id="${item.id}">Unduh PDF</button><button class="btn" data-act="history" data-id="${item.id}">Riwayat</button>`;
+    if (item.status === 'draft') actions += `<button class="btn" data-act="edit" data-id="${item.id}">Edit</button>`;
+    if (item.status === 'draft' && OPT.can_approve) {
+      actions += `<button class="btn good" data-act="approve" data-id="${item.id}">Setujui SO</button>`;
+      actions += `<button class="btn bad" data-act="cancel" data-id="${item.id}">Batalkan</button>`;
+    }
+    if (item.status === 'approved' && (OPT.can_issue || item.linked_work_order_id || item.linked_crm_work_order_id)) {
+      actions += `<button class="btn primary" data-act="wo" data-id="${item.id}">${item.linked_work_order_id || item.linked_crm_work_order_id ? 'Buka Work Order' : 'Buat Work Order'}</button>`;
+    }
+    return `<tr>
+      <td><b>${esc(item.so_number)}</b><div class="sub">${esc(item.quotation_number || '-')} · Rev ${numberValue(item.quotation_revision_no ?? item.revision_no)}</div></td>
+      <td>${esc(item.customer_name)}</td>
+      <td>${esc(item.sales_pic)}</td>
+      <td>${esc(item.project_name || '-')}</td>
+      <td>${materialCount} material<br>${serviceCount} jasa</td>
+      <td><span class="${item.status === 'approved' ? 'status' : 'badge'}">${esc(item.status)}</span></td>
+      <td>${rp(item.material_subtotal)}</td>
+      <td>${rp(item.service_subtotal)}</td>
+      <td><b>${rp(item.quotation_total ?? item.total_amount)}</b></td>
+      <td><div class="actions">${actions}</div></td>
+    </tr>`;
+  }).join('');
+
+  table.innerHTML = `<table><thead><tr><th>No SO / Penawaran</th><th>Customer</th><th>Sales PIC</th><th>Project</th><th>Isi</th><th>Status</th><th>Material</th><th>Jasa</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${body || '<tr><td colspan="10">Belum ada SO.</td></tr>'}</tbody></table>`;
+  table.querySelectorAll('[data-act]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (button.dataset.act === 'edit') editSO(button.dataset.id);
+      else act(button.dataset.id, button.dataset.act);
+    });
+  });
+}
+
+async function load() {
+  try {
+    const [options, report] = await Promise.all([
+      api('GET', '/api/sales-orders/options'),
+      api('GET', '/api/crm/report')
+    ]);
+    OPT = {
+      sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
+      inventory_items: Array.isArray(options.inventory_items) ? options.inventory_items : [],
+      can_approve: options.can_approve === true,
+      can_issue: options.can_issue === true,
+      current_user: options.current_user || null
+    };
+    D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
+    const salesPic = byId('salesPic');
+    if (salesPic) {
+      const selectedValue = salesPic.value;
+      salesPic.innerHTML = '<option value="">Pilih akun Sales</option>'
+        + OPT.sales_users.map(user => `<option value="${user.id}">${esc(user.name)}</option>`).join('');
+      if (selectedValue) salesPic.value = selectedValue;
+      const me=OPT.current_user;
+      if(!editId && me){
+        let mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());
+        if(!mine){
+          mine={id:me.id,name:me.name,role:me.role};
+          OPT.sales_users.unshift(mine);
+          salesPic.insertAdjacentHTML('beforeend',`<option value="${esc(mine.id)}">${esc(mine.name)}</option>`);
+        }
+        salesPic.value=String(mine.id);
+        salesPic.disabled=String(me.role||'').toLowerCase()==='sales';
+      }else salesPic.disabled=false;
+    }
+    render();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+byId('refreshBtn')?.addEventListener('click', load);
+byId('resetBtn')?.addEventListener('click', reset);
+byId('saveBtn')?.addEventListener('click', save);
+byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
+byId('addServiceBtn')?.addEventListener('click', () => addService());
+
+load().then(reset);
+</script>
+<script src="/pxl-stg-0006c-sales-order.js?v=PXL-PROD-0021C"></script>
+<script src="/pxl-prod-0022ab-sales-order-sites.js?v=PXL-PROD-0022AB"></script>
+<script src="/pxl-prod-0022c-project-quotation-pdf.js?v=PXL-PROD-0022C"></script>
+<script src="/pxl-prod-0022d-so-ppn.js?v=PXL-PROD-0022D"></script>
+<script src="/pxl-prod-0022d3-so-ppn-persist.js?v=PXL-PROD-0022D3"></script>
+<script src="/pxl-prod-0022d7-project-pdf-sync.js?v=PXL-PROD-0022D7"></script>
 </body>
 </html>
