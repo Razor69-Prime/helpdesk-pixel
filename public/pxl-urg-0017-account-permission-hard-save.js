@@ -1,4 +1,4 @@
-/* PXL-URG-0026B — deterministic Account Management permission save + readback + Leave Approval. */
+/* PXL-URG-0026C — deterministic Account Management permission save + exact Leave Approval checkbox. */
 (function(){
   'use strict';
 
@@ -23,11 +23,9 @@
     try{return Array.isArray(window.allUsers)?window.allUsers.find(function(u){return String(u.id)===String(id);}):null;}catch(_){return null;}
   }
 
-  // A13 membuat checkbox Approve Cuti di matrix akun, tetapi implementasi lama tidak
-  // memberikan kontrak ID yang konsisten. Cari berdasarkan ID/name/value bila ada,
-  // lalu fallback ke teks container "Approval/Approve Cuti/Izin" agar kompatibel.
   function getLeaveApprovalCheckbox(){
-    const directIds=['leave-role-approval','leave-approve','pr-role-leave-approve','edit-leave-approve','approve-leave'];
+    // ID nyata pada public/index.html adalah leave-role-approver.
+    const directIds=['leave-role-approver','leave-role-approval','leave-approve','pr-role-leave-approve','edit-leave-approve','approve-leave'];
     for(const id of directIds){
       const el=document.getElementById(id);
       if(el&&el.type==='checkbox') return el;
@@ -35,15 +33,21 @@
     const boxes=Array.from(document.querySelectorAll('#edit-user-modal input[type="checkbox"], #menu-checkboxes input[type="checkbox"]'));
     return boxes.find(function(input){
       const key=[input.id,input.name,input.value,input.dataset?.role,input.dataset?.access,input.dataset?.permission].filter(Boolean).join(' ').toLowerCase();
-      if(key.includes('leave_approve')||key.includes('leave-approve')||key.includes('approve_leave')) return true;
-      const text=String(input.closest('label,div')?.textContent||'').toLowerCase().replace(/\s+/g,' ');
-      return (text.includes('approval')||text.includes('approve')||text.includes('setujui'))&&(text.includes('cuti')||text.includes('izin'));
+      if(key.includes('leave_approve')||key.includes('leave-approve')||key.includes('approve_leave')||key.includes('leave-role-approver')) return true;
+      const label=input.closest('label');
+      const text=String(label?.textContent||'').toLowerCase().replace(/\s+/g,' ');
+      return (text.includes('approval')||text.includes('approve')||text.includes('approver')||text.includes('setujui'))&&(text.includes('cuti')||text.includes('izin'));
     })||null;
+  }
+
+  function modalIsOpen(modal){
+    if(!modal) return false;
+    return modal.classList.contains('show') || (getComputedStyle(modal).display!=='none' && getComputedStyle(modal).visibility!=='hidden');
   }
 
   function applyStoredPermissions(){
     const modal=document.getElementById('edit-user-modal');
-    if(!modal||modal.style.display==='none') return;
+    if(!modalIsOpen(modal)) return;
     const id=document.getElementById('edit-user-id')?.value;
     const user=getUserById(id);
     if(!user) return;
@@ -87,6 +91,7 @@
     if(document.getElementById('edit-extra-technician')?.checked) extraRoles.push('technician');
 
     const expected=collectPermissions();
+    const expectedLeave=Boolean(leaveBox?.checked);
     const patch={
       username,name,role,
       custom_menus:expected,
@@ -101,8 +106,6 @@
 
     setError('');
     await window.api('PATCH','/users/'+encodeURIComponent(id),patch);
-
-    // Readback dari database, bukan response PATCH/snapshot lokal.
     const fresh=await window.api('GET','/users');
     window.allUsers=Array.isArray(fresh)?fresh:[];
     const updated=getUserById(id);
@@ -114,7 +117,6 @@
     if(missing.length||extra.length){
       throw new Error('Permission gagal tersimpan konsisten. Missing: '+missing.join(', ')+' | Extra: '+extra.join(', '));
     }
-    const expectedLeave=Boolean(leaveBox?.checked);
     const savedLeave=Array.isArray(updated.pr_roles)&&updated.pr_roles.includes('leave_approve');
     if(expectedLeave!==savedLeave){
       throw new Error('Permission Approval Cuti gagal tersimpan. Expected: '+expectedLeave+' | Database: '+savedLeave);
@@ -126,20 +128,19 @@
     return true;
   }
 
-  // Ini adalah save path aktif: listener capture berjalan sebelum saveEditUser legacy/override.
   document.addEventListener('click',function(event){
     const btn=event.target?.closest?.('#edit-user-save,[onclick*="saveEditUser"]');
     if(!btn) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     hardSave().catch(function(error){
-      console.error('[PXL-URG-0026B] save failed',error);
+      console.error('[PXL-URG-0026C] save failed',error);
       setError(error?.message||'Gagal menyimpan akun.');
     });
   },true);
 
   document.addEventListener('click',function(event){
-    const trigger=event.target?.closest?.('[onclick*="openEditUserModal"],#user-table-body button');
+    const trigger=event.target?.closest?.('[onclick*="openEditModal"],[onclick*="openEditUserModal"],#user-table-body button');
     if(trigger){
       setTimeout(applyStoredPermissions,20);
       setTimeout(applyStoredPermissions,150);
