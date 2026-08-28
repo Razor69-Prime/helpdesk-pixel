@@ -8,7 +8,6 @@ require('./pxl-stg-0006e');
 require('./pxl-stg-0006f');
 require('./pxl-stg-0006a');
 require('./pxl-prod-0022d11-quotation-prefix');
-require('./pxl-urg-0027-report-unassigned');
 require('./pxl-stg-0006d');
 require('./pxl-stg-0005d');
 require('./pxl-stg-0005i');
@@ -90,8 +89,7 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-urg-0008.js?v=PXL-URG-0008"></script>',
           '<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0010"></script>',
           '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0025"></script>',
-          '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>',
-          '<script src="/pxl-urg-0027-report-unassigned.js?v=PXL-URG-0027"></script>'
+          '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
