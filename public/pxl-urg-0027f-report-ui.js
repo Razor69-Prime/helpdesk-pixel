@@ -1,4 +1,4 @@
-/* PXL-URG-0027I — Input Laporan: optional technician + sync visible form to native ids. */
+/* PXL-URG-0027J — Input Laporan: optional technician, WO handled only by autonumber module. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -21,7 +21,8 @@
   }
 
   function syncVisibleReportForm(){
-    ['f-wo','f-time','f-project','f-customer','f-customer-phone','f-desc','f-status','f-assign-tech','f-assign-tech2']
+    // f-wo sengaja TIDAK disentuh di sini. Nomor WO dikelola eksklusif oleh PXL-URG-0027J autonumber.
+    ['f-time','f-project','f-customer','f-customer-phone','f-desc','f-status','f-assign-tech','f-assign-tech2']
       .forEach(copyVisibleToNative);
   }
 
@@ -88,6 +89,8 @@
   document.addEventListener('click',function(event){
     const button=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
     if(!button) return;
+    // Pastikan autonumber sudah dicoba refresh sebelum validasi native berjalan.
+    try{window.PXL_URG_0010?.refresh?.();}catch(_){ }
     const restore=prepareNativeSubmit();
     if(restore) setTimeout(restore,0);
   },true);
