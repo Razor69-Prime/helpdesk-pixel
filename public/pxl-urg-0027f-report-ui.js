@@ -1,4 +1,4 @@
-/* PXL-URG-0029 — Optional technician + isolated technician remarks using dedicated DB field. */
+/* PXL-URG-0029A — Optional technician + isolated technician remarks using dedicated DB field. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -186,7 +186,7 @@
       let data={};try{data=await response.json();}catch(_){data={};}
       if(!response.ok) throw new Error(data.error||'Gagal menyimpan remarks teknisi.');
       const ticket=ticketById(ticketId,'')||ticketById(ticketId,'archive');
-      if(ticket) ticket.technician_remarks=data.technician_remarks??remarks||null;
+      if(ticket) ticket.technician_remarks=(data.technician_remarks??remarks)||null;
       document.querySelectorAll('.pxl-native-remarks-btn').forEach(function(btn){
         if(String(btn.dataset.ticketId)===String(ticketId)) btn.textContent=remarks?'📝 Edit Remarks':'📝 Add Remarks';
       });
@@ -235,6 +235,7 @@
     if(event.target?.closest?.('[data-page="report"],[data-page="tickets"],[onclick*="showPage"]')){
       setTimeout(refresh,0);
       setTimeout(installRemarksButtons,120);
+      setTimeout(installRemarksButtons,500);
     }
   },true);
 
@@ -246,4 +247,5 @@
   setTimeout(refresh,0);
   setTimeout(refresh,300);
   setTimeout(refresh,1000);
+  setTimeout(installRemarksButtons,2000);
 })();
