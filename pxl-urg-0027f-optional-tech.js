@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-URG-0029 — optional technician + dedicated technician_remarks endpoint.
+// PXL-URG-0029B — optional technician + dedicated technician_remarks endpoint.
 // Remarks are stored in tickets.technician_remarks (separate from description).
 const express = require('express');
 const previousPost = express.application.post;
@@ -46,7 +46,7 @@ function optionalTechnicianMiddleware(req,res,next){
     req.body = body;
     return next();
   }catch(error){
-    console.error('[PXL-URG-0029] optional technician middleware failed',error);
+    console.error('[PXL-URG-0029B] optional technician middleware failed',error);
     return next(error);
   }
 }
@@ -63,14 +63,11 @@ async function technicianRemarksHandler(req,res){
     if(remarks.length>1500) return res.status(400).json({error:'Remarks maksimal 1500 karakter.'});
 
     const db=require('./db');
-    const tickets=await db.getTickets(null,true);
-    const ticket=(tickets||[]).find(row=>String(row.id)===String(req.params.id));
-    if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
-
     const saved=await db.updateTicket(req.params.id,{technician_remarks:remarks||null});
-    return res.json(saved||{id:req.params.id,technician_remarks:remarks||null});
+    if(!saved) return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    return res.json(saved);
   }catch(error){
-    console.error('[PXL-URG-0029] save technician remarks failed',error);
+    console.error('[PXL-URG-0029B] save technician remarks failed',error);
     return res.status(500).json({error:error.message||'Gagal menyimpan remarks teknisi.'});
   }
 }
