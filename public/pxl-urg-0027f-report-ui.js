@@ -1,4 +1,4 @@
-/* PXL-URG-0028 — Optional technician + Work Order technician remarks. */
+/* PXL-URG-0028A — Optional technician + stable Work Order technician remarks modal. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -97,7 +97,7 @@
     let modal=document.getElementById('pxl-remarks-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pxl-remarks-modal';
     modal.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:99999;align-items:center;justify-content:center;padding:18px';
-    modal.innerHTML='<div style="width:min(520px,100%);background:var(--surface,#fff);border:1px solid var(--border,#ddd);border-radius:12px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.18)"><div style="font-weight:700;font-size:15px;margin-bottom:12px">Add Remarks</div><textarea id="pxl-remarks-text" maxlength="1500" placeholder="Masukkan remarks pekerjaan..." style="width:100%;min-height:120px"></textarea><div id="pxl-remarks-error" style="display:none;color:var(--red,#a32d2d);font-size:12px;margin-top:8px"></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="btn" id="pxl-remarks-cancel">Batal</button><button type="button" class="btn primary" id="pxl-remarks-save">Simpan</button></div></div>';
+    modal.innerHTML='<div style="width:min(520px,100%);background:var(--surface,#fff);border:1px solid var(--border,#ddd);border-radius:12px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.18)"><div id="pxl-remarks-title" style="font-weight:700;font-size:15px;margin-bottom:12px">Add Remarks</div><textarea id="pxl-remarks-text" maxlength="1500" placeholder="Masukkan remarks pekerjaan..." style="width:100%;min-height:120px"></textarea><div id="pxl-remarks-error" style="display:none;color:var(--red,#a32d2d);font-size:12px;margin-top:8px"></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="btn" id="pxl-remarks-cancel">Batal</button><button type="button" class="btn primary" id="pxl-remarks-save">Simpan</button></div></div>';
     document.body.appendChild(modal);
     modal.querySelector('#pxl-remarks-cancel').addEventListener('click',()=>{modal.style.display='none';});
     modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
@@ -112,14 +112,15 @@
     return data;
   }
   async function openRemarks(ticketId){
-    const modal=ensureRemarksModal(),text=modal.querySelector('#pxl-remarks-text'),error=modal.querySelector('#pxl-remarks-error');
-    modal.dataset.ticketId=ticketId;error.style.display='none';error.textContent='';text.value='';modal.style.display='flex';
+    const modal=ensureRemarksModal(),text=modal.querySelector('#pxl-remarks-text'),error=modal.querySelector('#pxl-remarks-error'),title=modal.querySelector('#pxl-remarks-title');
+    modal.dataset.ticketId=ticketId;error.style.display='none';error.textContent='';text.value='';if(title)title.textContent='Add Remarks';modal.style.display='flex';
     try{
       const tickets=await authFetch('/api/tickets');
       const ticket=(Array.isArray(tickets)?tickets:[]).find(t=>String(t.id)===String(ticketId));
       if(!ticket) throw new Error('Work Order tidak ditemukan pada daftar tiket.');
-      text.value=remarksFromDescription(ticket.description||'');text.focus();
-      modal.querySelector('div>div').textContent=text.value?'Edit Remarks':'Add Remarks';
+      text.value=remarksFromDescription(ticket.description||'');
+      if(title) title.textContent=text.value?'Edit Remarks':'Add Remarks';
+      text.focus();
     }catch(err){error.textContent=err.message||String(err);error.style.display='block';}
   }
   async function saveRemarks(){
