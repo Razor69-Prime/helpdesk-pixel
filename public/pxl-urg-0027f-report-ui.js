@@ -1,4 +1,4 @@
-/* PXL-URG-0027F — Input Laporan: Teknisi 1 & 2 optional. */
+/* PXL-URG-0027G — Input Laporan: Teknisi 1 & 2 opsional, capture-path fix. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -17,60 +17,58 @@
     if(label) label.innerHTML='Assign Teknisi <span style="font-weight:400;color:var(--muted);text-transform:none">(opsional, maks. 2)</span>';
   }
 
-  function installSaveWrapper(){
-    if(window.__pxlUrg0027FSaveInstalled || typeof window.saveReport!=='function') return;
-    window.__pxlUrg0027FSaveInstalled=true;
-    const originalSave=window.saveReport;
+  function prepareNativeSubmit(){
+    if(!canAssign()) return null;
+    const tech1=document.getElementById('f-assign-tech');
+    const tech2=document.getElementById('f-assign-tech2');
+    if(!tech1) return null;
 
-    window.saveReport=async function pxlUrg0027FSaveReport(){
-      if(!canAssign()) return originalSave.apply(this,arguments);
+    const first=String(tech1.value||'').trim();
+    const second=String(tech2?.value||'').trim();
+    let temporaryOption=null;
+    let mode='none';
 
-      const tech1=document.getElementById('f-assign-tech');
-      const tech2=document.getElementById('f-assign-tech2');
-      if(!tech1) return originalSave.apply(this,arguments);
+    // Native saveReport mewajibkan tech1. Siapkan nilai sementara SEBELUM inline onclick berjalan.
+    if(!first && second){
+      tech1.value=second;
+      if(tech2) tech2.value='';
+      mode='second-only';
+    }else if(!first && !second){
+      temporaryOption=document.createElement('option');
+      temporaryOption.value=SENTINEL;
+      temporaryOption.textContent='Tanpa teknisi';
+      temporaryOption.hidden=true;
+      tech1.appendChild(temporaryOption);
+      tech1.value=SENTINEL;
+      mode='unassigned';
+    }
 
-      const first=String(tech1.value||'').trim();
-      const second=String(tech2?.value||'').trim();
-      let temporaryOption=null;
-      let movedSecond=false;
-
-      // If only Teknisi 2 is selected, make it the primary technician for the native flow.
-      if(!first && second){
-        tech1.value=second;
-        if(tech2) tech2.value='';
-        movedSecond=true;
+    if(mode==='none') return null;
+    return function restore(){
+      if(mode==='unassigned'){
+        tech1.value='';
+        if(temporaryOption?.isConnected) temporaryOption.remove();
+      }else if(mode==='second-only'){
+        tech1.value='';
+        if(tech2) tech2.value=second;
       }
-
-      // If both are empty, use an internal marker only for native validation/payload.
-      if(!first && !second){
-        temporaryOption=document.createElement('option');
-        temporaryOption.value=SENTINEL;
-        temporaryOption.textContent='Tanpa teknisi';
-        temporaryOption.hidden=true;
-        tech1.appendChild(temporaryOption);
-        tech1.value=SENTINEL;
-      }
-
-      try{
-        return await originalSave.apply(this,arguments);
-      }finally{
-        if(temporaryOption){
-          tech1.value='';
-          temporaryOption.remove();
-        }
-        if(movedSecond){
-          tech1.value='';
-          if(tech2) tech2.value=second;
-        }
-        updateLabels();
-      }
+      updateLabels();
     };
   }
 
-  function refresh(){ updateLabels(); installSaveWrapper(); }
+  // Capture listener berjalan sebelum inline onclick="saveReport()".
+  // Dengan begitu validasi native membaca nilai sementara yang valid, tanpa mengganti fungsi saveReport global.
+  document.addEventListener('click',function(event){
+    const button=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
+    if(!button) return;
+    const restore=prepareNativeSubmit();
+    if(restore) setTimeout(restore,0);
+  },true);
+
+  function refresh(){ updateLabels(); }
   document.addEventListener('DOMContentLoaded',refresh);
   document.addEventListener('click',function(event){
-    if(event.target?.closest?.('[data-page="report"],[onclick*="showPage"],#btn-save')) setTimeout(refresh,0);
+    if(event.target?.closest?.('[data-page="report"],[onclick*="showPage"]')) setTimeout(refresh,0);
   },true);
   setTimeout(refresh,0);
   setTimeout(refresh,300);
