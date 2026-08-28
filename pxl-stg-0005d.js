@@ -2,12 +2,16 @@
 
 // PXL-STG-0005H — route MR dipasang setelah JWT session dan sebelum static.
 // PXL-URG-0023 — WO manual/Input Laporan tetap valid tanpa Sales Order.
+// PXL-URG-0028 — shared technician remarks stored at end of ticket description.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
+const originalPatch = express.application.patch;
 const originalUse = express.application.use;
 const ITEMS_ROUTE = '/api/material-requests-form/work-order/:ticketId/items';
 const ASSIGNED_ROUTE = '/api/material-requests-form/assigned-work-orders';
+const REMARKS_ROUTE = '/api/tickets/:ticketId/technician-remarks';
+const REMARKS_LABEL = 'Remarks Teknisi:';
 
 function same(a,b){ return String(a == null ? '' : a) === String(b == null ? '' : b); }
 function normalized(value){ return String(value == null ? '' : value).trim().toLowerCase(); }
@@ -101,9 +105,7 @@ async function routeItems(req,res){
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
 
-    // PXL-URG-0023: WO yang dibuat manual / dari Input Laporan tidak wajib punya SO.
-    // Kembalikan tiket valid dengan items kosong agar laporan, foto dan PDF tetap dapat
-    // menggunakan data WO tanpa gagal hanya karena relasi Sales Order tidak ada.
+    // Hanya material Inventory dengan UUID valid yang boleh masuk MR/pengambilan stok.
     if(!so){
       return res.json({
         source:'PXL-URG-0023',
@@ -116,8 +118,6 @@ async function routeItems(req,res){
       });
     }
 
-    // Hanya material Inventory dengan UUID valid yang boleh masuk MR/pengambilan stok.
-    // Material manual tetap boleh berada di SO/WO/laporan, tetapi tidak menyentuh Inventory.
     const items = (Array.isArray(so.items) ? so.items : []).map(i => {
       const qty = Number(i.qty ?? i.quantity ?? i.qty_out ?? 0);
       const inventoryId = String(i.inventory_item_id || i.item_id || '').trim();
@@ -148,6 +148,30 @@ async function routeItems(req,res){
   }
 }
 
+async function routeTechnicianRemarks(req,res){
+  try{
+    const user=req.session?.user;
+    if(!user) return res.status(401).json({source:'PXL-URG-0028',error:'Unauthorized'});
+    const role=normalized(user.role);
+    const extraRoles=Array.isArray(user.extra_roles)?user.extra_roles.map(normalized):[];
+    const canRemark=['technician','teknisi','operator','manager','admin','superadmin'].includes(role)||extraRoles.includes('technician')||extraRoles.includes('teknisi');
+    if(!canRemark) return res.status(403).json({source:'PXL-URG-0028',error:'Remarks hanya dapat diisi oleh role teknisi/operasional.'});
+    const db=require('./db');
+    const ticket=(await db.getTickets(null,true)).find(t=>same(t.id,req.params.ticketId));
+    if(!ticket) return res.status(404).json({source:'PXL-URG-0028',error:'Work Order tidak ditemukan.'});
+    if(['technician','teknisi'].includes(role)&&!assigned(ticket,user)) return res.status(403).json({source:'PXL-URG-0028',error:'WO ini tidak ditugaskan kepada akun teknisi Anda.'});
+    const remarks=String(req.body?.remarks||'').trim();
+    if(remarks.length>1500) return res.status(400).json({source:'PXL-URG-0028',error:'Remarks maksimal 1500 karakter.'});
+    const current=String(ticket.description||'');
+    const base=current.replace(/\n*Remarks Teknisi:\s*\n[\s\S]*$/i,'').trimEnd();
+    const description=remarks ? `${base}${base?'\n\n':''}${REMARKS_LABEL}\n${remarks}` : base;
+    const updated=await db.updateTicket(ticket.id,{description});
+    return res.json({source:'PXL-URG-0028',ok:true,remarks,description,updated});
+  }catch(error){
+    return res.status(500).json({source:'PXL-URG-0028',error:String(error.message||error)});
+  }
+}
+
 async function validateAssigned(req,res,next){
   try{
     const user = req.session?.user;
@@ -169,10 +193,9 @@ function registerRoutes(app){
   app.__pxl0005hRoutes = true;
   originalGet.call(app,ASSIGNED_ROUTE,routeAssignedWorkOrders);
   originalGet.call(app,ITEMS_ROUTE,routeItems);
+  originalPatch.call(app,REMARKS_ROUTE,routeTechnicianRemarks);
 }
 
-// config.js dimuat sebelum app dibuat. Deteksi middleware JWT session saat app.use dipanggil,
-// lalu pasang route persis setelah middleware tersebut dan sebelum express.static.
 express.application.use = function pxl0005hUse(...args){
   const result = originalUse.apply(this,args);
   if(!this.__pxl0005hRoutes){
