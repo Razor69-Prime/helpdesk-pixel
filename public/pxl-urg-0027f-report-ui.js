@@ -1,11 +1,13 @@
-/* PXL-URG-0027G — Input Laporan: Teknisi 1 & 2 opsional, capture-path fix. */
+/* PXL-URG-0027H — Input Laporan: Teknisi 1 & 2 opsional, reliable visible-form detection. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
 
-  function canAssign(){
-    const role=String(window.currentUser?.role||'').trim().toLowerCase();
-    return ['admin','superadmin','manager','operator'].includes(role);
+  function assignmentFormVisible(){
+    const group=document.getElementById('f-assign-group');
+    if(!group) return false;
+    const style=getComputedStyle(group);
+    return style.display!=='none' && style.visibility!=='hidden';
   }
 
   function updateLabels(){
@@ -18,7 +20,10 @@
   }
 
   function prepareNativeSubmit(){
-    if(!canAssign()) return null;
+    // currentUser pada index.html adalah lexical variable, bukan selalu window.currentUser.
+    // Gunakan visibilitas form assignment yang memang hanya ditampilkan untuk role yang boleh assign.
+    if(!assignmentFormVisible()) return null;
+
     const tech1=document.getElementById('f-assign-tech');
     const tech2=document.getElementById('f-assign-tech2');
     if(!tech1) return null;
@@ -28,7 +33,6 @@
     let temporaryOption=null;
     let mode='none';
 
-    // Native saveReport mewajibkan tech1. Siapkan nilai sementara SEBELUM inline onclick berjalan.
     if(!first && second){
       tech1.value=second;
       if(tech2) tech2.value='';
@@ -56,8 +60,6 @@
     };
   }
 
-  // Capture listener berjalan sebelum inline onclick="saveReport()".
-  // Dengan begitu validasi native membaca nilai sementara yang valid, tanpa mengganti fungsi saveReport global.
   document.addEventListener('click',function(event){
     const button=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
     if(!button) return;
