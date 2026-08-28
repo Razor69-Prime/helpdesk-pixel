@@ -1,4 +1,4 @@
-/* PXL-URG-0028A — Optional technician + stable Work Order technician remarks modal. */
+/* PXL-URG-0028B — Optional technician + stable Work Order technician remarks modal + fresh PDF data sync. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -123,15 +123,29 @@
       text.focus();
     }catch(err){error.textContent=err.message||String(err);error.style.display='block';}
   }
+  function syncSavedDescription(ticketId,data){
+    const description=String(data?.description ?? data?.updated?.description ?? '');
+    if(!description && data?.remarks) return false;
+    try{
+      const ticket=allTickets.find(t=>String(t.id)===String(ticketId));
+      if(ticket){ticket.description=description;return true;}
+    }catch(_){ }
+    return false;
+  }
   async function saveRemarks(){
     const modal=ensureRemarksModal(),ticketId=modal.dataset.ticketId,text=modal.querySelector('#pxl-remarks-text'),error=modal.querySelector('#pxl-remarks-error'),save=modal.querySelector('#pxl-remarks-save');
     if(!ticketId)return;
     error.style.display='none';save.disabled=true;save.textContent='Menyimpan...';
     try{
-      await authFetch('/api/tickets/'+encodeURIComponent(ticketId)+'/technician-remarks',{method:'PATCH',body:JSON.stringify({remarks:String(text.value||'').trim()})});
+      const data=await authFetch('/api/tickets/'+encodeURIComponent(ticketId)+'/technician-remarks',{method:'PATCH',body:JSON.stringify({remarks:String(text.value||'').trim()})});
+      syncSavedDescription(ticketId,data);
+      try{if(typeof apiShortCache!=='undefined'&&apiShortCache?.clear)apiShortCache.clear();}catch(_){ }
       modal.style.display='none';
-      if(typeof window.loadTickets==='function') await window.loadTickets(); else location.reload();
-      setTimeout(function(){normalizeUiText();installRemarksButtons();},50);
+      try{if(typeof renderTickets==='function')renderTickets();}catch(_){ }
+      setTimeout(function(){normalizeUiText();installRemarksButtons();},30);
+      // Ambil ulang setelah cache invalidated agar allTickets/PDF benar-benar memakai description terbaru.
+      try{if(typeof loadTickets==='function')await loadTickets(true);}catch(_){ }
+      setTimeout(function(){normalizeUiText();installRemarksButtons();},80);
     }catch(err){error.textContent=err.message||String(err);error.style.display='block';}
     finally{save.disabled=false;save.textContent='Simpan';}
   }
