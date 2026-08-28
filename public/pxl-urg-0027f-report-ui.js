@@ -1,31 +1,56 @@
-/* PXL-URG-0027H — Input Laporan: Teknisi 1 & 2 opsional, reliable visible-form detection. */
+/* PXL-URG-0027I — Input Laporan: optional technician + sync visible form to native ids. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
 
+  function visibleElement(id){
+    const nodes=[...document.querySelectorAll('#'+CSS.escape(id))];
+    return nodes.find(function(el){
+      const style=getComputedStyle(el);
+      return style.display!=='none' && style.visibility!=='hidden' && el.getClientRects().length>0;
+    }) || nodes[0] || null;
+  }
+
+  function nativeElement(id){ return document.getElementById(id); }
+
+  function copyVisibleToNative(id){
+    const visible=visibleElement(id);
+    const native=nativeElement(id);
+    if(!visible||!native||visible===native) return;
+    if('value' in visible && 'value' in native) native.value=visible.value;
+  }
+
+  function syncVisibleReportForm(){
+    ['f-wo','f-time','f-project','f-customer','f-customer-phone','f-desc','f-status','f-assign-tech','f-assign-tech2']
+      .forEach(copyVisibleToNative);
+  }
+
   function assignmentFormVisible(){
-    const group=document.getElementById('f-assign-group');
-    if(!group) return false;
-    const style=getComputedStyle(group);
-    return style.display!=='none' && style.visibility!=='hidden';
+    const groups=[...document.querySelectorAll('#f-assign-group')];
+    return groups.some(function(group){
+      const style=getComputedStyle(group);
+      return style.display!=='none' && style.visibility!=='hidden' && group.getClientRects().length>0;
+    });
   }
 
   function updateLabels(){
-    const tech1=document.getElementById('f-assign-tech');
-    const tech2=document.getElementById('f-assign-tech2');
-    if(tech1?.options?.[0]) tech1.options[0].textContent='Teknisi 1 (opsional)...';
-    if(tech2?.options?.[0]) tech2.options[0].textContent='Teknisi 2 (opsional)...';
-    const label=document.getElementById('f-assign-group')?.querySelector('label');
-    if(label) label.innerHTML='Assign Teknisi <span style="font-weight:400;color:var(--muted);text-transform:none">(opsional, maks. 2)</span>';
+    document.querySelectorAll('#f-assign-tech').forEach(function(tech1){
+      if(tech1.options?.[0]) tech1.options[0].textContent='Teknisi 1 (opsional)...';
+    });
+    document.querySelectorAll('#f-assign-tech2').forEach(function(tech2){
+      if(tech2.options?.[0]) tech2.options[0].textContent='Teknisi 2 (opsional)...';
+    });
+    document.querySelectorAll('#f-assign-group label').forEach(function(label){
+      label.innerHTML='Assign Teknisi <span style="font-weight:400;color:var(--muted);text-transform:none">(opsional, maks. 2)</span>';
+    });
   }
 
   function prepareNativeSubmit(){
-    // currentUser pada index.html adalah lexical variable, bukan selalu window.currentUser.
-    // Gunakan visibilitas form assignment yang memang hanya ditampilkan untuk role yang boleh assign.
+    syncVisibleReportForm();
     if(!assignmentFormVisible()) return null;
 
-    const tech1=document.getElementById('f-assign-tech');
-    const tech2=document.getElementById('f-assign-tech2');
+    const tech1=nativeElement('f-assign-tech');
+    const tech2=nativeElement('f-assign-tech2');
     if(!tech1) return null;
 
     const first=String(tech1.value||'').trim();
