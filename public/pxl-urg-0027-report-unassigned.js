@@ -1,7 +1,7 @@
-/* PXL-URG-0027 — Input Laporan: Teknisi 1 & 2 opsional. */
+/* PXL-URG-0027B — Input Laporan: Teknisi 1 & 2 opsional, client-only helper. */
 (function(){
   'use strict';
-  const SENTINEL='__PXL_UNASSIGNED__';
+  const SENTINEL='__PXL_REPORT_UNASSIGNED__';
 
   function canAssign(){
     try{
@@ -24,18 +24,20 @@
   }
 
   function installSaveOverride(){
-    if(window.__pxlUrg0027SaveInstalled) return;
+    if(window.__pxlUrg0027BSaveInstalled) return;
     if(typeof window.saveReport!=='function') return;
-    window.__pxlUrg0027SaveInstalled=true;
+    window.__pxlUrg0027BSaveInstalled=true;
     const original=window.saveReport;
 
-    window.saveReport=async function saveReport0027(){
+    window.saveReport=async function saveReport0027B(){
       const tech1=document.getElementById('f-assign-tech');
-      const tech2=document.getElementById('f-assign-tech2');
-      const noTechnician=canAssign() && !String(tech1?.value||'').trim() && !String(tech2?.value||'').trim();
+      const originalTech1=String(tech1?.value||'').trim();
       let sentinelOption=null;
 
-      if(noTechnician && tech1){
+      // Native saveReport masih mensyaratkan Teknisi 1 untuk role yang boleh assign.
+      // Bila Teknisi 1 kosong (termasuk kasus hanya Teknisi 2 dipilih), gunakan sentinel
+      // sementara agar validasi native lewat. Backend akan membuang sentinel sebelum insert.
+      if(canAssign() && !originalTech1 && tech1){
         sentinelOption=document.createElement('option');
         sentinelOption.value=SENTINEL;
         sentinelOption.textContent='Tanpa teknisi';
