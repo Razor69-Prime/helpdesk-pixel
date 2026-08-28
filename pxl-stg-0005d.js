@@ -2,14 +2,12 @@
 
 // PXL-STG-0005H — route MR dipasang setelah JWT session dan sebelum static.
 // PXL-URG-0023 — WO manual/Input Laporan tetap valid tanpa Sales Order.
-// PXL-URG-0027B — Input Laporan boleh tanpa assign teknisi melalui flow existing.
 const express = require('express');
 const originalGet = express.application.get;
 const originalPost = express.application.post;
 const originalUse = express.application.use;
 const ITEMS_ROUTE = '/api/material-requests-form/work-order/:ticketId/items';
 const ASSIGNED_ROUTE = '/api/material-requests-form/assigned-work-orders';
-const REPORT_UNASSIGNED = '__PXL_REPORT_UNASSIGNED__';
 
 function same(a,b){ return String(a == null ? '' : a) === String(b == null ? '' : b); }
 function normalized(value){ return String(value == null ? '' : value).trim().toLowerCase(); }
@@ -62,26 +60,6 @@ function findRelation(ticket, crmWos, salesOrders){
   return { crmWo, so };
 }
 
-// Server native masih melakukan fallback ke nama pembuat bila daftar teknisi kosong.
-// Sentinel hanya dipakai selama request, lalu dibersihkan tepat sebelum insert DB.
-(function installOptionalReportTicketInsert(){
-  const db = require('./db');
-  if(db.__pxlUrg0027BInsertTicketWrapped || typeof db.insertTicket !== 'function') return;
-  db.__pxlUrg0027BInsertTicketWrapped = true;
-  const originalInsertTicket = db.insertTicket;
-  db.insertTicket = async function insertTicket0027B(data){
-    const source = Array.isArray(data?.technicians) ? data.technicians : [];
-    const cleaned = source.filter(value => String(value||'').trim() !== REPORT_UNASSIGNED);
-    const hadSentinel = cleaned.length !== source.length || String(data?.technician||'').trim() === REPORT_UNASSIGNED;
-    if(!hadSentinel) return originalInsertTicket.call(db,data);
-    return originalInsertTicket.call(db,{
-      ...data,
-      technicians: cleaned,
-      technician: cleaned[0] || null
-    });
-  };
-})();
-
 async function routeAssignedWorkOrders(req,res){
   try{
     const user = req.session?.user;
@@ -123,6 +101,9 @@ async function routeItems(req,res){
     }
     const {crmWo,so} = findRelation(ticket,crmWos,salesOrders);
 
+    // PXL-URG-0023: WO yang dibuat manual / dari Input Laporan tidak wajib punya SO.
+    // Kembalikan tiket valid dengan items kosong agar laporan, foto dan PDF tetap dapat
+    // menggunakan data WO tanpa gagal hanya karena relasi Sales Order tidak ada.
     if(!so){
       return res.json({
         source:'PXL-URG-0023',
@@ -135,6 +116,8 @@ async function routeItems(req,res){
       });
     }
 
+    // Hanya material Inventory dengan UUID valid yang boleh masuk MR/pengambilan stok.
+    // Material manual tetap boleh berada di SO/WO/laporan, tetapi tidak menyentuh Inventory.
     const items = (Array.isArray(so.items) ? so.items : []).map(i => {
       const qty = Number(i.qty ?? i.quantity ?? i.qty_out ?? 0);
       const inventoryId = String(i.inventory_item_id || i.item_id || '').trim();
@@ -181,25 +164,6 @@ async function validateAssigned(req,res,next){
   }
 }
 
-function allowOptionalReportTechnicians(req,res,next){
-  const role = normalized(req.session?.user?.role);
-  if(!['admin','superadmin','manager','operator'].includes(role)) return next();
-  const body = req.body || {};
-  const raw = body.technicians ?? body.technician ?? body.assigned_to;
-  const values = Array.isArray(raw) ? raw.slice() : (raw != null ? [raw] : []);
-  if(body.assigned_to2 != null) values.push(body.assigned_to2);
-  const real = values.filter(value => {
-    const text = String(value||'').trim();
-    return text && text !== REPORT_UNASSIGNED;
-  });
-  if(!real.length){
-    body.assigned_to = REPORT_UNASSIGNED;
-    body.assigned_to2 = '';
-  }
-  req.body = body;
-  next();
-}
-
 function registerRoutes(app){
   if(app.__pxl0005hRoutes) return;
   app.__pxl0005hRoutes = true;
@@ -207,6 +171,8 @@ function registerRoutes(app){
   originalGet.call(app,ITEMS_ROUTE,routeItems);
 }
 
+// config.js dimuat sebelum app dibuat. Deteksi middleware JWT session saat app.use dipanggil,
+// lalu pasang route persis setelah middleware tersebut dan sebelum express.static.
 express.application.use = function pxl0005hUse(...args){
   const result = originalUse.apply(this,args);
   if(!this.__pxl0005hRoutes){
@@ -225,9 +191,6 @@ express.application.post = function pxl0005hPost(path,...handlers){
   }
   if(path === '/api/material-requests-form' && handlers.length){
     handlers.splice(Math.max(0,handlers.length-1),0,validateAssigned);
-  }
-  if(path === '/api/tickets' && handlers.length){
-    handlers.splice(Math.max(0,handlers.length-1),0,allowOptionalReportTechnicians);
   }
   return originalPost.call(this,path,...handlers);
 };
