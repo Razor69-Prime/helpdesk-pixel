@@ -1,4 +1,4 @@
-/* PXL-URG-0027J — Input Laporan: optional technician, WO handled only by autonumber module. */
+/* PXL-URG-0027L — Input Laporan: optional technician + clearer submitted/unassigned UI. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
@@ -21,7 +21,7 @@
   }
 
   function syncVisibleReportForm(){
-    // f-wo sengaja TIDAK disentuh di sini. Nomor WO dikelola eksklusif oleh PXL-URG-0027J autonumber.
+    // f-wo dikelola eksklusif oleh modul autonumber.
     ['f-time','f-project','f-customer','f-customer-phone','f-desc','f-status','f-assign-tech','f-assign-tech2']
       .forEach(copyVisibleToNative);
   }
@@ -43,6 +43,18 @@
     });
     document.querySelectorAll('#f-assign-group label').forEach(function(label){
       label.innerHTML='Assign Teknisi <span style="font-weight:400;color:var(--muted);text-transform:none">(opsional, maks. 2)</span>';
+    });
+  }
+
+  function normalizeUiText(){
+    document.querySelectorAll('.alert.success').forEach(function(alert){
+      const text=String(alert.textContent||'').trim();
+      if(/Laporan berhasil disimpan/i.test(text)) alert.textContent='Work order sudah disubmit.';
+    });
+
+    document.querySelectorAll('.ticket-item .ticket-tech').forEach(function(el){
+      const text=String(el.textContent||'').replace(/\s+/g,' ').trim();
+      if(text==='👷 -' || text==='-' || text==='👷') el.textContent='👷 Belum ditugaskan';
     });
   }
 
@@ -83,23 +95,27 @@
         if(tech2) tech2.value=second;
       }
       updateLabels();
+      setTimeout(normalizeUiText,0);
     };
   }
 
   document.addEventListener('click',function(event){
     const button=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
     if(!button) return;
-    // Pastikan autonumber sudah dicoba refresh sebelum validasi native berjalan.
     try{window.PXL_URG_0010?.refresh?.();}catch(_){ }
     const restore=prepareNativeSubmit();
     if(restore) setTimeout(restore,0);
   },true);
 
-  function refresh(){ updateLabels(); }
+  function refresh(){ updateLabels(); normalizeUiText(); }
   document.addEventListener('DOMContentLoaded',refresh);
   document.addEventListener('click',function(event){
-    if(event.target?.closest?.('[data-page="report"],[onclick*="showPage"]')) setTimeout(refresh,0);
+    if(event.target?.closest?.('[data-page="report"],[data-page="tickets"],[onclick*="showPage"]')) setTimeout(refresh,0);
   },true);
+
+  const observer=new MutationObserver(function(){ normalizeUiText(); });
+  observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+
   setTimeout(refresh,0);
   setTimeout(refresh,300);
   setTimeout(refresh,1000);
