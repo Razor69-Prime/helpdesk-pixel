@@ -1,12 +1,13 @@
 'use strict';
 
-// PXL-URG-0027K — optional technician for Input Laporan, DB NOT NULL compatible.
-// Keep tickets.technician as empty string (not NULL) when unassigned because
-// production schema still enforces NOT NULL on that column. technicians stays [].
+// PXL-URG-0029 — optional technician + dedicated technician_remarks endpoint.
+// Remarks are stored in tickets.technician_remarks (separate from description).
 const express = require('express');
 const previousPost = express.application.post;
+const previousPatch = express.application.patch;
 const SENTINEL = '__PXL_REPORT_UNASSIGNED__';
 const ALLOWED_ROLES = new Set(['admin','superadmin','manager','operator']);
+const REMARKS_ROLES = new Set(['admin','superadmin','manager','operator','technician']);
 
 function normalize(value){ return String(value == null ? '' : value).trim(); }
 
@@ -45,8 +46,32 @@ function optionalTechnicianMiddleware(req,res,next){
     req.body = body;
     return next();
   }catch(error){
-    console.error('[PXL-URG-0027K] optional technician middleware failed',error);
+    console.error('[PXL-URG-0029] optional technician middleware failed',error);
     return next(error);
+  }
+}
+
+async function technicianRemarksHandler(req,res){
+  try{
+    const sessionUser=req.session?.user||{};
+    const role=normalize(sessionUser.role).toLowerCase();
+    const extraRoles=Array.isArray(sessionUser.extra_roles)?sessionUser.extra_roles.map(x=>normalize(x).toLowerCase()):[];
+    const canWrite=REMARKS_ROLES.has(role)||extraRoles.includes('technician');
+    if(!canWrite) return res.status(403).json({error:'Anda tidak memiliki akses untuk mengubah remarks teknisi.'});
+
+    const remarks=normalize(req.body?.remarks);
+    if(remarks.length>1500) return res.status(400).json({error:'Remarks maksimal 1500 karakter.'});
+
+    const db=require('./db');
+    const tickets=await db.getTickets(null,true);
+    const ticket=(tickets||[]).find(row=>String(row.id)===String(req.params.id));
+    if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
+
+    const saved=await db.updateTicket(req.params.id,{technician_remarks:remarks||null});
+    return res.json(saved||{id:req.params.id,technician_remarks:remarks||null});
+  }catch(error){
+    console.error('[PXL-URG-0029] save technician remarks failed',error);
+    return res.status(500).json({error:error.message||'Gagal menyimpan remarks teknisi.'});
   }
 }
 
@@ -55,4 +80,12 @@ express.application.post = function pxlUrg0027FPost(path,...handlers){
     handlers.splice(Math.max(0,handlers.length-1),0,optionalTechnicianMiddleware);
   }
   return previousPost.call(this,path,...handlers);
+};
+
+express.application.patch = function pxlUrg0029Patch(path,...handlers){
+  if(path === '/api/tickets/:id' && !this.__pxlUrg0029RemarksRoute){
+    this.__pxlUrg0029RemarksRoute=true;
+    previousPatch.call(this,'/api/tickets/:id/remarks',technicianRemarksHandler);
+  }
+  return previousPatch.call(this,path,...handlers);
 };
