@@ -1,13 +1,13 @@
-/* PXL-URG-0010 — Auto Generate WO Number
+/* PXL-URG-0027J — Auto Generate WO Number: fill visible Input Laporan immediately.
  * Scope: Form Laporan Pekerjaan only.
  * Reads existing Daftar Tiket (/api/tickets), finds the highest WO number for
- * the current year, then fills the next number into the WO field as readonly.
- * No existing ticket/WO data is modified.
+ * the current year, then fills ALL matching WO fields (including the visible
+ * duplicate form) as readonly. No existing ticket/WO data is modified.
  */
 (()=>{
   'use strict';
 
-  const REV='PXL-URG-0010';
+  const REV='PXL-URG-0027J';
   let busy=false;
   let lastApplied='';
 
@@ -41,20 +41,32 @@
     }
     return `WO-${year}-${String(max+1).padStart(width,'0')}`;
   }
-  function findWoInput(){
-    const inputs=[...document.querySelectorAll('input[type="text"],input:not([type])')];
-    let hit=inputs.find(el=>/WO-20\d{2}/i.test(el.getAttribute('placeholder')||''));
-    if(hit)return hit;
-    hit=inputs.find(el=>/^(wo_number|ticket_number|ticket_no|nomor_wo|no_wo)$/i.test(el.name||el.id||''));
-    if(hit)return hit;
-    for(const label of document.querySelectorAll('label')){
-      if(!/NOMOR\s+TIKET.*WO|NOMOR\s+WO/i.test(label.textContent||''))continue;
-      if(label.htmlFor){const el=document.getElementById(label.htmlFor);if(el?.tagName==='INPUT')return el;}
-      const box=label.parentElement;
-      const el=box?.querySelector('input');
-      if(el)return el;
-    }
-    return null;
+  function isVisible(el){
+    if(!el) return false;
+    const style=getComputedStyle(el);
+    return style.display!=='none'&&style.visibility!=='hidden'&&el.getClientRects().length>0;
+  }
+  function findWoInputs(){
+    const found=[];
+    const add=el=>{if(el?.tagName==='INPUT'&&!found.includes(el))found.push(el);};
+
+    // Exact native id first. querySelectorAll is intentional because current UI can contain duplicate ids.
+    document.querySelectorAll('#f-wo').forEach(add);
+
+    // Known field names/ids.
+    document.querySelectorAll('input[type="text"],input:not([type])').forEach(el=>{
+      if(/^(f-wo|wo_number|ticket_number|ticket_no|nomor_wo|no_wo)$/i.test(el.name||el.id||''))add(el);
+    });
+
+    // Label-based fallback for dynamically rendered copies.
+    document.querySelectorAll('label').forEach(label=>{
+      if(!/NOMOR\s+TIKET.*WO|NOMOR\s+WO/i.test(label.textContent||''))return;
+      if(label.htmlFor)add(document.getElementById(label.htmlFor));
+      add(label.parentElement?.querySelector('input'));
+    });
+
+    // Visible form first, while still updating hidden/native duplicates too.
+    return found.sort((a,b)=>Number(isVisible(b))-Number(isVisible(a)));
   }
   function decorate(input,value){
     input.value=value;
@@ -67,36 +79,46 @@
     input.dispatchEvent(new Event('input',{bubbles:true}));
     input.dispatchEvent(new Event('change',{bubbles:true}));
   }
+  function decorateAll(value){
+    const inputs=findWoInputs();
+    if(!inputs.length)return false;
+    inputs.forEach(input=>decorate(input,value));
+    return true;
+  }
   async function apply(force=false){
-    const input=findWoInput();
-    if(!input||busy)return;
-    if(!force&&input.dataset.pxlAutoWo===REV&&input.value)return;
+    const inputs=findWoInputs();
+    if(!inputs.length||busy)return;
+    if(!force&&lastApplied&&inputs.every(input=>input.value===lastApplied))return;
     busy=true;
     try{
       const response=await fetch('/api/tickets',{headers:headers(),cache:'no-store'});
       if(!response.ok)return;
       const data=await response.json().catch(()=>[]);
       const value=nextWo(rowsOf(data),new Date().getFullYear());
-      if(value){decorate(input,value);lastApplied=value;}
+      if(value&&decorateAll(value))lastApplied=value;
     }catch(e){console.warn(REV,'gagal membaca nomor WO terakhir',e);}
     finally{busy=false;}
   }
 
-  // Form/tabs PixelApps dirender dinamis. Observer hanya mencari field WO dan
-  // tidak mengubah mekanisme navigasi atau submit existing.
   let timer=null;
-  const schedule=()=>{clearTimeout(timer);timer=setTimeout(()=>apply(false),120);};
-  const observer=new MutationObserver(schedule);
+  const schedule=(delay=80,force=false)=>{clearTimeout(timer);timer=setTimeout(()=>apply(force),delay);};
+  const refreshBurst=()=>{
+    apply(true);
+    setTimeout(()=>apply(true),150);
+    setTimeout(()=>apply(true),500);
+    setTimeout(()=>apply(true),1200);
+  };
+  const observer=new MutationObserver(()=>schedule(80,false));
   const start=()=>{
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    schedule();
+    refreshBurst();
     document.addEventListener('click',e=>{
       const text=String(e.target?.textContent||'').toLowerCase();
-      if(text.includes('input laporan')||text.includes('laporan pekerjaan'))setTimeout(()=>apply(true),180);
+      if(text.includes('input laporan')||text.includes('laporan pekerjaan'))refreshBurst();
     },true);
-    document.addEventListener('reset',()=>setTimeout(()=>apply(true),80),true);
+    document.addEventListener('reset',()=>setTimeout(refreshBurst,50),true);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 
-  window.PXL_URG_0010={revision:REV,refresh:()=>apply(true),getLast:()=>lastApplied};
+  window.PXL_URG_0010={revision:REV,refresh:refreshBurst,getLast:()=>lastApplied};
 })();
