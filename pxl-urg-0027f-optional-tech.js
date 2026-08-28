@@ -1,8 +1,8 @@
 'use strict';
 
-// PXL-URG-0027F — optional technician for Input Laporan.
-// Important: this module does NOT require db during startup. The db wrapper is
-// installed lazily on the first matching request, after config/server startup is complete.
+// PXL-URG-0027K — optional technician for Input Laporan, DB NOT NULL compatible.
+// Keep tickets.technician as empty string (not NULL) when unassigned because
+// production schema still enforces NOT NULL on that column. technicians stays [].
 const express = require('express');
 const previousPost = express.application.post;
 const SENTINEL = '__PXL_REPORT_UNASSIGNED__';
@@ -23,7 +23,7 @@ function ensureTicketInsertCleaner(){
     return originalInsertTicket.call(db,{
       ...data,
       technicians,
-      technician: technicians[0] || null
+      technician: technicians[0] || ''
     });
   };
 }
@@ -45,7 +45,7 @@ function optionalTechnicianMiddleware(req,res,next){
     req.body = body;
     return next();
   }catch(error){
-    console.error('[PXL-URG-0027F] optional technician middleware failed',error);
+    console.error('[PXL-URG-0027K] optional technician middleware failed',error);
     return next(error);
   }
 }
