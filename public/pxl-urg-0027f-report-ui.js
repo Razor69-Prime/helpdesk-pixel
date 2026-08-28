@@ -1,8 +1,19 @@
-/* PXL-URG-0028B — Optional technician + stable Work Order technician remarks modal + fresh PDF data sync. */
+/* PXL-URG-0028E — Optional technician + stable remarks + force native fast WO PDF export. */
 (function(){
   'use strict';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
   const REMARKS_LABEL='Remarks Teknisi:';
+
+  function restoreNativePdfExport(){
+    try{
+      const current=window.exportTicketPDF;
+      if(current&&current.__pxl0028c&&typeof current.__pxlOriginal==='function'){
+        window.exportTicketPDF=current.__pxlOriginal;
+        return true;
+      }
+    }catch(_){ }
+    return false;
+  }
 
   function visibleElement(id){
     const nodes=[...document.querySelectorAll('#'+CSS.escape(id))];
@@ -143,7 +154,6 @@
       modal.style.display='none';
       try{if(typeof renderTickets==='function')renderTickets();}catch(_){ }
       setTimeout(function(){normalizeUiText();installRemarksButtons();},30);
-      // Ambil ulang setelah cache invalidated agar allTickets/PDF benar-benar memakai description terbaru.
       try{if(typeof loadTickets==='function')await loadTickets(true);}catch(_){ }
       setTimeout(function(){normalizeUiText();installRemarksButtons();},80);
     }catch(err){error.textContent=err.message||String(err);error.style.display='block';}
@@ -151,16 +161,18 @@
   }
 
   document.addEventListener('click',function(event){
+    const pdfButton=event.target?.closest?.('[onclick*="exportTicketPDF"]');
+    if(pdfButton){restoreNativePdfExport();return;}
     const reportButton=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
     if(reportButton){try{window.PXL_URG_0010?.refresh?.();}catch(_){ }const restore=prepareNativeSubmit();if(restore)setTimeout(restore,0);return;}
     const remarksButton=event.target?.closest?.('.pxl-remarks-btn');
     if(remarksButton){event.preventDefault();event.stopPropagation();void openRemarks(remarksButton.dataset.ticketId);}
   },true);
 
-  function refresh(){updateLabels();normalizeUiText();installRemarksButtons();}
+  function refresh(){restoreNativePdfExport();updateLabels();normalizeUiText();installRemarksButtons();}
   document.addEventListener('DOMContentLoaded',refresh);
   document.addEventListener('click',function(event){if(event.target?.closest?.('[data-page="report"],[data-page="tickets"],[onclick*="showPage"]'))setTimeout(refresh,0);},true);
-  const observer=new MutationObserver(function(){normalizeUiText();installRemarksButtons();});
+  const observer=new MutationObserver(function(){restoreNativePdfExport();normalizeUiText();installRemarksButtons();});
   observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
   setTimeout(refresh,0);setTimeout(refresh,300);setTimeout(refresh,1000);
 })();
