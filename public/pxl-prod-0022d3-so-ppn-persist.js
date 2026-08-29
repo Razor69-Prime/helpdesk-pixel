@@ -160,3 +160,13 @@
   script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030C';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0031 — isolated Purchase Request PDF branding loader.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-pr-pdf-branding="0031"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlPrPdfBranding='0031';
+  script.src='/pxl-urg-0031-pr-pdf-branding.js?v=PXL-URG-0031';
+  document.head.appendChild(script);
+})();
