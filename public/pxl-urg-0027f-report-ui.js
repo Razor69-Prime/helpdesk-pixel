@@ -1,6 +1,7 @@
-/* PXL-URG-0029A — Optional technician + isolated technician remarks using dedicated DB field. */
+/* PXL-URG-0032 — Native WO remarks near WO number + isolated PDF remarks appendix. */
 (function(){
   'use strict';
+  const REV='PXL-URG-0032';
   const SENTINEL='__PXL_REPORT_UNASSIGNED__';
 
   function visibleElement(id){
@@ -117,14 +118,34 @@
     return '';
   }
 
+  function renderRemarksOnCard(card,ticket){
+    if(!card||!ticket) return;
+    const wo=card.querySelector('.ticket-wo');
+    if(!wo) return;
+    let el=card.querySelector('.pxl-native-remarks-inline');
+    const remarks=String(ticket.technician_remarks||'').trim();
+    if(!remarks){
+      if(el) el.remove();
+      return;
+    }
+    if(!el){
+      el=document.createElement('div');
+      el.className='pxl-native-remarks-inline';
+      el.style.cssText='margin-top:4px;padding:5px 8px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.4;border-radius:0 5px 5px 0;white-space:pre-wrap;word-break:break-word';
+      wo.insertAdjacentElement('afterend',el);
+    }
+    el.textContent='Remarks: '+remarks;
+  }
+
   function installRemarksButtons(){
     document.querySelectorAll('.ticket-item').forEach(function(card){
       const actions=card.querySelector('.ticket-actions');
-      if(!actions||actions.querySelector('.pxl-native-remarks-btn')) return;
       const ticketId=ticketIdFromCard(card);
       if(!ticketId) return;
       const ticket=ticketById(ticketId,'')||ticketById(ticketId,'archive');
       if(!ticket) return;
+      renderRemarksOnCard(card,ticket);
+      if(!actions||actions.querySelector('.pxl-native-remarks-btn')) return;
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='btn sm pxl-native-remarks-btn';
@@ -134,6 +155,14 @@
       const assign=[...actions.querySelectorAll('button')].find(el=>/Assign/i.test(el.textContent||''));
       if(assign) assign.insertAdjacentElement('afterend',btn);
       else actions.insertBefore(btn,actions.firstChild);
+    });
+  }
+
+  function refreshTicketRemarks(ticketId){
+    document.querySelectorAll('.ticket-item').forEach(function(card){
+      if(String(ticketIdFromCard(card))!==String(ticketId)) return;
+      const ticket=ticketById(ticketId,'')||ticketById(ticketId,'archive');
+      if(ticket) renderRemarksOnCard(card,ticket);
     });
   }
 
@@ -190,29 +219,72 @@
       document.querySelectorAll('.pxl-native-remarks-btn').forEach(function(btn){
         if(String(btn.dataset.ticketId)===String(ticketId)) btn.textContent=remarks?'📝 Edit Remarks':'📝 Add Remarks';
       });
+      refreshTicketRemarks(ticketId);
       modal.style.display='none';
     }catch(e){error.textContent=e.message||String(e);error.style.display='block';}
     finally{save.disabled=false;save.textContent='Simpan';}
   }
 
-  function preparePdfRemarks(button){
-    const code=String(button?.getAttribute('onclick')||'');
-    const m=code.match(/exportTicketPDF\(\s*['"]([^'"]+)['"](?:\s*,\s*['"]([^'"]+)['"])?/);
-    if(!m) return;
-    const ticket=ticketById(m[1],m[2]||'');
-    if(!ticket) return;
-    const remarks=String(ticket.technician_remarks||'').trim();
-    if(!remarks) return;
-    const original=ticket.description;
-    const base=String(original||'').trim();
-    ticket.description=(base?base+'\n\n':'')+'Remarks Teknisi:\n'+remarks;
-    setTimeout(function(){ticket.description=original;},0);
+  function installPdfRemarksWrapper(){
+    const original=window.exportTicketPDF;
+    if(typeof original!=='function'||original.__pxl0032Remarks) return;
+
+    const wrapped=async function(id,source='active'){
+      const ticket=ticketById(id,source);
+      const remarks=String(ticket?.technician_remarks||'').trim();
+      if(!remarks) return original.apply(this,arguments);
+
+      const ns=window.jspdf;
+      const NativeJsPDF=ns?.jsPDF;
+      if(typeof NativeJsPDF!=='function') return original.apply(this,arguments);
+
+      function RemarksJsPDF(){
+        const doc=new NativeJsPDF(...arguments);
+        const nativeSave=typeof doc.save==='function'?doc.save.bind(doc):null;
+        if(nativeSave){
+          doc.save=function(filename,options){
+            try{
+              doc.addPage();
+              const pageWidth=doc.internal?.pageSize?.getWidth?.()||210;
+              doc.setTextColor(0);
+              doc.setDrawColor(0);
+              doc.setLineWidth(.4);
+              doc.setFont('helvetica','bold');
+              doc.setFontSize(13);
+              doc.text('REMARKS TEKNISI',15,20);
+              doc.setFontSize(8);
+              doc.text('No. WO: '+String(ticket?.wo_number||ticket?.wo_no||ticket?.number||'-'),15,28);
+              doc.line(15,32,pageWidth-15,32);
+              doc.setFont('helvetica','normal');
+              doc.setFontSize(9);
+              const lines=doc.splitTextToSize(remarks,pageWidth-30);
+              doc.text(lines,15,41);
+              doc.setFontSize(6.5);
+              doc.setTextColor(110);
+              doc.text('Remarks tersimpan pada Work Order dan dicetak sebagai bagian report.',15,285);
+            }catch(e){console.warn('['+REV+'] render PDF remarks failed',e);}
+            return nativeSave(filename,options);
+          };
+        }
+        return doc;
+      }
+
+      try{
+        Object.keys(NativeJsPDF).forEach(function(k){try{RemarksJsPDF[k]=NativeJsPDF[k];}catch(_){}});
+        if(NativeJsPDF.API) RemarksJsPDF.API=NativeJsPDF.API;
+        ns.jsPDF=RemarksJsPDF;
+        return await original.apply(this,arguments);
+      }finally{
+        ns.jsPDF=NativeJsPDF;
+      }
+    };
+
+    wrapped.__pxl0032Remarks=true;
+    wrapped.__pxlOriginal=original;
+    window.exportTicketPDF=wrapped;
   }
 
   document.addEventListener('click',function(event){
-    const pdfButton=event.target?.closest?.('[onclick*="exportTicketPDF"]');
-    if(pdfButton){preparePdfRemarks(pdfButton);return;}
-
     const reportButton=event.target?.closest?.('#btn-save,[onclick*="saveReport"]');
     if(reportButton){
       try{window.PXL_URG_0010?.refresh?.();}catch(_){ }
@@ -229,18 +301,24 @@
     }
   },true);
 
-  function refresh(){ updateLabels(); normalizeUiText(); installRemarksButtons(); }
+  function refresh(){
+    updateLabels();
+    normalizeUiText();
+    installRemarksButtons();
+    installPdfRemarksWrapper();
+  }
+
   document.addEventListener('DOMContentLoaded',refresh);
   document.addEventListener('click',function(event){
     if(event.target?.closest?.('[data-page="report"],[data-page="tickets"],[onclick*="showPage"]')){
       setTimeout(refresh,0);
       setTimeout(installRemarksButtons,120);
       setTimeout(installRemarksButtons,500);
+      setTimeout(installPdfRemarksWrapper,500);
     }
   },true);
 
-  // Keep only the pre-existing lightweight UI normalization observer.
-  // Remarks button discovery is intentionally NOT run from this observer.
+  // Existing lightweight observer only normalizes text; no loader/login hooks are added.
   const observer=new MutationObserver(function(){ normalizeUiText(); });
   observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
 
@@ -248,4 +326,7 @@
   setTimeout(refresh,300);
   setTimeout(refresh,1000);
   setTimeout(installRemarksButtons,2000);
+  setTimeout(installPdfRemarksWrapper,2000);
+
+  window.PXL_URG_0032={revision:REV,refresh,installPdfRemarksWrapper};
 })();
