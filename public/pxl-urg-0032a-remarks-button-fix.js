@@ -1,7 +1,7 @@
-/* PXL-URG-0032A — Keep Add/Edit Remarks available after Daftar Tiket auto refresh. */
+/* PXL-URG-0032D — Keep Add/Edit Remarks logic intact; align remarks output above ticket meta. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0032A';
+  const REV='PXL-URG-0032D';
   let installTimer=null;
 
   function activeTickets(){
@@ -57,14 +57,27 @@
     let el=card.querySelector('.pxl-native-remarks-inline');
     if(!remarks){if(el)el.remove();return;}
     if(!el){
-      const anchor=findWoAnchor(card);
-      if(!anchor)return;
       el=document.createElement('div');
       el.className='pxl-native-remarks-inline';
-      el.style.cssText='margin-top:4px;padding:5px 8px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.4;border-radius:0 5px 5px 0;white-space:pre-wrap;word-break:break-word';
-      anchor.insertAdjacentElement('afterend',el);
     }
+
+    el.style.cssText='display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;position:static;float:none;clear:both;';
     el.textContent='Remarks: '+remarks;
+
+    // Output remarks must live immediately above the status/date/duration row
+    // for PWA, mobile browser and desktop. This only changes placement/styling.
+    const meta=card.querySelector('.ticket-meta');
+    if(meta){
+      if(el.parentElement!==meta.parentElement || el.nextElementSibling!==meta){
+        meta.insertAdjacentElement('beforebegin',el);
+      }
+      return;
+    }
+
+    // Defensive fallback for older card markup; never attach into the narrow WO header column.
+    const header=card.querySelector('.ticket-header');
+    if(header) header.insertAdjacentElement('afterend',el);
+    else if(!el.isConnected) card.appendChild(el);
   }
 
   function ensureModal(){
