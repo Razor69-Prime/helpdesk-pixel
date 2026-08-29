@@ -93,8 +93,8 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0025"></script>',
           '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>',
           '<script src="/pxl-urg-0027f-report-ui.js?v=PXL-URG-0032"></script>',
-          '<script src="/pxl-urg-0032a-remarks-button-fix.js?v=PXL-URG-0032A"></script>',
-          '<script src="/pxl-urg-0032b-remarks-layout.js?v=PXL-URG-0032C"></script>'
+          '<script src="/pxl-urg-0032a-remarks-button-fix.js?v=PXL-URG-0032D"></script>',
+          '<script src="/pxl-urg-0032b-remarks-layout.js?v=PXL-URG-0032D"></script>'
         ];
         for(const tag of tags){const src=tag.match(/src="([^"]+)/)?.[1];if(!src)continue;const base=src.split('?')[0];html=replaceOrAppendScript(html,base,src.split('?v=')[1]||'PXL-STG-0020E');}
       }
