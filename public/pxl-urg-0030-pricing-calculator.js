@@ -1,8 +1,8 @@
-/* PXL-URG-0030B — Isolated Sales Order pricing calculator. Harga Final (include PPN) masuk ke Harga Satuan; UI PPN legacy disembunyikan tanpa mengubah data SO lama. */
+/* PXL-URG-0030C — Isolated Sales Order pricing calculator. Harga Final (include PPN) masuk ke Harga Satuan; UI PPN legacy disembunyikan tanpa mengubah data SO lama. */
 (function(){
   'use strict';
 
-  const REV='PXL-URG-0030B';
+  const REV='PXL-URG-0030C';
   if(window.PXL_URG_0030?.revision===REV) return;
 
   let activeRow=null;
@@ -75,9 +75,9 @@
       <div style="margin-top:13px;border:1px solid #e4e1d8;border-radius:10px;overflow:hidden;font-size:12px">
         <div style="padding:9px 11px;background:#faf8f3;font-weight:700">Breakdown Internal</div>
         <div class="pxl-price-row"><span>Up Harga Nominal</span><b id="pxlPriceUpNominal">Rp 0</b></div>
-        <div class="pxl-price-row"><span>Dasar Fee (HPP + Up)</span><b id="pxlPriceFeeBase">Rp 0</b></div>
+        <div class="pxl-price-row pxl-price-soft-green"><span>Dasar Fee (HPP + Up)</span><b id="pxlPriceFeeBase">Rp 0</b></div>
         <div class="pxl-price-row"><span>Fee Nominal</span><b id="pxlPriceFeeNominal">Rp 0</b></div>
-        <div class="pxl-price-row"><span>Harga Ex PPN / DPP</span><b id="pxlPriceExPpn">Rp 0</b></div>
+        <div class="pxl-price-row pxl-price-soft-green"><span>Harga Ex PPN / DPP</span><b id="pxlPriceExPpn">Rp 0</b></div>
         <div class="pxl-price-row"><span>PPN</span><b id="pxlPricePpnNominal">Rp 0</b></div>
         <div class="pxl-price-row" style="background:#fff7ef"><span>Harga Final / Harga Satuan</span><b id="pxlPriceFinal">Rp 0</b></div>
         <div class="pxl-price-row"><span>NET Internal (DPP - HPP)</span><b id="pxlPriceNet">Rp 0</b></div>
@@ -88,7 +88,7 @@
     </div>`;
     const style=document.createElement('style');
     style.id='pxlPricingStyles';
-    style.textContent=`.pxl-price-row{display:flex;justify-content:space-between;gap:14px;padding:8px 11px;border-top:1px solid #eee}.pxl-price-calc{margin-top:5px;padding:5px 7px!important;font-size:10px!important;width:100%}#pxlPpnPanel,.pxl-ppn-cell{display:none!important}@media(max-width:560px){#pxlPricingModal>div>div:nth-child(2){grid-template-columns:1fr!important}}`;
+    style.textContent=`.pxl-price-row{display:flex;justify-content:space-between;gap:14px;padding:8px 11px;border-top:1px solid #eee}.pxl-price-soft-green{background:#f2fbf3}.pxl-price-calc{margin-top:5px;padding:5px 7px!important;font-size:10px!important;width:100%}#pxlPpnPanel,.pxl-ppn-cell{display:none!important}@media(max-width:560px){#pxlPricingModal>div>div:nth-child(2){grid-template-columns:1fr!important}}`;
     document.head.appendChild(style);
     document.body.appendChild(modal);
     modal.querySelectorAll('input').forEach(el=>el.addEventListener('input',render));
