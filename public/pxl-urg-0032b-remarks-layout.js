@@ -1,7 +1,7 @@
-/* PXL-URG-0032E — Styling only: keep remarks output above meta and tidy WO controls on phone browser desktop-view. No add/edit/save/PDF logic changes. */
+/* PXL-URG-0032F — Styling only: tidy WO controls in phone browser desktop-view. No add/edit/save/PDF/database logic changes. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0032E';
+  const REV='PXL-URG-0032F';
   let timer=null;
 
   function styleRemarks(el){
@@ -51,10 +51,8 @@
       return;
     }
     const header=card.querySelector('.ticket-header');
-    if(header){
-      if(remarks.parentElement!==card || remarks.previousElementSibling!==header){
-        header.insertAdjacentElement('afterend',remarks);
-      }
+    if(header && (remarks.parentElement!==card || remarks.previousElementSibling!==header)){
+      header.insertAdjacentElement('afterend',remarks);
     }
   }
 
@@ -64,14 +62,20 @@
 
   function isPhoneBrowserDesktopView(){
     if(isStandalone()) return false;
-    const ua=String(navigator.userAgent||'');
-    const mobileDevice=/Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-    return mobileDevice && window.innerWidth>700;
+    let coarse=false;
+    try{coarse=window.matchMedia('(pointer: coarse)').matches;}catch(_){ }
+    const touch=(Number(navigator.maxTouchPoints||0)>0)||('ontouchstart' in window)||coarse;
+    // Chrome/Safari desktop-site mode on a phone can remove "Mobile" from UA.
+    // A wide CSS viewport + touch device + non-standalone reliably isolates this case,
+    // while normal mobile view (<=700px) and installed PWA stay untouched.
+    return touch && window.innerWidth>700;
   }
 
   function ensureBrowserPhoneStyle(){
-    const id='pxl-0032e-phone-browser-style';
+    const id='pxl-0032f-phone-browser-style';
     let style=document.getElementById(id);
+    const old=document.getElementById('pxl-0032e-phone-browser-style');
+    if(old) old.remove();
     if(!isPhoneBrowserDesktopView()){
       if(style) style.remove();
       return;
@@ -81,10 +85,9 @@
     style.id=id;
     style.textContent=`
       .ticket-item .ticket-header{
-        display:flex!important;
-        flex-direction:column!important;
-        align-items:stretch!important;
-        justify-content:flex-start!important;
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr)!important;
+        align-items:start!important;
         gap:8px!important;
         width:100%!important;
         min-width:0!important;
@@ -99,51 +102,72 @@
         width:100%!important;
         max-width:100%!important;
         min-width:0!important;
+        height:34px!important;
         margin:0!important;
+        padding:4px 10px!important;
+        box-sizing:border-box!important;
+        position:static!important;
       }
       .ticket-item .ticket-actions{
-        display:flex!important;
+        display:grid!important;
+        grid-template-columns:repeat(6,minmax(0,1fr))!important;
         width:100%!important;
         max-width:100%!important;
         min-width:0!important;
         gap:5px!important;
-        flex-wrap:nowrap!important;
         align-items:stretch!important;
         justify-content:stretch!important;
+        position:static!important;
+        float:none!important;
+        clear:both!important;
       }
       .ticket-item .ticket-actions .btn,
       .ticket-item .ticket-actions button,
       .ticket-item .ticket-actions a{
-        flex:1 1 0!important;
-        width:auto!important;
+        display:flex!important;
+        width:100%!important;
         min-width:0!important;
-        max-width:none!important;
+        max-width:100%!important;
+        height:34px!important;
         min-height:34px!important;
-        padding:5px 6px!important;
+        padding:4px 5px!important;
         margin:0!important;
+        align-items:center!important;
         justify-content:center!important;
         text-align:center!important;
-        font-size:10.5px!important;
-        line-height:1.15!important;
+        font-size:10px!important;
+        line-height:1.1!important;
         white-space:nowrap!important;
         overflow:hidden!important;
         text-overflow:ellipsis!important;
         box-sizing:border-box!important;
+        position:static!important;
+        float:none!important;
       }
       .ticket-item .ticket-actions .pxl-native-remarks-btn{
-        flex:1.25 1 0!important;
+        font-size:9.5px!important;
       }
       .ticket-item .ticket-wo,
       .ticket-item .ticket-tech,
       .ticket-item .ticket-project{
         position:static!important;
+        display:block!important;
+        width:auto!important;
         max-width:100%!important;
+        min-width:0!important;
         overflow-wrap:anywhere!important;
       }
       .ticket-item .ticket-meta{
         position:static!important;
         clear:both!important;
         width:100%!important;
+        max-width:100%!important;
+      }
+      .ticket-item .pxl-native-remarks-inline{
+        position:static!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
       }
     `;
     document.head.appendChild(style);
