@@ -1,7 +1,7 @@
-/* PXL-URG-0031D — fast PR PDF renderer with classic layout. Numbering/calculation logic unchanged. */
+/* PXL-URG-0031E — fast PR PDF renderer with classic layout + robust item mapping. Numbering/calculation logic unchanged. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0031D';
+  const REV='PXL-URG-0031E';
   const LOGO='/pixel-solusindo-logo.png';
   let logoData=null;
 
@@ -21,9 +21,9 @@
   }
 
   function patchShowPrForm(){
-    if(typeof window.showPRForm!=='function'||window.showPRForm.__pxl0031d)return;
+    if(typeof window.showPRForm!=='function'||window.showPRForm.__pxl0031e)return;
     const old=window.showPRForm;window.showPRForm=function(){const out=old.apply(this,arguments);lockPrOutlet();return out;};
-    window.showPRForm.__pxl0031d=true;
+    window.showPRForm.__pxl0031e=true;
   }
 
   const text=v=>String(v??'-');
@@ -31,6 +31,24 @@
   const dateLong=v=>{try{return v?new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}):'-';}catch(_){return '-';}};
   const dateShort=v=>{try{return v?new Date(v).toLocaleDateString('id-ID'):'-';}catch(_){return '-';}};
   function sig(doc,data,x,y,w=28,h=13){if(typeof data!=='string'||!data.startsWith('data:image/'))return;try{doc.addImage(data,'PNG',x,y,w,h,undefined,'FAST');}catch(_){}}
+
+  // PR lama dan PR baru pernah memakai nama key item yang berbeda.
+  // Resolver ini hanya membaca data yang sudah ada, tidak mengubah payload/database.
+  function itemDescription(it){
+    const values=[
+      it?.item_name,it?.name,it?.description,it?.item,it?.product_name,it?.material_name,
+      it?.nama_item,it?.nama_barang,it?.inventory_name,it?.inventory_item_name,
+      it?.inventory_item?.name,it?.inventory?.name,it?.product?.name
+    ];
+    const found=values.find(v=>v!==undefined&&v!==null&&String(v).trim()&&String(v).trim()!=='-');
+    return found?String(found).trim():'-';
+  }
+  function itemQty(it){return Number(it?.qty??it?.quantity??it?.jumlah??0)||0;}
+  function itemUnit(it){return text(it?.unit??it?.satuan??it?.uom??'Pcs');}
+  function itemPrice(it){return Number(it?.unit_price??it?.price??it?.harga??it?.harga_unit??0)||0;}
+  function itemStock(it){return text(it?.stock_qty??it?.stock??it?.stok??'-');}
+  function itemSupplier(it){return text(it?.supplier_name??it?.supplier??it?.vendor_name??it?.vendor??'-');}
+  function itemNotes(it){return text(it?.notes??it?.keterangan??it?.remark??it?.remarks??'-');}
 
   function directExportPRPDF(id){
     try{
@@ -40,13 +58,11 @@
       const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
       const PW=210,PH=297,ML=12,MR=12,CW=PW-ML-MR;let y=13;
 
-      // Header classic: bordered box, logo left, title right.
       doc.setDrawColor(0);doc.setLineWidth(.45);doc.rect(ML,y,CW,22);
-      if(logoData){try{doc.addImage(logoData,'PNG',ML+4,y+5,38,10,'PXL_PR_LOGO_0031D','FAST');}catch(_){}}
+      if(logoData){try{doc.addImage(logoData,'PNG',ML+4,y+5,38,10,'PXL_PR_LOGO_0031E','FAST');}catch(_){}}
       doc.setTextColor(0);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('PURCHASE REQUEST',PW-MR-4,y+9,{align:'right'});
       y+=27;
 
-      // Info block matching old report (no green table / no bordered matrix).
       const lx=ML,lv=ML+28,rx=ML+92,rv=ML+120;
       doc.setFontSize(7.7);
       const infoRow=(label,val,label2,val2,yy)=>{doc.setFont('helvetica','bold');doc.text(label,lx,yy);doc.setFont('helvetica','normal');doc.text(text(val),lv,yy,{maxWidth:58});if(label2){doc.setFont('helvetica','bold');doc.text(label2,rx,yy);doc.setFont('helvetica','normal');doc.text(text(val2),rv,yy,{maxWidth:PW-MR-rv});}};
@@ -56,13 +72,23 @@
       y+=25;doc.setLineWidth(.45);doc.line(ML,y,PW-MR,y);y+=5;
 
       const items=Array.isArray(p.items)?p.items:[];
-      const totalAll=Number(p.total_amount||p.total||items.reduce((s,it)=>s+Number(it.qty||it.quantity||0)*Number(it.unit_price||it.price||0),0));
+      const totalAll=Number(p.total_amount||p.total||items.reduce((s,it)=>s+itemQty(it)*itemPrice(it),0));
       const body=items.map((it,i)=>{
-        const qty=Number(it.qty||it.quantity||0),price=Number(it.unit_price||it.price||0);
-        return [String(i+1),text(it.item_name||it.name||it.description||'-'),qty.toLocaleString('id-ID'),text(it.unit||it.satuan||'-'),price?money(price):'-',price?money(qty*price):'-',text(it.stock_qty??it.stock??'-'),text(it.supplier_name||it.supplier||'-'),text(it.notes||it.keterangan||'-')];
+        const qty=itemQty(it),price=itemPrice(it);
+        return [String(i+1),itemDescription(it),qty.toLocaleString('id-ID'),itemUnit(it),price?money(price):'-',price?money(qty*price):'-',itemStock(it),itemSupplier(it),itemNotes(it)];
       });
       if(doc.autoTable){
-        doc.autoTable({startY:y,head:[['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Supplier','Keterangan']],body,theme:'grid',margin:{left:ML,right:MR},styles:{font:'helvetica',fontSize:6.2,cellPadding:1.4,lineColor:[0,0,0],lineWidth:.25,textColor:[0,0,0],valign:'middle'},headStyles:{fillColor:[225,225,225],textColor:[0,0,0],fontStyle:'bold',lineColor:[0,0,0],lineWidth:.25},columnStyles:{0:{cellWidth:9},1:{cellWidth:47},2:{cellWidth:11,halign:'center'},3:{cellWidth:14},4:{cellWidth:23,halign:'right'},5:{cellWidth:24,halign:'right'},6:{cellWidth:12,halign:'center'},7:{cellWidth:20},8:{cellWidth:26}},didDrawPage:()=>{}});
+        doc.autoTable({
+          startY:y,
+          head:[['No','Deskripsi','Qty','Satuan','Harga/Unit','Total','Stock','Supplier','Keterangan']],
+          body,
+          theme:'grid',
+          margin:{left:ML,right:MR},
+          styles:{font:'helvetica',fontSize:6.2,cellPadding:{top:1.35,right:1.2,bottom:1.35,left:1.2},lineColor:[0,0,0],lineWidth:.25,textColor:[0,0,0],valign:'middle',overflow:'linebreak',minCellHeight:5.2},
+          headStyles:{fillColor:[225,225,225],textColor:[0,0,0],fontStyle:'bold',lineColor:[0,0,0],lineWidth:.25,valign:'middle',minCellHeight:6},
+          columnStyles:{0:{cellWidth:9,halign:'center'},1:{cellWidth:47,halign:'left',overflow:'linebreak'},2:{cellWidth:11,halign:'center'},3:{cellWidth:14,halign:'left'},4:{cellWidth:23,halign:'right'},5:{cellWidth:24,halign:'right'},6:{cellWidth:12,halign:'center'},7:{cellWidth:20,halign:'left',overflow:'linebreak'},8:{cellWidth:26,halign:'left',overflow:'linebreak'}},
+          rowPageBreak:'avoid'
+        });
         y=doc.lastAutoTable.finalY;
         doc.setFillColor(220,220,220);doc.setDrawColor(0);doc.setLineWidth(.35);doc.rect(ML,y,CW,7,'FD');
         doc.setFont('helvetica','bold');doc.setFontSize(7.3);doc.text('TOTAL KESELURUHAN',ML+2,y+4.7);doc.text(money(totalAll),ML+128,y+4.7,{align:'right'});y+=12;
@@ -71,7 +97,6 @@
       if(p.remarks){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text('Remarks: '+text(p.remarks),ML,y,{maxWidth:CW});y+=8;}
       if(y>185){doc.addPage();y=18;}
 
-      // Signature layout classic with lines.
       const reqSig=p.approver1_signature||p.requester_signature||null,sig2=p.approver_signature||null;
       const topY=y+8,topW=82;
       const drawTop=(x,label,name,sdata,d)=>{doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(label,x+topW/2,topY,{align:'center'});sig(doc,sdata,x+topW/2-14,topY+6,28,14);if(d){doc.setFont('helvetica','normal');doc.setFontSize(6);doc.text(d,x+topW/2,topY+25,{align:'center'});}doc.setDrawColor(0);doc.setLineWidth(.35);doc.line(x+5,topY+29,x+topW-5,topY+29);if(name){doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.text(name,x+topW/2,topY+36,{align:'center'});}};
