@@ -2,57 +2,35 @@
   "headers": [
     {
       "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     },
     {
       "source": "/crm.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     },
     {
       "source": "/revision-check.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     },
     {
       "source": "/sales-order.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     },
     {
       "source": "/inventory.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     },
     {
       "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
+    },
+    {
+      "source": "/pxl-stg-0020b-uat-fix.js",
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
+    },
+    {
+      "source": "/pxl-urg-0031-pr-pdf-branding.js",
+      "headers": [{"key":"Cache-Control","value":"no-store, max-age=0"}]
     }
   ]
 }
