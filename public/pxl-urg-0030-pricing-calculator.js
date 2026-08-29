@@ -1,8 +1,10 @@
-/* PXL-URG-0030 — Isolated Sales Order pricing calculator. No API, DB, PPN, PDF, Inventory, WO, MR, or Invoice changes. */
+/* PXL-URG-0030B — Isolated Sales Order pricing calculator. Harga Final (include PPN) masuk ke Harga Satuan; UI PPN legacy disembunyikan tanpa mengubah data SO lama. */
 (function(){
   'use strict';
 
-  const REV='PXL-URG-0030';
+  const REV='PXL-URG-0030B';
+  if(window.PXL_URG_0030?.revision===REV) return;
+
   let activeRow=null;
   let modal=null;
 
@@ -39,6 +41,24 @@
     set('#pxlPriceEffective',x.effective.toLocaleString('id-ID',{maximumFractionDigits:2})+'%');
   }
 
+  function hideLegacyPpnUi(){
+    const panel=document.getElementById('pxlPpnPanel');
+    if(panel) panel.style.display='none';
+    document.querySelectorAll('.pxl-ppn-cell').forEach(cell=>{cell.style.display='none';});
+    const ppnTotal=document.getElementById('ppnTotal');
+    const ppnBox=ppnTotal?.closest?.('.total-box');
+    if(ppnBox) ppnBox.style.display='none';
+    document.querySelector('.totals')?.classList?.remove('pxl-with-ppn');
+  }
+
+  function clearRowLegacyTax(row){
+    if(!row)return;
+    row.dataset.ppnApplied='0';
+    row.dataset.ppnRate='0';
+    const cb=row.querySelector('.pxl-ppn-item');
+    if(cb) cb.checked=false;
+  }
+
   function ensureModal(){
     if(modal)return modal;
     modal=document.createElement('div');
@@ -50,7 +70,7 @@
         <div><label>HPP</label><input id="pxlPriceHpp" inputmode="numeric" value="0"></div>
         <div><label>Up Harga (%)</label><input id="pxlPriceUp" type="number" min="0" step="0.01" value="20"></div>
         <div><label>Fee (%)</label><input id="pxlPriceFee" type="number" min="0" step="0.01" value="10"></div>
-        <div><label>PPN Simulasi (%)</label><input id="pxlPricePpn" type="number" min="0" step="0.01" value="11"></div>
+        <div><label>PPN (%)</label><input id="pxlPricePpn" type="number" min="0" step="0.01" value="11"></div>
       </div>
       <div style="margin-top:13px;border:1px solid #e4e1d8;border-radius:10px;overflow:hidden;font-size:12px">
         <div style="padding:9px 11px;background:#faf8f3;font-weight:700">Breakdown Internal</div>
@@ -58,17 +78,17 @@
         <div class="pxl-price-row"><span>Dasar Fee (HPP + Up)</span><b id="pxlPriceFeeBase">Rp 0</b></div>
         <div class="pxl-price-row"><span>Fee Nominal</span><b id="pxlPriceFeeNominal">Rp 0</b></div>
         <div class="pxl-price-row"><span>Harga Ex PPN / DPP</span><b id="pxlPriceExPpn">Rp 0</b></div>
-        <div class="pxl-price-row"><span>PPN Simulasi</span><b id="pxlPricePpnNominal">Rp 0</b></div>
-        <div class="pxl-price-row" style="background:#fff7ef"><span>Harga Final Simulasi</span><b id="pxlPriceFinal">Rp 0</b></div>
+        <div class="pxl-price-row"><span>PPN</span><b id="pxlPricePpnNominal">Rp 0</b></div>
+        <div class="pxl-price-row" style="background:#fff7ef"><span>Harga Final / Harga Satuan</span><b id="pxlPriceFinal">Rp 0</b></div>
         <div class="pxl-price-row"><span>NET Internal (DPP - HPP)</span><b id="pxlPriceNet">Rp 0</b></div>
         <div class="pxl-price-row"><span>Markup Efektif terhadap HPP</span><b id="pxlPriceEffective">0%</b></div>
       </div>
-      <div style="font-size:11px;color:#756f66;margin-top:10px;line-height:1.45">Tombol “Gunakan Harga” hanya memasukkan <b>Harga Ex PPN / DPP</b> ke Harga Satuan. PPN tetap mengikuti checkbox/rate PPN Sales Order yang sudah ada.</div>
+      <div style="font-size:11px;color:#756f66;margin-top:10px;line-height:1.45">Tombol “Gunakan Harga” memasukkan <b>Harga Final yang sudah termasuk PPN</b> ke Harga Satuan. Checkbox/rate PPN lama tidak digunakan untuk harga baru dari kalkulator.</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="btn" id="pxlPriceCancel">Batal</button><button type="button" class="btn primary" id="pxlPriceUse">Gunakan Harga</button></div>
     </div>`;
     const style=document.createElement('style');
     style.id='pxlPricingStyles';
-    style.textContent=`.pxl-price-row{display:flex;justify-content:space-between;gap:14px;padding:8px 11px;border-top:1px solid #eee}.pxl-price-calc{margin-top:5px;padding:5px 7px!important;font-size:10px!important;width:100%}@media(max-width:560px){#pxlPricingModal>div>div:nth-child(2){grid-template-columns:1fr!important}}`;
+    style.textContent=`.pxl-price-row{display:flex;justify-content:space-between;gap:14px;padding:8px 11px;border-top:1px solid #eee}.pxl-price-calc{margin-top:5px;padding:5px 7px!important;font-size:10px!important;width:100%}#pxlPpnPanel,.pxl-ppn-cell{display:none!important}@media(max-width:560px){#pxlPricingModal>div>div:nth-child(2){grid-template-columns:1fr!important}}`;
     document.head.appendChild(style);
     document.body.appendChild(modal);
     modal.querySelectorAll('input').forEach(el=>el.addEventListener('input',render));
@@ -80,9 +100,11 @@
       const price=activeRow?.querySelector('.price');
       if(!price)return close();
       const x=calc();
-      price.value=String(Math.round(x.exPpn));
+      clearRowLegacyTax(activeRow);
+      price.value=String(Math.round(x.final));
       price.dispatchEvent(new Event('input',{bubbles:true}));
       price.dispatchEvent(new Event('change',{bubbles:true}));
+      hideLegacyPpnUi();
       close();
     };
     return modal;
@@ -120,20 +142,23 @@
     host.appendChild(btn);
   }
 
-  function scan(){document.querySelectorAll('.material-row,.service-row').forEach(decorate);}
+  function scan(){
+    hideLegacyPpnUi();
+    document.querySelectorAll('.material-row,.service-row').forEach(decorate);
+  }
 
   function watch(id){
     const box=document.getElementById(id);
     if(!box||box.dataset.pxlPricingWatch==='1')return;
     box.dataset.pxlPricingWatch='1';
-    new MutationObserver(()=>scan()).observe(box,{childList:true});
+    new MutationObserver(()=>scan()).observe(box,{childList:true,subtree:true});
   }
 
   function install(){
     scan();
     watch('materialItems');
     watch('serviceItems');
-    document.addEventListener('focusin',e=>{const row=e.target?.closest?.('.material-row,.service-row');if(row)decorate(row);});
+    document.addEventListener('focusin',e=>{const row=e.target?.closest?.('.material-row,.service-row');if(row){decorate(row);hideLegacyPpnUi();}});
     window.PXL_URG_0030={revision:REV,calculate:(hpp,upPct,feePct,ppnPct)=>{
       const up=n(hpp)*n(upPct)/100,feeBase=n(hpp)+up,fee=feeBase*n(feePct)/100,exPpn=feeBase+fee,ppn=exPpn*n(ppnPct)/100;
       return {hpp:n(hpp),up,feeBase,fee,exPpn,ppn,final:exPpn+ppn,net:exPpn-n(hpp)};

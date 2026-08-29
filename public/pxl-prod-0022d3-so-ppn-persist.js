@@ -157,12 +157,12 @@
   }
 })();
 
-// PXL-URG-0030A — fallback loader. File ini sudah pasti dimuat oleh Sales Order.
+// PXL-URG-0030B — fallback loader kalkulator harga final include PPN.
 (function(){
   'use strict';
-  if(window.PXL_URG_0030 || document.querySelector('script[data-pxl-pricing-loader]')) return;
+  if(window.PXL_URG_0030?.revision==='PXL-URG-0030B' || document.querySelector('script[data-pxl-pricing-loader="0030B"]')) return;
   const script=document.createElement('script');
-  script.dataset.pxlPricingLoader='1';
-  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030A';
+  script.dataset.pxlPricingLoader='0030B';
+  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030B';
   document.head.appendChild(script);
 })();
