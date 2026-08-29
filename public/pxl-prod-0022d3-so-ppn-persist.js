@@ -60,8 +60,6 @@
       ...document.querySelectorAll('.service-row')
     ];
 
-    // Untuk Operasional, pastikan flag PPN dari DOM ikut terbawa.
-    // Untuk Project, item sudah membawa ppn_* dari modul Site.
     if(!payload.items.some(x=>'ppn_applied' in x) && payload.items.length===domRows.length){
       payload.items.forEach((item,index)=>{
         const row=domRows[index];
@@ -101,8 +99,6 @@
 
     payload.material_subtotal=material;
     payload.service_subtotal=service;
-    // PXL-PROD-0022D4: sales_orders tidak memiliki kolom ppn_total.
-    // Nilai PPN tetap tersimpan per item (ppn_applied/ppn_rate/ppn_amount).
     delete payload.ppn_total;
     payload.quotation_total=grand;
     payload.total_amount=grand;
@@ -134,8 +130,6 @@
       return oldRender();
     };
 
-    // Data biasanya sudah selesai dimuat sebelum patch ini terpasang.
-    // Normalisasi sekali dan render ulang agar TOTAL langsung benar.
     try{
       if(typeof D!=='undefined' && Array.isArray(D?.sales_orders)){
         D.sales_orders.forEach(normalizeOrderForDisplay);
@@ -157,12 +151,12 @@
   }
 })();
 
-// PXL-URG-0030B — fallback loader kalkulator harga final include PPN.
+// PXL-URG-0030C — fallback loader kalkulator harga final include PPN.
 (function(){
   'use strict';
-  if(window.PXL_URG_0030?.revision==='PXL-URG-0030B' || document.querySelector('script[data-pxl-pricing-loader="0030B"]')) return;
+  if(window.PXL_URG_0030?.revision==='PXL-URG-0030C' || document.querySelector('script[data-pxl-pricing-loader="0030C"]')) return;
   const script=document.createElement('script');
-  script.dataset.pxlPricingLoader='0030B';
-  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030B';
+  script.dataset.pxlPricingLoader='0030C';
+  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030C';
   document.head.appendChild(script);
 })();
