@@ -170,7 +170,7 @@
    const invoices=typeof getDashInvoices==='function'?getDashInvoices():[];
    const sums={};invoices.forEach(x=>{const p=x.sales_pic||'(Tanpa PIC)';sums[p]=(sums[p]||0)+Number(x.total_amount||0);});
    const rows=Object.entries(sums).sort((a,b)=>b[1]-a[1]).slice(0,10),max=Math.max(1,...rows.map(x=>x[1]));
-   el.innerHTML=rows.length?`<div class="dash-bar-list">${rows.map(([n,v])=>`<div class="dash-bar-row"><div class="dash-bar-label">${esc(n)}</div><div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(v/max*100)}%"></div></div><div class="dash-bar-val">${Number(v).toLocaleString('id-ID')}</div></div>`).join('')}</div>`:'<div class="no-data">Belum ada data invoice per Sales.</div>';
+   el.innerHTML=rows.length?`<div class="dash-bar-list">${rows.map(([n,v])=>`<div class="dash-bar-row"><div class="dash-bar-label">${esc(n)}</div><div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${Math.round(v/max*100)}%"></div></div><div class="dash-bar-val">${Number(v).toLocaleString('id-ID')}</div></div>`}).join('')}</div>`:'<div class="no-data">Belum ada data invoice per Sales.</div>';
  };
  window.renderTargetChart=window.renderTargetChart||function(_data,target='dash-target-chart'){
    const el=document.getElementById(target);if(!el)return;
@@ -186,12 +186,12 @@
  window.PXL_STG_0020A={revision:'PXL-PROD-0022DB4',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation','dashboard-initial-load','startup-request-priority','shared-dashboard-data-init']};
 })();
 
-// PXL-URG-0031A — main app loader for Purchase Request PDF branding + outlet lock.
+// PXL-URG-0031E — main app loader for Purchase Request PDF renderer.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-pr-branding="0031A"]')) return;
+  if(document.querySelector('script[data-pxl-pr-branding="0031E"]')) return;
   const s=document.createElement('script');
-  s.dataset.pxlPrBranding='0031A';
-  s.src='/pxl-urg-0031-pr-pdf-branding.js?v=PXL-URG-0031A';
+  s.dataset.pxlPrBranding='0031E';
+  s.src='/pxl-urg-0031-pr-pdf-branding.js?v=PXL-URG-0031E';
   document.head.appendChild(s);
 })();
