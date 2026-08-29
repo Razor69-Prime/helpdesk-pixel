@@ -1,7 +1,7 @@
-/* PXL-URG-0032G — Styling/DOM placement only: force WO controls into their own row on browser desktop layout. No add/edit/save/PDF/database logic changes. */
+/* PXL-URG-0032H — Styling/DOM placement only: keep browser desktop controls compact, restore native readable PWA controls. No add/edit/save/PDF/database logic changes. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0032G';
+  const REV='PXL-URG-0032H';
   let timer=null;
 
   function styleRemarks(el){
@@ -56,12 +56,21 @@
     }
   }
 
-  function isStandalone(){
-    try{return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}catch(_){return false;}
+  function isPwaMode(){
+    try{
+      const standalone=window.matchMedia('(display-mode: standalone)').matches;
+      const fullscreen=window.matchMedia('(display-mode: fullscreen)').matches;
+      const minimalUi=window.matchMedia('(display-mode: minimal-ui)').matches;
+      const iosStandalone=window.navigator.standalone===true;
+      const androidApp=String(document.referrer||'').startsWith('android-app://');
+      return standalone||fullscreen||minimalUi||iosStandalone||androidApp;
+    }catch(_){
+      return window.navigator.standalone===true || String(document.referrer||'').startsWith('android-app://');
+    }
   }
 
   function browserDesktopLayoutActive(){
-    if(isStandalone()) return false;
+    if(isPwaMode()) return false;
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar) return false;
     try{
@@ -173,9 +182,6 @@
     const actions=card.querySelector('.ticket-actions');
     if(!header || !actions) return;
     actions.classList.add('pxl-0032g-controls');
-
-    // Keep controls out of the header columns entirely. Moving an existing node
-    // preserves all native click handlers and data attributes; no logic is changed.
     if(actions.parentElement!==card){
       header.insertAdjacentElement('afterend',actions);
     }else if(actions.previousElementSibling!==header){
@@ -183,10 +189,24 @@
     }
   }
 
+  function restoreNativeControls(card){
+    if(!card) return;
+    const header=card.querySelector('.ticket-header');
+    const actions=card.querySelector('.ticket-actions');
+    if(!header||!actions) return;
+    actions.classList.remove('pxl-0032g-controls');
+    // PWA/native mobile renderer expects actions inside ticket-header.
+    // Moving the same node back preserves all handlers and data attributes.
+    if(isPwaMode() && actions.parentElement!==header){
+      header.appendChild(actions);
+    }
+  }
+
   function apply(){
     const active=ensureBrowserDesktopStyle();
     document.querySelectorAll('.ticket-item').forEach(card=>{
       if(active) placeControls(card);
+      else if(isPwaMode()) restoreNativeControls(card);
       placeRemarks(card);
     });
   }
