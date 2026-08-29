@@ -1,23 +1,29 @@
-/* PXL-URG-0031A — Purchase Request presentation only. Numbering/calculation logic unchanged. */
+/* PXL-URG-0031B — PR PDF branding + response optimization. Numbering/calculation unchanged. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0031A';
+  const REV='PXL-URG-0031B';
   const LOGO='/pixel-solusindo-logo.png';
+  const LOGO_ALIAS='PXL_PR_LOGO_0031B';
   let logoData=null;
 
   function preloadLogo(){
     try{
       const img=new Image();
+      img.decoding='async';
       img.onload=()=>{
         try{
+          // Downscale once. Avoid feeding the original large logo to jsPDF on every page.
+          const maxW=420;
+          const ratio=Math.min(1,maxW/Math.max(1,img.naturalWidth||img.width));
+          const w=Math.max(1,Math.round((img.naturalWidth||img.width)*ratio));
+          const h=Math.max(1,Math.round((img.naturalHeight||img.height)*ratio));
           const c=document.createElement('canvas');
-          c.width=img.naturalWidth||img.width;
-          c.height=img.naturalHeight||img.height;
-          c.getContext('2d').drawImage(img,0,0);
+          c.width=w;c.height=h;
+          c.getContext('2d',{alpha:true}).drawImage(img,0,0,w,h);
           logoData=c.toDataURL('image/png');
-        }catch(_){}
+        }catch(e){console.warn(REV+' logo cache',e);}
       };
-      img.src=LOGO+'?v='+REV;
+      img.src=LOGO;
     }catch(_){}
   }
 
@@ -28,55 +34,52 @@
     if(lukluk) el.value=lukluk.value;
     el.disabled=true;
     el.setAttribute('aria-disabled','true');
-    // Pilihan outlet tidak lagi ditampilkan di form. Nilai internal tetap Lukluk
-    // agar numbering existing PR Lukluk tidak berubah.
     const group=el.closest('.form-group');
     if(group) group.style.display='none';
   }
 
   function patchShowPrForm(){
-    if(typeof window.showPRForm!=='function'||window.showPRForm.__pxl0031a) return;
+    if(typeof window.showPRForm!=='function'||window.showPRForm.__pxl0031b) return;
     const old=window.showPRForm;
     window.showPRForm=function(){
       const out=old.apply(this,arguments);
       lockPrOutlet();
-      setTimeout(lockPrOutlet,0);
       return out;
     };
-    window.showPRForm.__pxl0031a=true;
+    window.showPRForm.__pxl0031b=true;
   }
 
   function installPdfPatch(){
     const jsPDF=window.jspdf?.jsPDF;
-    if(!jsPDF?.API||jsPDF.API.__pxlUrg0031a) return;
-    jsPDF.API.__pxlUrg0031a=true;
+    if(!jsPDF?.API||jsPDF.API.__pxlUrg0031b) return;
+    jsPDF.API.__pxlUrg0031b=true;
     const oldText=jsPDF.API.text;
     jsPDF.API.text=function(text){
-      let value=Array.isArray(text)?text.join(' '):String(text??'');
-      const upper=value.trim().toUpperCase();
+      // Fast path: most PDF text never needs PR branding logic.
+      if(typeof text!=='string') return oldText.apply(this,arguments);
+      const raw=text.trim();
+      const upper=raw.toUpperCase();
 
       if(upper==='PIXEL SOLUSINDO'){
-        this.__pxlPrHeaderCandidate0031a=true;
+        this.__pxlPrHeader0031b=true;
         if(logoData){
           try{
             const x=Number(arguments[1])||15;
             const y=Number(arguments[2])||15;
-            this.addImage(logoData,'PNG',x,y-5,34,9,undefined,'FAST');
-            return this;
-          }catch(_){}
+            // Alias lets jsPDF reuse the already encoded logo on subsequent pages.
+            this.addImage(logoData,'PNG',x,y-5,34,9,LOGO_ALIAS,'FAST');
+          }catch(e){console.warn(REV+' add logo',e);}
         }
-        // Jika logo belum selesai dimuat, jangan cetak teks branding lama.
         return this;
       }
 
-      if(this.__pxlPrHeaderCandidate0031a&&(upper==='PIXEL BUDUK'||upper==='PIXEL LUKLUK')) return this;
+      if(this.__pxlPrHeader0031b&&(upper==='PIXEL BUDUK'||upper==='PIXEL LUKLUK')) return this;
+      if(upper==='PURCHASE REQUEST') this.__pxlPrPdf0031b=true;
 
-      if(upper==='PURCHASE REQUEST') this.__pxlPrPdf0031a=true;
-
-      if(this.__pxlPrPdf0031a){
+      if(this.__pxlPrPdf0031b){
         if(upper==='PURCHASING & ACCOUNTING') arguments[0]='Accounting';
-        else if(/\|\s*PIXEL\s+(BUDUK|LUKLUK)\s*\|/i.test(value)){
-          arguments[0]=value.replace(/\|\s*PIXEL\s+(BUDUK|LUKLUK)\s*\|/i,'|');
+        else if(raw.includes('| Pixel Buduk |')||raw.includes('| Pixel Lukluk |')){
+          arguments[0]=raw.replace(/\|\s*Pixel\s+(Buduk|Lukluk)\s*\|/i,'|');
         }
       }
       return oldText.apply(this,arguments);
@@ -87,16 +90,13 @@
     installPdfPatch();
     patchShowPrForm();
     lockPrOutlet();
-    setTimeout(()=>{installPdfPatch();patchShowPrForm();lockPrOutlet();},300);
-    setTimeout(()=>{installPdfPatch();patchShowPrForm();lockPrOutlet();},1200);
+    setTimeout(()=>{installPdfPatch();patchShowPrForm();lockPrOutlet();},350);
   }
 
+  // No global MutationObserver: it caused unnecessary work while the app/PDF was rendering.
   preloadLogo();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-
-  const obs=new MutationObserver(()=>lockPrOutlet());
-  try{obs.observe(document.documentElement,{childList:true,subtree:true});}catch(_){}
 
   window.PXL_URG_0031={revision:REV};
 })();
