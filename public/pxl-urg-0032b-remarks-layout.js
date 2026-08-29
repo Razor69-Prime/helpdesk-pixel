@@ -1,7 +1,7 @@
-/* PXL-URG-0032C — Layout/styling only: remarks output sits above status/date meta. No add/edit/save/PDF logic changes. */
+/* PXL-URG-0032E — Styling only: keep remarks output above meta and tidy WO controls on phone browser desktop-view. No add/edit/save/PDF logic changes. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0032C';
+  const REV='PXL-URG-0032E';
   let timer=null;
 
   function styleRemarks(el){
@@ -43,11 +43,6 @@
     const remarks=card.querySelector('.pxl-native-remarks-inline');
     if(!remarks) return;
     styleRemarks(remarks);
-
-    // Final target for PWA, browser mobile view and desktop:
-    // remarks is a direct child of the ticket card immediately ABOVE
-    // the status/date/duration row (.ticket-meta). This prevents it from
-    // inheriting the narrow left/right columns inside .ticket-header.
     const meta=directMeta(card);
     if(meta){
       if(remarks.parentElement!==card || remarks.nextElementSibling!==meta){
@@ -55,9 +50,6 @@
       }
       return;
     }
-
-    // Defensive fallback only when a renderer has no ticket-meta yet.
-    // Keep the output outside ticket-header/action columns.
     const header=card.querySelector('.ticket-header');
     if(header){
       if(remarks.parentElement!==card || remarks.previousElementSibling!==header){
@@ -66,7 +58,99 @@
     }
   }
 
+  function isStandalone(){
+    try{return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}catch(_){return false;}
+  }
+
+  function isPhoneBrowserDesktopView(){
+    if(isStandalone()) return false;
+    const ua=String(navigator.userAgent||'');
+    const mobileDevice=/Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    return mobileDevice && window.innerWidth>700;
+  }
+
+  function ensureBrowserPhoneStyle(){
+    const id='pxl-0032e-phone-browser-style';
+    let style=document.getElementById(id);
+    if(!isPhoneBrowserDesktopView()){
+      if(style) style.remove();
+      return;
+    }
+    if(style) return;
+    style=document.createElement('style');
+    style.id=id;
+    style.textContent=`
+      .ticket-item .ticket-header{
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:stretch!important;
+        justify-content:flex-start!important;
+        gap:8px!important;
+        width:100%!important;
+        min-width:0!important;
+      }
+      .ticket-item .ticket-header>div{
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+      }
+      .ticket-item .ticket-header .status-select{
+        display:block!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+      }
+      .ticket-item .ticket-actions{
+        display:flex!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+        gap:5px!important;
+        flex-wrap:nowrap!important;
+        align-items:stretch!important;
+        justify-content:stretch!important;
+      }
+      .ticket-item .ticket-actions .btn,
+      .ticket-item .ticket-actions button,
+      .ticket-item .ticket-actions a{
+        flex:1 1 0!important;
+        width:auto!important;
+        min-width:0!important;
+        max-width:none!important;
+        min-height:34px!important;
+        padding:5px 6px!important;
+        margin:0!important;
+        justify-content:center!important;
+        text-align:center!important;
+        font-size:10.5px!important;
+        line-height:1.15!important;
+        white-space:nowrap!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        box-sizing:border-box!important;
+      }
+      .ticket-item .ticket-actions .pxl-native-remarks-btn{
+        flex:1.25 1 0!important;
+      }
+      .ticket-item .ticket-wo,
+      .ticket-item .ticket-tech,
+      .ticket-item .ticket-project{
+        position:static!important;
+        max-width:100%!important;
+        overflow-wrap:anywhere!important;
+      }
+      .ticket-item .ticket-meta{
+        position:static!important;
+        clear:both!important;
+        width:100%!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function apply(){
+    ensureBrowserPhoneStyle();
     document.querySelectorAll('.ticket-item').forEach(placeRemarks);
   }
 
@@ -78,6 +162,7 @@
   const observer=new MutationObserver(schedule);
   observer.observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener('resize',schedule,{passive:true});
+  window.addEventListener('orientationchange',schedule,{passive:true});
   document.addEventListener('DOMContentLoaded',apply);
   setTimeout(apply,0);
   setTimeout(apply,250);
