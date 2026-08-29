@@ -185,3 +185,13 @@
  window.PXL_DB4={revision:'PXL-PROD-0022DB4',warmDashboardShared,loadShared,sharedJobs,sharedLoadedAt};
  window.PXL_STG_0020A={revision:'PXL-PROD-0022DB4',criticalFixes:['dashboard-tech','dashboard-invoice','kanban','purchase-request-validation','dashboard-initial-load','startup-request-priority','shared-dashboard-data-init']};
 })();
+
+// PXL-URG-0031A — main app loader for Purchase Request PDF branding + outlet lock.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-pr-branding="0031A"]')) return;
+  const s=document.createElement('script');
+  s.dataset.pxlPrBranding='0031A';
+  s.src='/pxl-urg-0031-pr-pdf-branding.js?v=PXL-URG-0031A';
+  document.head.appendChild(s);
+})();
