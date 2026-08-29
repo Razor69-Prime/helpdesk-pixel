@@ -156,3 +156,13 @@
     install();
   }
 })();
+
+// PXL-URG-0030A — fallback loader. File ini sudah pasti dimuat oleh Sales Order.
+(function(){
+  'use strict';
+  if(window.PXL_URG_0030 || document.querySelector('script[data-pxl-pricing-loader]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlPricingLoader='1';
+  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030A';
+  document.head.appendChild(script);
+})();
