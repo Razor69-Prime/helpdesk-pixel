@@ -1,7 +1,7 @@
-/* PXL-URG-0028B + PXL-AI-0007E — safe in-app shell for AI Report + Kanban.
+/* PXL-URG-0028B + PXL-AI-0007F — safe in-app shell for AI Report + Kanban.
  * Main PixelApps page/session stays alive; module opens in a same-origin iframe overlay.
  * Closing/Kembali only removes the overlay. No reload, no logout/relogin.
- * PXL-AI-0007E injects the corrected Weekly collector as the final renderer/source-of-truth.
+ * PXL-AI-0007F injects the corrected Weekly collector as the final renderer/source-of-truth.
  */
 (function(){'use strict';
   let shell=null,frame=null,oldOverflow='';
@@ -49,7 +49,7 @@
           const old=frame.contentDocument.querySelector('script[data-pxl-ai-0007a]');
           if(old)old.remove();
           const script=frame.contentDocument.createElement('script');
-          script.src='/pxl-ai-0007a-weekly.js?v=PXL-AI-0007E';
+          script.src='/pxl-ai-0007a-weekly.js?v=PXL-AI-0007F';
           script.dataset.pxlAi0007a='1';
           frame.contentDocument.body.appendChild(script);
         }
@@ -68,5 +68,5 @@
     if(kb){e.preventDefault();e.stopImmediatePropagation();openShell('/kanban.html','🗓️ Kanban Teknisi');}
   },true);
 
-  window.PXL_SAFE_MODULE_SHELL={close:closeShell,open:openShell,revision:'PXL-URG-0028B/PXL-AI-0007E'};
+  window.PXL_SAFE_MODULE_SHELL={close:closeShell,open:openShell,revision:'PXL-URG-0028B/PXL-AI-0007F'};
 })();
