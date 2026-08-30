@@ -1,6 +1,6 @@
 'use strict';
 
-// PXL-STG-0020E — Invoice V1 auto-fill Sales Order, route installer JWT tetap aktif.
+// PXL-STG-0020E + PXL-AI-0007E — Invoice V1 auto-fill Sales Order, AI Report corrected Weekly source active.
 // Paket PXL-STG-0006A–0006N dan flow Material Request PXL-STG-0005 tetap aktif.
 require('./pxl-stg-0006b');
 require('./pxl-stg-0006c');
@@ -88,7 +88,7 @@ express.static=function pxl0008a20Static(root,options){
           '<script src="/pxl-stg-0008a6-invoice-menu.js?v=PXL-STG-0020E"></script>',
           '<script src="/pxl-ai-0001.js?v=PXL-AI-0004D"></script>',
           '<script src="/pxl-ai-0005a.js?v=PXL-AI-0005A"></script>',
-          '<script src="/pxl-urg-0008.js?v=PXL-URG-0008"></script>',
+          '<script src="/pxl-urg-0008.js?v=PXL-AI-0007E"></script>',
           '<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0027J"></script>',
           '<script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-URG-0025"></script>',
           '<script src="/pxl-urg-0021-sales-order-manual-material-maps.js?v=PXL-URG-0021"></script>',
