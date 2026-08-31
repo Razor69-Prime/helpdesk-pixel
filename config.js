@@ -5,6 +5,8 @@
 
 // PXL-AI-0005A — Gemini health wrapper only; no business data is sent.
 require('./pxl-ai-0005a');
+// PXL-URG-0035 — isolated Manager/Superadmin WO date editor guard.
+require('./pxl-urg-0035-wo-date-edit');
 // Urutan wrapper penting: akses Inventory MR 0004E, pencarian 0004D,
 // formula qty 0004F, integrasi 0004C, reminder 0004B, hardening SO 0004A.
 require('./pxl-stg-0004e');
