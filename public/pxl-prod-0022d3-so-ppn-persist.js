@@ -181,12 +181,12 @@
   document.head.appendChild(script);
 })();
 
-// PXL-URG-0036 — Excel import Material/Jasa into Sales Order draft form.
+// PXL-URG-0036A — Excel import Material/Jasa into Sales Order draft; unmatched Material stays editable until Inventory selected.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-so-excel-import="0036"]')) return;
+  if(document.querySelector('script[data-pxl-so-excel-import="0036A"]')) return;
   const script=document.createElement('script');
-  script.dataset.pxlSoExcelImport='0036';
-  script.src='/pxl-urg-0036-so-excel-import.js?v=PXL-URG-0036';
+  script.dataset.pxlSoExcelImport='0036A';
+  script.src='/pxl-urg-0036-so-excel-import.js?v=PXL-URG-0036A';
   document.head.appendChild(script);
 })();
