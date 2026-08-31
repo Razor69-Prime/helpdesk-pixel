@@ -180,3 +180,13 @@
   script.src='/pxl-urg-0034-so-customer-picker.js?v=PXL-URG-0034';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0036 — Excel import Material/Jasa into Sales Order draft form.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-so-excel-import="0036"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlSoExcelImport='0036';
+  script.src='/pxl-urg-0036-so-excel-import.js?v=PXL-URG-0036';
+  document.head.appendChild(script);
+})();
