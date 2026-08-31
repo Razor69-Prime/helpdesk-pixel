@@ -170,3 +170,13 @@
   script.src='/pxl-urg-0031-pr-pdf-branding.js?v=PXL-URG-0031';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0034 — CRM customer fast search for Sales Order. UI-only, manual input remains allowed.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-so-customer-picker="0034"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlSoCustomerPicker='0034';
+  script.src='/pxl-urg-0034-so-customer-picker.js?v=PXL-URG-0034';
+  document.head.appendChild(script);
+})();
