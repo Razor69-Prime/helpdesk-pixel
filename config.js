@@ -7,6 +7,8 @@
 require('./pxl-ai-0005a');
 // PXL-URG-0035 — isolated Manager/Superadmin WO date editor guard.
 require('./pxl-urg-0035-wo-date-edit');
+// PXL-URG-0036 — isolated Sales Order Excel parser/template routes.
+require('./pxl-urg-0036-so-excel-import');
 // Urutan wrapper penting: akses Inventory MR 0004E, pencarian 0004D,
 // formula qty 0004F, integrasi 0004C, reminder 0004B, hardening SO 0004A.
 require('./pxl-stg-0004e');
