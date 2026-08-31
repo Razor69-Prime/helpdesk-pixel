@@ -228,3 +228,13 @@
 
   window.PXL_URG_0032B={revision:REV,refresh:apply};
 })();
+
+// PXL-URG-0035 — isolated WO date editor loader; no remarks/layout behavior changed.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-wo-date-edit="0035"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlWoDateEdit='0035';
+  script.src='/pxl-urg-0035-wo-date-edit.js?v=PXL-URG-0035';
+  document.head.appendChild(script);
+})();
