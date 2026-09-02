@@ -1,10 +1,9 @@
 'use strict';
-/* PXL-URG-0037 — Purchase Request permission bridge.
- * Makes backend PR routes honor Manajemen Akun pr_roles while preserving legacy role access.
- * Reads the current user from DB on every PR request so permission changes do not depend on stale JWT claims.
+/* PXL-URG-0037A — Purchase Request permission bridge hotfix.
+ * Prevents startup circular dependency by lazy-loading db only inside request handling.
+ * Keeps Manajemen Akun pr_roles support while preserving legacy role access.
  */
 const express=require('express');
-const db=require('./db');
 
 const LEGACY_ROLES=new Set(['superadmin','manager','accounting','admin']);
 const READ_PERMS=new Set(['maker_pr','approval_pr1','approval_pr2','purchasing','supplier_admin']);
@@ -20,6 +19,9 @@ async function currentAccount(req){
   const sessionUser=req.session?.user;
   if(!sessionUser) return null;
   try{
+    // Lazy require is intentional: config.js loads this wrapper before config exports are ready.
+    // Loading db at module startup creates a config <-> db circular dependency and can crash Vercel.
+    const db=require('./db');
     const users=await db.getUsers();
     return users.find(u=>String(u.id)===String(sessionUser.id))||sessionUser;
   }catch(_){
@@ -39,7 +41,7 @@ async function canRead(req,res,next){
 async function canCreate(req,res,next){
   const u=await currentAccount(req);
   if(!u) return res.status(401).json({error:'Unauthorized'});
-  if(LEGACY_ROLES.has(role(u.role))||Array.isArray(u.pr_roles)&&u.pr_roles.includes('maker_pr')) return next();
+  if(LEGACY_ROLES.has(role(u.role))||(Array.isArray(u.pr_roles)&&u.pr_roles.includes('maker_pr'))) return next();
   return deny(res);
 }
 
