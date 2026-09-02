@@ -239,3 +239,13 @@
   script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038B';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0038C — add customer name to Copy WhatsApp report without changing WO logic.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-ticket-wa-customer="0038C"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlTicketWaCustomer='0038C';
+  script.src='/pxl-urg-0038c-wa-customer.js?v=PXL-URG-0038C';
+  document.head.appendChild(script);
+})();
