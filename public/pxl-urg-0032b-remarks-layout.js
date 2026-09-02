@@ -238,3 +238,13 @@
   script.src='/pxl-urg-0035-wo-date-edit.js?v=PXL-URG-0035';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0038 — isolated read-only Ticket Detail modal loader.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-ticket-detail="0038"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlTicketDetail='0038';
+  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038';
+  document.head.appendChild(script);
+})();
