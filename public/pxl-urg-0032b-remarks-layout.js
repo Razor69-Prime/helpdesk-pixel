@@ -229,13 +229,13 @@
   document.head.appendChild(script);
 })();
 
-// PXL-URG-0038A — isolated read-only Ticket Detail modal loader; cache-busted for PWA/mobile.
+// PXL-URG-0038B — isolated Ticket Detail + Copy WhatsApp loader; cache-busted for PWA/mobile.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-ticket-detail="0038A"]')) return;
-  document.querySelectorAll('script[data-pxl-ticket-detail="0038"]').forEach(el=>el.remove());
+  if(document.querySelector('script[data-pxl-ticket-detail="0038B"]')) return;
+  document.querySelectorAll('script[data-pxl-ticket-detail]').forEach(el=>el.remove());
   const script=document.createElement('script');
-  script.dataset.pxlTicketDetail='0038A';
-  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038A';
+  script.dataset.pxlTicketDetail='0038B';
+  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038B';
   document.head.appendChild(script);
 })();
