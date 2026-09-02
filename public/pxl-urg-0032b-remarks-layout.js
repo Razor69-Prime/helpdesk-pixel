@@ -195,8 +195,6 @@
     const actions=card.querySelector('.ticket-actions');
     if(!header||!actions) return;
     actions.classList.remove('pxl-0032g-controls');
-    // PWA/native mobile renderer expects actions inside ticket-header.
-    // Moving the same node back preserves all handlers and data attributes.
     if(isPwaMode() && actions.parentElement!==header){
       header.appendChild(actions);
     }
@@ -211,21 +209,13 @@
     });
   }
 
-  function schedule(){
-    clearTimeout(timer);
-    timer=setTimeout(apply,60);
-  }
-
+  function schedule(){clearTimeout(timer);timer=setTimeout(apply,60);}
   const observer=new MutationObserver(schedule);
   observer.observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener('resize',schedule,{passive:true});
   window.addEventListener('orientationchange',schedule,{passive:true});
   document.addEventListener('DOMContentLoaded',apply);
-  setTimeout(apply,0);
-  setTimeout(apply,250);
-  setTimeout(apply,1000);
-  setInterval(apply,5000);
-
+  setTimeout(apply,0);setTimeout(apply,250);setTimeout(apply,1000);setInterval(apply,5000);
   window.PXL_URG_0032B={revision:REV,refresh:apply};
 })();
 
@@ -239,12 +229,13 @@
   document.head.appendChild(script);
 })();
 
-// PXL-URG-0038 — isolated read-only Ticket Detail modal loader.
+// PXL-URG-0038A — isolated read-only Ticket Detail modal loader; cache-busted for PWA/mobile.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-ticket-detail="0038"]')) return;
+  if(document.querySelector('script[data-pxl-ticket-detail="0038A"]')) return;
+  document.querySelectorAll('script[data-pxl-ticket-detail="0038"]').forEach(el=>el.remove());
   const script=document.createElement('script');
-  script.dataset.pxlTicketDetail='0038';
-  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038';
+  script.dataset.pxlTicketDetail='0038A';
+  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-URG-0038A';
   document.head.appendChild(script);
 })();
