@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Master Pricelist — PixelApps</title>
 <style>
-:root{--bg:#f7f6f3;--surface:#fff;--border:#e2ded6;--text:#1a1916;--muted:#756f66;--accent:#e07b39;--accent-light:#fdf0e7;--green:#3b6d11;--green-bg:#eaf3de;--red:#b3261e;--radius:10px}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);font-size:13px}.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}.wrap{max-width:1180px;margin:auto;padding:16px}.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}.btn{border:1px solid var(--border);background:#fff;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer}.btn:hover{background:#f0eee9}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between}.muted{color:var(--muted)}.ok{color:var(--green);font-weight:700}.err{color:var(--red);font-weight:700}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}input,select{font:inherit;border:1px solid var(--border);background:#faf9f6;border-radius:7px;padding:9px 10px}.search{flex:1;min-width:220px}table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#faf8f3;position:sticky;top:55px}.price{font-weight:800;white-space:nowrap}.badge{display:inline-block;padding:3px 7px;border-radius:999px;background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700}.empty{padding:26px;text-align:center;color:var(--muted)}.notice{font-size:11px;line-height:1.5;color:var(--muted)}
+:root{--bg:#f7f6f3;--surface:#fff;--border:#e2ded6;--text:#1a1916;--muted:#756f66;--accent:#e07b39;--accent-light:#fdf0e7;--green:#3b6d11;--green-bg:#eaf3de;--red:#b3261e;--radius:10px}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);font-size:13px}.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}.wrap{max-width:1180px;margin:auto;padding:16px}.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}.btn{border:1px solid var(--border);background:#fff;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer}.btn:hover{background:#f0eee9}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.status{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between}.muted{color:var(--muted)}.ok{color:var(--green);font-weight:700}.err{color:var(--red);font-weight:700}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}input,select{font:inherit;border:1px solid var(--border);background:#faf9f6;border-radius:7px;padding:9px 10px}.search{flex:1;min-width:220px}table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#faf8f3;position:sticky;top:55px}.price{font-weight:800;white-space:nowrap}.badge{display:inline-block;padding:3px 7px;border-radius:999px;background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700}.brand-badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#f3f1ec;color:#5f5a52;font-size:10px;font-weight:700}.empty{padding:26px;text-align:center;color:var(--muted)}.notice{font-size:11px;line-height:1.5;color:var(--muted)}
 @media(max-width:720px){
   .wrap{padding:10px}.top{padding:10px}.hide-mobile{display:none!important}
   .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.toolbar .search{grid-column:1/-1;width:100%;min-width:0}.toolbar select{width:100%;min-width:0}
@@ -17,6 +17,7 @@
   #priceTable td{display:block!important;width:auto!important;border:0!important;padding:0!important;min-width:0}
   #priceTable td:nth-child(1){grid-column:1;grid-row:1}
   #priceTable td:nth-child(2){grid-column:2;grid-row:1;align-self:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.035em}
+  #priceTable td:nth-child(2)::before{content:'BRAND';font-size:8px;font-weight:700;color:#9a948b;margin-right:5px;letter-spacing:.05em}
   #priceTable td:nth-child(3){grid-column:1/-1;grid-row:2;font-size:14px;line-height:1.4;overflow-wrap:anywhere;word-break:normal;padding-top:2px!important}
   #priceTable td:nth-child(4){grid-column:1/-1;grid-row:3;font-size:15px;line-height:1.2;font-weight:800;padding-top:9px!important;border-top:1px solid #eee!important}
   #priceTable td:nth-child(4)::before{content:'HPP (Non PPN)';display:block;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
@@ -27,7 +28,7 @@
 </style>
 </head>
 <body>
-<div class="top"><div><b style="font-size:16px">Master Pricelist</b><div class="muted" style="font-size:10px;margin-top:2px">PXL-URG-0040C · Trial Google Sheet · READ ONLY</div></div><button class="btn" id="closeBtn">Tutup</button></div>
+<div class="top"><div><b style="font-size:16px">Master Pricelist</b><div class="muted" style="font-size:10px;margin-top:2px">PXL-URG-0040D · Trial Google Sheet · READ ONLY</div></div><button class="btn" id="closeBtn">Tutup</button></div>
 <div class="wrap">
   <div class="card" id="accessCard"><b>Memeriksa akses...</b><div class="muted" style="margin-top:5px">Menu ini khusus Superadmin.</div></div>
   <div id="app" hidden>
@@ -59,9 +60,34 @@ function rupiah(v){return 'Rp '+Math.round(Number(v)||0).toLocaleString('id-ID')
 function gviz(tab){return new Promise((resolve,reject)=>{const cb='pxlPricelist_'+Date.now()+'_'+Math.random().toString(36).slice(2);const s=document.createElement('script');let done=false;const finish=(err,data)=>{if(done)return;done=true;try{delete window[cb]}catch(_){window[cb]=undefined}s.remove();err?reject(err):resolve(data)};window[cb]=data=>finish(null,data);s.onerror=()=>finish(new Error('Google Sheet tidak dapat dibaca. Pastikan sharing Viewer dapat diakses oleh link.'));s.src='https://docs.google.com/spreadsheets/d/'+encodeURIComponent(SHEET_ID)+'/gviz/tq?sheet='+encodeURIComponent(tab)+'&tqx='+encodeURIComponent('responseHandler:'+cb);document.head.appendChild(s);setTimeout(()=>finish(new Error('Timeout membaca '+tab)),12000);})}
 function tableRows(resp){const cols=resp?.table?.cols||[],data=resp?.table?.rows||[];return data.map(r=>Array.from({length:cols.length},(_,i)=>r?.c?.[i]?.v??r?.c?.[i]?.f??''));}
 function likelyHeading(v){const s=norm(v);if(!s||GENERIC.has(s))return false;if(BRAND_HINTS.some(x=>s===x||s.includes(x)))return true;return /^[A-Z0-9 &+._/-]{2,28}$/.test(txt(v))&&s===txt(v).toUpperCase()&&!/\d{2,}/.test(s)}
-function inferBrand(name,current){const n=norm(name);const hit=BRAND_HINTS.find(x=>n.includes(x));return hit||current||'LAINNYA'}
+function modelBrand(name){
+  const n=norm(name);
+  if(/^(DS-|IDS-|HIKVISION\b)/.test(n)||/\bHIKVISION\b/.test(n))return'HIKVISION';
+  if(/\bEZVIZ\b/.test(n)||/^(H1C|C6N|H6C|H3C|H8C|H7C|H9C|H80|H90|HB8|H4\b|BRACKET OEM EZVIZ|NVR WIRELES X5S)/.test(n))return'EZVIZ';
+  if(/\bTIANDY\b/.test(n)||/^TC-/.test(n)||/^PAKET CAM TIANDY/.test(n))return'TIANDY';
+  if(/\bIMOU\b/.test(n)||/^1108HS-W-S2/.test(n))return'IMOU';
+  if(/\bDAHUA\b/.test(n)||/^DH[-I_]/.test(n)||/^DHI-/.test(n))return'DAHUA';
+  if(/\bHILOOK\b/.test(n)||/^(THC-|DVR-20|IPC-[BD]|NVR-(104|108|116|232)|NS-01)/.test(n))return'HILOOK';
+  if(/\bBEANS\b/.test(n))return'BEANS VIEW';
+  if(/\bHIVIEW\b/.test(n))return'HIVIEW';
+  if(/\bRUIJIE\b/.test(n)||/^RG-/.test(n))return'RUIJIE';
+  if(/\bTENDA\b/.test(n))return'TENDA';
+  if(/\bTP-LINK\b|\bTP LINK\b/.test(n)||/^TL-|^LS1005/.test(n))return'TP-LINK';
+  if(/\bSEAGATE\b/.test(n))return'SEAGATE';
+  if(/\bHIKSEMI\b/.test(n))return'HIKSEMI';
+  if(/\bSANDISK\b/.test(n))return'SANDISK';
+  if(/\bKINGSTON\b/.test(n))return'KINGSTON';
+  if(/\bLEXAR\b/.test(n))return'LEXAR';
+  if(/\bBELDEN\b/.test(n))return'BELDEN';
+  if(/\bSPECTRA\b/.test(n))return'SPECTRA';
+  if(/\bULTIMATE\b/.test(n))return'ULTIMATE';
+  if(/\bVENTION\b/.test(n))return'VENTION';
+  if(/\bRFI\b/.test(n))return'RFI';
+  return'';
+}
+function inferBrand(name,current){const n=norm(name);const explicit=BRAND_HINTS.find(x=>n.includes(x));return modelBrand(name)||explicit||current||'LAINNYA'}
 function parse(tab,matrix){const out=[],brandByCol={};for(let r=0;r<matrix.length;r++){const row=matrix[r]||[];for(let c=0;c<row.length;c++){const value=txt(row[c]);if(!value)continue;const next=row[c+1];if(likelyHeading(value)&&!num(next)){brandByCol[c]=norm(value);continue}const price=num(next);if(!price||GENERIC.has(norm(value)))continue;let brand=inferBrand(value,brandByCol[c]);if(brand==='IP CAMERA HILOOK'||brand==='ANALOG HILOOK')brand='HILOOK';out.push({category:tab,brand,name:value,price,source:tab+'!'+String.fromCharCode(65+c)+(r+1)});c++;}}return out}
-function render(){const q=norm($('search').value),cat=$('category').value,br=$('brand').value;const filtered=rows.filter(x=>(!cat||x.category===cat)&&(!br||x.brand===br)&&(!q||norm(x.name+' '+x.brand+' '+x.category).includes(q)));$('count').textContent=filtered.length;$('tbody').innerHTML=filtered.length?filtered.map(x=>'<tr><td><span class="badge">'+esc(x.category)+'</span></td><td>'+esc(x.brand)+'</td><td><b>'+esc(x.name)+'</b></td><td class="price">'+rupiah(x.price)+'</td><td class="hide-mobile muted">'+esc(x.source)+'</td></tr>').join(''):'<tr class="empty-row"><td colspan="5" class="empty">Tidak ada item sesuai filter.</td></tr>'}
+function render(){const q=norm($('search').value),cat=$('category').value,br=$('brand').value;const filtered=rows.filter(x=>(!cat||x.category===cat)&&(!br||x.brand===br)&&(!q||norm(x.name+' '+x.brand+' '+x.category).includes(q)));$('count').textContent=filtered.length;$('tbody').innerHTML=filtered.length?filtered.map(x=>'<tr><td><span class="badge">'+esc(x.category)+'</span></td><td><span class="brand-badge">'+esc(x.brand)+'</span></td><td><b>'+esc(x.name)+'</b></td><td class="price">'+rupiah(x.price)+'</td><td class="hide-mobile muted">'+esc(x.source)+'</td></tr>').join(''):'<tr class="empty-row"><td colspan="5" class="empty">Tidak ada item sesuai filter.</td></tr>'}
 function brands(){const current=$('brand').value,list=[...new Set(rows.map(x=>x.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b));$('brand').innerHTML='<option value="">Semua Brand</option>'+list.map(x=>'<option>'+esc(x)+'</option>').join('');if(list.includes(current))$('brand').value=current}
 async function sync(){const b=$('syncBtn');b.disabled=true;b.textContent='⏳ Membaca Google Sheet...';$('syncStatus').textContent='Sinkronisasi...';$('syncStatus').className='';try{const data=await Promise.all(TABS.map(async tab=>parse(tab,tableRows(await gviz(tab)))));const merged=data.flat();if(!merged.length)throw new Error('Tidak ada item harga yang berhasil dibaca');rows=merged;brands();render();$('syncStatus').textContent='Berhasil · '+rows.length+' item';$('syncStatus').className='ok';$('syncTime').textContent=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});}catch(e){$('syncStatus').textContent='Gagal: '+String(e.message||e);$('syncStatus').className='err';}finally{b.disabled=false;b.textContent='🔄 Sinkron Harga'}}
 $('syncBtn').onclick=sync;$('search').oninput=render;$('category').onchange=render;$('brand').onchange=render;$('closeBtn').onclick=()=>{try{if(window.parent!==window&&typeof window.parent.PXL_URG_0040_CLOSE==='function')return window.parent.PXL_URG_0040_CLOSE()}catch(_){}history.back()};guard();
