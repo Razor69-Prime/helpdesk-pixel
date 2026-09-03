@@ -63,3 +63,13 @@
   script.src='/pxl-urg-0038d-dual-technician.js?v=PXL-URG-0038D';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0039 — isolated 7 Hari Kedepan filter for Daftar Tiket.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-ticket-future7="0039"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlTicketFuture7='0039';
+  script.src='/pxl-urg-0039-ticket-future7-filter.js?v=PXL-URG-0039';
+  document.head.appendChild(script);
+})();
