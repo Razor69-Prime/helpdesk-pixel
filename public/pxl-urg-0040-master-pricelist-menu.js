@@ -1,7 +1,7 @@
-/* PXL-URG-0040 — Isolated Master Pricelist trial menu. Superadmin only. No Pricing/Inventory/SO integration. */
+/* PXL-URG-0040C — Isolated Master Pricelist trial menu. Superadmin only. No Pricing/Inventory/SO integration. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0040';
+  const REV='PXL-URG-0040C';
   if(window.PXL_URG_0040?.revision===REV)return;
   const norm=v=>String(v??'').trim().toLowerCase().replace(/[ _-]/g,'');
   function user(){try{return window.currentUser||currentUser||null}catch(_){return window.currentUser||null}}
@@ -22,17 +22,17 @@
   function ensureMenu(){
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar)return;
-    let btn=sidebar.querySelector('[data-pxl-master-pricelist="0040"]');
+    let btn=sidebar.querySelector('[data-pxl-master-pricelist]');
     if(!isSuperadmin()){btn?.remove();return}
     if(!btn){
       btn=document.createElement('button');
       btn.type='button';
       btn.className='nav-btn';
-      btn.dataset.pxlMasterPricelist='0040';
+      btn.dataset.pxlMasterPricelist='0040C';
       btn.innerHTML='<span>💰</span><span class="nav-label">Master Pricelist</span>';
       const inventory=[...sidebar.querySelectorAll('.nav-btn,button,a')].find(x=>/inventory/i.test(x.textContent||''));
       if(inventory?.parentNode)inventory.parentNode.insertBefore(btn,inventory.nextSibling);else sidebar.appendChild(btn);
-    }
+    }else btn.dataset.pxlMasterPricelist='0040C';
     btn.onclick=e=>{e.preventDefault();e.stopPropagation();open()};
   }
   function refresh(){ensureMenu()}
