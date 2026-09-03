@@ -1,42 +1,44 @@
-/* PXL-URG-0041D — Material Request mobile readability only. No flow/logic/database changes. */
+/* PXL-URG-0041E — Material Request mobile readability + stability fix. No flow/logic/database changes. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0041D';
+  const REV='PXL-URG-0041E';
   if(window.PXL_URG_0041?.revision===REV)return;
   const MOBILE=()=>window.matchMedia('(max-width:900px)').matches;
   const setImp=(el,p,v)=>{if(el)el.style.setProperty(p,v,'important')};
+  let rafPending=false;
+  let bodyObs=null;
 
   function enhanceRow(row){
     if(!row)return;
     const input=row.querySelector('.mr-name');
-    if(!input)return;
+    if(!input||!input.readOnly)return;
     const cell=input.closest('td');
     if(!cell)return;
 
-    if(input.readOnly){
-      let display=row.querySelector('.pxl-mr-name-wrap');
-      if(!display){
-        display=document.createElement('div');
-        display.className='pxl-mr-name-wrap';
-        input.insertAdjacentElement('afterend',display);
-      }
-      display.textContent=input.value||'-';
-      display.title=input.value||'';
+    let display=row.querySelector('.pxl-mr-name-wrap');
+    if(!display){
+      display=document.createElement('div');
+      display.className='pxl-mr-name-wrap';
+      input.insertAdjacentElement('afterend',display);
+    }
+    const nextName=input.value||'-';
+    if(display.textContent!==nextName)display.textContent=nextName;
+    if(display.title!==(input.value||''))display.title=input.value||'';
 
-      // Keep SKU as useful reference, remove Stock/unit text on mobile to free space.
-      const meta=[...cell.children].find(el=>el.tagName==='DIV'&&!el.classList.contains('pxl-mr-name-wrap'));
-      if(meta){
-        const sku=String(row.dataset.sku||'').trim();
-        meta.classList.add('pxl-mr-item-meta');
-        meta.textContent=sku?`SKU: ${sku}`:'';
-      }
+    const meta=[...cell.children].find(el=>el.tagName==='DIV'&&!el.classList.contains('pxl-mr-name-wrap'));
+    if(meta){
+      const sku=String(row.dataset.sku||'').trim();
+      const nextMeta=sku?`SKU: ${sku}`:'';
+      meta.classList.add('pxl-mr-item-meta');
+      if(meta.textContent!==nextMeta)meta.textContent=nextMeta;
     }
   }
 
   function apply(){
+    rafPending=false;
     const table=document.getElementById('mr-items-table');
     if(!table)return;
-    table.dataset.pxlMrLayout='0041D';
+    table.dataset.pxlMrLayout='0041E';
     document.querySelectorAll('#mr-items-body tr').forEach(enhanceRow);
     if(!MOBILE())return;
 
@@ -45,7 +47,6 @@
     setImp(table,'max-width','100%');
     setImp(table,'min-width','0');
 
-    // Directly override inline widths from the original renderer.
     const widths=['6%','48%','12%','12%','14%','8%'];
     [...table.rows].forEach(row=>{
       [...row.cells].forEach((cell,i)=>{
@@ -58,12 +59,17 @@
     });
   }
 
+  function scheduleApply(){
+    if(rafPending)return;
+    rafPending=true;
+    requestAnimationFrame(apply);
+  }
+
   function installStyle(){
-    document.getElementById('pxl-mr-0041b-style')?.remove();
-    document.getElementById('pxl-mr-0041c-style')?.remove();
-    if(document.getElementById('pxl-mr-0041d-style'))return;
+    ['pxl-mr-0041b-style','pxl-mr-0041c-style','pxl-mr-0041d-style'].forEach(id=>document.getElementById(id)?.remove());
+    if(document.getElementById('pxl-mr-0041e-style'))return;
     const s=document.createElement('style');
-    s.id='pxl-mr-0041d-style';
+    s.id='pxl-mr-0041e-style';
     s.textContent=`
 .pxl-mr-name-wrap{display:none}
 @media(max-width:900px){
@@ -76,7 +82,6 @@
   #mr-items-table th:nth-child(4),#mr-items-table td:nth-child(4){width:12%!important;max-width:12%!important;text-align:center!important}
   #mr-items-table th:nth-child(5),#mr-items-table td:nth-child(5){width:14%!important;max-width:14%!important;text-align:center!important}
   #mr-items-table th:nth-child(6),#mr-items-table td:nth-child(6){width:8%!important;max-width:8%!important;text-align:center!important}
-
   #mr-items-table .mr-name[readonly]{display:none!important}
   #mr-items-table .pxl-mr-name-wrap{display:block!important;width:100%!important;max-width:100%!important;font-size:10px!important;font-weight:600!important;line-height:1.22!important;white-space:normal!important;word-break:normal!important;overflow-wrap:anywhere!important;color:var(--text)!important;padding:2px!important}
   #mr-items-table .pxl-mr-item-meta{display:block!important;width:100%!important;max-width:100%!important;font-size:7.5px!important;line-height:1.12!important;color:var(--muted)!important;white-space:normal!important;overflow-wrap:anywhere!important;padding:1px 2px!important}
@@ -89,20 +94,26 @@
     document.head.appendChild(s);
   }
 
-  let bodyObs=null;
   function observeRows(){
     const body=document.getElementById('mr-items-body');
-    if(!body||bodyObs)return;
-    bodyObs=new MutationObserver(()=>requestAnimationFrame(apply));
-    bodyObs.observe(body,{childList:true,subtree:true,attributes:true,attributeFilter:['value','readonly']});
+    if(!body)return;
+    if(bodyObs){bodyObs.disconnect();bodyObs=null;}
+    bodyObs=new MutationObserver(scheduleApply);
+    // Observe only row add/remove. Do not observe subtree/attributes to avoid render loops.
+    bodyObs.observe(body,{childList:true,subtree:false});
   }
+
   function init(){
-    installStyle();apply();observeRows();
-    const rootObs=new MutationObserver(()=>{apply();observeRows()});
-    rootObs.observe(document.body,{childList:true,subtree:true});
-    [50,150,300,600,1000,1800,3000,5000].forEach(ms=>setTimeout(()=>{apply();observeRows()},ms));
-    window.addEventListener('resize',apply);
+    installStyle();
+    apply();
+    observeRows();
+    [100,300,700,1400,2800].forEach(ms=>setTimeout(()=>{apply();observeRows()},ms));
+    window.addEventListener('resize',scheduleApply,{passive:true});
+    document.addEventListener('click',e=>{
+      if(e.target?.closest?.('#mr-items-table,.mr-card,.material-request,.section'))setTimeout(scheduleApply,0);
+    },true);
   }
+
   window.PXL_URG_0041={revision:REV,refresh:apply};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
