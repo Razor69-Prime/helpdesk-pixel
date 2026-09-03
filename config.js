@@ -13,6 +13,8 @@ require('./pxl-urg-0036-so-excel-import');
 require('./pxl-urg-0037-pr-permission-fix');
 // PXL-URG-0040A — guaranteed isolated Master Pricelist frontend bootstrap.
 require('./pxl-urg-0040a-master-pricelist-loader');
+// PXL-URG-0041 — isolated Material Request mobile readability UI only.
+require('./pxl-urg-0041-material-request-mobile-loader');
 // Urutan wrapper penting: akses Inventory MR 0004E, pencarian 0004D,
 // formula qty 0004F, integrasi 0004C, reminder 0004B, hardening SO 0004A.
 require('./pxl-stg-0004e');
