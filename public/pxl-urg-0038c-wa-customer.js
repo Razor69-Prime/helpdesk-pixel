@@ -53,3 +53,13 @@
 
   window.PXL_URG_0038C={revision:REV,whatsappText:id=>{const t=byId(id);return t?whatsappText(t):'';}};
 })();
+
+// PXL-URG-0038D — isolated dual-technician resolver for Detail + WhatsApp.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-ticket-dual-tech="0038D"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlTicketDualTech='0038D';
+  script.src='/pxl-urg-0038d-dual-technician.js?v=PXL-URG-0038D';
+  document.head.appendChild(script);
+})();
