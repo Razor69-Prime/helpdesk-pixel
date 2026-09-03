@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0041 — isolated Material Request mobile UI loader only.
+/* PXL-URG-0041A — isolated Material Request mobile UI loader only.
  * Injects frontend readability CSS/JS into main app HTML.
  * Does not alter Material Request flow, calculation, API, Inventory, or database.
  */
@@ -17,12 +17,13 @@ if(!express.__pxl0041StaticPatched){
       if((req.path==='/'||req.path==='/index.html')&&fs.existsSync(indexPath)){
         try{
           let html=fs.readFileSync(indexPath,'utf8');
-          const tag='<script src="/pxl-urg-0041-material-request-mobile-ui.js?v=PXL-URG-0041" data-pxl-mr-mobile-ui="0041"></script>';
-          if(!html.includes('data-pxl-mr-mobile-ui="0041"'))html=html.replace('</body>',tag+'\n</body>');
+          const tag='<script src="/pxl-urg-0041-material-request-mobile-ui.js?v=PXL-URG-0041A" data-pxl-mr-mobile-ui="0041A"></script>';
+          html=html.replace(/<script src="\/pxl-urg-0041-material-request-mobile-ui\.js\?v=PXL-URG-0041[^"]*" data-pxl-mr-mobile-ui="0041[^"]*"><\/script>/g,'');
+          if(!html.includes('data-pxl-mr-mobile-ui="0041A"'))html=html.replace('</body>',tag+'\n</body>');
           res.setHeader('Cache-Control','no-store, max-age=0');
           res.setHeader('Pragma','no-cache');
           return res.type('html').send(html);
-        }catch(e){console.warn('[PXL-URG-0041] loader fallback:',e?.message||e);}
+        }catch(e){console.warn('[PXL-URG-0041A] loader fallback:',e?.message||e);}
       }
       return middleware(req,res,next);
     };
