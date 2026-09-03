@@ -83,3 +83,13 @@
   script.src='/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0040';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0041D — guaranteed Material Request mobile UI fallback from an existing active frontend chain.
+(function(){
+  'use strict';
+  document.querySelectorAll('script[data-pxl-mr-mobile-ui]').forEach(s=>s.remove());
+  const script=document.createElement('script');
+  script.dataset.pxlMrMobileUi='0041D';
+  script.src='/pxl-urg-0041-material-request-mobile-ui.js?v=PXL-URG-0041D';
+  document.head.appendChild(script);
+})();
