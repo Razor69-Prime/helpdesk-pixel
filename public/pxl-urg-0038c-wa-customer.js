@@ -73,3 +73,13 @@
   script.src='/pxl-urg-0039-ticket-future7-filter.js?v=PXL-URG-0039';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0040 — isolated Superadmin Master Pricelist trial module.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-master-pricelist="0040"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlMasterPricelist='0040';
+  script.src='/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0040';
+  document.head.appendChild(script);
+})();
