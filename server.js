@@ -3112,6 +3112,77 @@ app.post('/api/inventory/duplicates/merge', requireInventoryPermission('inventor
   }
 });
 
+
+app.post('/api/inventory/duplicates/merge-exact-bulk', requireInventoryPermission('inventory_delete'), async (req,res)=>{
+  try{
+    const rows=await db.getInventoryItems();
+    const items=Array.isArray(rows)?rows.filter(x=>x&&x.is_active!==false):[];
+    const byId=new Map(items.map(x=>[String(x.id),x]));
+    const adj=new Map(items.map(x=>[String(x.id),new Set()]));
+    for(let i=0;i<items.length;i++){
+      for(let j=i+1;j<items.length;j++){
+        if(inventoryDuplicateScore(items[i],items[j])!==100)continue;
+        adj.get(String(items[i].id)).add(String(items[j].id));
+        adj.get(String(items[j].id)).add(String(items[i].id));
+      }
+    }
+    const seen=new Set(),groups=[];
+    for(const item of items){
+      const start=String(item.id);
+      if(seen.has(start)||!adj.get(start)?.size)continue;
+      const stack=[start],ids=[];seen.add(start);
+      while(stack.length){
+        const id=stack.pop();ids.push(id);
+        for(const n of adj.get(id)||[])if(!seen.has(n)){seen.add(n);stack.push(n);}
+      }
+      if(ids.length>1)groups.push(ids.map(id=>byId.get(id)).filter(Boolean));
+    }
+
+    const result={groups_total:groups.length,groups_merged:0,items_deactivated:0,stock_moved:0,skipped:[]};
+    for(const group of groups){
+      const units=[...new Set(group.map(x=>String(x.unit||'pcs').toLowerCase()))];
+      if(units.length!==1){result.skipped.push({reason:'Satuan berbeda',items:group.map(x=>x.name)});continue;}
+      if(group.some(x=>String(x.tracking_mode||'quantity')==='serial')){
+        result.skipped.push({reason:'Tracking Serial',items:group.map(x=>x.name)});continue;
+      }
+      // Pilih item utama dengan stok terbesar; tie-breaker SKU lalu nama agar deterministik.
+      const sorted=[...group].sort((a,b)=>
+        Number(b.stock||0)-Number(a.stock||0) ||
+        String(a.sku||'').localeCompare(String(b.sku||''),'id',{numeric:true}) ||
+        String(a.name||'').localeCompare(String(b.name||''),'id',{numeric:true})
+      );
+      const target=sorted[0],sources=sorted.slice(1);
+      let targetStock=Number(target.stock||0);
+      let mergedThisGroup=false;
+      for(const source of sources){
+        // Re-read untuk mencegah double process jika group berubah di tengah eksekusi.
+        const liveSource=await db.getInventoryItem(source.id);
+        const liveTarget=await db.getInventoryItem(target.id);
+        if(!liveSource||liveSource.is_active===false||!liveTarget||liveTarget.is_active===false)continue;
+        const sourceStock=Number(liveSource.stock||0);
+        const beforeTarget=Number(liveTarget.stock||0);
+        const afterTarget=beforeTarget+sourceStock;
+        await db.updateInventoryItem(liveTarget.id,{stock:afterTarget});
+        try{
+          await db.updateInventoryItem(liveSource.id,{stock:0,is_active:false});
+        }catch(e){
+          try{await db.updateInventoryItem(liveTarget.id,{stock:beforeTarget});}catch(_){}
+          throw e;
+        }
+        await db.insertInventoryTransaction({item_id:liveTarget.id,transaction_type:'MERGE_IN',qty:sourceStock,balance_after:afterTarget,reference:'Merge Massal 100%',notes:'Gabung dari '+liveSource.name+' ('+(liveSource.sku||'-')+')',created_by:req.session.user.name});
+        await db.insertInventoryTransaction({item_id:liveSource.id,transaction_type:'MERGED_OUT',qty:-sourceStock,balance_after:0,reference:'Merge Massal 100%',notes:'Digabung ke '+liveTarget.name+' ('+(liveTarget.sku||'-')+')',created_by:req.session.user.name});
+        logActivity(req,'inventory','MERGE MASSAL 100%',liveSource.name+' → '+liveTarget.name+' · +'+sourceStock+' '+(liveTarget.unit||'pcs'));
+        targetStock=afterTarget;
+        result.items_deactivated++;
+        result.stock_moved+=sourceStock;
+        mergedThisGroup=true;
+      }
+      if(mergedThisGroup)result.groups_merged++;
+    }
+    res.json({ok:true,...result});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.post('/api/inventory/duplicates/deactivate', requireInventoryPermission('inventory_delete'), async (req,res)=>{
   try{
     const id=String(req.body.item_id||'').trim();
