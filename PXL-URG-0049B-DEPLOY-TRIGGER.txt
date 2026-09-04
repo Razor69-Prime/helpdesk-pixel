@@ -1,0 +1,3 @@
+PXL-URG-0049B
+Deployment trigger only.
+No application logic, database, Inventory, Sales Order, Pricing Calculator, PR, or Google Sheet behavior changed.
