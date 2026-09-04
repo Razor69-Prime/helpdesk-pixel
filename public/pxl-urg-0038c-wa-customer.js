@@ -93,3 +93,13 @@
   script.src='/pxl-urg-0041-material-request-mobile-ui.js?v=PXL-URG-0041E';
   document.head.appendChild(script);
 })();
+
+// PXL-URG-0042 — Dashboard permission checklist in Account Management.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-dashboard-permission="0042"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlDashboardPermission='0042';
+  script.src='/pxl-urg-0042-dashboard-permission.js?v=PXL-URG-0042';
+  document.head.appendChild(script);
+})();
