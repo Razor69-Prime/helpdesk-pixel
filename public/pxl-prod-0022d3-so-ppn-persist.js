@@ -151,20 +151,20 @@
   }
 })();
 
-// PXL-URG-0048A — stability cache-bust for Master Pricelist HPP bridge.
+// PXL-URG-0048B — force fresh Sales Order load of stable 0048A Master Pricelist bridge.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-master-price-so="0048A"]')) return;
+  if(document.querySelector('script[data-pxl-master-price-so="0048B"]')) return;
   document.querySelectorAll('script[data-pxl-master-price-so]').forEach(el=>el.remove());
   const bridge=document.createElement('script');
-  bridge.dataset.pxlMasterPriceSo='0048A';
-  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048A';
+  bridge.dataset.pxlMasterPriceSo='0048B';
+  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048B';
   bridge.onload=()=>{
     if(window.PXL_URG_0030?.revision==='PXL-URG-0048' || document.querySelector('script[data-pxl-pricing-loader="0048"]')) return;
     document.querySelectorAll('script[data-pxl-pricing-loader]').forEach(el=>el.remove());
     const script=document.createElement('script');
     script.dataset.pxlPricingLoader='0048';
-    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0048';
+    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0048B';
     document.head.appendChild(script);
   };
   document.head.appendChild(bridge);
