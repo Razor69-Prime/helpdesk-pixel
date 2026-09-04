@@ -1,8 +1,8 @@
-/* PXL-URG-0030C — Isolated Sales Order pricing calculator. Harga Final (include PPN) masuk ke Harga Satuan; UI PPN legacy disembunyikan tanpa mengubah data SO lama. */
+/* PXL-URG-0045 — Pricing Calculator can read mapped HPP from Master Pricelist; SO calculation/payload logic unchanged. */
 (function(){
   'use strict';
 
-  const REV='PXL-URG-0030C';
+  const REV='PXL-URG-0045';
   if(window.PXL_URG_0030?.revision===REV) return;
 
   let activeRow=null;
@@ -118,8 +118,9 @@
     if(!row)return;
     activeRow=row;
     const m=ensureModal();
-    m.querySelector('#pxlPriceItem').textContent=rowName(row);
-    m.querySelector('#pxlPriceHpp').value='0';
+    m.querySelector('#pxlPriceItem').textContent=rowName(row)+(row.dataset.masterPricelistSku?' · SKU '+row.dataset.masterPricelistSku:'')+(row.dataset.masterHpp?' · HPP Master '+rp(row.dataset.masterHpp):'');
+    const mappedHpp=Math.max(0,n(row.dataset.masterHpp||0));
+    m.querySelector('#pxlPriceHpp').value=String(mappedHpp||0);
     m.querySelector('#pxlPriceUp').value='20';
     m.querySelector('#pxlPriceFee').value='10';
     m.querySelector('#pxlPricePpn').value='11';
