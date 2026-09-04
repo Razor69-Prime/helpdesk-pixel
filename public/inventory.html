@@ -23,7 +23,7 @@
 <input id="inventory-search" class="inventory-search" placeholder="Cari nama barang, SKU, barcode, product number, kategori..." oninput="render()"/><div class="search-note">Pencarian tidak harus sama persis; cukup ketik sebagian nama atau kode.</div>
 <table class="inv-table"><thead><tr><th>Barang</th><th>SKU</th><th>Kategori</th><th>Satuan</th><th>Stok Saat Ini</th><th>Level Stok</th><th>Barcode</th><th>Aksi</th></tr></thead><tbody id="items-body"></tbody></table></div>
 <div id="sub-duplicates" class="inv-sub-page">
-  <div class="toolbar"><div><div class="page-heading">Duplikat / Item Mirip</div><div class="page-sub">PXL-URG-0051H · Merge Massal 100% via Supabase dengan status proses langsung di halaman.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="btn-bulk-merge-100" class="btn primary inventory-delete" style="display:none" onclick="bulkMergeExactDuplicates()">Merge Massal 100%</button><button class="btn inventory-manage" onclick="loadDuplicateCandidates(true)">🔄 Analisa Ulang</button></div></div>
+  <div class="toolbar"><div><div class="page-heading">Duplikat / Item Mirip</div><div class="page-sub">PXL-URG-0051I · Review 98%: Paket/Kit/Bundle/Set vs non-paket tidak dimasukkan kandidat.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="btn-bulk-merge-100" class="btn primary inventory-delete" style="display:none" onclick="bulkMergeExactDuplicates()">Merge Massal 100%</button><button class="btn inventory-manage" onclick="loadDuplicateCandidates(true)">🔄 Analisa Ulang</button></div></div>
   <div class="warning-box">Merge hanya tersedia untuk Super Admin. Stok item duplikat akan dijumlahkan ke item utama lalu item duplikat dinonaktifkan. Barang tracking Serial tidak dapat di-merge otomatis.</div>
   <div id="duplicate-summary" class="import-summary" style="margin-top:12px">Belum dianalisa.</div><div id="bulk-merge-result" class="import-summary" style="display:none"></div>
   <div style="overflow:auto"><table class="inv-table"><thead><tr><th>Similarity</th><th>Item A</th><th>Item B</th><th>Aksi</th></tr></thead><tbody id="duplicate-body"><tr><td colspan="4" class="empty">Buka tab ini untuk menganalisa item mirip.</td></tr></tbody></table></div>
@@ -128,10 +128,11 @@ function renderDuplicateCandidates(){
     const mergeBlocked=p.a.tracking_mode==='serial'||p.b.tracking_mode==='serial'||String(p.a.unit||'').toLowerCase()!==String(p.b.unit||'').toLowerCase();
     let actions='<span class="item-meta">Review saja</span>';
     if(destructive){
-      const aStock=Number(p.a.stock||0),bStock=Number(p.b.stock||0),hasStock=aStock>0||bStock>0,isExact=Number(p.score)===100;
-      const mergeActions=isExact&&hasStock?(!mergeBlocked?'<button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'a\')">Merge → A</button><button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'b\')">Merge → B</button>':'<span class="badge warn">Merge diblokir</span>'):'';
+      const aStock=Number(p.a.stock||0),bStock=Number(p.b.stock||0),hasStock=aStock>0||bStock>0,isExact=Number(p.score)===100,isReview98=Number(p.score)===98;
+      const mergeAllowed=(isExact||isReview98)&&hasStock;
+      const mergeActions=mergeAllowed?(!mergeBlocked?'<button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'a\')">Merge → A</button><button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'b\')">Merge → B</button>':'<span class="badge warn">Merge diblokir</span>'):'';
       const deactivateActions=(aStock===0?'<button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'a\')">Nonaktif A</button>':'')+(bStock===0?'<button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'b\')">Nonaktif B</button>':'');
-      const note=!isExact?'<span class="item-meta">Similarity '+Number(p.score)+'% · review manual</span>':(hasStock&&!deactivateActions?'<span class="item-meta">100% match · item berstok dapat di-Merge</span>':'');
+      const note=isReview98?'<span class="item-meta">98% · review manual sebelum Merge</span>':(!isExact?'<span class="item-meta">Similarity '+Number(p.score)+'% · review manual</span>':(hasStock&&!deactivateActions?'<span class="item-meta">100% match · item berstok dapat di-Merge</span>':''));
       actions='<div style="display:flex;gap:5px;flex-wrap:wrap">'+mergeActions+deactivateActions+note+'</div>';
     }
     return '<tr><td><span class="badge '+(p.score>=95?'ok':p.score>=85?'warn':'')+'">'+Number(p.score)+'%</span></td><td>'+duplicateItemHtml(p.a)+'</td><td>'+duplicateItemHtml(p.b)+'</td><td>'+actions+'</td></tr>';

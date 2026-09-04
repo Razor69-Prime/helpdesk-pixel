@@ -3038,10 +3038,15 @@ function inventoryDuplicateNorm(value){
 function inventoryDuplicateTokens(value){
   return inventoryDuplicateNorm(value).split(' ').filter(x=>x.length>1);
 }
+function inventoryDuplicatePackageClass(value){
+  const tokens=String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').split(/\s+/).filter(Boolean);
+  return tokens.some(x=>['PAKET','KIT','BUNDLE','SET'].includes(x))?'package':'single';
+}
 function inventoryDuplicateModels(value){
   return [...new Set(inventoryDuplicateTokens(value).filter(x=>/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=4))];
 }
 function inventoryDuplicateScore(a,b){
+  if(inventoryDuplicatePackageClass(a.name)!==inventoryDuplicatePackageClass(b.name))return 0;
   const an=inventoryDuplicateNorm(a.name),bn=inventoryDuplicateNorm(b.name);
   if(!an||!bn)return 0;
   if(String(a.sku||'')&&String(a.sku)===String(b.sku))return 100;
@@ -3092,6 +3097,10 @@ app.post('/api/inventory/duplicates/merge', requireInventoryPermission('inventor
     if(!target||target.is_active===false||!source||source.is_active===false)return res.status(404).json({error:'Salah satu item Inventory tidak ditemukan / sudah nonaktif.'});
     if(String(target.tracking_mode||'quantity')==='serial'||String(source.tracking_mode||'quantity')==='serial'){
       return res.status(400).json({error:'Merge item tracking Serial diblokir untuk menjaga serial number/history. Gunakan review manual.'});
+    }
+    const similarity=inventoryDuplicateScore(target,source);
+    if(similarity<98){
+      return res.status(400).json({error:'Merge review hanya diizinkan untuk kandidat similarity minimal 98% dan paket/non-paket tidak boleh dicampur.'});
     }
     if(String(target.unit||'pcs').toLowerCase()!==String(source.unit||'pcs').toLowerCase()){
       return res.status(400).json({error:'Satuan item berbeda. Samakan satuan terlebih dahulu sebelum Merge.'});
