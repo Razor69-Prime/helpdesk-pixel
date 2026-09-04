@@ -1,0 +1,3 @@
+PXL-URG-0050A
+Deployment trigger only for Master Pricelist Mapping Audit List.
+No application logic, database, Inventory, Sales Order, Pricing Calculator, PR, or Google Sheet behavior changed.
