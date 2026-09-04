@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0049 — Master Pricelist permission + safe bulk auto-mapping.
+/* PXL-URG-0050 — Master Pricelist mapping audit list + safe bulk auto-mapping.
  * Inventory is read-only from this module; mapping is stored separately. PR remains unconnected.
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
@@ -202,7 +202,9 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
           inventory_category:inv.category||null,
           unit:inv.unit||'pcs',
           stock:Number(inv.stock||0),
-          mapping_status:price?'mapped':(map?.mapping_status||'unmapped'),
+          mapping_status:price?(map?.mapping_status||'mapped'):(map?.mapping_status||'unmapped'),
+          mapped_at:map?.mapped_at||null,
+          mapped_by:map?.mapped_by||null,
           source_key:price?.source_key||map?.source_key||null,
           pricelist_name:price?.item_name||null,
           brand:price?.brand||null,
@@ -242,7 +244,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
       for(const x of safe){
         const payload={
           inventory_item_id:x.inventory_item_id,inventory_sku:x.sku||null,inventory_name:x.inventory_name||'',
-          source_key:x.source_key,mapping_status:'manual',mapped_at:stamp,mapped_by:actor,updated_at:stamp
+          source_key:x.source_key,mapping_status:'mapped',mapped_at:stamp,mapped_by:actor,updated_at:stamp
         };
         try{
           await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{Prefer:'resolution=merge-duplicates,return=minimal'});
