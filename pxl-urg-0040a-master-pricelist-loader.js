@@ -1,7 +1,7 @@
 'use strict';
-/* PXL-URG-0040A / 0040B / 0040C / 0040D — isolated bootstrap for Master Pricelist.
+/* PXL-URG-0040A / 0040B / 0040C / 0040D / 0040E — isolated bootstrap for Master Pricelist.
  * Guarantees the Superadmin-only frontend module is loaded from the main app HTML.
- * 0040D adds improved brand detection and brand label without changing sync/HPP/business modules.
+ * 0040E fixes desktop table header overlap only; sync/HPP/business modules remain unchanged.
  * Does not touch Pricing Calculator, Inventory, Sales Order, database, or Google Sheet writes.
  */
 const express=require('express');
@@ -20,13 +20,13 @@ if(!express.__pxl0040aStaticPatched){
       if((req.path==='/'||req.path==='/index.html')&&fs.existsSync(indexPath)){
         try{
           let html=fs.readFileSync(indexPath,'utf8');
-          const tag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0040D" data-pxl-master-pricelist-bootstrap="0040D"></script>';
-          if(!html.includes('data-pxl-master-pricelist-bootstrap="0040D"'))html=html.replace('</body>',tag+'\n</body>');
+          const tag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0040E" data-pxl-master-pricelist-bootstrap="0040E"></script>';
+          if(!html.includes('data-pxl-master-pricelist-bootstrap="0040E"'))html=html.replace('</body>',tag+'\n</body>');
           res.setHeader('Cache-Control','no-store, max-age=0');
           res.setHeader('Pragma','no-cache');
           return res.type('html').send(html);
         }catch(e){
-          console.warn('[PXL-URG-0040D] bootstrap gagal, fallback static:',e?.message||e);
+          console.warn('[PXL-URG-0040E] bootstrap gagal, fallback static:',e?.message||e);
         }
       }
       return middleware(req,res,next);
