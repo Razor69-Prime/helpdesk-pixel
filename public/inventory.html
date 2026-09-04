@@ -21,7 +21,7 @@
 <input id="inventory-search" class="inventory-search" placeholder="Cari nama barang, SKU, barcode, product number, kategori..." oninput="render()"/><div class="search-note">Pencarian tidak harus sama persis; cukup ketik sebagian nama atau kode.</div>
 <table class="inv-table"><thead><tr><th>Barang</th><th>SKU</th><th>Kategori</th><th>Satuan</th><th>Stok Saat Ini</th><th>Level Stok</th><th>Barcode</th><th>Aksi</th></tr></thead><tbody id="items-body"></tbody></table></div>
 <div id="sub-duplicates" class="inv-sub-page">
-  <div class="toolbar"><div><div class="page-heading">Duplikat / Item Mirip</div><div class="page-sub">Review kandidat nama/SKU/model yang sama atau mirip. Tidak ada perubahan otomatis.</div></div><button class="btn inventory-manage" onclick="loadDuplicateCandidates(true)">🔄 Analisa Ulang</button></div>
+  <div class="toolbar"><div><div class="page-heading">Duplikat / Item Mirip</div><div class="page-sub">Review kandidat nama/SKU/model yang sama atau mirip. Kandidat 100% dapat digabung massal.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="btn-bulk-merge-100" class="btn primary inventory-delete" style="display:none" onclick="bulkMergeExactDuplicates()">Merge Massal 100%</button><button class="btn inventory-manage" onclick="loadDuplicateCandidates(true)">🔄 Analisa Ulang</button></div></div>
   <div class="warning-box">Merge hanya tersedia untuk Super Admin. Stok item duplikat akan dijumlahkan ke item utama lalu item duplikat dinonaktifkan. Barang tracking Serial tidak dapat di-merge otomatis.</div>
   <div id="duplicate-summary" class="import-summary" style="margin-top:12px">Belum dianalisa.</div>
   <div style="overflow:auto"><table class="inv-table"><thead><tr><th>Similarity</th><th>Item A</th><th>Item B</th><th>Aksi</th></tr></thead><tbody id="duplicate-body"><tr><td colspan="4" class="empty">Buka tab ini untuk menganalisa item mirip.</td></tr></tbody></table></div>
@@ -142,6 +142,22 @@ async function loadDuplicateCandidates(force=false){
   if(body)body.innerHTML='<tr><td colspan="4" class="empty">Menganalisa item Inventory...</td></tr>';
   try{const d=await api('/api/inventory/duplicates');duplicateCandidates=Array.isArray(d.candidates)?d.candidates:[];renderDuplicateCandidates()}
   catch(e){if(body)body.innerHTML='<tr><td colspan="4" class="empty">⚠️ '+esc(e.message||e)+'</td></tr>'}
+}
+
+async function bulkMergeExactDuplicates(){
+  const exact=duplicateCandidates.filter(x=>Number(x.score)===100);
+  if(!exact.length){toast('Tidak ada kandidat 100% untuk di-Merge');return}
+  const btn=document.getElementById('btn-bulk-merge-100');
+  if(!confirm('Merge massal semua kandidat 100% yang aman?\n\nSistem akan menggabungkan stok ke satu item utama dan menonaktifkan item duplikat. Item Serial atau satuan berbeda akan dilewati.'))return;
+  if(btn){btn.disabled=true;btn.textContent='Memproses...'}
+  try{
+    const r=await api('/api/inventory/duplicates/merge-exact-bulk',{method:'POST',body:'{}'});
+    toast('Merge massal selesai: '+Number(r.items_deactivated||0)+' item digabung, '+Number(r.groups_merged||0)+' grup');
+    duplicateCandidates=[];
+    await load();
+    await loadDuplicateCandidates(true);
+  }catch(e){toast('⚠️ '+e.message)}
+  finally{if(btn){btn.disabled=false;btn.textContent='Merge Massal 100%'}}
 }
 async function mergeDuplicatePair(index,keep){
   const p=duplicateCandidates[index];if(!p)return;
