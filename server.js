@@ -3203,6 +3203,84 @@ app.post('/api/inventory/duplicates/merge-exact-bulk', requireInventoryPermissio
   }
 });
 
+app.post('/api/inventory/duplicates/merge-98-bulk', requireInventoryPermission('inventory_delete'), async (req,res)=>{
+  try{
+    const rows=await db.getInventoryItems();
+    const items=Array.isArray(rows)?rows.filter(x=>x&&x.is_active!==false):[];
+    const byId=new Map(items.map(x=>[String(x.id),x]));
+    const adj=new Map(items.map(x=>[String(x.id),new Set()]));
+
+    for(let i=0;i<items.length;i++){
+      for(let j=i+1;j<items.length;j++){
+        if(inventoryDuplicateScore(items[i],items[j])!==98)continue;
+        adj.get(String(items[i].id)).add(String(items[j].id));
+        adj.get(String(items[j].id)).add(String(items[i].id));
+      }
+    }
+
+    const seen=new Set(),components=[];
+    for(const item of items){
+      const startId=String(item.id);
+      if(seen.has(startId)||!adj.get(startId)?.size)continue;
+      const stack=[startId],ids=[];seen.add(startId);
+      while(stack.length){
+        const id=stack.pop();ids.push(id);
+        for(const n of adj.get(id)||[])if(!seen.has(n)){seen.add(n);stack.push(n);}
+      }
+      if(ids.length>1)components.push(ids.map(id=>byId.get(id)).filter(Boolean));
+    }
+
+    const merges=[],skipped=[];
+    for(const component of components){
+      const partitions=new Map();
+      for(const item of component){
+        const mode=String(item.tracking_mode||'quantity');
+        const unit=String(item.unit||'pcs').trim().toLowerCase();
+        const key=mode+'|'+unit;
+        if(!partitions.has(key))partitions.set(key,[]);
+        partitions.get(key).push(item);
+      }
+
+      for(const group of partitions.values()){
+        if(group.length<2)continue;
+        if(String(group[0].tracking_mode||'quantity')==='serial'){
+          skipped.push({reason:'Tracking Serial',items:group.map(x=>x.name)});
+          continue;
+        }
+
+        const sorted=[...group].sort((a,b)=>
+          Number(b.stock||0)-Number(a.stock||0) ||
+          String(a.sku||'').localeCompare(String(b.sku||''),'id',{numeric:true}) ||
+          String(a.name||'').localeCompare(String(b.name||''),'id',{numeric:true})
+        );
+        const target=sorted.shift();
+
+        for(const source of sorted){
+          const score=inventoryDuplicateScore(target,source);
+          if(score!==98){
+            skipped.push({reason:'Bukan exact 98% saat validasi ulang',items:[target.name,source.name],score});
+            continue;
+          }
+          merges.push({target_id:target.id,source_id:source.id});
+        }
+      }
+    }
+
+    if(!merges.length){
+      return res.json({ok:true,groups_total:0,groups_merged:0,items_deactivated:0,stock_moved:0,skipped});
+    }
+
+    const result=await db.mergeInventoryDuplicatesBulk(merges,req.session.user.name);
+    logActivity(req,'inventory','MERGE MASSAL 98% RPC',
+      Number(result.items_deactivated||0)+' item · '+Number(result.stock_moved||0)+' stok dipindahkan');
+
+    res.json({...result,skipped:[...(Array.isArray(result.skipped)?result.skipped:[]),...skipped]});
+  }catch(e){
+    console.error('[PXL-URG-0051J Bulk Merge 98%]',e);
+    res.status(500).json({error:String(e.message||e)});
+  }
+});
+
 app.post('/api/inventory/duplicates/deactivate', requireInventoryPermission('inventory_delete'), async (req,res)=>{
   try{
     const id=String(req.body.item_id||'').trim();
