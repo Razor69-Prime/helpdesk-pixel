@@ -1,14 +1,16 @@
-/* PXL-URG-0046 — Isolated Master Pricelist trial menu. Superadmin only. No Pricing/Inventory/SO integration. */
+/* PXL-URG-0047 — Master Pricelist menu controlled by Account Management permission. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0046';
+  const REV='PXL-URG-0047';
   if(window.PXL_URG_0040?.revision===REV)return;
   const norm=v=>String(v??'').trim().toLowerCase().replace(/[ _-]/g,'');
   function user(){try{return window.currentUser||currentUser||null}catch(_){return window.currentUser||null}}
   function isSuperadmin(){return norm(user()?.role)==='superadmin'}
+  function permissions(){const u=user()||{};return new Set(Array.isArray(u.custom_menus)?u.custom_menus.map(String):[])}
+  function canRead(){if(isSuperadmin())return true;const p=permissions();return p.has('master_pricelist_read')||p.has('master_pricelist_write')||p.has('master_pricelist')}
   function close(){const o=document.getElementById('pxl-0040-pricelist-overlay');if(o)o.remove()}
   function open(){
-    if(!isSuperadmin())return;
+    if(!canRead())return;
     close();
     const overlay=document.createElement('div');
     overlay.id='pxl-0040-pricelist-overlay';
@@ -23,16 +25,16 @@
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar)return;
     let btn=sidebar.querySelector('[data-pxl-master-pricelist]');
-    if(!isSuperadmin()){btn?.remove();return}
+    if(!canRead()){btn?.remove();return}
     if(!btn){
       btn=document.createElement('button');
       btn.type='button';
       btn.className='nav-btn';
-      btn.dataset.pxlMasterPricelist='0046';
+      btn.dataset.pxlMasterPricelist='0047';
       btn.innerHTML='<span>💰</span><span class="nav-label">Master Pricelist</span>';
       const inventory=[...sidebar.querySelectorAll('.nav-btn,button,a')].find(x=>/inventory/i.test(x.textContent||''));
       if(inventory?.parentNode)inventory.parentNode.insertBefore(btn,inventory.nextSibling);else sidebar.appendChild(btn);
-    }else btn.dataset.pxlMasterPricelist='0046';
+    }else btn.dataset.pxlMasterPricelist='0047';
     btn.onclick=e=>{e.preventDefault();e.stopPropagation();open()};
   }
   function refresh(){ensureMenu()}
