@@ -3025,6 +3025,106 @@ app.delete('/api/inventory/items/:id', requireInventoryPermission('inventory_del
   }
 });
 
+
+// PXL-URG-0051 — Inventory duplicate / similar item manager.
+// Review only: candidate detection never changes Inventory automatically.
+// Merge/nonaktif destructive actions follow inventory_delete (Super Admin) protection.
+function inventoryDuplicateNorm(value){
+  return String(value||'').toUpperCase()
+    .replace(/[^A-Z0-9]+/g,' ')
+    .replace(/\b(CAMERA|KAMERA|CCTV|IP|ANALOG|OUTDOOR|INDOOR|PCS|PC|UNIT|NEW|PRODUCT|BARANG)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function inventoryDuplicateTokens(value){
+  return inventoryDuplicateNorm(value).split(' ').filter(x=>x.length>1);
+}
+function inventoryDuplicateModels(value){
+  return [...new Set(inventoryDuplicateTokens(value).filter(x=>/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=4))];
+}
+function inventoryDuplicateScore(a,b){
+  const an=inventoryDuplicateNorm(a.name),bn=inventoryDuplicateNorm(b.name);
+  if(!an||!bn)return 0;
+  if(String(a.sku||'')&&String(a.sku)===String(b.sku))return 100;
+  if(String(a.manufacturer_barcode||'')&&String(a.manufacturer_barcode)===String(b.manufacturer_barcode))return 100;
+  if(an===bn)return 100;
+  const am=inventoryDuplicateModels(a.name),bm=inventoryDuplicateModels(b.name);
+  if(am.some(x=>bm.includes(x)))return 98;
+  const at=new Set(inventoryDuplicateTokens(a.name)),bt=new Set(inventoryDuplicateTokens(b.name));
+  const common=[...at].filter(x=>bt.has(x)).length;
+  const union=new Set([...at,...bt]).size;
+  const j=union?common/union:0;
+  const min=Math.min(at.size,bt.size);
+  const coverage=min?common/min:0;
+  if((an.includes(bn)||bn.includes(an))&&Math.min(an.length,bn.length)>=6)return Math.max(90,Math.round(coverage*100));
+  if(coverage>=0.8&&common>=2)return Math.max(86,Math.round((coverage*.7+j*.3)*100));
+  if(coverage>=0.6&&common>=2)return Math.max(76,Math.round((coverage*.65+j*.35)*100));
+  return 0;
+}
+
+app.get('/api/inventory/duplicates', requireInventoryPermission('inventory_manage'), async (req,res)=>{
+  try{
+    const rows=await db.getInventoryItems();
+    const items=Array.isArray(rows)?rows.filter(x=>x&&x.is_active!==false):[];
+    const candidates=[];
+    for(let i=0;i<items.length;i++){
+      for(let j=i+1;j<items.length;j++){
+        const a=items[i],b=items[j];
+        const score=inventoryDuplicateScore(a,b);
+        if(score<76)continue;
+        candidates.push({
+          score,
+          a:{id:a.id,name:a.name,sku:a.sku||null,product_number:a.product_number||null,category:a.category||null,subcategory:a.subcategory||null,unit:a.unit||'pcs',stock:Number(a.stock||0),tracking_mode:a.tracking_mode||'quantity'},
+          b:{id:b.id,name:b.name,sku:b.sku||null,product_number:b.product_number||null,category:b.category||null,subcategory:b.subcategory||null,unit:b.unit||'pcs',stock:Number(b.stock||0),tracking_mode:b.tracking_mode||'quantity'}
+        });
+      }
+    }
+    candidates.sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name),'id',{numeric:true}));
+    res.json({count:candidates.length,candidates:candidates.slice(0,300)});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/inventory/duplicates/merge', requireInventoryPermission('inventory_delete'), async (req,res)=>{
+  let target=null,source=null,targetUpdated=false;
+  try{
+    const targetId=String(req.body.target_id||'').trim(),sourceId=String(req.body.source_id||'').trim();
+    if(!targetId||!sourceId||targetId===sourceId)return res.status(400).json({error:'Item utama dan item duplikat wajib berbeda.'});
+    [target,source]=await Promise.all([db.getInventoryItem(targetId),db.getInventoryItem(sourceId)]);
+    if(!target||target.is_active===false||!source||source.is_active===false)return res.status(404).json({error:'Salah satu item Inventory tidak ditemukan / sudah nonaktif.'});
+    if(String(target.tracking_mode||'quantity')==='serial'||String(source.tracking_mode||'quantity')==='serial'){
+      return res.status(400).json({error:'Merge item tracking Serial diblokir untuk menjaga serial number/history. Gunakan review manual.'});
+    }
+    if(String(target.unit||'pcs').toLowerCase()!==String(source.unit||'pcs').toLowerCase()){
+      return res.status(400).json({error:'Satuan item berbeda. Samakan satuan terlebih dahulu sebelum Merge.'});
+    }
+    const sourceStock=Number(source.stock||0),targetStock=Number(target.stock||0),mergedStock=targetStock+sourceStock;
+    await db.updateInventoryItem(target.id,{stock:mergedStock});
+    targetUpdated=true;
+    await db.updateInventoryItem(source.id,{stock:0,is_active:false});
+    await db.insertInventoryTransaction({item_id:target.id,transaction_type:'MERGE_IN',qty:sourceStock,balance_after:mergedStock,reference:'Merge Inventory',notes:'Gabung dari '+source.name+' ('+(source.sku||'-')+')',created_by:req.session.user.name});
+    await db.insertInventoryTransaction({item_id:source.id,transaction_type:'MERGED_OUT',qty:-sourceStock,balance_after:0,reference:'Merge Inventory',notes:'Digabung ke '+target.name+' ('+(target.sku||'-')+')',created_by:req.session.user.name});
+    logActivity(req,'inventory','MERGE ITEM',source.name+' → '+target.name+' · stok '+targetStock+' + '+sourceStock+' = '+mergedStock);
+    res.json({ok:true,target_id:target.id,source_id:source.id,merged_stock:mergedStock});
+  }catch(e){
+    if(targetUpdated&&target){
+      try{await db.updateInventoryItem(target.id,{stock:Number(target.stock||0)});}catch(_){}
+    }
+    res.status(500).json({error:e.message});
+  }
+});
+
+app.post('/api/inventory/duplicates/deactivate', requireInventoryPermission('inventory_delete'), async (req,res)=>{
+  try{
+    const id=String(req.body.item_id||'').trim();
+    if(!id)return res.status(400).json({error:'Item wajib dipilih.'});
+    const item=await db.getInventoryItem(id);
+    if(!item||item.is_active===false)return res.status(404).json({error:'Item tidak ditemukan / sudah nonaktif.'});
+    if(Number(item.stock||0)!==0)return res.status(400).json({error:'Item masih memiliki stok '+Number(item.stock||0)+' '+(item.unit||'pcs')+'. Merge atau nolkan stok melalui proses Inventory yang benar sebelum dinonaktifkan.'});
+    const updated=await db.updateInventoryItem(item.id,{is_active:false});
+    logActivity(req,'inventory','NONAKTIF ITEM DUPLIKAT',item.name+' · '+(item.sku||'-'));
+    res.json({ok:true,item:updated});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.post('/api/inventory/items/:id/restock-batch', requireInventoryPermission('inventory_manage'), async (req, res) => {
   try {
     const item = await db.getInventoryItem(req.params.id);
