@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0045 — Master Pricelist cache/change log + isolated Inventory SKU mapping.
+/* PXL-URG-0047 — Master Pricelist permission-controlled read/write access.
  * Inventory is read-only from this module; mapping is stored separately. PR remains unconnected.
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
@@ -10,6 +10,20 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   const text=v=>String(v??'').trim();
   const allowedTabs=new Set(['CCTV','NETWORKING','ACCESSORIES']);
   const isSuper=req=>role(req.session?.user?.role)==='superadmin';
+  function permissionSet(req){
+    const u=req.session?.user||{};
+    return new Set(Array.isArray(u.custom_menus)?u.custom_menus.map(String):[]);
+  }
+  function canRead(req){
+    if(isSuper(req))return true;
+    const p=permissionSet(req);
+    return p.has('master_pricelist_read')||p.has('master_pricelist_write')||p.has('master_pricelist');
+  }
+  function canWrite(req){
+    if(isSuper(req))return true;
+    const p=permissionSet(req);
+    return p.has('master_pricelist_write');
+  }
   const now=()=>new Date().toISOString();
 
   function cfg(){
@@ -72,9 +86,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
       .replace(/\b(CAMERA|KAMERA|CCTV|IP CAMERA|ANALOG|OUTDOOR|INDOOR|PCS|UNIT)\b/g,' ')
       .replace(/\s+/g,' ').trim();
   }
-  function catalogRoleAllowed(req){
-    return new Set(['superadmin','manager','admin','sales','accounting']).has(role(req.session?.user?.role));
-  }
+  function catalogRoleAllowed(req){ return canRead(req); }
   async function inventoryRows(){
     const db=require('./db');
     if(typeof db.getInventoryItems!=='function')throw new Error('Adapter Inventory tidak tersedia.');
@@ -84,7 +96,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
 
 
   app.get('/api/master-pricelist/catalog',requireAuth,async(req,res)=>{
-    if(!catalogRoleAllowed(req))return res.status(403).json({error:'Akses katalog Master Pricelist ditolak.'});
+    if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
     try{
       const [inventory,priceRows,mapRows]=await Promise.all([
         inventoryRows(),
@@ -137,7 +149,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   });
 
   app.post('/api/master-pricelist/map',requireAuth,async(req,res)=>{
-    if(!isSuper(req))return res.status(403).json({error:'Hanya Superadmin yang dapat menyimpan mapping.'});
+    if(!canWrite(req))return res.status(403).json({error:'Anda tidak memiliki permission Write Master Pricelist.'});
     try{
       const inventoryItemId=text(req.body?.inventory_item_id);
       const sourceKey=text(req.body?.source_key);
@@ -163,7 +175,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   });
 
   app.get('/api/master-pricelist/cache',requireAuth,async(req,res)=>{
-    if(!isSuper(req))return res.status(403).json({error:'Akses hanya untuk Superadmin.'});
+    if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
     try{
       const [items,syncs]=await Promise.all([
         sb('GET','/master_pricelist_items?is_active=eq.true&select=source_key,category,brand,item_name,price,source_cell,last_synced_at,last_synced_by&order=category.asc,brand.asc,item_name.asc'),
@@ -174,7 +186,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   });
 
   app.get('/api/master-pricelist/history',requireAuth,async(req,res)=>{
-    if(!isSuper(req))return res.status(403).json({error:'Akses hanya untuk Superadmin.'});
+    if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
     try{
       const limit=Math.min(250,Math.max(1,Number(req.query.limit)||100));
       const rows=await sb('GET','/master_pricelist_price_history?select=id,source_key,category,brand,item_name,old_price,new_price,changed_at,changed_by&order=changed_at.desc&limit='+limit);
@@ -183,7 +195,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   });
 
   app.get('/api/master-pricelist/changes',requireAuth,async(req,res)=>{
-    if(!isSuper(req))return res.status(403).json({error:'Akses hanya untuk Superadmin.'});
+    if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
     try{
       const limit=Math.min(300,Math.max(1,Number(req.query.limit)||150));
       const rows=await sb('GET','/master_pricelist_change_log?select=id,sync_id,change_type,source_key,category,item_name_before,item_name_after,brand_before,brand_after,price_before,price_after,changed_at,changed_by&order=changed_at.desc&limit='+limit);
@@ -192,7 +204,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   });
 
   app.post('/api/master-pricelist/sync',requireAuth,async(req,res)=>{
-    if(!isSuper(req))return res.status(403).json({error:'Akses hanya untuk Superadmin.'});
+    if(!canWrite(req))return res.status(403).json({error:'Anda tidak memiliki permission Write Master Pricelist.'});
     try{
       const input=Array.isArray(req.body?.items)?req.body.items:[];
       if(!input.length)return res.status(400).json({error:'Data sinkron kosong.'});
