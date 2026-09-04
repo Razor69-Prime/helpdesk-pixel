@@ -151,18 +151,20 @@
   }
 })();
 
-// PXL-URG-0045 — Master Pricelist bridge + Pricing Calculator HPP integration.
+// PXL-URG-0048 — Master Pricelist HPP is the default Pricing Calculator source for mapped Inventory items.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-master-price-so="0045"]')) return;
+  if(document.querySelector('script[data-pxl-master-price-so="0048"]')) return;
+  document.querySelectorAll('script[data-pxl-master-price-so]').forEach(el=>el.remove());
   const bridge=document.createElement('script');
-  bridge.dataset.pxlMasterPriceSo='0045';
-  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0045';
+  bridge.dataset.pxlMasterPriceSo='0048';
+  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048';
   bridge.onload=()=>{
-    if(window.PXL_URG_0030?.revision==='PXL-URG-0045' || document.querySelector('script[data-pxl-pricing-loader="0045"]')) return;
+    if(window.PXL_URG_0030?.revision==='PXL-URG-0048' || document.querySelector('script[data-pxl-pricing-loader="0048"]')) return;
+    document.querySelectorAll('script[data-pxl-pricing-loader]').forEach(el=>el.remove());
     const script=document.createElement('script');
-    script.dataset.pxlPricingLoader='0045';
-    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0045';
+    script.dataset.pxlPricingLoader='0048';
+    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0048';
     document.head.appendChild(script);
   };
   document.head.appendChild(bridge);
