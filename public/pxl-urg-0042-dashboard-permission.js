@@ -65,7 +65,7 @@
   function bind(){
     document.addEventListener('click',e=>{
       if(e.target?.closest?.('[onclick*="openEdit"],[onclick*="openUser"],#user-table-body button')) {
-        [0,80,250].forEach(ms=>setTimeout(ensure,ms));
+        [0,80,250,500,900].forEach(ms=>setTimeout(ensure,ms));
       }
     },true);
     document.addEventListener('change',e=>{
