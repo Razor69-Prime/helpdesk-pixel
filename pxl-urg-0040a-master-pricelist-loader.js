@@ -20,13 +20,13 @@ if(!express.__pxl0040aStaticPatched){
       if((req.path==='/'||req.path==='/index.html')&&fs.existsSync(indexPath)){
         try{
           let html=fs.readFileSync(indexPath,'utf8');
-          const tag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0049A" data-pxl-master-pricelist-bootstrap="0049A"></script>';
-          if(!html.includes('data-pxl-master-pricelist-bootstrap="0049A"'))html=html.replace('</body>',tag+'\n</body>');
+          const tag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0050" data-pxl-master-pricelist-bootstrap="0050"></script>';
+          if(!html.includes('data-pxl-master-pricelist-bootstrap="0050"'))html=html.replace('</body>',tag+'\n</body>');
           res.setHeader('Cache-Control','no-store, max-age=0');
           res.setHeader('Pragma','no-cache');
           return res.type('html').send(html);
         }catch(e){
-          console.warn('[PXL-URG-0049A] bootstrap gagal, fallback static:',e?.message||e);
+          console.warn('[PXL-URG-0050] bootstrap gagal, fallback static:',e?.message||e);
         }
       }
       return middleware(req,res,next);
