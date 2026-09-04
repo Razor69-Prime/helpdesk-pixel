@@ -151,14 +151,14 @@
   }
 })();
 
-// PXL-URG-0048 — Master Pricelist HPP is the default Pricing Calculator source for mapped Inventory items.
+// PXL-URG-0048A — stability cache-bust for Master Pricelist HPP bridge.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-master-price-so="0048"]')) return;
+  if(document.querySelector('script[data-pxl-master-price-so="0048A"]')) return;
   document.querySelectorAll('script[data-pxl-master-price-so]').forEach(el=>el.remove());
   const bridge=document.createElement('script');
-  bridge.dataset.pxlMasterPriceSo='0048';
-  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048';
+  bridge.dataset.pxlMasterPriceSo='0048A';
+  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048A';
   bridge.onload=()=>{
     if(window.PXL_URG_0030?.revision==='PXL-URG-0048' || document.querySelector('script[data-pxl-pricing-loader="0048"]')) return;
     document.querySelectorAll('script[data-pxl-pricing-loader]').forEach(el=>el.remove());
