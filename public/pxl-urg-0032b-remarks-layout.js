@@ -240,12 +240,13 @@
   document.head.appendChild(script);
 })();
 
-// PXL-URG-0038C — add customer name to Copy WhatsApp report without changing WO logic.
+// PXL-URG-0047 — cache-bust cumulative 0038C chain so Account Management receives Master Pricelist permission UI.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-ticket-wa-customer="0038C"]')) return;
+  if(document.querySelector('script[data-pxl-ticket-wa-customer="0047"]')) return;
+  document.querySelectorAll('script[data-pxl-ticket-wa-customer]').forEach(el=>el.remove());
   const script=document.createElement('script');
-  script.dataset.pxlTicketWaCustomer='0038C';
-  script.src='/pxl-urg-0038c-wa-customer.js?v=PXL-URG-0038C';
+  script.dataset.pxlTicketWaCustomer='0047';
+  script.src='/pxl-urg-0038c-wa-customer.js?v=PXL-URG-0047';
   document.head.appendChild(script);
 })();
