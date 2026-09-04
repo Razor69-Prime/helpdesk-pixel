@@ -3126,61 +3126,104 @@ app.post('/api/inventory/duplicates/merge-exact-bulk', requireInventoryPermissio
         adj.get(String(items[j].id)).add(String(items[i].id));
       }
     }
-    const seen=new Set(),groups=[];
+
+    const seen=new Set(),components=[];
     for(const item of items){
-      const start=String(item.id);
-      if(seen.has(start)||!adj.get(start)?.size)continue;
-      const stack=[start],ids=[];seen.add(start);
+      const startId=String(item.id);
+      if(seen.has(startId)||!adj.get(startId)?.size)continue;
+      const stack=[startId],ids=[];seen.add(startId);
       while(stack.length){
         const id=stack.pop();ids.push(id);
         for(const n of adj.get(id)||[])if(!seen.has(n)){seen.add(n);stack.push(n);}
       }
-      if(ids.length>1)groups.push(ids.map(id=>byId.get(id)).filter(Boolean));
+      if(ids.length>1)components.push(ids.map(id=>byId.get(id)).filter(Boolean));
     }
 
-    const result={groups_total:groups.length,groups_merged:0,items_deactivated:0,stock_moved:0,skipped:[]};
-    for(const group of groups){
-      const units=[...new Set(group.map(x=>String(x.unit||'pcs').toLowerCase()))];
-      if(units.length!==1){result.skipped.push({reason:'Satuan berbeda',items:group.map(x=>x.name)});continue;}
-      if(group.some(x=>String(x.tracking_mode||'quantity')==='serial')){
-        result.skipped.push({reason:'Tracking Serial',items:group.map(x=>x.name)});continue;
+    const result={groups_total:0,groups_merged:0,items_deactivated:0,stock_moved:0,skipped:[]};
+
+    for(const component of components){
+      // Pecah komponen 100% berdasarkan unit + tracking mode agar satu item berbeda unit
+      // tidak membuat seluruh kandidat aman ikut dilewati.
+      const partitions=new Map();
+      for(const item of component){
+        const mode=String(item.tracking_mode||'quantity');
+        const unit=String(item.unit||'pcs').trim().toLowerCase();
+        const key=mode+'|'+unit;
+        if(!partitions.has(key))partitions.set(key,[]);
+        partitions.get(key).push(item);
       }
-      // Pilih item utama dengan stok terbesar; tie-breaker SKU lalu nama agar deterministik.
-      const sorted=[...group].sort((a,b)=>
-        Number(b.stock||0)-Number(a.stock||0) ||
-        String(a.sku||'').localeCompare(String(b.sku||''),'id',{numeric:true}) ||
-        String(a.name||'').localeCompare(String(b.name||''),'id',{numeric:true})
-      );
-      const target=sorted[0],sources=sorted.slice(1);
-      let targetStock=Number(target.stock||0);
-      let mergedThisGroup=false;
-      for(const source of sources){
-        // Re-read untuk mencegah double process jika group berubah di tengah eksekusi.
-        const liveSource=await db.getInventoryItem(source.id);
-        const liveTarget=await db.getInventoryItem(target.id);
-        if(!liveSource||liveSource.is_active===false||!liveTarget||liveTarget.is_active===false)continue;
-        const sourceStock=Number(liveSource.stock||0);
-        const beforeTarget=Number(liveTarget.stock||0);
-        const afterTarget=beforeTarget+sourceStock;
-        await db.updateInventoryItem(liveTarget.id,{stock:afterTarget});
-        try{
-          await db.updateInventoryItem(liveSource.id,{stock:0,is_active:false});
-        }catch(e){
-          try{await db.updateInventoryItem(liveTarget.id,{stock:beforeTarget});}catch(_){}
-          throw e;
+
+      for(const [key,group] of partitions){
+        if(group.length<2)continue;
+        result.groups_total++;
+
+        const mode=String(group[0].tracking_mode||'quantity');
+        if(mode==='serial'){
+          result.skipped.push({reason:'Tracking Serial',items:group.map(x=>x.name)});
+          continue;
         }
-        await db.insertInventoryTransaction({item_id:liveTarget.id,transaction_type:'MERGE_IN',qty:sourceStock,balance_after:afterTarget,reference:'Merge Massal 100%',notes:'Gabung dari '+liveSource.name+' ('+(liveSource.sku||'-')+')',created_by:req.session.user.name});
-        await db.insertInventoryTransaction({item_id:liveSource.id,transaction_type:'MERGED_OUT',qty:-sourceStock,balance_after:0,reference:'Merge Massal 100%',notes:'Digabung ke '+liveTarget.name+' ('+(liveTarget.sku||'-')+')',created_by:req.session.user.name});
-        logActivity(req,'inventory','MERGE MASSAL 100%',liveSource.name+' → '+liveTarget.name+' · +'+sourceStock+' '+(liveTarget.unit||'pcs'));
-        targetStock=afterTarget;
-        result.items_deactivated++;
-        result.stock_moved+=sourceStock;
-        mergedThisGroup=true;
+
+        // Validasi ulang bahwa semua anggota dalam subgrup benar-benar terhubung sebagai match 100%.
+        // Jika tidak, proses greedy pair agar tidak menggabungkan item hanya karena hubungan transitive.
+        const remaining=[...group].sort((a,b)=>
+          Number(b.stock||0)-Number(a.stock||0) ||
+          String(a.sku||'').localeCompare(String(b.sku||''),'id',{numeric:true}) ||
+          String(a.name||'').localeCompare(String(b.name||''),'id',{numeric:true})
+        );
+        const target=remaining.shift();
+        let mergedThisGroup=false;
+
+        for(const source of remaining){
+          const liveTarget=await db.getInventoryItem(target.id);
+          const liveSource=await db.getInventoryItem(source.id);
+          if(!liveTarget||liveTarget.is_active===false||!liveSource||liveSource.is_active===false)continue;
+          if(inventoryDuplicateScore(liveTarget,liveSource)!==100){
+            result.skipped.push({reason:'Bukan exact 100% saat validasi ulang',items:[liveTarget.name,liveSource.name]});
+            continue;
+          }
+          if(String(liveTarget.unit||'pcs').trim().toLowerCase()!==String(liveSource.unit||'pcs').trim().toLowerCase()){
+            result.skipped.push({reason:'Satuan berbeda',items:[liveTarget.name,liveSource.name]});
+            continue;
+          }
+
+          const sourceStock=Number(liveSource.stock||0);
+          const beforeTarget=Number(liveTarget.stock||0);
+          const afterTarget=beforeTarget+sourceStock;
+
+          await db.updateInventoryItem(liveTarget.id,{stock:afterTarget});
+          try{
+            await db.updateInventoryItem(liveSource.id,{stock:0,is_active:false});
+          }catch(e){
+            try{await db.updateInventoryItem(liveTarget.id,{stock:beforeTarget});}catch(_){}
+            throw e;
+          }
+
+          await db.insertInventoryTransaction({
+            item_id:liveTarget.id,transaction_type:'MERGE_IN',qty:sourceStock,balance_after:afterTarget,
+            reference:'Merge Massal 100%',notes:'Gabung dari '+liveSource.name+' ('+(liveSource.sku||'-')+')',
+            created_by:req.session.user.name
+          });
+          await db.insertInventoryTransaction({
+            item_id:liveSource.id,transaction_type:'MERGED_OUT',qty:-sourceStock,balance_after:0,
+            reference:'Merge Massal 100%',notes:'Digabung ke '+liveTarget.name+' ('+(liveTarget.sku||'-')+')',
+            created_by:req.session.user.name
+          });
+          logActivity(req,'inventory','MERGE MASSAL 100%',liveSource.name+' → '+liveTarget.name+' · +'+sourceStock+' '+(liveTarget.unit||'pcs'));
+
+          result.items_deactivated++;
+          result.stock_moved+=sourceStock;
+          mergedThisGroup=true;
+        }
+
+        if(mergedThisGroup)result.groups_merged++;
       }
-      if(mergedThisGroup)result.groups_merged++;
     }
+
     res.json({ok:true,...result});
-  }catch(e){res.status(500).json({error:e.message});}
+  }catch(e){
+    console.error('[PXL-URG-0051F Bulk Merge 100%]',e);
+    res.status(500).json({error:e.message});
+  }
 });
 
 app.post('/api/inventory/duplicates/deactivate', requireInventoryPermission('inventory_delete'), async (req,res)=>{
