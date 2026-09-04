@@ -2490,7 +2490,7 @@ function hasInventoryAccess(req, permission) {
 function requireInventoryPermission(permission) {
   return (req, res, next) => {
     if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
-    if (permission === 'inventory_delete' && String(req.session.user.role) !== 'superadmin') {
+    if (permission === 'inventory_delete' && String(req.session.user.role || '').toLowerCase().replace(/[ _-]/g, '') !== 'superadmin') {
       return res.status(403).json({ error: 'Hapus inventory hanya untuk Super Admin.' });
     }
     if (!hasInventoryAccess(req, permission)) {
@@ -2747,7 +2747,7 @@ app.get('/api/inventory/access', requireAuth, (req, res) => {
     import_export: hasInventoryAccess(req, 'inventory_import_export'),
     barcode: hasInventoryAccess(req, 'inventory_barcode'),
     opname: hasInventoryAccess(req, 'inventory_opname'),
-    delete: String(req.session.user.role) === 'superadmin'
+    delete: String(req.session.user.role || '').toLowerCase().replace(/[ _-]/g, '') === 'superadmin'
   });
 });
 
