@@ -103,3 +103,14 @@
   script.src='/pxl-urg-0042-dashboard-permission.js?v=PXL-URG-0042';
   document.head.appendChild(script);
 })();
+
+
+// PXL-URG-0047 — Master Pricelist permission checklist in Account Management.
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-pxl-master-pricelist-permission="0047"]')) return;
+  const script=document.createElement('script');
+  script.dataset.pxlMasterPricelistPermission='0047';
+  script.src='/pxl-urg-0047-master-pricelist-permission.js?v=PXL-URG-0047';
+  document.head.appendChild(script);
+})();
