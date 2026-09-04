@@ -98,13 +98,10 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
       const items=[...byKey.values()];
       if(!items.length)return res.status(400).json({error:'Tidak ada item valid untuk disimpan.'});
 
-      const keys=items.map(x=>x.source_key);
-      const existing=[];
-      for(let i=0;i<keys.length;i+=150){
-        const chunk=keys.slice(i,i+150).map(v=>'"'+v.replace(/"/g,'')+'"').join(',');
-        const rows=await sb('GET','/master_pricelist_items?source_key=in.('+encodeURIComponent(chunk)+')&select=source_key,category,brand,item_name,price,source_cell');
-        if(Array.isArray(rows))existing.push(...rows);
-      }
+      // Pricelist is small enough to read the current cache once. This avoids fragile
+      // PostgREST IN escaping for source-cell keys and keeps change detection deterministic.
+      const existingRows=await sb('GET','/master_pricelist_items?select=source_key,category,brand,item_name,price,source_cell');
+      const existing=Array.isArray(existingRows)?existingRows:[];
       const oldMap=new Map(existing.map(x=>[String(x.source_key),x]));
       const changed=items.filter(x=>{
         const old=oldMap.get(x.source_key);
