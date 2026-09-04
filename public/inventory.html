@@ -16,10 +16,16 @@
 <div class="app-bar"><div class="app-title">📦 Inventory Asset <span id="db-status" style="font-size:11px;margin-left:8px;color:#888780">● Mengecek database...</span></div></div>
 <div id="page-admin" class="page active"><div class="container">
 <div class="toolbar"><div><div class="page-heading">Inventory Asset</div><div class="page-sub">Kelola stok barang & material — gudang pusat</div></div><div class="import-actions"><button id="btn-template" class="btn blue" onclick="downloadInventoryTemplate()">📄 Template Excel</button><button id="btn-import" class="btn blue" onclick="document.getElementById('import-file').click()">📥 Import Stok</button><button id="btn-export" class="btn green" onclick="exportInventoryExcel()">📤 Export Excel</button><button id="btn-scan-restock" class="btn" onclick="openScanner('restock')">📷 Scan Barcode</button><button id="btn-add-item" class="btn primary" onclick="openItemModal()">➕ Tambah / Restock Barang</button><input id="import-file" type="file" accept=".xlsx,.xls" hidden onchange="previewInventoryImport(this.files[0])"></div></div>
-<div class="sub-tabs"><button class="sub-tab-btn active" onclick="switchSub('barang',this)">📦 Daftar Barang</button><button class="sub-tab-btn" onclick="switchSub('log',this)">📋 Log Stok</button><button class="sub-tab-btn" onclick="switchSub('opname',this)">🔍 Rekonsiliasi Stok</button></div>
+<div class="sub-tabs"><button class="sub-tab-btn active" onclick="switchSub('barang',this)">📦 Daftar Barang</button><button class="sub-tab-btn" onclick="switchSub('log',this)">📋 Log Stok</button><button class="sub-tab-btn" onclick="switchSub('opname',this)">🔍 Rekonsiliasi Stok</button><button class="sub-tab-btn inventory-manage" onclick="switchSub('duplicates',this)">🧩 Duplikat / Mirip</button></div>
 <div id="sub-barang" class="inv-sub-page active"><div class="stat-grid"><div class="stat-card"><div class="stat-label">Total Jenis Barang</div><div id="s-total" class="stat-val">0</div></div><div class="stat-card ok"><div class="stat-label">Stok Aman</div><div id="s-ok" class="stat-val">0</div></div><div class="stat-card warn"><div class="stat-label">Mendekati Minimum</div><div id="s-warn" class="stat-val">0</div></div><div class="stat-card crit"><div class="stat-label">Stok Kritis</div><div id="s-crit" class="stat-val">0</div></div></div>
 <input id="inventory-search" class="inventory-search" placeholder="Cari nama barang, SKU, barcode, product number, kategori..." oninput="render()"/><div class="search-note">Pencarian tidak harus sama persis; cukup ketik sebagian nama atau kode.</div>
 <table class="inv-table"><thead><tr><th>Barang</th><th>SKU</th><th>Kategori</th><th>Satuan</th><th>Stok Saat Ini</th><th>Level Stok</th><th>Barcode</th><th>Aksi</th></tr></thead><tbody id="items-body"></tbody></table></div>
+<div id="sub-duplicates" class="inv-sub-page">
+  <div class="toolbar"><div><div class="page-heading">Duplikat / Item Mirip</div><div class="page-sub">Review kandidat nama/SKU/model yang sama atau mirip. Tidak ada perubahan otomatis.</div></div><button class="btn inventory-manage" onclick="loadDuplicateCandidates(true)">🔄 Analisa Ulang</button></div>
+  <div class="warning-box">Merge hanya tersedia untuk Super Admin. Stok item duplikat akan dijumlahkan ke item utama lalu item duplikat dinonaktifkan. Barang tracking Serial tidak dapat di-merge otomatis.</div>
+  <div id="duplicate-summary" class="import-summary" style="margin-top:12px">Belum dianalisa.</div>
+  <div style="overflow:auto"><table class="inv-table"><thead><tr><th>Similarity</th><th>Item A</th><th>Item B</th><th>Aksi</th></tr></thead><tbody id="duplicate-body"><tr><td colspan="4" class="empty">Buka tab ini untuk menganalisa item mirip.</td></tr></tbody></table></div>
+</div>
 <div id="sub-log" class="inv-sub-page"><table class="inv-table"><thead><tr><th>Tanggal</th><th>Jenis</th><th>Barang</th><th>Qty</th><th>Saldo Setelah</th><th>Referensi</th><th>Oleh</th></tr></thead><tbody id="logs-body"></tbody></table></div>
 <div id="sub-opname" class="inv-sub-page"><div class="toolbar"><div><div class="page-heading">Rekonsiliasi Stok</div><div class="page-sub">Isi stok fisik, lalu simpan untuk menyesuaikan stok sistem.</div></div><button class="btn primary" onclick="submitOpname()">✅ Selesaikan & Sesuaikan Stok</button></div><table class="inv-table"><thead><tr><th>Barang</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Keterangan</th></tr></thead><tbody id="opname-body"></tbody></table></div>
 </div></div>
@@ -31,7 +37,7 @@
 <div class="modal-overlay" id="barcode-label-modal"><div class="modal-box" style="max-width:460px"><div class="modal-header">Label Barcode Inventory</div><div class="modal-body"><div class="barcode-preview-box"><div id="label-item-name" style="font-weight:800;margin-bottom:4px"></div><div id="label-item-sku" class="item-meta" style="margin-bottom:12px"></div><svg id="label-barcode-svg"></svg></div></div><div class="modal-footer"><button class="btn" onclick="closeBarcodeLabel()">Tutup</button><button class="btn blue" onclick="downloadBarcodeSvg()">⬇️ Download SVG</button><button class="btn primary" onclick="printBarcodeLabel()">🖨️ Print Label</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script>
-let items=[],logs=[],cart=[],importPreviewRows=[],scannerStream=null,scannerRunning=false,scanPurpose='request';
+let items=[],logs=[],cart=[],importPreviewRows=[],scannerStream=null,scannerRunning=false,scanPurpose='request',duplicateCandidates=[];
 let inventoryAccess={view:false,manage:false,import_export:false,barcode:false,opname:false,delete:false};let restockCurrentItem=null,restockMode='scan',restockScanCount=0,restockSerials=[];
 let inventoryCategories=[];let currentLabelItem=null;let barcodeRegistrationOnly=false;
 let inventoryTokenCache='';
@@ -100,11 +106,62 @@ async function api(url,opt={}){
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
 function switchView(v,b){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+v).classList.add('active');document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
-function switchSub(v,b){document.querySelectorAll('.inv-sub-page').forEach(x=>x.classList.remove('active'));document.getElementById('sub-'+v).classList.add('active');document.querySelectorAll('.sub-tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
+function switchSub(v,b){document.querySelectorAll('.inv-sub-page').forEach(x=>x.classList.remove('active'));document.getElementById('sub-'+v).classList.add('active');document.querySelectorAll('.sub-tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(v==='duplicates')loadDuplicateCandidates()}
 function level(i){const s=Number(i.stock),m=Number(i.min_stock);if(s<=m)return['crit','Kritis'];if(m>0&&s<=m*1.5)return['warn','Rendah'];return['ok','Aman']}
 function inventorySearchText(i){return [i.name,i.sku,i.barcode,i.manufacturer_barcode,i.product_number,i.category,i.subcategory,i.unit].map(v=>String(v||'').toLowerCase()).join(' ')}
 function getFilteredInventoryItems(){const q=String(document.getElementById('inventory-search')?.value||'').trim().toLowerCase();return q?items.filter(i=>inventorySearchText(i).includes(q)):items}
 function render(){document.getElementById('s-total').textContent=items.length;let ok=0,w=0,c=0;items.forEach(i=>{const l=level(i)[0];l==='ok'?ok++:l==='warn'?w++:c++});document.getElementById('s-ok').textContent=ok;document.getElementById('s-warn').textContent=w;document.getElementById('s-crit').textContent=c;const visibleItems=getFilteredInventoryItems();document.getElementById('items-body').innerHTML=visibleItems.length?visibleItems.map(i=>{const l=level(i);return`<tr><td><div class="item-name">${esc(i.name)}</div><div class="item-meta">PN: ${esc(i.product_number||'-')} · ${esc(i.subcategory||'-')} · ${i.tracking_mode==='serial'?'Serial Number':'Qty'}</div></td><td><b>${esc(i.sku||'-')}</b></td><td>${esc(i.category)}</td><td>${esc(i.unit)}</td><td><b>${Number(i.stock)} ${esc(i.unit)}</b></td><td><span class="badge ${l[0]}">${l[1]}</span></td><td class="barcode-cell"><div class="barcode-number">Internal: ${esc(i.barcode||'-')}</div><div class="barcode-number" style="margin-top:4px">Pabrikan: ${esc(i.manufacturer_barcode||'-')}</div><div class="barcode-actions">${i.barcode?`<button class="btn" onclick="openBarcodeLabel('${i.id}')">Lihat / Print</button>`:''}<button class="btn blue inventory-manage" onclick="openManufacturerBarcodeModal('${i.id}')">${i.manufacturer_barcode?'Ubah':'Daftarkan'} Pabrikan</button></div></td><td><button class="btn inventory-manage" onclick="openRestock('${i.id}')">+ Stok</button> <button class="btn inventory-delete" style="display:none;color:#A32E24" onclick="deleteInventoryItem('${i.id}')">Hapus</button></td></tr>`}).join(''):`<tr><td colspan="8" class="empty">🔎<br><b>${items.length?'Item tidak ditemukan':'Belum ada data inventory'}</b><br>${items.length?'Coba nama, SKU, barcode, atau product number lain.':'Klik Tambah / Restock Barang untuk mulai.'}</td></tr>`;document.getElementById('logs-body').innerHTML=logs.length?logs.map(l=>`<tr><td>${new Date(l.created_at).toLocaleString('id-ID')}</td><td>${esc(l.transaction_type)}</td><td>${esc(l.inventory_items?.name||'-')}</td><td>${Number(l.qty)>0?'+':''}${Number(l.qty)} ${esc(l.inventory_items?.unit||'')}</td><td>${Number(l.balance_after)}</td><td>${esc(l.reference||'-')}</td><td>${esc(l.created_by||'-')}</td></tr>`).join(''):`<tr><td colspan="8" class="empty">📋<br>Belum ada transaksi stok</td></tr>`;document.getElementById('opname-body').innerHTML=items.length?items.map(i=>`<tr data-id="${i.id}" data-system="${Number(i.stock)}"><td><b>${esc(i.name)}</b></td><td>${Number(i.stock)} ${esc(i.unit)}</td><td><input class="physical" type="number" min="0" value="${Number(i.stock)}" oninput="calcDiff(this)" style="width:80px;padding:6px"></td><td class="diff">0</td><td><input class="note" placeholder="opsional" style="padding:6px;width:100%"></td></tr>`).join(''):`<tr><td colspan="5" class="empty">Belum ada barang untuk direkonsiliasi.</td></tr>`}
+
+
+function duplicateItemHtml(x){
+  return '<div class="item-name">'+esc(x.name)+'</div><div class="item-meta">SKU: '+esc(x.sku||'-')+' · PN: '+esc(x.product_number||'-')+' · '+esc(x.category||'-')+' / '+esc(x.subcategory||'-')+'</div><div class="item-meta">Stok: <b>'+Number(x.stock||0)+' '+esc(x.unit||'pcs')+'</b> · '+(x.tracking_mode==='serial'?'Serial Number':'Qty')+'</div>';
+}
+function renderDuplicateCandidates(){
+  const body=document.getElementById('duplicate-body'),summary=document.getElementById('duplicate-summary');
+  if(!body||!summary)return;
+  summary.innerHTML='Kandidat ditemukan: <b>'+duplicateCandidates.length+'</b>. Persentase hanya alat bantu review; keputusan Merge tetap manual.';
+  if(!duplicateCandidates.length){body.innerHTML='<tr><td colspan="4" class="empty">✅ Tidak ada kandidat item mirip dengan threshold saat ini.</td></tr>';return}
+  body.innerHTML=duplicateCandidates.map((p,idx)=>{
+    const destructive=inventoryAccess.delete===true;
+    const mergeBlocked=p.a.tracking_mode==='serial'||p.b.tracking_mode==='serial'||String(p.a.unit||'').toLowerCase()!==String(p.b.unit||'').toLowerCase();
+    let actions='<span class="item-meta">Review saja</span>';
+    if(destructive){
+      actions='<div style="display:flex;gap:5px;flex-wrap:wrap">'+
+        (!mergeBlocked?'<button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'a\')">Merge → A</button><button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'b\')">Merge → B</button>':'<span class="badge warn">Merge diblokir</span>')+
+        '<button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'a\')">Nonaktif A</button><button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'b\')">Nonaktif B</button></div>';
+    }
+    return '<tr><td><span class="badge '+(p.score>=95?'ok':p.score>=85?'warn':'')+'">'+Number(p.score)+'%</span></td><td>'+duplicateItemHtml(p.a)+'</td><td>'+duplicateItemHtml(p.b)+'</td><td>'+actions+'</td></tr>';
+  }).join('');
+}
+async function loadDuplicateCandidates(force=false){
+  const body=document.getElementById('duplicate-body');
+  if(!inventoryAccess.manage){if(body)body.innerHTML='<tr><td colspan="4" class="empty">Akses Manage Inventory diperlukan.</td></tr>';return}
+  if(duplicateCandidates.length&&!force){renderDuplicateCandidates();return}
+  if(body)body.innerHTML='<tr><td colspan="4" class="empty">Menganalisa item Inventory...</td></tr>';
+  try{const d=await api('/api/inventory/duplicates');duplicateCandidates=Array.isArray(d.candidates)?d.candidates:[];renderDuplicateCandidates()}
+  catch(e){if(body)body.innerHTML='<tr><td colspan="4" class="empty">⚠️ '+esc(e.message||e)+'</td></tr>'}
+}
+async function mergeDuplicatePair(index,keep){
+  const p=duplicateCandidates[index];if(!p)return;
+  const target=keep==='a'?p.a:p.b,source=keep==='a'?p.b:p.a;
+  const total=Number(target.stock||0)+Number(source.stock||0);
+  if(!confirm('Merge item?\n\nUTAMA: '+target.name+'\nDUPLIKAT: '+source.name+'\n\nStok akan menjadi '+total+' '+(target.unit||'pcs')+' dan item duplikat dinonaktifkan.'))return;
+  try{
+    await api('/api/inventory/duplicates/merge',{method:'POST',body:JSON.stringify({target_id:target.id,source_id:source.id})});
+    toast('✅ Merge berhasil. Stok '+target.name+' = '+total);
+    duplicateCandidates=[];await load();await loadDuplicateCandidates(true);
+  }catch(e){toast('⚠️ '+e.message)}
+}
+async function deactivateDuplicateItem(index,which){
+  const p=duplicateCandidates[index];if(!p)return;const item=which==='a'?p.a:p.b;
+  if(Number(item.stock||0)!==0){toast('⚠️ Stok item masih '+Number(item.stock||0)+' '+(item.unit||'pcs')+'. Gunakan Merge atau nolkan stok secara benar.');return}
+  if(!confirm('Nonaktifkan item ini?\n\n'+item.name+'\nSKU: '+(item.sku||'-')+'\n\nItem tidak dihapus permanen dan history tetap tersimpan.'))return;
+  try{
+    await api('/api/inventory/duplicates/deactivate',{method:'POST',body:JSON.stringify({item_id:item.id})});
+    toast('✅ Item dinonaktifkan');
+    duplicateCandidates=[];await load();await loadDuplicateCandidates(true);
+  }catch(e){toast('⚠️ '+e.message)}
+}
 
 async function load(){
   const status=document.getElementById('db-status');
