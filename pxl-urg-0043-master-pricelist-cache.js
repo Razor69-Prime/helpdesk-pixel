@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0047 — Master Pricelist permission-controlled read/write access.
+/* PXL-URG-0049 — Master Pricelist permission + safe bulk auto-mapping.
  * Inventory is read-only from this module; mapping is stored separately. PR remains unconnected.
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
@@ -94,6 +94,83 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
     return Array.isArray(rows)?rows.filter(x=>x&&x.is_active!==false):[];
   }
 
+  const AUTO_GENERIC=new Set(['CAMERA','KAMERA','CCTV','IP','ANALOG','OUTDOOR','INDOOR','WIRELESS','WIRELES','ROUTER','SWITCH','HUB','POE','NVR','DVR','XVR','ADAPTOR','ADAPTER','KABEL','CABLE','MICRO','SD','HDD','PCS','UNIT','PORT','FULL','COLOR','SOUND','AUDIO','NEW','PRODUCT']);
+  const AUTO_GENERIC_MODEL=/^(?:[1-9]\d?MP|[248]K|\d+(?:GB|TB|CH|PORT|V|A|W|M|MM|INCH))$/;
+  function autoWords(v){
+    return normalizeName(v).split(' ').filter(x=>x&&x.length>1&&!AUTO_GENERIC.has(x)&&!AUTO_GENERIC_MODEL.test(x));
+  }
+  function autoModels(v){
+    const raw=text(v).toUpperCase();
+    const matches=raw.match(/[A-Z0-9]+(?:[-_\/][A-Z0-9]+)+|[A-Z]+\d+[A-Z0-9]*|\d+[A-Z]+[A-Z0-9]*/g)||[];
+    return [...new Set(matches.map(x=>x.replace(/[^A-Z0-9]/g,'')).filter(x=>x.length>=3&&!AUTO_GENERIC_MODEL.test(x)))];
+  }
+  function brandMatchesInventory(invName,brand){
+    const b=text(brand).toUpperCase();
+    if(!b||b==='LAINNYA')return false;
+    return normalizeName(invName).includes(b.replace(/[^A-Z0-9]+/g,' '));
+  }
+  function scoreAutoPair(inv,price){
+    const a=normalizeName(inv.name),b=normalizeName(price.item_name);
+    if(!a||!b)return {score:0,reason:''};
+    if(a===b)return {score:100,reason:'Nama persis'};
+    const am=autoModels(inv.name),bm=autoModels(price.item_name);
+    const sharedModels=am.filter(x=>bm.includes(x));
+    if(sharedModels.length){
+      const brandOk=brandMatchesInventory(inv.name,price.brand);
+      return {score:brandOk?99:97,reason:'Model '+sharedModels[0]+(brandOk?' + brand':'')};
+    }
+    const aw=autoWords(inv.name),bw=autoWords(price.item_name);
+    const aset=new Set(aw),bset=new Set(bw);
+    const common=[...aset].filter(x=>bset.has(x));
+    const min=Math.min(aset.size,bset.size);
+    const coverage=min?common.length/min:0;
+    const compactA=aw.join(' '),compactB=bw.join(' ');
+    if(compactA&&compactB&&(compactA.includes(compactB)||compactB.includes(compactA))&&Math.min(compactA.length,compactB.length)>=5){
+      return {score:brandMatchesInventory(inv.name,price.brand)?96:94,reason:'Nama utama sama'};
+    }
+    if(coverage>=0.8&&common.length>=2)return {score:91,reason:'Kemiripan nama tinggi'};
+    if(coverage>=0.6&&common.length>=2)return {score:82,reason:'Kemiripan nama'};
+    return {score:0,reason:''};
+  }
+  async function autoMapAnalysis(){
+    const [inventory,priceRows,mapRows]=await Promise.all([
+      inventoryRows(),
+      sb('GET','/master_pricelist_items?is_active=eq.true&select=source_key,category,brand,item_name,price,source_cell'),
+      sb('GET','/master_pricelist_inventory_map?select=inventory_item_id,source_key')
+    ]);
+    const prices=Array.isArray(priceRows)?priceRows:[];
+    const maps=Array.isArray(mapRows)?mapRows:[];
+    const mappedInventory=new Set(maps.filter(x=>x.source_key).map(x=>String(x.inventory_item_id)));
+    const usedSources=new Set(maps.map(x=>x.source_key).filter(Boolean).map(String));
+    const available=prices.filter(p=>!usedSources.has(String(p.source_key)));
+    const safe=[],review=[],unmatched=[];
+    for(const inv of inventory){
+      if(mappedInventory.has(String(inv.id)))continue;
+      const ranked=available.map(p=>({p,...scoreAutoPair(inv,p)})).filter(x=>x.score>0).sort((x,y)=>y.score-x.score);
+      const best=ranked[0],second=ranked[1];
+      if(!best){unmatched.push({inventory_item_id:inv.id,sku:inv.sku||null,inventory_name:inv.name||''});continue}
+      const row={
+        inventory_item_id:inv.id,sku:inv.sku||null,inventory_name:inv.name||'',
+        source_key:best.p.source_key,pricelist_name:best.p.item_name,brand:best.p.brand||null,
+        price:Number(best.p.price||0),score:best.score,reason:best.reason,
+        second_score:second?.score||0,second_name:second?.p?.item_name||null
+      };
+      if(best.score>=96&&(!second||best.score-second.score>=5))safe.push(row);
+      else if(best.score>=82)review.push(row);
+      else unmatched.push({inventory_item_id:inv.id,sku:inv.sku||null,inventory_name:inv.name||''});
+    }
+    // A source price may be suggested for only one safe mapping.
+    const bySource=new Map();
+    safe.forEach(x=>{const arr=bySource.get(x.source_key)||[];arr.push(x);bySource.set(x.source_key,arr)});
+    const finalSafe=[],demoted=[];
+    safe.forEach(x=>{
+      if((bySource.get(x.source_key)||[]).length===1)finalSafe.push(x);
+      else demoted.push({...x,reason:x.reason+' · kandidat sumber ganda'});
+    });
+    review.push(...demoted);
+    return {safe:finalSafe,review,unmatched,already_mapped:mappedInventory.size,total_inventory:inventory.length,total_pricelist:prices.length};
+  }
+
 
   app.get('/api/master-pricelist/catalog',requireAuth,async(req,res)=>{
     if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
@@ -145,6 +222,37 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
         brand:p.brand||null,price:Number(p.price||0),source_cell:p.source_cell||null
       }));
       res.json({catalog,pricelist_only:pricelistOnly});
+    }catch(e){apiError(res,e)}
+  });
+
+
+  app.get('/api/master-pricelist/auto-map-preview',requireAuth,async(req,res)=>{
+    if(!canWrite(req))return res.status(403).json({error:'Anda tidak memiliki permission Write Master Pricelist.'});
+    try{res.json(await autoMapAnalysis())}catch(e){apiError(res,e)}
+  });
+
+  app.post('/api/master-pricelist/auto-map-safe',requireAuth,async(req,res)=>{
+    if(!canWrite(req))return res.status(403).json({error:'Anda tidak memiliki permission Write Master Pricelist.'});
+    try{
+      const analysis=await autoMapAnalysis();
+      const safe=Array.isArray(analysis.safe)?analysis.safe:[];
+      if(!safe.length)return res.json({ok:true,mapped:0,skipped:0});
+      const stamp=now(),actor=userName(req);
+      let mapped=0,skipped=0;
+      for(const x of safe){
+        const payload={
+          inventory_item_id:x.inventory_item_id,inventory_sku:x.sku||null,inventory_name:x.inventory_name||'',
+          source_key:x.source_key,mapping_status:'manual',mapped_at:stamp,mapped_by:actor,updated_at:stamp
+        };
+        try{
+          await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{Prefer:'resolution=merge-duplicates,return=minimal'});
+          mapped++;
+        }catch(e){
+          if(/duplicate|unique|23505/i.test(String(e?.message||e))){skipped++;continue}
+          throw e;
+        }
+      }
+      res.json({ok:true,mapped,skipped,remaining_review:analysis.review.length,remaining_unmatched:analysis.unmatched.length});
     }catch(e){apiError(res,e)}
   });
 
