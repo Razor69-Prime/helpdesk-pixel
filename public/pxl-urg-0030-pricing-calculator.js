@@ -1,8 +1,8 @@
-/* PXL-URG-0045 — Pricing Calculator can read mapped HPP from Master Pricelist; SO calculation/payload logic unchanged. */
+/* PXL-URG-0048 — Pricing Calculator uses mapped Master Pricelist HPP by Inventory ID/SKU; SO payload logic unchanged. */
 (function(){
   'use strict';
 
-  const REV='PXL-URG-0045';
+  const REV='PXL-URG-0048';
   if(window.PXL_URG_0030?.revision===REV) return;
 
   let activeRow=null;
@@ -67,7 +67,7 @@
     modal.innerHTML=`<div style="max-width:620px;margin:28px auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.22)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px"><div><b style="font-size:17px">Kalkulator Harga</b><div id="pxlPriceItem" style="font-size:11px;color:#756f66;margin-top:3px"></div></div><button type="button" class="btn" id="pxlPriceClose">Tutup</button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
-        <div><label>HPP</label><input id="pxlPriceHpp" inputmode="numeric" value="0"></div>
+        <div><label>HPP</label><input id="pxlPriceHpp" inputmode="numeric" value="0"><div id="pxlPriceHppSource" style="font-size:10px;color:#756f66;margin-top:4px">Sumber: Manual</div></div>
         <div><label>Up Harga (%)</label><input id="pxlPriceUp" type="number" min="0" step="0.01" value="20"></div>
         <div><label>Fee (%)</label><input id="pxlPriceFee" type="number" min="0" step="0.01" value="10"></div>
         <div><label>PPN (%)</label><input id="pxlPricePpn" type="number" min="0" step="0.01" value="11"></div>
@@ -92,6 +92,15 @@
     document.head.appendChild(style);
     document.body.appendChild(modal);
     modal.querySelectorAll('input').forEach(el=>el.addEventListener('input',render));
+    modal.querySelector('#pxlPriceHpp')?.addEventListener('input',()=>{
+      const source=modal.querySelector('#pxlPriceHppSource');
+      if(!source||!activeRow)return;
+      const master=Number(activeRow.dataset.masterHpp);
+      const current=n(modal.querySelector('#pxlPriceHpp').value);
+      source.textContent=Number.isFinite(master)&&String(activeRow.dataset.masterHpp)!==''&&current===master
+        ? 'Sumber: Master Pricelist'
+        : 'Sumber: Manual / Override';
+    });
     const close=()=>{modal.style.display='none';activeRow=null;};
     modal.querySelector('#pxlPriceClose').onclick=close;
     modal.querySelector('#pxlPriceCancel').onclick=close;
@@ -114,13 +123,22 @@
     return row?.querySelector('.item-search,.service-name')?.value?.trim() || 'Item / Jasa';
   }
 
-  function open(row){
+  async function open(row){
     if(!row)return;
     activeRow=row;
     const m=ensureModal();
-    m.querySelector('#pxlPriceItem').textContent=rowName(row)+(row.dataset.masterPricelistSku?' · SKU '+row.dataset.masterPricelistSku:'')+(row.dataset.masterHpp?' · HPP Master '+rp(row.dataset.masterHpp):'');
-    const mappedHpp=Math.max(0,n(row.dataset.masterHpp||0));
-    m.querySelector('#pxlPriceHpp').value=String(mappedHpp||0);
+    const bridge=window.PXL_URG_0048_SO;
+    if(row.classList.contains('material-row')&&bridge?.refreshRow){
+      try{await bridge.refreshRow(row,true);}catch(_){}
+    }
+    const hasMaster=row.classList.contains('material-row')&&row.dataset.masterHpp!==undefined&&row.dataset.masterHpp!=='';
+    const mappedHpp=hasMaster?Math.max(0,n(row.dataset.masterHpp)):0;
+    const sku=row.dataset.masterPricelistSku||row.dataset.sku||'';
+    const brand=row.dataset.masterPricelistBrand||'';
+    m.querySelector('#pxlPriceItem').textContent=rowName(row)+(sku?' · SKU '+sku:'')+(brand?' · '+brand:'');
+    m.querySelector('#pxlPriceHpp').value=String(mappedHpp);
+    const source=m.querySelector('#pxlPriceHppSource');
+    if(source)source.textContent=hasMaster?'Sumber: Master Pricelist'+(sku?' · '+sku:''):'Sumber: Manual / Belum ada harga Master';
     m.querySelector('#pxlPriceUp').value='20';
     m.querySelector('#pxlPriceFee').value='10';
     m.querySelector('#pxlPricePpn').value='11';
@@ -139,7 +157,7 @@
     btn.type='button';
     btn.className='btn pxl-price-calc';
     btn.textContent='🧮 Hitung Harga';
-    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open(row);});
+    btn.addEventListener('click',async e=>{e.preventDefault();e.stopPropagation();btn.disabled=true;const old=btn.textContent;btn.textContent='Memuat HPP...';try{await open(row);}finally{btn.disabled=false;btn.textContent=old}});
     host.appendChild(btn);
   }
 
