@@ -1,7 +1,7 @@
-/* PXL-URG-0043 — Isolated Master Pricelist trial menu. Superadmin only. No Pricing/Inventory/SO integration. */
+/* PXL-URG-0043A — Isolated Master Pricelist trial menu. Superadmin only. No Pricing/Inventory/SO integration. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0043';
+  const REV='PXL-URG-0043A';
   if(window.PXL_URG_0040?.revision===REV)return;
   const norm=v=>String(v??'').trim().toLowerCase().replace(/[ _-]/g,'');
   function user(){try{return window.currentUser||currentUser||null}catch(_){return window.currentUser||null}}
@@ -28,11 +28,11 @@
       btn=document.createElement('button');
       btn.type='button';
       btn.className='nav-btn';
-      btn.dataset.pxlMasterPricelist='0043';
+      btn.dataset.pxlMasterPricelist='0043A';
       btn.innerHTML='<span>💰</span><span class="nav-label">Master Pricelist</span>';
       const inventory=[...sidebar.querySelectorAll('.nav-btn,button,a')].find(x=>/inventory/i.test(x.textContent||''));
       if(inventory?.parentNode)inventory.parentNode.insertBefore(btn,inventory.nextSibling);else sidebar.appendChild(btn);
-    }else btn.dataset.pxlMasterPricelist='0043';
+    }else btn.dataset.pxlMasterPricelist='0043A';
     btn.onclick=e=>{e.preventDefault();e.stopPropagation();open()};
   }
   function refresh(){ensureMenu()}
