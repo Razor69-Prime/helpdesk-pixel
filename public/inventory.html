@@ -126,10 +126,11 @@ function renderDuplicateCandidates(){
     const mergeBlocked=p.a.tracking_mode==='serial'||p.b.tracking_mode==='serial'||String(p.a.unit||'').toLowerCase()!==String(p.b.unit||'').toLowerCase();
     let actions='<span class="item-meta">Review saja</span>';
     if(destructive){
-      const aStock=Number(p.a.stock||0),bStock=Number(p.b.stock||0),hasStock=aStock>0||bStock>0;
-      const mergeActions=hasStock?(!mergeBlocked?'<button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'a\')">Merge → A</button><button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'b\')">Merge → B</button>':'<span class="badge warn">Merge diblokir</span>'):'';
+      const aStock=Number(p.a.stock||0),bStock=Number(p.b.stock||0),hasStock=aStock>0||bStock>0,isExact=Number(p.score)===100;
+      const mergeActions=isExact&&hasStock?(!mergeBlocked?'<button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'a\')">Merge → A</button><button class="btn primary" onclick="mergeDuplicatePair('+idx+',\'b\')">Merge → B</button>':'<span class="badge warn">Merge diblokir</span>'):'';
       const deactivateActions=(aStock===0?'<button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'a\')">Nonaktif A</button>':'')+(bStock===0?'<button class="btn" style="color:#A32E24" onclick="deactivateDuplicateItem('+idx+',\'b\')">Nonaktif B</button>':'');
-      actions='<div style="display:flex;gap:5px;flex-wrap:wrap">'+mergeActions+deactivateActions+(hasStock&&!deactivateActions?'<span class="item-meta">Item berstok hanya dapat di-Merge</span>':'')+'</div>';
+      const note=!isExact?'<span class="item-meta">Similarity '+Number(p.score)+'% · review manual</span>':(hasStock&&!deactivateActions?'<span class="item-meta">100% match · item berstok dapat di-Merge</span>':'');
+      actions='<div style="display:flex;gap:5px;flex-wrap:wrap">'+mergeActions+deactivateActions+note+'</div>';
     }
     return '<tr><td><span class="badge '+(p.score>=95?'ok':p.score>=85?'warn':'')+'">'+Number(p.score)+'%</span></td><td>'+duplicateItemHtml(p.a)+'</td><td>'+duplicateItemHtml(p.b)+'</td><td>'+actions+'</td></tr>';
   }).join('');
