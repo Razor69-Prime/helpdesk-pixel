@@ -1,9 +1,9 @@
-/* PXL-URG-0048 — Master Pricelist HPP bridge for Sales Order / Pricing Calculator.
+/* PXL-URG-0048A — Master Pricelist HPP bridge stability fix for Sales Order.
  * Does not change SO payload, Inventory data, stock, or PR.
  */
 (function(){
   'use strict';
-  const REV='PXL-URG-0048';
+  const REV='PXL-URG-0048A';
   if(window.PXL_URG_0048_SO?.revision===REV)return;
 
   let catalog=[];
@@ -57,15 +57,17 @@
       row.dataset.masterPricelistSource=hit.source_key||'';
       row.dataset.masterPricelistSku=hit.sku||sku(row)||'';
       row.dataset.masterPricelistBrand=hit.brand||'';
-      badge.innerHTML='Master Pricelist · <b>'+rp(hit.price)+'</b>'+(hit.sku?' · '+String(hit.sku):'')+(hit.brand?' · '+String(hit.brand):'');
-      badge.style.display='';
+      const html='Master Pricelist · <b>'+rp(hit.price)+'</b>'+(hit.sku?' · '+String(hit.sku):'')+(hit.brand?' · '+String(hit.brand):'');
+      if(badge.innerHTML!==html)badge.innerHTML=html;
+      if(badge.style.display==='none')badge.style.display='';
     }else{
       delete row.dataset.masterHpp;
       delete row.dataset.masterPricelistSource;
       delete row.dataset.masterPricelistSku;
       delete row.dataset.masterPricelistBrand;
-      badge.textContent=inventoryId(row)||sku(row)?'Master Pricelist · Belum Ada Harga':'Master Pricelist · Pilih item Inventory';
-      badge.style.display='';
+      const label=inventoryId(row)||sku(row)?'Master Pricelist · Belum Ada Harga':'Master Pricelist · Pilih item Inventory';
+      if(badge.textContent!==label)badge.textContent=label;
+      if(badge.style.display==='none')badge.style.display='';
     }
   }
   async function refreshRow(row,force=false){await load(force);decorateRow(row);return findCatalog(row);}
@@ -75,10 +77,33 @@
   }
   function install(){
     scan();
-    const watch=id=>{const el=document.getElementById(id);if(!el||el.dataset.pxlMasterPriceWatch)return;el.dataset.pxlMasterPriceWatch='1';new MutationObserver(()=>scan()).observe(el,{childList:true,subtree:true});};
+    const watch=id=>{
+      const el=document.getElementById(id);
+      if(!el||el.dataset.pxlMasterPriceWatch==='0048A')return;
+      el.dataset.pxlMasterPriceWatch='0048A';
+      new MutationObserver(records=>{
+        const rowStructureChanged=records.some(record=>{
+          const nodes=[...record.addedNodes,...record.removedNodes];
+          return nodes.some(node=>{
+            if(!(node instanceof Element))return false;
+            if(node.classList.contains('pxl-master-hpp-badge'))return false;
+            return node.classList.contains('material-row')||node.querySelector?.('.material-row');
+          });
+        });
+        if(rowStructureChanged)scan(false);
+      }).observe(el,{childList:true,subtree:true});
+    };
     watch('materialItems');
-    document.addEventListener('change',e=>{if(e.target?.closest?.('.material-row'))setTimeout(scan,0)},true);
-    document.addEventListener('input',e=>{if(e.target?.classList?.contains('item-search'))setTimeout(scan,50)},true);
+    document.addEventListener('change',e=>{
+      const row=e.target?.closest?.('.material-row');
+      if(row)setTimeout(()=>refreshRow(row,false),0);
+    },true);
+    document.addEventListener('input',e=>{
+      if(e.target?.classList?.contains('item-search')){
+        const row=e.target.closest('.material-row');
+        if(row)setTimeout(()=>refreshRow(row,false),60);
+      }
+    },true);
     window.PXL_URG_0048_SO={revision:REV,reload:async()=>{loaded=false;loadedAt=0;catalog=[];await scan(true);},refreshRow:(row,force=false)=>refreshRow(row,force),resolve:row=>findCatalog(row),catalog:()=>catalog.slice()};
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
