@@ -151,14 +151,21 @@
   }
 })();
 
-// PXL-URG-0030C — fallback loader kalkulator harga final include PPN.
+// PXL-URG-0045 — Master Pricelist bridge + Pricing Calculator HPP integration.
 (function(){
   'use strict';
-  if(window.PXL_URG_0030?.revision==='PXL-URG-0030C' || document.querySelector('script[data-pxl-pricing-loader="0030C"]')) return;
-  const script=document.createElement('script');
-  script.dataset.pxlPricingLoader='0030C';
-  script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0030C';
-  document.head.appendChild(script);
+  if(document.querySelector('script[data-pxl-master-price-so="0045"]')) return;
+  const bridge=document.createElement('script');
+  bridge.dataset.pxlMasterPriceSo='0045';
+  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0045';
+  bridge.onload=()=>{
+    if(window.PXL_URG_0030?.revision==='PXL-URG-0045' || document.querySelector('script[data-pxl-pricing-loader="0045"]')) return;
+    const script=document.createElement('script');
+    script.dataset.pxlPricingLoader='0045';
+    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0045';
+    document.head.appendChild(script);
+  };
+  document.head.appendChild(bridge);
 })();
 
 // PXL-URG-0031 — isolated Purchase Request PDF branding loader.
