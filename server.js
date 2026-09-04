@@ -3132,6 +3132,9 @@ app.get('/api/invoices/:id/template.pdf', requireAuth, async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
+// PXL-URG-0043 — Master Pricelist persistent cache/history API (Superadmin only).
+require('./pxl-urg-0043-master-pricelist-cache')(app,{requireAuth});
+
 // PXL-STG-0009A — modul terpisah Form Cuti / Izin
 require('./pxl-stg-0009a-leave-api')(app,{db,requireAuth,logActivity});
 
