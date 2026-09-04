@@ -154,7 +154,8 @@ async function bulkMergeExactDuplicates(){
   if(btn){btn.disabled=true;btn.textContent='Memproses...'}
   try{
     const r=await api('/api/inventory/duplicates/merge-exact-bulk',{method:'POST',body:'{}'});
-    toast('Merge massal selesai: '+Number(r.items_deactivated||0)+' item digabung, '+Number(r.groups_merged||0)+' grup');
+    const skipped=Array.isArray(r.skipped)?r.skipped.length:0;
+    alert('Merge Massal 100% selesai.\n\nGrup berhasil: '+Number(r.groups_merged||0)+'\nItem dinonaktifkan: '+Number(r.items_deactivated||0)+'\nStok dipindahkan: '+Number(r.stock_moved||0)+'\nDilewati: '+skipped);
     duplicateCandidates=[];
     await load();
     await loadDuplicateCandidates(true);
