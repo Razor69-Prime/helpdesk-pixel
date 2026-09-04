@@ -1,6 +1,6 @@
 'use strict';
-/* PXL-URG-0044 — Master Pricelist change detection + permanent last-successful-sync metadata.
- * Isolated from Pricing Calculator, Inventory, Sales Order and Purchase Request.
+/* PXL-URG-0045 — Master Pricelist cache/change log + isolated Inventory SKU mapping.
+ * Inventory is read-only from this module; mapping is stored separately. PR remains unconnected.
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
 const crypto=require('crypto');
@@ -65,6 +65,102 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
     };
   }
   function userName(req){return text(req.session?.user?.name||req.session?.user?.username||req.session?.user?.id)||'Superadmin';}
+
+  function normalizeName(v){
+    return text(v).toUpperCase()
+      .replace(/[^A-Z0-9]+/g,' ')
+      .replace(/\b(CAMERA|KAMERA|CCTV|IP CAMERA|ANALOG|OUTDOOR|INDOOR|PCS|UNIT)\b/g,' ')
+      .replace(/\s+/g,' ').trim();
+  }
+  function catalogRoleAllowed(req){
+    return new Set(['superadmin','manager','admin','sales','accounting']).has(role(req.session?.user?.role));
+  }
+  async function inventoryRows(){
+    const db=require('./db');
+    if(typeof db.getInventoryItems!=='function')throw new Error('Adapter Inventory tidak tersedia.');
+    const rows=await db.getInventoryItems();
+    return Array.isArray(rows)?rows.filter(x=>x&&x.is_active!==false):[];
+  }
+
+
+  app.get('/api/master-pricelist/catalog',requireAuth,async(req,res)=>{
+    if(!catalogRoleAllowed(req))return res.status(403).json({error:'Akses katalog Master Pricelist ditolak.'});
+    try{
+      const [inventory,priceRows,mapRows]=await Promise.all([
+        inventoryRows(),
+        sb('GET','/master_pricelist_items?is_active=eq.true&select=source_key,category,brand,item_name,price,source_cell'),
+        sb('GET','/master_pricelist_inventory_map?select=inventory_item_id,inventory_sku,inventory_name,source_key,mapping_status,mapped_at,mapped_by')
+      ]);
+      const prices=Array.isArray(priceRows)?priceRows:[];
+      const maps=Array.isArray(mapRows)?mapRows:[];
+      const priceByKey=new Map(prices.map(x=>[String(x.source_key),x]));
+      const mapByInventory=new Map(maps.map(x=>[String(x.inventory_item_id),x]));
+      const usedSources=new Set(maps.map(x=>x.source_key).filter(Boolean).map(String));
+
+      const catalog=inventory.map(inv=>{
+        const map=mapByInventory.get(String(inv.id))||null;
+        let price=map?.source_key?priceByKey.get(String(map.source_key))||null:null;
+        let suggestion=null;
+        if(!price){
+          const key=normalizeName(inv.name);
+          const candidates=prices.filter(p=>normalizeName(p.item_name)===key);
+          if(candidates.length===1&&!usedSources.has(String(candidates[0].source_key)))suggestion=candidates[0];
+        }
+        return {
+          inventory_item_id:inv.id,
+          sku:inv.sku||null,
+          inventory_name:inv.name||'',
+          inventory_category:inv.category||null,
+          unit:inv.unit||'pcs',
+          stock:Number(inv.stock||0),
+          mapping_status:price?'mapped':(map?.mapping_status||'unmapped'),
+          source_key:price?.source_key||map?.source_key||null,
+          pricelist_name:price?.item_name||null,
+          brand:price?.brand||null,
+          price:price?Number(price.price||0):null,
+          source_cell:price?.source_cell||null,
+          suggested_source_key:suggestion?.source_key||null,
+          suggested_name:suggestion?.item_name||null,
+          suggested_brand:suggestion?.brand||null,
+          suggested_price:suggestion?Number(suggestion.price||0):null
+        };
+      });
+
+      const mappedSources=new Set(catalog.map(x=>x.source_key).filter(Boolean).map(String));
+      const pricelistOnly=prices.filter(p=>!mappedSources.has(String(p.source_key))).map(p=>({
+        inventory_item_id:null,sku:null,inventory_name:null,inventory_category:null,unit:null,stock:null,
+        mapping_status:'pricelist_only',source_key:p.source_key,pricelist_name:p.item_name,
+        brand:p.brand||null,price:Number(p.price||0),source_cell:p.source_cell||null
+      }));
+      res.json({catalog,pricelist_only:pricelistOnly});
+    }catch(e){apiError(res,e)}
+  });
+
+  app.post('/api/master-pricelist/map',requireAuth,async(req,res)=>{
+    if(!isSuper(req))return res.status(403).json({error:'Hanya Superadmin yang dapat menyimpan mapping.'});
+    try{
+      const inventoryItemId=text(req.body?.inventory_item_id);
+      const sourceKey=text(req.body?.source_key);
+      if(!inventoryItemId)return res.status(400).json({error:'Inventory item wajib dipilih.'});
+      const inventory=await inventoryRows();
+      const inv=inventory.find(x=>String(x.id)===inventoryItemId);
+      if(!inv)return res.status(404).json({error:'Item Inventory tidak ditemukan.'});
+      if(sourceKey){
+        const rows=await sb('GET','/master_pricelist_items?source_key=eq.'+encodeURIComponent(sourceKey)+'&is_active=eq.true&select=source_key,item_name,price&limit=1');
+        if(!Array.isArray(rows)||!rows.length)return res.status(404).json({error:'Item Master Pricelist tidak ditemukan.'});
+      }
+      const stamp=now(),actor=userName(req);
+      const payload={
+        inventory_item_id:inv.id,inventory_sku:inv.sku||null,inventory_name:inv.name||'',
+        source_key:sourceKey||null,mapping_status:sourceKey?'manual':'unmapped',
+        mapped_at:sourceKey?stamp:null,mapped_by:sourceKey?actor:null,updated_at:stamp
+      };
+      await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{
+        Prefer:'resolution=merge-duplicates,return=minimal'
+      });
+      res.json({ok:true,...payload});
+    }catch(e){apiError(res,e)}
+  });
 
   app.get('/api/master-pricelist/cache',requireAuth,async(req,res)=>{
     if(!isSuper(req))return res.status(403).json({error:'Akses hanya untuk Superadmin.'});
