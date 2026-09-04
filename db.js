@@ -908,6 +908,17 @@ async function importInventoryCutoff(rows, actor) {
   return output || result;
 }
 
+async function mergeInventoryDuplicatesBulk(merges, actor) {
+  requireInventorySupabase();
+  const result = await sbFetch('POST', '/rpc/inventory_merge_duplicates_bulk', {
+    p_merges: Array.isArray(merges) ? merges : [],
+    p_actor: actor || 'System'
+  }, { Prefer: 'return=representation' });
+  const output = Array.isArray(result) ? result[0] : result;
+  if (!output || output.ok !== true) throw new Error(output?.error || 'Merge massal Inventory gagal.');
+  return output;
+}
+
 // ─────────────────────────────────────────
 // CRM / SALES ORDER / WO / INVOICE FLOW
 // PXL-REV-0039
@@ -1107,7 +1118,7 @@ module.exports = {
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
-  getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem,
+  getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem, mergeInventoryDuplicatesBulk,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
   getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
