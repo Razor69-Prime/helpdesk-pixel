@@ -96,6 +96,32 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
 
   const AUTO_GENERIC=new Set(['CAMERA','KAMERA','CCTV','IP','ANALOG','OUTDOOR','INDOOR','WIRELESS','WIRELES','ROUTER','SWITCH','HUB','POE','NVR','DVR','XVR','ADAPTOR','ADAPTER','KABEL','CABLE','MICRO','SD','HDD','PCS','UNIT','PORT','FULL','COLOR','SOUND','AUDIO','NEW','PRODUCT']);
   const AUTO_GENERIC_MODEL=/^(?:[1-9]\d?MP|[248]K|\d+(?:GB|TB|CH|PORT|V|A|W|M|MM|INCH))$/;
+
+  function extractResolutionMP(v){
+    const m=text(v).toUpperCase().match(/\b(\d{1,2})\s*MP\b/);
+    return m?Number(m[1]):null;
+  }
+  function modelCandidates(v){
+    const raw=text(v).toUpperCase();
+    const matches=raw.match(/\b(?:DS-[A-Z0-9-]+|IPC-[A-Z0-9-]+|HAC-[A-Z0-9-]+|NVR[0-9A-Z-]*|XVR[0-9A-Z-]*|DHI-[A-Z0-9-]+)\b/g)||[];
+    return [...new Set(matches.map(x=>x.replace(/[^A-Z0-9-]/g,'')))];
+  }
+  function modelCore(v){
+    return String(v||'').toUpperCase().replace(/-(?:I|W|A|F|S|T|Z|L|P|N|H|M|E\d?|E\d+|L\d+)+$/,'');
+  }
+  function sharedExactModel(a,b){
+    const am=modelCandidates(a),bm=modelCandidates(b);
+    return am.find(x=>bm.includes(x))||null;
+  }
+  function sharedCoreModel(a,b){
+    const am=modelCandidates(a),bm=modelCandidates(b);
+    for(const x of am){
+      const xc=modelCore(x);
+      const y=bm.find(z=>modelCore(z)===xc);
+      if(y)return {a:x,b:y,core:xc};
+    }
+    return null;
+  }
   function autoWords(v){
     return normalizeName(v).split(' ').filter(x=>x&&x.length>1&&!AUTO_GENERIC.has(x)&&!AUTO_GENERIC_MODEL.test(x));
   }
@@ -110,28 +136,63 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
     return normalizeName(invName).includes(b.replace(/[^A-Z0-9]+/g,' '));
   }
   function scoreAutoPair(inv,price){
-    const a=normalizeName(inv.name),b=normalizeName(price.item_name);
+    const invName=text(inv.name),priceName=text(price.item_name);
+    const a=normalizeName(invName),b=normalizeName(priceName);
     if(!a||!b)return {score:0,reason:''};
-    if(a===b)return {score:100,reason:'Nama persis'};
-    const am=autoModels(inv.name),bm=autoModels(price.item_name);
+
+    const exactModel=sharedExactModel(invName,priceName);
+    const coreModel=sharedCoreModel(invName,priceName);
+    const invMp=extractResolutionMP(invName),priceMp=extractResolutionMP(priceName);
+    const mpConflict=invMp&&priceMp&&invMp!==priceMp;
+
+    if(exactModel){
+      const brandOk=brandMatchesInventory(invName,price.brand);
+      return {score:brandOk?100:99,reason:'Model sama '+exactModel+(brandOk?' + brand':'')};
+    }
+
+    if(coreModel){
+      if(mpConflict)return {score:0,reason:'Model inti mirip tetapi resolusi berbeda '+invMp+'MP vs '+priceMp+'MP'};
+      const brandOk=brandMatchesInventory(invName,price.brand);
+      return {score:brandOk?98:97,reason:'Model inti sama '+coreModel.core+(brandOk?' + brand':'')};
+    }
+
+    if(mpConflict)return {score:0,reason:'Resolusi berbeda '+invMp+'MP vs '+priceMp+'MP'};
+
+    if(a===b){
+      if((invMp&&!priceMp)||(!invMp&&priceMp))return {score:95,reason:'Nama persis; resolusi hanya tertulis di salah satu sisi'};
+      return {score:100,reason:'Nama persis'};
+    }
+
+    const am=autoModels(invName),bm=autoModels(priceName);
     const sharedModels=am.filter(x=>bm.includes(x));
     if(sharedModels.length){
-      const brandOk=brandMatchesInventory(inv.name,price.brand);
-      return {score:brandOk?99:97,reason:'Model '+sharedModels[0]+(brandOk?' + brand':'')};
+      const brandOk=brandMatchesInventory(invName,price.brand);
+      const score=(invMp&&!priceMp)||(!invMp&&priceMp)?95:(brandOk?99:97);
+      return {score,reason:'Model '+sharedModels[0]+(brandOk?' + brand':'')+(((invMp&&!priceMp)||(!invMp&&priceMp))?' · resolusi hanya satu sisi':'')};
     }
-    const aw=autoWords(inv.name),bw=autoWords(price.item_name);
+
+    const aw=autoWords(invName),bw=autoWords(priceName);
     const aset=new Set(aw),bset=new Set(bw);
     const common=[...aset].filter(x=>bset.has(x));
     const min=Math.min(aset.size,bset.size);
     const coverage=min?common.length/min:0;
     const compactA=aw.join(' '),compactB=bw.join(' ');
+
+    if((invMp&&!priceMp)||(!invMp&&priceMp)){
+      if(compactA&&compactB&&(compactA.includes(compactB)||compactB.includes(compactA))&&Math.min(compactA.length,compactB.length)>=5){
+        return {score:90,reason:'Nama utama sama · resolusi hanya satu sisi'};
+      }
+      if(coverage>=0.8&&common.length>=2)return {score:86,reason:'Kemiripan nama tinggi · resolusi hanya satu sisi'};
+    }
+
     if(compactA&&compactB&&(compactA.includes(compactB)||compactB.includes(compactA))&&Math.min(compactA.length,compactB.length)>=5){
-      return {score:brandMatchesInventory(inv.name,price.brand)?96:94,reason:'Nama utama sama'};
+      return {score:brandMatchesInventory(invName,price.brand)?96:94,reason:'Nama utama sama'};
     }
     if(coverage>=0.8&&common.length>=2)return {score:91,reason:'Kemiripan nama tinggi'};
     if(coverage>=0.6&&common.length>=2)return {score:82,reason:'Kemiripan nama'};
     return {score:0,reason:''};
   }
+
   async function autoMapAnalysis(){
     const [inventory,priceRows,mapRows]=await Promise.all([
       inventoryRows(),
