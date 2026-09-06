@@ -348,12 +348,10 @@ function register(app) {
       // CRM integration is best-effort in this temporary override. It must not
       // block publication while the Invoice PIC/integration is not ready.
       let crmWarning=null;
-      if(String(old.source_type||'')!=='direct_sales'){
-        try{
-          await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
-        }catch(crmError){
-          crmWarning=clean(crmError);
-        }
+      try{
+        await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+      }catch(crmError){
+        crmWarning=clean(crmError);
       }
 
       await audit(
@@ -382,7 +380,7 @@ function register(app) {
       const number=`${series}-${month}${year}${String(seq).padStart(3,'0')}`;
       const snapshot={...old,invoice_number:number,issued_at:new Date().toISOString()};
       const patch={invoice_number:number,invoice_series:series,invoice_year:year,invoice_sequence:seq,manual_number:!!req.body.manual_number,invoice_status:'issued',issued_by:req.session.user.name,issued_at:new Date().toISOString(),snapshot_json:snapshot,updated_at:new Date().toISOString()};
-      if(!directSales)await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'ISSUE',old,saved,null);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
@@ -415,10 +413,8 @@ function register(app) {
       if(isPaid && String(old.source_type||'')==='direct_sales' && String(old.payment_status||'')!=='paid'){
         await issueDirectSalesInventory(api,old,req.session.user.name);
       }
-      if(String(old.source_type||'')!=='direct_sales'){
-        await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
-        await syncCrmPayment(api,{...old,...patch});
-      }
+      await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+      await syncCrmPayment(api,{...old,...patch});
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,isPaid?'MARK_PAID':'RECORD_PAYMENT',old,saved,text(req.body?.note));
       res.json(saved);
@@ -428,75 +424,122 @@ function register(app) {
 
 async function syncIssuedInvoiceToCrm(api,invoice,actor){
   const [relations,items]=await Promise.all([
-    api.get(`/invoice_work_orders?invoice_id=eq.${enc(invoice.id)}&select=ticket_id`),
+    api.safeGet(`/invoice_work_orders?invoice_id=eq.${enc(invoice.id)}&select=ticket_id`,[]),
     api.get(`/invoice_items?invoice_id=eq.${enc(invoice.id)}&order=line_no.asc`)
   ]);
+
   const ticketIds=[...new Set((relations||[]).map(x=>x.ticket_id).filter(Boolean))];
-  if(!ticketIds.length)throw bad('Sinkronisasi CRM gagal: Invoice tidak memiliki Work Order.');
-  const tickets=await api.get(`/tickets?id=in.(${ticketIds.map(enc).join(',')})&select=id,wo_number,project_name,status,sales_order_id,so_number,crm_customer_id,customer_name,customer_phone,technician,created_by`);
-  const salesOrderId=invoice.source_so_id||(tickets||[]).map(x=>x.sales_order_id).find(Boolean);
-  if(!salesOrderId)throw bad('Sinkronisasi CRM gagal: Sales Order sumber Invoice tidak ditemukan.');
-  const salesOrders=await api.get(`/sales_orders?id=eq.${enc(salesOrderId)}&select=id,so_number,customer_id,customer_name`);
-  const so=salesOrders?.[0];
-  if(!so)throw bad('Sinkronisasi CRM gagal: data Sales Order tidak ditemukan di CRM.');
+  const tickets=ticketIds.length
+    ? await api.safeGet(`/tickets?id=in.(${ticketIds.map(enc).join(',')})&select=id,wo_number,project_name,status,sales_order_id,so_number,crm_customer_id,customer_name,customer_phone,technician,created_by`,[])
+    : [];
+
+  const salesOrderId=invoice.source_so_id||(tickets||[]).map(x=>x.sales_order_id).find(Boolean)||null;
+  const salesOrders=salesOrderId
+    ? await api.safeGet(`/sales_orders?id=eq.${enc(salesOrderId)}&select=id,so_number,customer_id,customer_name`,[])
+    : [];
+  const so=salesOrders?.[0]||null;
+
+  // CRM customer is sourced from the Invoice itself first. SO/WO are optional enrichments.
   const customer=await ensureCrmCustomer(api,invoice,so,tickets,actor);
-  // WO operasional lama/manual dapat valid tetapi belum mempunyai mirror CRM.
-  // Cari juga berdasarkan nomor WO, lalu perbaiki/buat mirror secara idempotent
-  // agar penerbitan Invoice tidak tertahan oleh data integrasi historis.
-  const crmWos=await api.safeGet(`/crm_work_orders?or=(ticket_id.in.(${ticketIds.map(enc).join(',')}),sales_order_id.eq.${enc(salesOrderId)})&select=id,ticket_id,wo_number,sales_order_id`,[]);
-  const crmWoByTicket=new Map((crmWos||[]).filter(x=>x.ticket_id).map(x=>[String(x.ticket_id),x]));
-  const crmWoByNumber=new Map((crmWos||[]).filter(x=>x.wo_number).map(x=>[String(x.wo_number).trim().toLowerCase(),x]));
-  for(const ticket of tickets||[]){
-    const ticketKey=String(ticket.id);
-    if(crmWoByTicket.has(ticketKey))continue;
-    const numberKey=String(ticket.wo_number||'').trim().toLowerCase();
-    let mirror=numberKey?crmWoByNumber.get(numberKey):null;
-    const mirrorPayload={
-      ticket_id:ticket.id,sales_order_id:salesOrderId,so_number:so.so_number,
-      wo_number:ticket.wo_number||`WO-${String(ticket.id).slice(0,8)}`,
-      number_source:'manual',project_name:ticket.project_name||null,
-      technician:ticket.technician||null,status:ticket.status||'done',
-      customer_id:customer.id,
-      customer_name:ticket.customer_name||so.customer_name||null,
-      customer_phone:ticket.customer_phone||null,
-      source_type:'invoice_sync_repair',integration_key:`ticket:${ticket.id}`,
-      updated_at:new Date().toISOString()
-    };
-    if(mirror){
-      mirror=(await api.patch(`/crm_work_orders?id=eq.${enc(mirror.id)}`,mirrorPayload))[0];
-    }else{
-      mirror=(await api.post('/crm_work_orders',{...mirrorPayload,created_by:actor||ticket.created_by||'System'}))[0];
+
+  // WO mirror remains optional. If the Invoice has WO, repair/create its CRM mirror.
+  const crmWorkOrderIds=[];
+  if(ticketIds.length){
+    const crmWos=salesOrderId
+      ? await api.safeGet(`/crm_work_orders?or=(ticket_id.in.(${ticketIds.map(enc).join(',')}),sales_order_id.eq.${enc(salesOrderId)})&select=id,ticket_id,wo_number,sales_order_id`,[])
+      : await api.safeGet(`/crm_work_orders?ticket_id=in.(${ticketIds.map(enc).join(',')})&select=id,ticket_id,wo_number,sales_order_id`,[]);
+    const crmWoByTicket=new Map((crmWos||[]).filter(x=>x.ticket_id).map(x=>[String(x.ticket_id),x]));
+    const crmWoByNumber=new Map((crmWos||[]).filter(x=>x.wo_number).map(x=>[String(x.wo_number).trim().toLowerCase(),x]));
+
+    for(const ticket of tickets||[]){
+      const ticketKey=String(ticket.id);
+      let mirror=crmWoByTicket.get(ticketKey)||null;
+      if(!mirror){
+        const numberKey=String(ticket.wo_number||'').trim().toLowerCase();
+        mirror=numberKey?crmWoByNumber.get(numberKey):null;
+      }
+      const mirrorPayload={
+        ticket_id:ticket.id,
+        sales_order_id:salesOrderId||ticket.sales_order_id||null,
+        so_number:so?.so_number||ticket.so_number||null,
+        wo_number:ticket.wo_number||`WO-${String(ticket.id).slice(0,8)}`,
+        number_source:'manual',
+        project_name:ticket.project_name||null,
+        technician:ticket.technician||null,
+        status:ticket.status||'done',
+        customer_id:customer.id,
+        customer_name:ticket.customer_name||invoice.customer_name_snapshot||so?.customer_name||null,
+        customer_phone:ticket.customer_phone||null,
+        source_type:'invoice_sync_repair',
+        integration_key:`ticket:${ticket.id}`,
+        updated_at:new Date().toISOString()
+      };
+      if(mirror){
+        mirror=(await api.patch(`/crm_work_orders?id=eq.${enc(mirror.id)}`,mirrorPayload))[0];
+      }else{
+        mirror=(await api.post('/crm_work_orders',{...mirrorPayload,created_by:actor||ticket.created_by||'System'}))[0];
+      }
+      if(mirror?.id){
+        crmWoByTicket.set(ticketKey,mirror);
+        crmWorkOrderIds.push(mirror.id);
+      }
     }
-    if(mirror)crmWoByTicket.set(ticketKey,mirror);
   }
-  const missingCrmWo=(tickets||[]).filter(x=>!crmWoByTicket.has(String(x.id)));
-  if(missingCrmWo.length)throw bad(`Sinkronisasi CRM gagal setelah repair otomatis: ${missingCrmWo.map(woLabel).join(', ')}.`);
-  const crmWorkOrderIds=ticketIds.map(id=>crmWoByTicket.get(String(id))?.id).filter(Boolean);
+
   const mappedItems=(items||[]).map(x=>({
-    name:x.item_name||x.description||'-',description:x.description||null,
+    name:x.item_name||x.description||'-',
+    description:x.description||null,
     item_type:String(x.source_type||'').toLowerCase()==='service'||String(x.unit||'').toLowerCase()==='jasa'?'service':'item',
     qty:num(x.quantity),unit:x.unit||'pcs',unit_price:num(x.unit_price),total:num(x.line_total)
   }));
-  const existing=await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[]);
+
+  const existing=invoice.invoice_number
+    ? await api.safeGet(`/crm_invoices?invoice_number=eq.${enc(invoice.invoice_number)}&select=id`,[])
+    : [];
+
   const payload={
-    invoice_number:invoice.invoice_number,sales_order_id:salesOrderId,so_number:so.so_number,
+    invoice_number:invoice.invoice_number,
+    sales_order_id:salesOrderId,
+    so_number:so?.so_number||null,
     customer_id:customer.id,
-    customer_name:invoice.customer_name_snapshot||so.customer_name||null,work_order_ids:crmWorkOrderIds,
-    items:mappedItems,additional_items:[],base_total:num(invoice.total_amount),additional_total:0,
-    grand_total:num(invoice.total_amount),status:num(invoice.balance_amount)<=0.0001&&num(invoice.paid_amount)>0?'paid':(num(invoice.paid_amount)>0?'partially_paid':'issued'),invoice_date:invoice.invoice_date,
-    due_date:invoice.due_date||null,down_payment:num(invoice.paid_amount),redemption:0,
-    balance_due:num(invoice.balance_amount??invoice.total_amount),payment_method:'CASH & TRANSFER BANK',
-    remark:`Sinkron otomatis Invoice V1 ${invoice.id}`,billing_address:invoice.billing_address_snapshot||null,
-    created_by:actor,updated_at:new Date().toISOString()
+    customer_name:invoice.customer_name_snapshot||so?.customer_name||customer.name||null,
+    work_order_ids:crmWorkOrderIds,
+    items:mappedItems,
+    additional_items:[],
+    base_total:num(invoice.total_amount),
+    additional_total:0,
+    grand_total:num(invoice.total_amount),
+    status:num(invoice.balance_amount)<=0.0001&&num(invoice.paid_amount)>0?'paid':(num(invoice.paid_amount)>0?'partially_paid':'issued'),
+    invoice_date:invoice.invoice_date,
+    due_date:invoice.due_date||null,
+    down_payment:num(invoice.paid_amount),
+    redemption:0,
+    balance_due:num(invoice.balance_amount??invoice.total_amount),
+    payment_method:'CASH & TRANSFER BANK',
+    remark:`Sinkron otomatis Invoice V1 ${invoice.id}${ticketIds.length?'':' · tanpa Work Order'}`,
+    billing_address:invoice.billing_address_snapshot||null,
+    created_by:actor,
+    updated_at:new Date().toISOString()
   };
+
   if(existing?.length)return (await api.patch(`/crm_invoices?id=eq.${enc(existing[0].id)}`,payload))[0];
   return (await api.post('/crm_invoices',payload))[0];
 }
 
 async function ensureCrmCustomer(api,invoice,so,tickets,actor){
-  const customerName=text(invoice.customer_name_snapshot||so.customer_name||(tickets||[]).map(x=>x.customer_name).find(Boolean));
+  const customerName=text(
+    invoice.customer_name_snapshot,
+    so?.customer_name,
+    (tickets||[]).map(x=>x.customer_name).find(Boolean)
+  );
   if(!customerName)throw bad('Sinkronisasi CRM gagal: nama customer Invoice tidak tersedia.');
-  const candidates=[invoice.customer_id,so.customer_id,...(tickets||[]).map(x=>x.crm_customer_id)].filter(Boolean);
+
+  const candidates=[
+    invoice.customer_id,
+    so?.customer_id,
+    ...(tickets||[]).map(x=>x.crm_customer_id)
+  ].filter(Boolean);
+
   for(const id of candidates){
     const rows=await api.safeGet(`/crm_customers?id=eq.${enc(id)}&select=id,name,status&limit=1`,[]);
     const matched=rows?.[0];
@@ -507,28 +550,42 @@ async function ensureCrmCustomer(api,invoice,so,tickets,actor){
       }))[0]||matched;
     }
   }
+
   const nameCandidates=await api.safeGet(`/crm_customers?name=ilike.${enc(customerName)}&select=id,name,status&limit=20`,[]);
   let customer=(nameCandidates||[]).find(row=>normalizeCustomerName(row.name)===normalizeCustomerName(customerName));
+
   if(!customer){
     const phone=text((tickets||[]).map(x=>x.customer_phone).find(Boolean))||null;
     customer=(await api.post('/crm_customers',{
-      name:customerName,type:'B2B',sales_pic:text(invoice.sales_pic_snapshot)||null,
-      phone,normalized_phone:phone?phone.replace(/\D/g,''):null,
-      address:text(invoice.billing_address_snapshot)||null,status:'active',
-      source_name:'invoice_sync',created_by:actor||'System',updated_at:new Date().toISOString()
+      name:customerName,
+      type:'B2B',
+      sales_pic:text(invoice.sales_pic_snapshot)||null,
+      phone,
+      normalized_phone:phone?phone.replace(/\D/g,''):null,
+      address:text(invoice.billing_address_snapshot)||null,
+      status:'active',
+      source_name:'invoice_sync',
+      created_by:actor||'System',
+      updated_at:new Date().toISOString()
     }))[0];
   }else if(String(customer.status||'active').toLowerCase()!=='active'){
     customer=(await api.patch(`/crm_customers?id=eq.${enc(customer.id)}`,{
       status:'active',updated_at:new Date().toISOString()
     }))[0]||customer;
   }
+
   if(!customer?.id)throw bad(`Sinkronisasi CRM gagal: customer ${customerName} tidak dapat dibuat.`);
-  // Repair relasi sumber secara best effort; master customer dan crm_invoices
-  // tetap menjadi sumber utama bila salah satu tabel lama belum memiliki kolomnya.
-  await Promise.allSettled([
-    api.patch(`/sales_orders?id=eq.${enc(so.id)}`,{customer_id:customer.id,updated_at:new Date().toISOString()}),
-    ...(tickets||[]).map(x=>api.patch(`/tickets?id=eq.${enc(x.id)}`,{crm_customer_id:customer.id}))
-  ]);
+
+  // Source repair is best-effort. Invoice-only customers do not require SO or WO.
+  const repairs=[];
+  if(so?.id)repairs.push(api.patch(`/sales_orders?id=eq.${enc(so.id)}`,{
+    customer_id:customer.id,updated_at:new Date().toISOString()
+  }));
+  for(const ticket of tickets||[]){
+    if(ticket?.id)repairs.push(api.patch(`/tickets?id=eq.${enc(ticket.id)}`,{crm_customer_id:customer.id}));
+  }
+  if(repairs.length)await Promise.allSettled(repairs);
+
   return customer;
 }
 
