@@ -3075,8 +3075,71 @@ function inventoryDuplicateSharedCoreModel(a,b){
   }
   return null;
 }
+
+function inventoryDuplicateChannelCount(value){
+  const raw=String(value||'').toUpperCase();
+  let m=raw.match(/\b(4|8|16|32|64)\s*(?:CH|CHANNEL)\b/);
+  if(m)return Number(m[1]);
+  m=raw.match(/\bNVR-?10(4|8)(?:\D|$)/);
+  if(m)return Number(m[1]);
+  m=raw.match(/\b(?:DHI-)?NVR\d{2}(04|08|16|32|64)(?:\D|$)/);
+  if(m)return Number(String(m[1]).replace(/^0/,''));
+  m=raw.match(/\b(?:DHI-)?(?:XVR|DVR)\d{2}(04|08|16|32|64)(?:\D|$)/);
+  if(m)return Number(String(m[1]).replace(/^0/,''));
+  return null;
+}
+function inventoryDuplicateStorageGB(value){
+  const raw=String(value||'').toUpperCase();
+  const m=raw.match(/\b(\d+(?:\.\d+)?)\s*(TB|GB)\b/);
+  if(!m)return null;
+  const n=Number(m[1]);
+  return m[2]==='TB'?Math.round(n*1000):Math.round(n);
+}
+function inventoryDuplicateStorageSeries(value){
+  const raw=String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ');
+  const series=[
+    ['SKYHAWK AI',/\bSKYHAWK\s+AI\b/],
+    ['SKYHAWK',/\bSKYHAWK\b/],
+    ['BARRACUDA',/\bBARRACUDA\b/],
+    ['IRONWOLF',/\bIRONWOLF\b/],
+    ['EXOS',/\bEXOS\b/],
+    ['PURPLE',/\b(?:WD\s+)?PURPLE\b/],
+    ['BLUE',/\b(?:WD\s+)?BLUE\b/],
+    ['RED',/\b(?:WD\s+)?RED\b/],
+    ['GOLD',/\b(?:WD\s+)?GOLD\b/]
+  ];
+  for(const [name,re] of series)if(re.test(raw))return name;
+  return null;
+}
+function inventoryDuplicateFirmwareClass(value){
+  const raw=' '+String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ')+' ';
+  if(/\sRFI\s/.test(raw))return 'RFI';
+  if(/\sMFI\s/.test(raw))return 'MFI';
+  return null;
+}
+function inventoryDuplicateCriticalMismatch(a,b){
+  const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
+  if(aMp&&bMp&&aMp!==bMp)return 'Resolusi berbeda '+aMp+'MP vs '+bMp+'MP';
+
+  const aCh=inventoryDuplicateChannelCount(a.name),bCh=inventoryDuplicateChannelCount(b.name);
+  if(aCh&&bCh&&aCh!==bCh)return 'Channel berbeda '+aCh+'CH vs '+bCh+'CH';
+
+  const aStorage=inventoryDuplicateStorageGB(a.name),bStorage=inventoryDuplicateStorageGB(b.name);
+  if(aStorage&&bStorage&&aStorage!==bStorage)return 'Kapasitas storage berbeda';
+
+  const aSeries=inventoryDuplicateStorageSeries(a.name),bSeries=inventoryDuplicateStorageSeries(b.name);
+  if(aSeries&&bSeries&&aSeries!==bSeries)return 'Series storage berbeda '+aSeries+' vs '+bSeries;
+
+  const aFw=inventoryDuplicateFirmwareClass(a.name),bFw=inventoryDuplicateFirmwareClass(b.name);
+  if(aFw&&bFw&&aFw!==bFw)return 'Tipe berbeda '+aFw+' vs '+bFw;
+
+  return null;
+}
 function inventoryDuplicateScore(a,b){
   if(inventoryDuplicatePackageClass(a.name)!==inventoryDuplicatePackageClass(b.name))return 0;
+
+  const criticalMismatch=inventoryDuplicateCriticalMismatch(a,b);
+  if(criticalMismatch)return 0;
 
   const an=inventoryDuplicateNorm(a.name),bn=inventoryDuplicateNorm(b.name);
   if(!an||!bn)return 0;
@@ -3087,20 +3150,12 @@ function inventoryDuplicateScore(a,b){
   const exactModel=inventoryDuplicateSharedExactModel(a.name,b.name);
   const coreModel=inventoryDuplicateSharedCoreModel(a.name,b.name);
   const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
-  const mpConflict=aMp&&bMp&&aMp!==bMp;
-
+  // Critical specification mismatch sudah difilter sebelum scoring.
   // Model/tipe adalah acuan utama. Indoor/Outdoor dan deskripsi umum tidak menurunkan score.
   if(exactModel)return 100;
 
   // Model inti sama tetapi suffix minor berbeda: tetap sangat mirip.
-  // Jika kedua sisi secara eksplisit menyebut resolusi berbeda, jangan dianggap barang sama.
-  if(coreModel){
-    if(mpConflict)return 0;
-    return 98;
-  }
-
-  // Tanpa model yang sama, resolusi berbeda adalah hard mismatch.
-  if(mpConflict)return 0;
+  if(coreModel)return 98;
 
   if(an===bn)return 100;
 
