@@ -3048,7 +3048,11 @@ function inventoryMergeUnitClass(value){
   return unit;
 }
 function inventoryDuplicateModels(value){
-  return [...new Set(inventoryDuplicateTokens(value).filter(x=>/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=4))];
+  return [...new Set(inventoryDuplicateTokens(value).filter(x=>{
+    if(!(/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=4))return false;
+    if(/^\d+(?:GB|TB|MB|MHZ|GHZ|W|V|A|MP|CH|PORT)$/i.test(x))return false;
+    return true;
+  }))];
 }
 function inventoryDuplicateResolutionMP(value){
   const m=String(value||'').toUpperCase().match(/\b(\d{1,2})\s*MP\b/);
@@ -3146,6 +3150,38 @@ function inventoryDuplicateRecorderClass(value){
   if(/\sXVR\s/.test(raw)||/\bXVR-?[A-Z0-9]*\d/.test(raw))return 'XVR';
   return null;
 }
+
+function inventoryDuplicateProductClass(value){
+  const raw=' '+String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ')+' ';
+  if(/\sMICRO\s*SD\s/.test(raw)||/\sMICROSD\s/.test(raw)||/\sTF\s*CARD\s/.test(raw))return 'MICRO_SD';
+  if(/\sFLASHDISK\s/.test(raw)||/\sFLASH\s*DRIVE\s/.test(raw)||/\sUSB\s*FLASH\s/.test(raw))return 'FLASHDISK';
+  if(/\sPC\s*AIO\s/.test(raw)||/\sALL\s*IN\s*ONE\s/.test(raw))return 'PC_AIO';
+  if(/\sRAM\s/.test(raw)||/\sDDR[345]\s/.test(raw))return 'RAM';
+  if(/\sSSD\s/.test(raw))return 'SSD';
+  if(/\sHDD\s/.test(raw)||/\sHARD\s*DISK\s/.test(raw))return 'HDD';
+  if(/\sNVR\s/.test(raw))return 'NVR';
+  if(/\sDVR\s/.test(raw))return 'DVR';
+  if(/\sXVR\s/.test(raw))return 'XVR';
+  return null;
+}
+function inventoryDuplicateMemoryBrand(value){
+  const raw=' '+String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ')+' ';
+  const brands=[
+    ['HIKSEMI',/\sHIKSEMI\s/],
+    ['KINGSTON',/\sKINGSTON\s/],
+    ['IMOU',/\sIMOU\s/],
+    ['LEXAR',/\sLEXAR\s/],
+    ['SANDISK',/\sSAN\s*DISK\s|\sSANDISK\s/],
+    ['SEAGATE',/\sSEAGATE\s/],
+    ['WESTERN DIGITAL',/\sWESTERN\s+DIGITAL\s|\sWD\s/],
+    ['TOSHIBA',/\sTOSHIBA\s/],
+    ['SAMSUNG',/\sSAMSUNG\s/],
+    ['ADATA',/\sADATA\s/],
+    ['TRANSCEND',/\sTRANSCEND\s/]
+  ];
+  for(const [name,re] of brands)if(re.test(raw))return name;
+  return null;
+}
 function inventoryDuplicateCriticalMismatch(a,b){
   const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
   if(aMp&&bMp&&aMp!==bMp)return 'Resolusi berbeda '+aMp+'MP vs '+bMp+'MP';
@@ -3167,6 +3203,15 @@ function inventoryDuplicateCriticalMismatch(a,b){
 
   const aRecorder=inventoryDuplicateRecorderClass(a.name),bRecorder=inventoryDuplicateRecorderClass(b.name);
   if(aRecorder&&bRecorder&&aRecorder!==bRecorder)return 'Jenis recorder berbeda '+aRecorder+' vs '+bRecorder;
+
+  const aClass=inventoryDuplicateProductClass(a.name),bClass=inventoryDuplicateProductClass(b.name);
+  if(aClass&&bClass&&aClass!==bClass)return 'Jenis produk berbeda '+aClass+' vs '+bClass;
+
+  const memoryClasses=new Set(['MICRO_SD','FLASHDISK','SSD','HDD','RAM']);
+  if(aClass&&bClass&&aClass===bClass&&memoryClasses.has(aClass)){
+    const aBrand=inventoryDuplicateMemoryBrand(a.name),bBrand=inventoryDuplicateMemoryBrand(b.name);
+    if(aBrand&&bBrand&&aBrand!==bBrand)return 'Brand berbeda '+aBrand+' vs '+bBrand;
+  }
 
   return null;
 }
