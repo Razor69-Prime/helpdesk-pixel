@@ -3056,8 +3056,8 @@ function inventoryDuplicateResolutionMP(value){
 }
 function inventoryDuplicateModelCodes(value){
   const raw=String(value||'').toUpperCase();
-  const matches=raw.match(/\b(?:DS-[A-Z0-9-]+|IPC-[A-Z0-9-]+|HAC-[A-Z0-9-]+|NVR[0-9A-Z-]*|XVR[0-9A-Z-]*|DHI-[A-Z0-9-]+)\b/g)||[];
-  return [...new Set(matches.map(x=>x.replace(/[^A-Z0-9-]/g,'')))];
+  const matches=raw.match(/\b(?:DS-[A-Z0-9][A-Z0-9-]{3,}|IPC-[A-Z0-9][A-Z0-9-]{3,}|HAC-[A-Z0-9][A-Z0-9-]{3,}|DHI-[A-Z0-9][A-Z0-9-]{3,}|NVR-?[A-Z0-9]*\d[A-Z0-9-]{2,}|DVR-?[A-Z0-9]*\d[A-Z0-9-]{2,}|XVR-?[A-Z0-9]*\d[A-Z0-9-]{2,}|TC-R\d[A-Z0-9-]*)\b/g)||[];
+  return [...new Set(matches.map(x=>x.replace(/[^A-Z0-9-]/g,'')).filter(x=>!/^(?:NVR|DVR|XVR|IPC|HAC)$/.test(x)))];
 }
 function inventoryDuplicateModelCore(value){
   return String(value||'').toUpperCase().replace(/-(?:I|W|A|F|S|T|Z|L|P|N|H|M|E\d?|E\d+|L\d+)+$/,'');
@@ -3078,14 +3078,29 @@ function inventoryDuplicateSharedCoreModel(a,b){
 
 function inventoryDuplicateChannelCount(value){
   const raw=String(value||'').toUpperCase();
-  let m=raw.match(/\b(4|8|16|32|64)\s*(?:CH|CHANNEL)\b/);
+
+  // Explicit text is authoritative: 4CH, 5 Channel, 10CH, 128CH, etc.
+  let m=raw.match(/\b(\d{1,3})\s*(?:CH|CHANNELS?|CHANNEL)\b/);
   if(m)return Number(m[1]);
+
+  // Common Hikvision-style DS-76xx / DS-96xx recorder families.
+  m=raw.match(/\bDS-(?:7[6-9]|9[0-9])(04|08|16|32|64|128)[A-Z0-9-]*/);
+  if(m)return Number(String(m[1]).replace(/^0/,''));
+
+  // Dahua DHI-NVRxxxx / NVRxxxx / XVRxxxx / DVRxxxx: channel often encoded in final 2-3 digits.
+  m=raw.match(/\b(?:DHI-)?(?:NVR|XVR|DVR)\d{2,4}(04|08|16|32|64|128)(?:\D|$)/);
+  if(m)return Number(String(m[1]).replace(/^0/,''));
+
+  // Existing local shorthand, e.g. NVR-104MH-D / NVR-108MH-D.
   m=raw.match(/\bNVR-?10(4|8)(?:\D|$)/);
   if(m)return Number(m[1]);
-  m=raw.match(/\b(?:DHI-)?NVR\d{2}(04|08|16|32|64)(?:\D|$)/);
-  if(m)return Number(String(m[1]).replace(/^0/,''));
-  m=raw.match(/\b(?:DHI-)?(?:XVR|DVR)\d{2}(04|08|16|32|64)(?:\D|$)/);
-  if(m)return Number(String(m[1]).replace(/^0/,''));
+
+  // Tiandy examples: TC-R3105 = 5CH, TC-R3110 = 10CH.
+  m=raw.match(/\bTC-R\d{2}(\d{2})(?:\D|$)/);
+  if(m){
+    const n=Number(m[1]);
+    if(n>0&&n<=128)return n;
+  }
   return null;
 }
 function inventoryDuplicateStorageGB(value){
@@ -3117,6 +3132,20 @@ function inventoryDuplicateFirmwareClass(value){
   if(/\sMFI\s/.test(raw))return 'MFI';
   return null;
 }
+
+function inventoryDuplicatePoeClass(value){
+  const raw=' '+String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ')+' ';
+  if(/\s(?:NON|NO|WITHOUT)\s+POE\s/.test(raw))return 'NON_POE';
+  if(/\sPOE\s/.test(raw))return 'POE';
+  return null;
+}
+function inventoryDuplicateRecorderClass(value){
+  const raw=' '+String(value||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ')+' ';
+  if(/\sNVR\s/.test(raw)||/\bNVR-?[A-Z0-9]*\d/.test(raw))return 'NVR';
+  if(/\sDVR\s/.test(raw)||/\bDVR-?[A-Z0-9]*\d/.test(raw))return 'DVR';
+  if(/\sXVR\s/.test(raw)||/\bXVR-?[A-Z0-9]*\d/.test(raw))return 'XVR';
+  return null;
+}
 function inventoryDuplicateCriticalMismatch(a,b){
   const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
   if(aMp&&bMp&&aMp!==bMp)return 'Resolusi berbeda '+aMp+'MP vs '+bMp+'MP';
@@ -3132,6 +3161,12 @@ function inventoryDuplicateCriticalMismatch(a,b){
 
   const aFw=inventoryDuplicateFirmwareClass(a.name),bFw=inventoryDuplicateFirmwareClass(b.name);
   if(aFw&&bFw&&aFw!==bFw)return 'Tipe berbeda '+aFw+' vs '+bFw;
+
+  const aPoe=inventoryDuplicatePoeClass(a.name),bPoe=inventoryDuplicatePoeClass(b.name);
+  if(aPoe&&bPoe&&aPoe!==bPoe)return 'PoE berbeda '+aPoe+' vs '+bPoe;
+
+  const aRecorder=inventoryDuplicateRecorderClass(a.name),bRecorder=inventoryDuplicateRecorderClass(b.name);
+  if(aRecorder&&bRecorder&&aRecorder!==bRecorder)return 'Jenis recorder berbeda '+aRecorder+' vs '+bRecorder;
 
   return null;
 }
@@ -3149,6 +3184,7 @@ function inventoryDuplicateScore(a,b){
 
   const exactModel=inventoryDuplicateSharedExactModel(a.name,b.name);
   const coreModel=inventoryDuplicateSharedCoreModel(a.name,b.name);
+  const aSpecificModels=inventoryDuplicateModelCodes(a.name),bSpecificModels=inventoryDuplicateModelCodes(b.name);
   const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
   // Critical specification mismatch sudah difilter sebelum scoring.
   // Model/tipe adalah acuan utama. Indoor/Outdoor dan deskripsi umum tidak menurunkan score.
@@ -3156,6 +3192,9 @@ function inventoryDuplicateScore(a,b){
 
   // Model inti sama tetapi suffix minor berbeda: tetap sangat mirip.
   if(coreModel)return 98;
+
+  // Jika kedua sisi punya model spesifik tetapi modelnya berbeda, jangan pernah auto-merge.
+  if(aSpecificModels.length&&bSpecificModels.length)return 0;
 
   if(an===bn)return 100;
 
