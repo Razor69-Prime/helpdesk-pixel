@@ -3050,24 +3050,88 @@ function inventoryMergeUnitClass(value){
 function inventoryDuplicateModels(value){
   return [...new Set(inventoryDuplicateTokens(value).filter(x=>/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=4))];
 }
+function inventoryDuplicateResolutionMP(value){
+  const m=String(value||'').toUpperCase().match(/\b(\d{1,2})\s*MP\b/);
+  return m?Number(m[1]):null;
+}
+function inventoryDuplicateModelCodes(value){
+  const raw=String(value||'').toUpperCase();
+  const matches=raw.match(/\b(?:DS-[A-Z0-9-]+|IPC-[A-Z0-9-]+|HAC-[A-Z0-9-]+|NVR[0-9A-Z-]*|XVR[0-9A-Z-]*|DHI-[A-Z0-9-]+)\b/g)||[];
+  return [...new Set(matches.map(x=>x.replace(/[^A-Z0-9-]/g,'')))];
+}
+function inventoryDuplicateModelCore(value){
+  return String(value||'').toUpperCase().replace(/-(?:I|W|A|F|S|T|Z|L|P|N|H|M|E\d?|E\d+|L\d+)+$/,'');
+}
+function inventoryDuplicateSharedExactModel(a,b){
+  const am=inventoryDuplicateModelCodes(a),bm=inventoryDuplicateModelCodes(b);
+  return am.find(x=>bm.includes(x))||null;
+}
+function inventoryDuplicateSharedCoreModel(a,b){
+  const am=inventoryDuplicateModelCodes(a),bm=inventoryDuplicateModelCodes(b);
+  for(const x of am){
+    const xc=inventoryDuplicateModelCore(x);
+    const y=bm.find(z=>inventoryDuplicateModelCore(z)===xc);
+    if(y)return {a:x,b:y,core:xc};
+  }
+  return null;
+}
 function inventoryDuplicateScore(a,b){
   if(inventoryDuplicatePackageClass(a.name)!==inventoryDuplicatePackageClass(b.name))return 0;
+
   const an=inventoryDuplicateNorm(a.name),bn=inventoryDuplicateNorm(b.name);
   if(!an||!bn)return 0;
+
   if(String(a.sku||'')&&String(a.sku)===String(b.sku))return 100;
   if(String(a.manufacturer_barcode||'')&&String(a.manufacturer_barcode)===String(b.manufacturer_barcode))return 100;
+
+  const exactModel=inventoryDuplicateSharedExactModel(a.name,b.name);
+  const coreModel=inventoryDuplicateSharedCoreModel(a.name,b.name);
+  const aMp=inventoryDuplicateResolutionMP(a.name),bMp=inventoryDuplicateResolutionMP(b.name);
+  const mpConflict=aMp&&bMp&&aMp!==bMp;
+
+  // Model/tipe adalah acuan utama. Indoor/Outdoor dan deskripsi umum tidak menurunkan score.
+  if(exactModel)return 100;
+
+  // Model inti sama tetapi suffix minor berbeda: tetap sangat mirip.
+  // Jika kedua sisi secara eksplisit menyebut resolusi berbeda, jangan dianggap barang sama.
+  if(coreModel){
+    if(mpConflict)return 0;
+    return 98;
+  }
+
+  // Tanpa model yang sama, resolusi berbeda adalah hard mismatch.
+  if(mpConflict)return 0;
+
   if(an===bn)return 100;
+
+  // Model generik/alphanumeric yang sama tetap kuat, tetapi di bawah exact brand-code parser.
   const am=inventoryDuplicateModels(a.name),bm=inventoryDuplicateModels(b.name);
-  if(am.some(x=>bm.includes(x)))return 98;
+  const sharedModel=am.find(x=>bm.includes(x));
+  if(sharedModel){
+    if((aMp&&!bMp)||(!aMp&&bMp))return 97;
+    return 98;
+  }
+
   const at=new Set(inventoryDuplicateTokens(a.name)),bt=new Set(inventoryDuplicateTokens(b.name));
   const common=[...at].filter(x=>bt.has(x)).length;
   const union=new Set([...at,...bt]).size;
   const j=union?common/union:0;
   const min=Math.min(at.size,bt.size);
   const coverage=min?common/min:0;
-  if((an.includes(bn)||bn.includes(an))&&Math.min(an.length,bn.length)>=6)return Math.max(90,Math.round(coverage*100));
-  if(coverage>=0.8&&common>=2)return Math.max(86,Math.round((coverage*.7+j*.3)*100));
-  if(coverage>=0.6&&common>=2)return Math.max(76,Math.round((coverage*.65+j*.35)*100));
+
+  // Jika hanya satu sisi mencantumkan MP dan tidak ada model kuat, tahan di review manual.
+  const oneSidedMp=(aMp&&!bMp)||(!aMp&&bMp);
+  if(oneSidedMp){
+    if((an.includes(bn)||bn.includes(an))&&Math.min(an.length,bn.length)>=6)return 94;
+    if(coverage>=0.8&&common>=2)return 90;
+    if(coverage>=0.6&&common>=2)return 82;
+    return 0;
+  }
+
+  // Similarity nama saja tidak boleh masuk level auto-merge 97/98/100.
+  if((an.includes(bn)||bn.includes(an))&&Math.min(an.length,bn.length)>=6)return Math.min(96,Math.max(90,Math.round(coverage*100)));
+  if(coverage>=0.8&&common>=2)return Math.min(94,Math.max(86,Math.round((coverage*.7+j*.3)*100)));
+  if(coverage>=0.6&&common>=2)return Math.min(90,Math.max(76,Math.round((coverage*.65+j*.35)*100)));
   return 0;
 }
 
