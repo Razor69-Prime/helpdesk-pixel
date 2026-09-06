@@ -480,13 +480,26 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
         }
       }
 
-      const upserts=items.map(x=>({
-        ...x,is_active:true,last_synced_at:stamp,last_synced_by:actor,
-        first_synced_at:oldMap.has(x.source_key)?undefined:stamp
-      })).map(x=>Object.fromEntries(Object.entries(x).filter(([,v])=>v!==undefined)));
+      const existingUpserts=[];
+      const newUpserts=[];
+      items.forEach(x=>{
+        const base={
+          ...x,
+          is_active:true,
+          last_synced_at:stamp,
+          last_synced_by:actor
+        };
+        if(oldMap.has(x.source_key))existingUpserts.push(base);
+        else newUpserts.push({...base,first_synced_at:stamp});
+      });
 
-      for(let i=0;i<upserts.length;i+=150){
-        await sb('POST','/master_pricelist_items?on_conflict=source_key',upserts.slice(i,i+150),{
+      for(let i=0;i<existingUpserts.length;i+=150){
+        await sb('POST','/master_pricelist_items?on_conflict=source_key',existingUpserts.slice(i,i+150),{
+          Prefer:'resolution=merge-duplicates,return=minimal'
+        });
+      }
+      for(let i=0;i<newUpserts.length;i+=150){
+        await sb('POST','/master_pricelist_items?on_conflict=source_key',newUpserts.slice(i,i+150),{
           Prefer:'resolution=merge-duplicates,return=minimal'
         });
       }
