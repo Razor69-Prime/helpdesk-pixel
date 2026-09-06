@@ -298,6 +298,10 @@ function installPxlStg0006A() {
     async function syncCustomer360(so) {
       if (!so?.id || String(so.status || '').toLowerCase() !== 'approved') return so;
 
+      // PXL-URG-0054:
+      // SO Approved may create/link the CRM master customer, but it is NOT a
+      // financial transaction. Customer 360 transaction/omzet starts only when
+      // an Invoice is issued.
       const customer = await findOrCreateCustomer(so);
       let linkedSo = so;
 
@@ -305,66 +309,6 @@ function installPxlStg0006A() {
         linkedSo = await original.updateSalesOrder(so.id, { customer_id: customer.id });
       }
 
-      if (!db.USE_SUPABASE || !customer?.id) return linkedSo;
-
-      const totals = quotationTotals(linkedSo.items);
-      const transactionPayload = {
-        customer_id: customer.id,
-        sales_order_id: linkedSo.id,
-        so_number: linkedSo.so_number,
-        quotation_number: linkedSo.quotation_number || null,
-        quotation_revision_no: Number(linkedSo.quotation_revision_no ?? linkedSo.revision_no ?? 0),
-        transaction_at: linkedSo.approved_at || new Date().toISOString(),
-        status: 'approved',
-        sales_pic: linkedSo.sales_pic || null,
-        project_name: linkedSo.project_name || null,
-        location: linkedSo.address || linkedSo.location || null,
-        material_items: totals.materialItems,
-        service_items: totals.serviceItems,
-        material_subtotal: linkedSo.material_subtotal ?? totals.materialSubtotal,
-        service_subtotal: linkedSo.service_subtotal ?? totals.serviceSubtotal,
-        grand_total: linkedSo.quotation_total ?? linkedSo.total_amount ?? totals.quotationTotal,
-        created_by: linkedSo.approved_by || linkedSo.created_by || null
-      };
-
-      const transactionRows = await rest(
-        'POST',
-        '/crm_customer_transactions?on_conflict=sales_order_id',
-        transactionPayload,
-        'resolution=merge-duplicates,return=representation'
-      );
-      const transaction = Array.isArray(transactionRows) ? transactionRows[0] : transactionRows;
-
-      if (transaction?.id) {
-        await rest(
-          'DELETE',
-          `/crm_customer_transaction_lines?sales_order_id=eq.${encodeURIComponent(linkedSo.id)}`,
-          undefined,
-          'return=minimal'
-        );
-
-        const lines = [...totals.materialItems, ...totals.serviceItems].map((item, index) => ({
-          transaction_id: transaction.id,
-          customer_id: customer.id,
-          sales_order_id: linkedSo.id,
-          line_no: index + 1,
-          item_type: item.item_type,
-          item_key: String(item.inventory_item_id || item.sku || normalizeItemName(item.name)),
-          inventory_item_id: item.inventory_item_id ? String(item.inventory_item_id) : null,
-          item_name: item.name,
-          sku: item.sku || null,
-          qty: safeNumber(item.qty),
-          unit: item.unit || null,
-          unit_price: safeNumber(item.unit_price),
-          line_total: safeNumber(item.line_total)
-        }));
-
-        if (lines.length) {
-          await rest('POST', '/crm_customer_transaction_lines', lines);
-        }
-      }
-
-      await syncCustomerSummary(customer.id);
       return linkedSo;
     }
 

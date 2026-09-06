@@ -162,48 +162,28 @@ function installCustomer360Routes() {
             }
 
             const invoiceHistory = invoiceTransactions(customer, relatedInvoices);
-            let transactions = invoiceHistory.length
-              ? invoiceHistory
-              : fallbackTransactions(customer, relatedSalesOrders);
-            if (db.USE_SUPABASE) {
-              try {
-                const cfg = require('./config');
-                const fetchImpl = global.fetch || require('node-fetch');
-                const base = String(cfg.SUPABASE_URL || '').replace(/\/+$/, '');
-                const key = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.SUPABASE_KEY || '';
-                const response = await fetchImpl(
-                  `${base}/rest/v1/crm_customer_transactions?customer_id=eq.${encodeURIComponent(customerId)}&order=transaction_at.desc,created_at.desc`,
-                  {
-                    headers: {
-                      apikey: key,
-                      Authorization: `Bearer ${key}`,
-                      'Content-Type': 'application/json'
-                    }
-                  }
-                );
-                if (response.ok && !invoiceHistory.length) {
-                  const rows = await response.json();
-                  if (Array.isArray(rows) && rows.length) transactions = rows;
-                }
-              } catch (_) {}
-            }
 
-            if (invoiceHistory.length || !Array.isArray(lastPrices) || !lastPrices.length) {
-              lastPrices = fallbackLastPrices(customerId, transactions);
-            }
+            // PXL-URG-0054 — Customer 360 transaksi resmi hanya berasal dari
+            // Invoice Terbit/Sebagian/Lunas. SO/WO tetap ditampilkan sebagai
+            // pipeline/history, tetapi tidak dihitung sebagai transaksi/omzet.
+            const transactions = invoiceHistory;
+            const lastPrices = invoiceHistory.length
+              ? fallbackLastPrices(customerId, invoiceHistory)
+              : [];
 
-            const computedSummary = summary || {
-              ...customer,
-              computed_transaction_count: transactions.length,
-              computed_lifetime_value: transactions.reduce((sum, row) => sum + numberValue(row.grand_total), 0),
-              computed_last_transaction_at: transactions[0]?.transaction_at || customer.last_transaction_at || null,
-              computed_last_sales_order_id: transactions[0]?.sales_order_id || customer.last_sales_order_id || null,
-              computed_last_so_number: transactions[0]?.so_number || customer.last_so_number || null,
-              computed_last_quotation_number: transactions[0]?.quotation_number || customer.last_quotation_number || null,
-              computed_last_transaction_amount: numberValue(transactions[0]?.grand_total ?? customer.last_transaction_amount),
-              computed_last_sales_pic: transactions[0]?.sales_pic || customer.last_sales_pic || null,
-              computed_last_project_name: transactions[0]?.project_name || customer.last_project_name || null,
-              computed_last_location: transactions[0]?.location || customer.last_location || null
+            const latest = invoiceHistory[0] || null;
+            const computedSummary = {
+              ...(summary || customer),
+              computed_transaction_count: invoiceHistory.length,
+              computed_lifetime_value: invoiceHistory.reduce((sum,row)=>sum+numberValue(row.grand_total),0),
+              computed_last_transaction_at: latest?.transaction_at || null,
+              computed_last_sales_order_id: latest?.sales_order_id || null,
+              computed_last_so_number: latest?.so_number || null,
+              computed_last_quotation_number: null,
+              computed_last_transaction_amount: latest ? numberValue(latest.grand_total) : 0,
+              computed_last_sales_pic: latest?.sales_pic || null,
+              computed_last_project_name: latest?.project_name || null,
+              computed_last_location: latest?.location || null
             };
 
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -253,13 +233,13 @@ function installCustomer360Routes() {
               )
             );
 
-            let synced = 0;
+            let linked = 0;
             for (const salesOrder of candidates) {
               await db.syncSalesOrderCustomer360({ ...salesOrder, customer_id: customerId });
-              synced += 1;
+              linked += 1;
             }
 
-            return res.json({ ok: true, customer_id: customerId, synced });
+            return res.json({ ok: true, customer_id: customerId, linked, transaction_rule:'invoice_issued_only' });
           } catch (error) {
             return res.status(500).json({ error: error.message });
           }
