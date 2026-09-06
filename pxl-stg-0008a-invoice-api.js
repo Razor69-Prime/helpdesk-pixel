@@ -48,6 +48,11 @@ function register(app) {
   const accounting = roles('accounting','admin');
   const reviewer = roles('manager','admin');
   const readable = roles('accounting','manager','admin','sales');
+  const superadminOnly = (req,res,next) => {
+    const role=String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');
+    if(role==='superadmin')return next();
+    return res.status(403).json({error:'Override Terbitkan Invoice hanya tersedia untuk Super Admin.'});
+  };
 
   app.get('/api/invoice-v1/sources', auth, readable, async (req,res) => {
     try {
@@ -304,6 +309,61 @@ function register(app) {
       const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
       await audit(api,req,req.params.id,'REJECT',old,saved,req.body.reason);res.json(saved);
     }catch(e){res.status(status(e)).json({error:clean(e)});}
+  });
+
+  // PXL-URG-0052 — temporary Super Admin override while Invoice PIC/integration is not ready.
+  // Draft may be issued directly, but only through this strict Super Admin route.
+  app.post('/api/invoice-v1/:id/superadmin-issue', auth, superadminOnly, async(req,res)=>{
+    try{
+      const old=await one(api,req.params.id);
+      if(String(old.invoice_status||'')!=='draft'){
+        return res.status(400).json({error:'Override hanya dapat digunakan untuk Invoice berstatus Draft.'});
+      }
+
+      const series=old.tax_mode==='non_ppn'?'INVPIXEL':'INVCK';
+      const date=new Date(`${old.invoice_date}T00:00:00+08:00`);
+      const year=date.getFullYear();
+      const month=String(date.getMonth()+1).padStart(2,'0');
+      const seq=await nextSequence(api,series,year,null,month);
+      const issuedAt=new Date().toISOString();
+      const number=`${series}-${month}${year}${String(seq).padStart(3,'0')}`;
+      const snapshot={...old,invoice_number:number,issued_at:issuedAt,temporary_override:true};
+      const patch={
+        invoice_number:number,
+        invoice_series:series,
+        invoice_year:year,
+        invoice_sequence:seq,
+        manual_number:false,
+        invoice_status:'issued',
+        issued_by:req.session.user.name,
+        issued_at:issuedAt,
+        snapshot_json:snapshot,
+        updated_by:req.session.user.name,
+        updated_at:issuedAt
+      };
+
+      // Issue first so the Invoice is counted by the normal "Terbit = omzet" rule.
+      const saved=(await api.patch(`/invoices?id=eq.${enc(req.params.id)}`,patch))[0];
+
+      // CRM integration is best-effort in this temporary override. It must not
+      // block publication while the Invoice PIC/integration is not ready.
+      let crmWarning=null;
+      if(String(old.source_type||'')!=='direct_sales'){
+        try{
+          await syncIssuedInvoiceToCrm(api,{...old,...patch},req.session.user.name);
+        }catch(crmError){
+          crmWarning=clean(crmError);
+        }
+      }
+
+      await audit(
+        api,req,req.params.id,'SUPERADMIN_TEMP_ISSUE_OVERRIDE',old,saved,
+        crmWarning?('Temporary bypass · CRM pending: '+crmWarning):'Temporary bypass Draft → Terbit'
+      );
+      res.json({ok:true,invoice:saved,crm_warning:crmWarning});
+    }catch(e){
+      res.status(status(e)).json({error:clean(e)});
+    }
   });
 
   app.post('/api/invoice-v1/:id/issue', auth, accounting, async(req,res)=>{

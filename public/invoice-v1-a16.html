@@ -9,7 +9,7 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:#f7f4f1;color:#222}.
 </style>
 </head>
 <body>
-<div class="bar"><div><b>Helpdesk Pixel · Invoice</b><small style="display:block;color:#777">PXL-STG-0008A28</small></div><div class="actions"><button class="btn" onclick="window.parent===window?location.href='/':window.parent.postMessage({type:'PXL_INVOICE_CLOSE'},location.origin)">← Kembali</button><button id="newBtn" class="btn primary">+ Draft Invoice</button></div></div>
+<div class="bar"><div><b>Helpdesk Pixel · Invoice</b><small style="display:block;color:#777">PXL-URG-0052</small></div><div class="actions"><button class="btn" onclick="window.parent===window?location.href='/':window.parent.postMessage({type:'PXL_INVOICE_CLOSE'},location.origin)">← Kembali</button><button id="newBtn" class="btn primary">+ Draft Invoice</button></div></div>
 <main class="wrap"><section class="card"><div id="msg" class="msg">Memuat...</div><div id="app"></div></section></main>
 <script>
 (function(){
@@ -26,10 +26,58 @@ function msg(t,b=false){$('#msg').textContent=t||'';$('#msg').className='msg'+(b
 function role(){return lower(S.user?.role)}
 function acc(){return ['accounting','admin','superadmin'].includes(role())}
 function mgr(){return ['manager','admin','superadmin'].includes(role())}
+function isSuperAdmin(){return role()==='superadmin'}
 function status(v){return({draft:'Draft',pending_approval:'Menunggu Persetujuan',approved:'Disetujui',issued:'Terbit',partially_paid:'Terbayar Sebagian',paid:'Lunas'}[v]||v||'-')}
 async function boot(){try{S.user=(await api('/api/me')).user;$('#newBtn').style.display=acc()?'':'none';await refresh()}catch(e){msg(e.message,true)}}
 async function refresh(){try{msg('Memuat...');[S.rows,S.sources]=await Promise.all([api('/api/invoice-v1'),api('/api/invoice-v1/sources')]);S.sources.customers=arr(S.sources.customers);if(!S.sources.customers.length){try{const report=await api('/api/crm/report');S.sources.customers=arr(report.customers)}catch(_){}}list();msg('')}catch(e){msg(e.message,true)}}
-function list(){$('#app').innerHTML='<div class="toolbar"><input id="q" placeholder="Cari nomor, customer, SO, atau WO"><select id="st"><option value="">Semua status</option><option value="draft">Draft</option><option value="pending_approval">Menunggu Persetujuan</option><option value="issued">Terbit</option></select><button class="btn" id="reload">Muat Ulang</button></div><div class="table"><table><thead><tr><th>Nomor</th><th>Customer</th><th>SO</th><th>WO</th><th>Jenis</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+((S.rows||[]).map(r=>{const wo=arr(r.work_order_numbers).join(' '),key=((r.invoice_number||r.temporary_number||'')+' '+(r.customer_name_snapshot||'')+' '+(r.source_so_number||'')+' '+wo).toLowerCase(),pdf=['issued','partially_paid','paid'].includes(r.invoice_status)?'<button class="btn pdf" data-id="'+esc(r.id)+'">PDF</button>':'';return '<tr data-k="'+esc(key)+'" data-s="'+esc(r.invoice_status||'')+'"><td><b>'+esc(r.invoice_number||r.temporary_number||'-')+'</b></td><td>'+esc(r.customer_name_snapshot||'-')+'</td><td class="ref-cell">'+esc(r.source_so_number||'-')+'</td><td class="ref-cell">'+(arr(r.work_order_numbers).map(n=>'<small>'+esc(n)+'</small>').join('')||'-')+'</td><td>'+esc(r.invoice_type||'-')+'</td><td>'+money(r.total_amount)+'</td><td><span class="badge">'+esc(status(r.invoice_status))+'</span></td><td><button class="btn open" data-id="'+esc(r.id)+'">Buka</button> '+pdf+'</td></tr>'}).join('')||'<tr><td colspan="8" class="empty">Belum ada invoice baru.</td></tr>')+'</tbody></table></div>';$('#reload').onclick=refresh;$('#q').oninput=filter;$('#st').onchange=filter;document.querySelectorAll('.open').forEach(b=>b.onclick=async()=>detail(await api('/api/invoice-v1/'+b.dataset.id)));document.querySelectorAll('.pdf').forEach(b=>b.onclick=()=>downloadPdf(b.dataset.id))}
+function list(){
+  $('#app').innerHTML='<div class="toolbar"><input id="q" placeholder="Cari nomor, customer, SO, atau WO"><select id="st"><option value="">Semua status</option><option value="draft">Draft</option><option value="pending_approval">Menunggu Persetujuan</option><option value="issued">Terbit</option></select><button class="btn" id="reload">Muat Ulang</button></div><div class="table"><table><thead><tr><th>Nomor</th><th>Customer</th><th>SO</th><th>WO</th><th>Jenis</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
+    ((S.rows||[]).map(r=>{
+      const wo=arr(r.work_order_numbers).join(' ');
+      const key=((r.invoice_number||r.temporary_number||'')+' '+(r.customer_name_snapshot||'')+' '+(r.source_so_number||'')+' '+wo).toLowerCase();
+      const pdf=['issued','partially_paid','paid'].includes(r.invoice_status)?'<button class="btn pdf" data-id="'+esc(r.id)+'">PDF</button>':'';
+      const tempIssue=isSuperAdmin()&&r.invoice_status==='draft'
+        ?'<button class="btn primary temp-issue" data-id="'+esc(r.id)+'">Terbitkan Invoice</button>'
+        :'';
+      return '<tr data-k="'+esc(key)+'" data-s="'+esc(r.invoice_status||'')+'">'+
+        '<td><b>'+esc(r.invoice_number||r.temporary_number||'-')+'</b></td>'+
+        '<td>'+esc(r.customer_name_snapshot||'-')+'</td>'+
+        '<td class="ref-cell">'+esc(r.source_so_number||'-')+'</td>'+
+        '<td class="ref-cell">'+(arr(r.work_order_numbers).map(n=>'<small>'+esc(n)+'</small>').join('')||'-')+'</td>'+
+        '<td>'+esc(r.invoice_type||'-')+'</td>'+
+        '<td>'+money(r.total_amount)+'</td>'+
+        '<td><span class="badge">'+esc(status(r.invoice_status))+'</span></td>'+
+        '<td><button class="btn open" data-id="'+esc(r.id)+'">Buka</button> '+pdf+' '+tempIssue+'</td>'+
+      '</tr>';
+    }).join('')||'<tr><td colspan="8" class="empty">Belum ada invoice baru.</td></tr>')+
+    '</tbody></table></div>';
+
+  $('#reload').onclick=refresh;
+  $('#q').oninput=filter;
+  $('#st').onchange=filter;
+  document.querySelectorAll('.open').forEach(b=>b.onclick=async()=>detail(await api('/api/invoice-v1/'+b.dataset.id)));
+  document.querySelectorAll('.pdf').forEach(b=>b.onclick=()=>downloadPdf(b.dataset.id));
+  document.querySelectorAll('.temp-issue').forEach(b=>b.onclick=()=>temporarySuperadminIssue(b));
+}
+
+async function temporarySuperadminIssue(btn){
+  if(!isSuperAdmin())return;
+  if(!confirm('Terbitkan Draft ini sebagai Invoice resmi? Status akan menjadi Terbit dan ikut perhitungan omzet.'))return;
+  const original=btn.textContent;
+  btn.disabled=true;
+  btn.textContent='Menerbitkan...';
+  try{
+    const out=await api('/api/invoice-v1/'+encodeURIComponent(btn.dataset.id)+'/superadmin-issue',{method:'POST',body:'{}'});
+    const warning=out?.crm_warning?(' · CRM pending: '+out.crm_warning):'';
+    msg('Invoice berhasil diterbitkan'+warning,!!out?.crm_warning);
+    await refresh();
+  }catch(e){
+    msg(e.message,true);
+    btn.disabled=false;
+    btn.textContent=original;
+  }
+}
+
 function filter(){const q=$('#q').value.toLowerCase(),s=$('#st').value;document.querySelectorAll('tbody tr[data-k]').forEach(tr=>tr.hidden=!(tr.dataset.k.includes(q)&&(!s||tr.dataset.s===s)))}
 function opts(rows,a,b){return arr(rows).map(x=>'<option value="'+esc(x.id)+'">'+esc(x[a]||x[b]||x.project_name||x.title||x.id)+'</option>').join('')}
 function sourceLabel(type){if(type==='inventory')return['Inventory',''];if(type==='so_service')return['Jasa SO','service'];if(type==='so_material')return['Material SO',''];if(type==='technician_report')return['Laporan Teknisi','service'];return['Manual','manual']}
