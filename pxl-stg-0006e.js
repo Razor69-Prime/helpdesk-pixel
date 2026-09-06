@@ -153,17 +153,13 @@ function installCustomer360Routes() {
             const relatedInvoices = invoices.filter(sameCustomer);
 
             let summary = null;
-            let lastPrices = [];
             if (typeof db.getCustomer360Summary === 'function') {
               try { summary = await db.getCustomer360Summary(customerId); } catch (_) {}
-            }
-            if (typeof db.getCustomerLastPrices === 'function') {
-              try { lastPrices = await db.getCustomerLastPrices(customerId); } catch (_) { lastPrices = []; }
             }
 
             const invoiceHistory = invoiceTransactions(customer, relatedInvoices);
 
-            // PXL-URG-0054 — Customer 360 transaksi resmi hanya berasal dari
+            // PXL-URG-0054A — Customer 360 transaksi resmi hanya berasal dari
             // Invoice Terbit/Sebagian/Lunas. SO/WO tetap ditampilkan sebagai
             // pipeline/history, tetapi tidak dihitung sebagai transaksi/omzet.
             const transactions = invoiceHistory;
