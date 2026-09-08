@@ -5150,6 +5150,23 @@ function renderDonutCustom(dataMap,elId){
   el.innerHTML=`<svg viewBox="0 0 ${W} 220" style="width:100%;max-width:360px"><g>${slices}</g><text x="${CX}" y="${CY+4}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">${total}</text><g>${legend}</g></svg>`;
 }
 
+// PXL-URG-0059 — Follow-up overdue waiver cutoff.
+// Data sebelum 1 Sep 2026 tetap utuh dan statusnya tidak diubah; hanya tidak
+// dihitung sebagai overdue. Mulai 1 Sep 2026, flow overdue existing tetap berlaku.
+const PXL_FOLLOWUP_OVERDUE_CUTOFF='2026-09-01';
+function pxlLocalYmd(d=new Date()){
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function isVisitFollowUpOverdue(v,today=new Date()){
+  if(['Closed Won','Closed Lost'].includes(v?.cust_status)) return false;
+  const raw=String(v?.next_follow_up||'').trim();
+  const m=raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if(!m) return false;
+  const followDate=m[1];
+  return followDate>=PXL_FOLLOWUP_OVERDUE_CUTOFF && followDate<pxlLocalYmd(today);
+}
+
 function filterVisitsDash(visits){
   const{from,to}=getDashRange();
   if(!from&&!to) return visits;
@@ -5324,11 +5341,7 @@ function renderDashTargetMetrics(data, salesMap){
   const totalVisit=visits.length;
   const closedWon=visits.filter(v=>v.cust_status==='Closed Won'||v.visit_status==='Closing').length;
   const winRate=totalVisit>0?Math.round(closedWon/totalVisit*100):0;
-  const overdue=visits.filter(v=>{
-    if(['Closed Won','Closed Lost'].includes(v.cust_status)) return false;
-    const nfu=v.next_follow_up?new Date(v.next_follow_up):null;
-    return nfu&&nfu<today;
-  }).length;
+  const overdue=visits.filter(v=>isVisitFollowUpOverdue(v,today)).length;
   const estimasi=visits.filter(v=>!['Closed Won','Closed Lost'].includes(v.cust_status))
     .reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
 
@@ -5351,10 +5364,7 @@ function renderDashTargetMetrics(data, salesMap){
       if(!visitMap[pic]) visitMap[pic]={total:0,won:0,overdue:0};
       visitMap[pic].total++;
       if(v.cust_status==='Closed Won'||v.visit_status==='Closing') visitMap[pic].won++;
-      if(!['Closed Won','Closed Lost'].includes(v.cust_status)){
-        const nfu=v.next_follow_up?new Date(v.next_follow_up):null;
-        if(nfu&&nfu<today) visitMap[pic].overdue++;
-      }
+      if(isVisitFollowUpOverdue(v,today)) visitMap[pic].overdue++;
     });
     const pics=Object.keys(visitMap).sort((a,b)=>visitMap[b].total-visitMap[a].total);
     const maxV=Math.max(1,...pics.map(p=>visitMap[p].total));
@@ -6505,7 +6515,7 @@ function renderKunjunganList(){
     const waBtn=v.customer_phone?`${waLink(v.customer_phone,'📲 WA')}`:'' ;
     const today=new Date(); today.setHours(0,0,0,0);
     const nfuDate=v.next_follow_up?new Date(v.next_follow_up):null;
-    const isOverdue=nfuDate&&nfuDate<today&&!['Closed Won','Closed Lost'].includes(v.cust_status);
+    const isOverdue=isVisitFollowUpOverdue(v,today);
 
     return`<div class="ticket-item" style="margin-bottom:10px${isOverdue?';border-left:3px solid var(--red)':''}">
       <div style="display:flex;align-items:flex-start;gap:10px;justify-content:space-between;flex-wrap:wrap">
@@ -6934,8 +6944,7 @@ function renderKpiKunjungan(){
     else{
       pm.active++;
       pm.estimasi+=Number(v.estimasi_omzet)||0;
-      const nfu=v.next_follow_up?new Date(v.next_follow_up):null;
-      if(nfu&&nfu<today) pm.overdue++;
+      if(isVisitFollowUpOverdue(v,today)) pm.overdue++;
     }
     pm.realisasi+=Number(v.realisasi_omzet)||0;
   });
@@ -7013,10 +7022,7 @@ function openKpiKunjunganDetail(pic){
   const won=visits.filter(v=>v.cust_status==='Closed Won'||v.visit_status==='Closing');
   const lost=visits.filter(v=>v.cust_status==='Closed Lost');
   const active=visits.filter(v=>!['Closed Won','Closed Lost'].includes(v.cust_status));
-  const overdue=active.filter(v=>{
-    const nfu=v.next_follow_up?new Date(v.next_follow_up):null;
-    return nfu&&nfu<today;
-  });
+  const overdue=active.filter(v=>isVisitFollowUpOverdue(v,today));
   const totalClosed=won.length+lost.length;
   const winRate=totalClosed>0?Math.round(won.length/totalClosed*100):null;
   const estimasi=active.reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
