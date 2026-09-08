@@ -45,7 +45,10 @@
   window.buildInvoiceFlat=function(){
     const base=typeof oldBuild==='function'?oldBuild.call(this):[];
     const ids=new Set(base.map(x=>String(x.id||'')));
-    return [...base,...issued.filter(x=>!ids.has(String(x.id||''))&&(String(x.source_type||'')!=='direct_sales'||String(x.payment_status||'')==='paid'))];
+    // PXL-URG-0056 — Revenue starts at Invoice Terbit for every source type.
+    // Direct Sales must be counted at issued/partially_paid/paid too; payment only
+    // changes receivable status and must not gate or duplicate omzet recognition.
+    return [...base,...issued.filter(x=>!ids.has(String(x.id||'')))];
   };
   const oldDashboard=window.loadDashboard;
   window.loadDashboard=async function(){
