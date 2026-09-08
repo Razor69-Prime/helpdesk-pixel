@@ -28,7 +28,9 @@
       paid_amount:Number(row.paid_amount)||0,
       balance_amount:row.balance_amount==null?Number(row.total_amount)||0:Number(row.balance_amount),
       sales_pic:row.sales_pic_snapshot||row.sales_pic||'',
-      uploaded_at:row.issued_at||row.invoice_date,
+      // PXL-URG-0057 — Dashboard period follows invoice_date. issued_at is
+      // publication metadata only and must not decide the omzet month.
+      uploaded_at:row.invoice_date||row.issued_at,
       ticket_date:row.invoice_date,
       invoice_source:'invoice_v1'
     };
@@ -50,6 +52,26 @@
     // changes receivable status and must not gate or duplicate omzet recognition.
     return [...base,...issued.filter(x=>!ids.has(String(x.id||'')))];
   };
+  // PXL-URG-0057 — preload Invoice V1 after login. Previously the shared
+  // issued cache could stay empty until Sales Dashboard was opened.
+  const oldShowApp=window.showApp;
+  if(typeof oldShowApp==='function'&&!oldShowApp.__pxlInvoice0057){
+    window.showApp=function(){
+      const result=oldShowApp.apply(this,arguments);
+      setTimeout(async()=>{
+        try{
+          await refreshIssued(true);
+          if(document.getElementById('tab-dashboard')?.classList.contains('active')){
+            if(typeof window.renderDashboard==='function')window.renderDashboard();
+            refreshDashboardRevenue();
+          }
+        }catch(e){console.error(KEY+' preload',e);}
+      },0);
+      return result;
+    };
+    window.showApp.__pxlInvoice0057=true;
+  }
+
   const oldDashboard=window.loadDashboard;
   window.loadDashboard=async function(){
     try{await refreshIssued(true);}catch(e){console.error(KEY,e);}
@@ -57,6 +79,21 @@
     refreshDashboardRevenue();
     return result;
   };
+  const oldSwitchDashSub=window.switchDashSub;
+  if(typeof oldSwitchDashSub==='function'&&!oldSwitchDashSub.__pxlInvoice0057){
+    window.switchDashSub=function(sub,btn){
+      const result=oldSwitchDashSub.apply(this,arguments);
+      if(sub==='invoice'){
+        refreshIssued(true).then(()=>{
+          if(typeof window.renderDashboard==='function')window.renderDashboard();
+          refreshDashboardRevenue();
+        }).catch(e=>console.error(KEY+' invoice submenu',e));
+      }
+      return result;
+    };
+    window.switchDashSub.__pxlInvoice0057=true;
+  }
+
   const oldSales=window.loadSalesDashboard;
   window.loadSalesDashboard=async function(){
     try{await refreshIssued(true);}catch(e){console.error(KEY,e);}
@@ -85,6 +122,12 @@
     const targetChart=document.getElementById('dash-target-chart');
     if(targetChart&&entries.length){const targetMap=typeof window.getDashTargetSummary==='function'?window.getDashTargetSummary().targetMap||{}:{};const pics=[...new Set([...entries.map(([p])=>p),...Object.keys(targetMap)])];const max=Math.max(1,...pics.map(p=>Math.max(byPic[p]||0,Number(targetMap[p]||0))));targetChart.innerHTML=`<div class="dash-bar-list" style="gap:12px">${pics.map(p=>{const real=byPic[p]||0,tar=Number(targetMap[p]||0),pct=tar?Math.round(real/tar*100):null;return `<div><div style="display:flex;justify-content:space-between;font-size:12px"><b>👤 ${esc(p)}</b><b>${pct===null?'—':pct+'%'}</b></div><div class="dash-bar-bg" style="margin:4px 0"><div class="dash-bar-fill" style="width:${Math.round(real/max*100)}%;background:var(--teal)"></div></div><small>Realisasi ${money(real)} · Target ${tar?money(tar):'—'}</small></div>`;}).join('')}</div>`;}
   }
+  window.PXLInvoiceRevenueRefresh=async function(){
+    await refreshIssued(true);
+    if(typeof window.renderDashboard==='function'&&document.getElementById('tab-dashboard')?.classList.contains('active'))window.renderDashboard();
+    refreshDashboardRevenue();
+    return issued;
+  };
   function tab(){return document.getElementById('tab-piutang-v1');}
   function addResponsiveStyle(){
     if(document.getElementById('pxl-piutang-responsive-style'))return;
