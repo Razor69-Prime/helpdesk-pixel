@@ -9,7 +9,7 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:#f7f4f1;color:#222}.
 </style>
 </head>
 <body>
-<div class="bar"><div><b>Helpdesk Pixel · Invoice</b><small style="display:block;color:#777">PXL-URG-0052</small></div><div class="actions"><button class="btn" onclick="window.parent===window?location.href='/':window.parent.postMessage({type:'PXL_INVOICE_CLOSE'},location.origin)">← Kembali</button><button id="newBtn" class="btn primary">+ Draft Invoice</button></div></div>
+<div class="bar"><div><b>Helpdesk Pixel · Invoice</b><small style="display:block;color:#777">PXL-URG-0052A · TEMPORARY SUPERADMIN OVERRIDE</small></div><div class="actions"><button class="btn" onclick="window.parent===window?location.href='/':window.parent.postMessage({type:'PXL_INVOICE_CLOSE'},location.origin)">← Kembali</button><button id="newBtn" class="btn primary">+ Draft Invoice</button></div></div>
 <main class="wrap"><section class="card"><div id="msg" class="msg">Memuat...</div><div id="app"></div></section></main>
 <script>
 (function(){
@@ -31,15 +31,29 @@ function status(v){return({draft:'Draft',pending_approval:'Menunggu Persetujuan'
 async function boot(){try{S.user=(await api('/api/me')).user;$('#newBtn').style.display=acc()?'':'none';await refresh()}catch(e){msg(e.message,true)}}
 async function refresh(){try{msg('Memuat...');[S.rows,S.sources]=await Promise.all([api('/api/invoice-v1'),api('/api/invoice-v1/sources')]);S.sources.customers=arr(S.sources.customers);if(!S.sources.customers.length){try{const report=await api('/api/crm/report');S.sources.customers=arr(report.customers)}catch(_){}}list();msg('')}catch(e){msg(e.message,true)}}
 function list(){
-  $('#app').innerHTML='<div class="toolbar"><input id="q" placeholder="Cari nomor, customer, SO, atau WO"><select id="st"><option value="">Semua status</option><option value="draft">Draft</option><option value="pending_approval">Menunggu Persetujuan</option><option value="issued">Terbit</option></select><button class="btn" id="reload">Muat Ulang</button></div><div class="table"><table><thead><tr><th>Nomor</th><th>Customer</th><th>SO</th><th>WO</th><th>Jenis</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
+  // PXL-URG-0052A — CRITICAL TEMPORARY SUPERADMIN OVERRIDE.
+  // WAJIB DIHAPUS/DINONAKTIFKAN saat flow approval Invoice normal sudah siap.
+  // Multi-select di frontend tetap memakai endpoint 0052 per Invoice, sehingga
+  // validasi Super Admin + Draft tetap ditegakkan oleh backend untuk setiap item.
+  const superAdmin=isSuperAdmin();
+  const bulkTools=superAdmin
+    ?'<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><input type="checkbox" id="selectAllDrafts"> Pilih Semua Draft</label><button class="btn primary" id="bulkIssue" disabled>Terbitkan Invoice Terpilih</button><span id="bulkCount" style="font-size:11px;color:#716c65">0 dipilih</span>'
+    :'';
+  const selectHead=superAdmin?'<th style="width:38px">Pilih</th>':'';
+  $('#app').innerHTML='<div class="toolbar"><input id="q" placeholder="Cari nomor, customer, SO, atau WO"><select id="st"><option value="">Semua status</option><option value="draft">Draft</option><option value="pending_approval">Menunggu Persetujuan</option><option value="issued">Terbit</option></select><button class="btn" id="reload">Muat Ulang</button>'+bulkTools+'</div><div class="table"><table><thead><tr>'+selectHead+'<th>Nomor</th><th>Customer</th><th>SO</th><th>WO</th><th>Jenis</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
     ((S.rows||[]).map(r=>{
       const wo=arr(r.work_order_numbers).join(' ');
       const key=((r.invoice_number||r.temporary_number||'')+' '+(r.customer_name_snapshot||'')+' '+(r.source_so_number||'')+' '+wo).toLowerCase();
       const pdf=['issued','partially_paid','paid'].includes(r.invoice_status)?'<button class="btn pdf" data-id="'+esc(r.id)+'">PDF</button>':'';
-      const tempIssue=isSuperAdmin()&&r.invoice_status==='draft'
+      const draftSuper=superAdmin&&r.invoice_status==='draft';
+      const tempIssue=draftSuper
         ?'<button class="btn primary temp-issue" data-id="'+esc(r.id)+'">Terbitkan Invoice</button>'
         :'';
+      const selectCell=superAdmin
+        ?'<td>'+(draftSuper?'<input type="checkbox" class="draft-select" data-id="'+esc(r.id)+'" aria-label="Pilih Draft '+esc(r.temporary_number||r.id)+'">':'')+'</td>'
+        :'';
       return '<tr data-k="'+esc(key)+'" data-s="'+esc(r.invoice_status||'')+'">'+
+        selectCell+
         '<td><b>'+esc(r.invoice_number||r.temporary_number||'-')+'</b></td>'+
         '<td>'+esc(r.customer_name_snapshot||'-')+'</td>'+
         '<td class="ref-cell">'+esc(r.source_so_number||'-')+'</td>'+
@@ -49,7 +63,7 @@ function list(){
         '<td><span class="badge">'+esc(status(r.invoice_status))+'</span></td>'+
         '<td><button class="btn open" data-id="'+esc(r.id)+'">Buka</button> '+pdf+' '+tempIssue+'</td>'+
       '</tr>';
-    }).join('')||'<tr><td colspan="8" class="empty">Belum ada invoice baru.</td></tr>')+
+    }).join('')||'<tr><td colspan="'+(superAdmin?9:8)+'" class="empty">Belum ada invoice baru.</td></tr>')+
     '</tbody></table></div>';
 
   $('#reload').onclick=refresh;
@@ -58,6 +72,28 @@ function list(){
   document.querySelectorAll('.open').forEach(b=>b.onclick=async()=>detail(await api('/api/invoice-v1/'+b.dataset.id)));
   document.querySelectorAll('.pdf').forEach(b=>b.onclick=()=>downloadPdf(b.dataset.id));
   document.querySelectorAll('.temp-issue').forEach(b=>b.onclick=()=>temporarySuperadminIssue(b));
+
+  if(superAdmin){
+    const boxes=()=>[...document.querySelectorAll('.draft-select')];
+    const updateBulkState=()=>{
+      const selected=boxes().filter(x=>x.checked);
+      const bulk=$('#bulkIssue'),count=$('#bulkCount'),all=$('#selectAllDrafts');
+      if(bulk)bulk.disabled=!selected.length;
+      if(count)count.textContent=selected.length+' dipilih';
+      if(all){
+        const visible=boxes().filter(x=>!x.closest('tr')?.hidden);
+        all.checked=visible.length>0&&visible.every(x=>x.checked);
+        all.indeterminate=visible.some(x=>x.checked)&&!all.checked;
+      }
+    };
+    boxes().forEach(x=>x.onchange=updateBulkState);
+    if($('#selectAllDrafts'))$('#selectAllDrafts').onchange=e=>{
+      boxes().filter(x=>!x.closest('tr')?.hidden).forEach(x=>x.checked=e.target.checked);
+      updateBulkState();
+    };
+    if($('#bulkIssue'))$('#bulkIssue').onclick=()=>temporarySuperadminBulkIssue($('#bulkIssue'));
+    updateBulkState();
+  }
 }
 
 async function temporarySuperadminIssue(btn){
@@ -78,7 +114,41 @@ async function temporarySuperadminIssue(btn){
   }
 }
 
-function filter(){const q=$('#q').value.toLowerCase(),s=$('#st').value;document.querySelectorAll('tbody tr[data-k]').forEach(tr=>tr.hidden=!(tr.dataset.k.includes(q)&&(!s||tr.dataset.s===s)))}
+async function temporarySuperadminBulkIssue(btn){
+  if(!isSuperAdmin())return;
+  const ids=[...document.querySelectorAll('.draft-select:checked')].map(x=>x.dataset.id).filter(Boolean);
+  if(!ids.length)return;
+  if(!confirm('Terbitkan '+ids.length+' Invoice Draft terpilih? Semua akan menjadi Invoice resmi dan ikut perhitungan omzet.'))return;
+
+  const original=btn.textContent;
+  btn.disabled=true;
+  btn.textContent='Menerbitkan 0/'+ids.length+'...';
+  let success=0,failed=0,warnings=0;
+  const failures=[];
+
+  // Sengaja diproses satu per satu agar sequence nomor Invoice tetap berurutan
+  // dan setiap request tetap melewati validasi strict Super Admin dari PXL-URG-0052.
+  for(let i=0;i<ids.length;i++){
+    btn.textContent='Menerbitkan '+(i+1)+'/'+ids.length+'...';
+    try{
+      const out=await api('/api/invoice-v1/'+encodeURIComponent(ids[i])+'/superadmin-issue',{method:'POST',body:'{}'});
+      success++;
+      if(out?.crm_warning)warnings++;
+    }catch(e){
+      failed++;
+      failures.push(e.message||String(e));
+    }
+  }
+
+  const parts=[success+' berhasil'];
+  if(failed)parts.push(failed+' gagal');
+  if(warnings)parts.push(warnings+' CRM pending');
+  msg('Bulk Terbitkan Invoice: '+parts.join(' · ')+(failures.length?' · '+failures.slice(0,2).join(' | '):''),failed>0);
+  await refresh();
+  btn.textContent=original;
+}
+
+function filter(){const q=$('#q').value.toLowerCase(),s=$('#st').value;document.querySelectorAll('tbody tr[data-k]').forEach(tr=>tr.hidden=!(tr.dataset.k.includes(q)&&(!s||tr.dataset.s===s)));const all=$('#selectAllDrafts');if(all){const visible=[...document.querySelectorAll('.draft-select')].filter(x=>!x.closest('tr')?.hidden);all.checked=visible.length>0&&visible.every(x=>x.checked);all.indeterminate=visible.some(x=>x.checked)&&!all.checked}}
 function opts(rows,a,b){return arr(rows).map(x=>'<option value="'+esc(x.id)+'">'+esc(x[a]||x[b]||x.project_name||x.title||x.id)+'</option>').join('')}
 function sourceLabel(type){if(type==='inventory')return['Inventory',''];if(type==='so_service')return['Jasa SO','service'];if(type==='so_material')return['Material SO',''];if(type==='technician_report')return['Laporan Teknisi','service'];return['Manual','manual']}
 function isDirectInvoice(x={}){const source=lower(x.source_type),noSo=!x.source_so_id&&!x.source_so_number,noWo=!arr(x.wos).length&&!arr(x.work_order_numbers).length;return source==='direct_sales'||x.approval_required===false||((x.invoice_status==='draft'||!x.invoice_status)&&noSo&&noWo)||(['inventory','manual'].includes(source)&&noSo&&noWo)}
