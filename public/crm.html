@@ -7,7 +7,10 @@
 :root{--accent:#ea7b31;--bg:#f7f5f1;--card:#fff;--line:#e7e1d8;--text:#171717;--muted:#746d65}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--text)}
 .wrap{padding:20px;max-width:1500px;margin:auto}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.tab,.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 13px;cursor:pointer}.tab.active,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.page{display:none}.page.active{display:block}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.sub{color:var(--muted);font-size:13px}.card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:16px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.metric b{font-size:28px}.metric .label{font-size:12px;color:var(--muted);text-transform:uppercase;margin-bottom:7px}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}textarea{min-height:90px}.table{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:13px}th{background:#f1eee8;font-size:11px;text-transform:uppercase}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f2eee8}.wa{background:#25D366;color:#fff;border-color:#25D366}.notice{padding:10px;border-radius:8px;background:#fff3e8;color:#8b4a18;margin-top:10px}.empty{color:var(--muted);padding:12px 0}#msg{display:none;position:fixed;right:18px;bottom:18px;background:#111;color:#fff;padding:12px 16px;border-radius:9px;z-index:50}
+.page{display:none}.page.active{display:block}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.sub{color:var(--muted);font-size:13px}.card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:16px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.metric b{font-size:28px}.metric .label{font-size:12px;color:var(--muted);text-transform:uppercase;margin-bottom:7px}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}textarea{min-height:90px}.table{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:13px}th{background:#f1eee8;font-size:11px;text-transform:uppercase}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f2eee8}.wa{background:#25D366;color:#fff;border-color:#25D366}.notice{padding:10px;border-radius:8px;background:#fff3e8;color:#8b4a18;margin-top:10px}.empty{color:var(--muted);padding:12px 0}
+.crm-loading{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.crm-loading:before{content:'';width:14px;height:14px;border:2px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:crmspin .7s linear infinite}@keyframes crmspin{to{transform:rotate(360deg)}}
+.c360-fast{position:relative}.c360-fast-results{display:none;position:absolute;z-index:40;left:0;right:0;top:100%;max-height:280px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.14);margin-top:4px}.c360-fast-results.open{display:block}.c360-fast-item{padding:9px 10px;border-bottom:1px solid #eee;cursor:pointer}.c360-fast-item:last-child{border-bottom:0}.c360-fast-item:hover,.c360-fast-item.active{background:#fff4ea}.c360-fast-item b{display:block;font-size:13px}.c360-fast-item small{display:block;color:var(--muted);margin-top:2px}
+#msg{display:none;position:fixed;right:18px;bottom:18px;background:#111;color:#fff;padding:12px 16px;border-radius:9px;z-index:50}
 @media(max-width:900px){.grid4,.grid2,.form{grid-template-columns:1fr}.full{grid-column:auto}}
 </style>
 </head>
@@ -26,7 +29,7 @@
 <section class="page" id="pipeline"><div class="toolbar"><div><h2>Leads & Pipeline</h2><div class="sub">Tampilan hubungan calon customer berdasarkan data CRM yang tersedia.</div></div></div><div class="table card"><table><thead><tr><th>Customer/Lead</th><th>Tipe</th><th>Sales PIC</th><th>Status</th><th>Follow-up Berikutnya</th><th>Aksi</th></tr></thead><tbody id="pipelineRows"></tbody></table></div></section>
 <section class="page" id="followup"><div class="toolbar"><div><h2>WhatsApp & Follow-up</h2><div class="sub">Buka WhatsApp customer dan otomatis simpan riwayat komunikasi.</div></div><button class="btn wa" onclick="openWhatsapp()">Buka WhatsApp</button></div><div class="card"><div class="form"><div><label>Customer</label><select id="fuCustomer" onchange="loadCommHistory(this.value)"></select></div><div><label>Channel</label><select id="fuChannel"><option>WhatsApp</option><option>Telepon</option><option>Email</option><option>Kunjungan</option></select></div><div><label>Topik</label><input id="fuTopic" value="Follow-up penawaran"></div><div><label>Hasil</label><input id="fuResult" value="Menunggu konfirmasi customer"></div><div class="full"><label>Pesan</label><textarea id="fuMessage">Halo {{customer_name}}, kami dari Pixel Solusindo ingin menindaklanjuti {{topic}}. Terima kasih.</textarea></div><div><label>Follow-up Berikutnya</label><input id="fuNext" type="datetime-local"></div></div></div></section>
 <section class="page" id="history"><div class="toolbar"><div><h2>Riwayat Komunikasi</h2><div class="sub">Semua komunikasi customer yang tersimpan di CRM.</div></div></div><div id="commHistory" class="table card"></div></section>
-<section class="page" id="customer360"><div class="toolbar"><div><h2>Customer 360</h2><div class="sub">Pusat ringkasan customer dengan tautan ke modul lama terkait.</div></div><button class="btn wa" id="wa360Btn" onclick="openCustomer360Whatsapp()">WhatsApp Customer</button></div><div class="card"><label>Pilih Customer</label><select id="c360Select" onchange="renderCustomer360()"></select></div><div id="c360Content" style="margin-top:12px"></div></section>
+<section class="page" id="customer360"><div class="toolbar"><div><h2>Customer 360</h2><div class="sub">Pusat ringkasan customer dengan tautan ke modul lama terkait.</div></div><button class="btn wa" id="wa360Btn" onclick="openCustomer360Whatsapp()">WhatsApp Customer</button></div><div class="card"><label>Cari Customer</label><div class="c360-fast"><input id="c360FastSearch" autocomplete="off" placeholder="Ketik nama, WhatsApp, Sales PIC, alamat, atau tipe customer..."><div id="c360FastResults" class="c360-fast-results"></div></div><div class="sub" id="c360FastHint" style="margin:5px 0 12px">Pencarian cepat dari Master Customer CRM.</div><label>Pilih Customer</label><select id="c360Select" onchange="onC360SelectChange()"></select></div><div id="c360Content" style="margin-top:12px"><div class="card crm-loading">Memuat Customer 360...</div></div></section>
 <section class="page" id="wofoundation"><div class="toolbar"><div><h2>Fondasi Integrasi Work Order</h2><div class="sub">PXL-STG-0002 · WO menjadi pusat transaksi; Sales Order tetap opsional dan status KPI existing tidak diubah.</div></div><button class="btn" onclick="loadWoFoundation()">Refresh</button></div><div id="woFoundationStatus" class="grid4"></div><div class="grid2" style="margin-top:12px"><div class="card"><b>Aturan Fondasi</b><div id="woFoundationRules" class="sub" style="line-height:1.8;margin-top:10px"></div></div><div class="card"><b>Data Sampling Staging</b><div class="notice">Tombol ini hanya aktif di staging dan hanya untuk Super Admin. Data ditandai STG-DEMO agar mudah dibersihkan.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="seedWoBtn" onclick="seedWoFoundation()">Buat Dummy</button><button class="btn" id="resetWoBtn" onclick="resetWoFoundation()">Hapus Dummy</button></div><div id="woFoundationDemo" class="sub" style="margin-top:12px;line-height:1.7"></div></div></div></section>
 </div><div id="msg"></div>
 <script>
@@ -48,6 +51,9 @@ window.addEventListener('message',e=>{
 const H=()=>{const token=getAuthToken();return {'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})}};
 let currentUser=null;
 let D={customers:[],communications:[],sales_orders:[],work_orders:[],material_requests:[],invoices:[],projects:[],visits:[],tickets:[],counts:{},foundation:null};
+let crmLoadSequence=0;
+let crmRepairRunning=false;
+let c360FastIndex=-1;
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function msg(t){const e=document.getElementById('msg');e.style.display='block';e.textContent=t;setTimeout(()=>e.style.display='none',3500)}
 async function api(method,url,body){
@@ -66,14 +72,138 @@ async function api(method,url,body){
 function normalizePhone(v){let p=String(v||'').replace(/\D/g,'');if(p.startsWith('0'))p='62'+p.slice(1);if(p.startsWith('8'))p='62'+p;return p}
 function waLink(customer,text=''){const p=normalizePhone(customer?.normalized_phone||customer?.phone);if(!p)throw new Error('Nomor WhatsApp customer kosong');return 'https://wa.me/'+p+(text?'?text='+encodeURIComponent(text):'')}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.page).classList.add('active')});
-async function loadAll(){try{const me=await api('GET','/api/me');currentUser=me?.user||null;const repairRoles=['accounting','manager','admin','superadmin'];if(repairRoles.includes(String(currentUser?.role||'').toLowerCase())){try{await api('POST','/api/invoice-v1/crm/repair-customers',{})}catch(e){msg(`Sinkronisasi customer Invoice belum lengkap: ${e.message}`)}}D=await api('GET','/api/crm/report');try{D.communications=await api('GET','/api/crm/communications/all')}catch(_){D.communications=[]}try{D.foundation=await api('GET','/api/integration/wo-foundation')}catch(_){D.foundation=null}render()}catch(e){msg(e.message)}}
-function render(){const c=D.counts||{};metrics.innerHTML=[['Customer',c.customers||D.customers.length],['Follow-up',D.customers.filter(x=>x.next_follow_up_at).length],['Komunikasi',D.communications.length],['Customer Aktif',D.customers.filter(x=>(x.status||'active')==='active').length]].map(x=>`<div class="card metric"><div class="label">${x[0]}</div><b>${x[1]||0}</b></div>`).join('');
+async function loadAll(){
+  const seq=++crmLoadSequence;
+  const firstLoad=!D.customers.length;
+  if(firstLoad){
+    const content=document.getElementById('c360Content');
+    if(content) content.innerHTML='<div class="card crm-loading">Memuat Master Customer CRM...</div>';
+  }
+  try{
+    const me=await api('GET','/api/me');
+    if(seq!==crmLoadSequence)return;
+    currentUser=me?.user||null;
+
+    // PXL-URG-0060 — report/customer tampil lebih dulu. Modul tambahan dan
+    // repair Invoice tidak lagi menahan render awal CRM.
+    const report=await api('GET','/api/crm/report');
+    if(seq!==crmLoadSequence)return;
+    D={...D,...report,customers:Array.isArray(report.customers)?report.customers:[]};
+    render();
+
+    // Komunikasi + fondasi dimuat paralel setelah customer sudah terlihat.
+    Promise.allSettled([
+      api('GET','/api/crm/communications/all').then(rows=>{
+        if(seq!==crmLoadSequence)return;
+        D.communications=Array.isArray(rows)?rows:[];
+        renderHistory();renderDashboardLists();
+      }),
+      api('GET','/api/integration/wo-foundation').then(x=>{
+        if(seq!==crmLoadSequence)return;
+        D.foundation=x;renderWoFoundation();
+      })
+    ]);
+
+    // Repair hanya background untuk role yang berhak. Jika ada customer yang
+    // diperbaiki, refresh report sekali tanpa memblokir interaksi user.
+    const repairRoles=['accounting','manager','admin','superadmin'];
+    if(repairRoles.includes(String(currentUser?.role||'').toLowerCase())&&!crmRepairRunning){
+      crmRepairRunning=true;
+      (async()=>{
+        try{
+          const result=await api('POST','/api/invoice-v1/crm/repair-customers',{});
+          if(seq!==crmLoadSequence)return;
+          if(Number(result?.repaired||0)>0){
+            const selected=c360Select?.value||'';
+            const fresh=await api('GET','/api/crm/report');
+            if(seq!==crmLoadSequence)return;
+            D={...D,...fresh,customers:Array.isArray(fresh.customers)?fresh.customers:[]};
+            render();
+            if(selected&&D.customers.some(x=>String(x.id)===String(selected))){
+              c360Select.value=selected;
+              renderCustomer360();
+            }
+          }
+          if(Array.isArray(result?.failed)&&result.failed.length){
+            msg(`Sinkronisasi customer Invoice: ${result.failed.length} data perlu diperiksa.`);
+          }
+        }catch(e){
+          console.warn('PXL-URG-0060 CRM background repair',e);
+        }finally{crmRepairRunning=false}
+      })();
+    }
+  }catch(e){
+    if(seq!==crmLoadSequence)return;
+    msg(e.message);
+    if(!D.customers.length){
+      const content=document.getElementById('c360Content');
+      if(content)content.innerHTML=`<div class="card notice">CRM gagal dimuat: ${esc(e.message)} <button class="btn" style="margin-left:8px" onclick="loadAll()">Coba Lagi</button></div>`;
+    }
+  }
+}
+function render(){const selected360=c360Select?.value||'';const c=D.counts||{};metrics.innerHTML=[['Customer',c.customers||D.customers.length],['Follow-up',D.customers.filter(x=>x.next_follow_up_at).length],['Komunikasi',D.communications.length],['Customer Aktif',D.customers.filter(x=>(x.status||'active')==='active').length]].map(x=>`<div class="card metric"><div class="label">${x[0]}</div><b>${x[1]||0}</b></div>`).join('');
 const opts=D.customers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');fuCustomer.innerHTML=opts;c360Select.innerHTML=opts;
+if(selected360&&D.customers.some(x=>String(x.id)===String(selected360)))c360Select.value=selected360;
+else if(D.customers.length)c360Select.value=D.customers[0].id;
+refreshC360FastHint();
 customerRows.innerHTML=D.customers.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.type||'-')}</td><td>${esc(c.sales_pic||'-')}</td><td>${esc(c.phone||c.normalized_phone||'-')}</td><td>${esc(c.last_communication_channel||'-')} ${c.last_communication_at?esc(c.last_communication_at.slice(0,10)):''}</td><td><button class="btn" onclick="selectFU('${c.id}')">Follow-up</button> <button class="btn wa" onclick="quickWa('${c.id}')">WhatsApp</button> <button class="btn" onclick="open360('${c.id}')">360</button>${currentUser?.role==='superadmin'?` <button class="btn" style="border-color:#dc2626;color:#dc2626" onclick="deleteCustomer('${c.id}','${esc(c.name).replace(/'/g,'&#39;')}')">Hapus</button>`:''}</td></tr>`).join('');
 renderWoFoundation();
 pipelineRows.innerHTML=D.customers.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.type||'-')}</td><td>${esc(c.sales_pic||'-')}</td><td><span class="badge">${esc(c.status||'active')}</span></td><td>${c.next_follow_up_at?esc(c.next_follow_up_at.replace('T',' ').slice(0,16)):'-'}</td><td><button class="btn" onclick="selectFU('${c.id}')">Follow-up</button></td></tr>`).join('');renderHistory();renderDashboardLists();renderCustomer360()}
 function renderHistory(){commHistory.innerHTML=`<table><thead><tr><th>Waktu</th><th>Customer</th><th>Channel</th><th>Topik</th><th>Hasil</th></tr></thead><tbody>${D.communications.map(x=>{const c=D.customers.find(y=>y.id===x.customer_id);return `<tr><td>${esc((x.communication_at||x.created_at||'').replace('T',' ').slice(0,16))}</td><td>${esc(c?.name||'-')}</td><td>${esc(x.channel||'-')}</td><td>${esc(x.topic||'-')}</td><td>${esc(x.result||'-')}</td></tr>`}).join('')}</tbody></table>`}
 function renderDashboardLists(){const f=[...D.customers].filter(x=>x.next_follow_up_at).sort((a,b)=>String(a.next_follow_up_at).localeCompare(String(b.next_follow_up_at))).slice(0,5);upcomingFollowup.innerHTML=f.map(x=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(x.name)}</b><br><span class="sub">${esc(x.next_follow_up_at.replace('T',' ').slice(0,16))}</span></div>`).join('')||'<div class="empty">Belum ada jadwal follow-up.</div>';latestCommunication.innerHTML=[...D.communications].slice(0,5).map(x=>{const c=D.customers.find(y=>y.id===x.customer_id);return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(c?.name||'-')}</b> · ${esc(x.channel||'-')}<br><span class="sub">${esc(x.topic||x.result||'-')}</span></div>`}).join('')||'<div class="empty">Belum ada komunikasi.</div>'}
+function c360FastMatches(query){
+  const q=String(query||'').trim().toLowerCase();
+  const rows=!q?D.customers:D.customers.filter(c=>
+    [c.name,c.phone,c.normalized_phone,c.sales_pic,c.address,c.type,c.company,c.company_name]
+      .some(v=>String(v||'').toLowerCase().includes(q))
+  );
+  return rows.slice(0,30);
+}
+function refreshC360FastHint(){
+  const hint=document.getElementById('c360FastHint');
+  if(hint)hint.textContent=D.customers.length?`${D.customers.length} customer tersedia · ketik untuk mencari cepat.`:'Master Customer belum tersedia.';
+}
+function renderC360FastResults(){
+  const input=document.getElementById('c360FastSearch'),box=document.getElementById('c360FastResults');
+  if(!input||!box)return;
+  const rows=c360FastMatches(input.value);
+  c360FastIndex=Math.min(c360FastIndex,rows.length-1);
+  box.innerHTML=rows.length?rows.map((c,i)=>`<div class="c360-fast-item${i===c360FastIndex?' active':''}" data-c360-id="${esc(c.id)}"><b>${esc(c.name)}</b><small>${esc([c.sales_pic,c.phone||c.normalized_phone,c.type,c.address].filter(Boolean).join(' · '))}</small></div>`).join(''):'<div class="c360-fast-item"><small>Customer tidak ditemukan.</small></div>';
+  box.classList.add('open');
+  box.querySelectorAll('[data-c360-id]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();selectC360Fast(el.dataset.c360Id)}));
+}
+function selectC360Fast(id){
+  const c=D.customers.find(x=>String(x.id)===String(id));if(!c)return;
+  c360Select.value=c.id;
+  const input=document.getElementById('c360FastSearch'),box=document.getElementById('c360FastResults');
+  if(input)input.value=c.name||'';
+  if(box)box.classList.remove('open');
+  c360FastIndex=-1;
+  renderCustomer360();
+}
+function onC360SelectChange(){
+  const c=D.customers.find(x=>String(x.id)===String(c360Select.value));
+  const input=document.getElementById('c360FastSearch');
+  if(input&&c)input.value=c.name||'';
+  renderCustomer360();
+}
+function installC360FastSearch(){
+  const input=document.getElementById('c360FastSearch'),box=document.getElementById('c360FastResults');
+  if(!input||input.dataset.pxlFastSearch==='1')return;
+  input.dataset.pxlFastSearch='1';
+  input.addEventListener('focus',()=>{c360FastIndex=-1;renderC360FastResults()});
+  input.addEventListener('input',()=>{c360FastIndex=-1;renderC360FastResults()});
+  input.addEventListener('keydown',e=>{
+    const rows=c360FastMatches(input.value);
+    if(e.key==='ArrowDown'){e.preventDefault();c360FastIndex=Math.min(rows.length-1,c360FastIndex+1);renderC360FastResults()}
+    else if(e.key==='ArrowUp'){e.preventDefault();c360FastIndex=Math.max(0,c360FastIndex-1);renderC360FastResults()}
+    else if(e.key==='Enter'&&rows.length){e.preventDefault();selectC360Fast(rows[Math.max(0,c360FastIndex)].id)}
+    else if(e.key==='Escape'){box?.classList.remove('open');c360FastIndex=-1}
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>box?.classList.remove('open'),120));
+}
+installC360FastSearch();
+
 function renderCustomer360(){const c=D.customers.find(x=>x.id===c360Select.value)||D.customers[0];if(!c){c360Content.innerHTML='<div class="card empty">Belum ada customer.</div>';wa360Btn.disabled=true;return}wa360Btn.disabled=!normalizePhone(c.normalized_phone||c.phone);const comm=D.communications.filter(x=>x.customer_id===c.id);const so=D.sales_orders.filter(x=>x.customer_id===c.id||x.customer_name===c.name);const inv=D.invoices.filter(x=>x.customer_id===c.id||x.customer_name===c.name);const visits=D.visits.filter(x=>x.customer_id===c.id||x.customer_name===c.name);c360Content.innerHTML=`<div class="grid4"><div class="card metric"><div class="label">Sales Order Terkait</div><b>${so.length}</b></div><div class="card metric"><div class="label">Invoice Terkait</div><b>${inv.length}</b></div><div class="card metric"><div class="label">Kunjungan</div><b>${visits.length}</b></div><div class="card metric"><div class="label">Komunikasi</div><b>${comm.length}</b></div></div><div class="grid2" style="margin-top:12px"><div class="card"><h3>${esc(c.name)}</h3><div class="sub">${esc(c.type||'-')} · Sales PIC: ${esc(c.sales_pic||'-')}</div><p><b>WhatsApp:</b> ${esc(c.phone||c.normalized_phone||'-')}</p><p><b>Alamat:</b> ${esc(c.address||'-')}</p><button class="btn wa" onclick="openCustomer360Whatsapp()">Klik ke WhatsApp</button></div><div class="card"><b>Tautan Modul Terkait</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" onclick="goParent('sales')">Buka Sales</button><button class="btn" onclick="goParent('visits')">Buka Kunjungan</button><button class="btn" onclick="goParent('projects')">Buka Project Tracker</button><button class="btn" onclick="goParent('invoices')">Buka Invoice</button></div><div class="notice">CRM hanya menampilkan ringkasan. Proses tetap dilakukan di modul lama.</div></div></div>`}
 async function saveCustomer(){try{await api('POST','/api/crm/customers',{name:cName.value,type:cType.value,sales_pic:cSales.value,phone:cPhone.value,address:cAddress.value});await loadAll();msg('Customer tersimpan')}catch(e){msg(e.message)}}
 async function deleteCustomer(id,name){if(currentUser?.role!=='superadmin')return msg('Hanya Super Admin yang dapat menghapus customer.');if(!confirm(`Hapus customer ${name}? Tindakan ini tidak dapat dibatalkan.`))return;try{await api('DELETE','/api/crm/customers/'+id);await loadAll();msg('Customer berhasil dihapus')}catch(e){msg(e.message)}}
@@ -89,5 +219,5 @@ async function resetWoFoundation(){if(!confirm('Hapus seluruh data dummy STG-DEM
 function goParent(tab){try{parent.postMessage({type:'PXL_NAVIGATE',tab},'*');if(parent!==window&&typeof parent.showTab==='function')parent.showTab(tab)}catch(_){msg('Silakan buka modul terkait dari sidebar utama')}}
 loadAll();
 </script>
-<script src="/pxl-stg-0006e-crm.js?v=PXL-STG-0008A34"></script>
+<script src="/pxl-stg-0006e-crm.js?v=PXL-URG-0060"></script>
 </body></html>
