@@ -160,11 +160,13 @@
   bridge.dataset.pxlMasterPriceSo='0048B';
   bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048B';
   bridge.onload=()=>{
-    if(window.PXL_URG_0030?.revision==='PXL-URG-0048' || document.querySelector('script[data-pxl-pricing-loader="0048"]')) return;
+    // PXL-URG-0058A — ensure Sales Order loads the current drag-safe Pricing Calculator.
+    // Loader/version only; Kanban, SO payload, pricing formula, and other procedures unchanged.
+    if(window.PXL_URG_0030?.revision==='PXL-URG-0058' || document.querySelector('script[data-pxl-pricing-loader="0058"]')) return;
     document.querySelectorAll('script[data-pxl-pricing-loader]').forEach(el=>el.remove());
     const script=document.createElement('script');
-    script.dataset.pxlPricingLoader='0048';
-    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0048B';
+    script.dataset.pxlPricingLoader='0058';
+    script.src='/pxl-urg-0030-pricing-calculator.js?v=PXL-URG-0058A';
     document.head.appendChild(script);
   };
   document.head.appendChild(bridge);
