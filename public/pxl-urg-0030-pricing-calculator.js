@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const REV='PXL-URG-0048';
+  const REV='PXL-URG-0058';
   if(window.PXL_URG_0030?.revision===REV) return;
 
   let activeRow=null;
@@ -104,7 +104,29 @@
     const close=()=>{modal.style.display='none';activeRow=null;};
     modal.querySelector('#pxlPriceClose').onclick=close;
     modal.querySelector('#pxlPriceCancel').onclick=close;
-    modal.addEventListener('click',e=>{if(e.target===modal)close();});
+
+    // PXL-URG-0058 — drag/select-safe Pricing Calculator modal.
+    // Hanya interaksi input/modal ini yang diubah. Logic Kanban, pointer handler,
+    // drag/drop scheduling, kalkulasi harga, dan prosedur SO tidak disentuh.
+    // Backdrop hanya boleh menutup modal jika pointer benar-benar mulai DAN
+    // berakhir di backdrop tanpa gerakan drag yang berarti.
+    let backdropGesture=null;
+    modal.addEventListener('pointerdown',e=>{
+      backdropGesture=e.target===modal
+        ?{x:e.clientX,y:e.clientY,pointerId:e.pointerId,moved:false}
+        :null;
+    });
+    modal.addEventListener('pointermove',e=>{
+      if(!backdropGesture||backdropGesture.pointerId!==e.pointerId)return;
+      if(Math.hypot(e.clientX-backdropGesture.x,e.clientY-backdropGesture.y)>6)backdropGesture.moved=true;
+    });
+    modal.addEventListener('pointerup',e=>{
+      const g=backdropGesture;
+      backdropGesture=null;
+      if(g&&g.pointerId===e.pointerId&&!g.moved&&e.target===modal)close();
+    });
+    modal.addEventListener('pointercancel',()=>{backdropGesture=null;});
+
     modal.querySelector('#pxlPriceUse').onclick=()=>{
       const price=activeRow?.querySelector('.price');
       if(!price)return close();
