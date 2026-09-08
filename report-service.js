@@ -47,7 +47,7 @@ function invoicePdf(res,inv){
   let ry=y+hh;doc.fillColor('#222').font('Helvetica').fontSize(8);items.forEach((it,i)=>{doc.rect(x[0],ry,x[6]-x[0],20).strokeColor('#d5d5d5').stroke();const vals=[i+1,it.description||it.name||'-',it.qty||1,it.unit||it.satuan||'Paket','IDR '+fmt(it.unit_price),'IDR '+fmt(it.total)];vals.forEach((v,j)=>doc.text(String(v),x[j]+3,ry+6,{width:x[j+1]-x[j]-6,align:j>=2?'right':'left'}));ry+=20;});
   const total=Number(inv.grand_total||inv.total_amount||items.reduce((s,x)=>s+x.total,0)),dp=Number(inv.down_payment||0),red=Number(inv.redemption||0),balance=total-dp-red;
   doc.fontSize(10).fillColor('#111').text('PAYMENT METHOD',30,ry+10).font('Helvetica-Bold').text(inv.payment_method||'CASH & TRANSFER BANK',30,ry+25);
-  doc.font('Helvetica').text('Bank Info:',38,ry+52).text('Account Bank Name Bank BRI Denpasar',38,ry+67).text('Account Number - 0 0 1 7 0 1 0 0 4 5 4 7 3 0 2',38,ry+82).text('Owner Account Bali Teknik Utama',38,ry+97);
+  doc.font('Helvetica').text('Bank Info:',38,ry+52).text('BCA',38,ry+67).text('Account Number - 6116016306',38,ry+82).text('Owner Account - CV. Cipta Kreasitama',38,ry+97);
   const sx=390,sy=ry+10;[['TOTAL',total],['DOWN PAYMENT',dp],['REDEMPTION',red],['BALANCE DUE',balance]].forEach((a,i)=>{doc.font(i===3?'Helvetica-Bold':'Helvetica').text(a[0],sx,sy+i*18,{width:94}).text('IDR',474,sy+i*18,{width:28}).text(a[1]?fmt(a[1]):'-',505,sy+i*18,{width:55,align:'right'});});doc.rect(sx,sy+71,170,4).fill(orange);
   doc.font('Helvetica-Bold').fontSize(15).fillColor(navy).text('THANK YOU FOR YOUR BUSINESS!',85,ry+142);
   if(fs.existsSync(sign))doc.image(sign,390,ry+92,{width:170});else doc.fontSize(10).fillColor('#111').text('Pixel Solusindo\n\nI Putu Eka Hendrayana',410,ry+105,{align:'center'});
