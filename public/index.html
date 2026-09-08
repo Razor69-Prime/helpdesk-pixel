@@ -3006,7 +3006,7 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
   syncActiveNavGroup();
-  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-URG-0060';frame.dataset.loaded='1';}else sendModuleToken(frame); }
+  if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-URG-0061';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets'){

@@ -91,7 +91,7 @@
   }
 
   function transactionTable(rows) {
-    if (!rows.length) return '<div class="card empty">Belum ada Invoice Terbit atau Sales Order Approved untuk customer ini.</div>';
+    if (!rows.length) return '<div class="card empty">Belum ada Invoice Terbit/Sebagian/Lunas untuk customer ini.</div>';
     return `<div class="card c360-scroll"><b>Riwayat Transaksi</b><table style="margin-top:10px"><thead><tr><th>Tanggal</th><th>Invoice</th><th>Sales Order</th><th>Project</th><th>Material</th><th>Jasa</th><th>Nominal</th></tr></thead><tbody>${rows.map(row => `<tr>
       <td>${esc(dateTime(row.transaction_at))}</td>
       <td><b>${esc(row.invoice_number || row.quotation_number || '-')}</b>${row.invoice_number ? '<div class="sub">Invoice Terbit</div>' : `<div class="sub">Quotation Rev ${num(row.quotation_revision_no)}</div>`}</td>
@@ -119,9 +119,10 @@
   async function renderEnhancedCustomer360() {
     addStyles();
     ensureSyncButton();
-    const selected = D.customers.find(row => row.id === c360Select.value) || D.customers[0];
+    const eligible = typeof window.getC360Customers === 'function' ? window.getC360Customers() : D.customers;
+    const selected = eligible.find(row => row.id === c360Select.value) || eligible[0];
     if (!selected) {
-      c360Content.innerHTML = '<div class="card empty">Belum ada customer.</div>';
+      c360Content.innerHTML = '<div class="card empty">Belum ada customer dengan transaksi Invoice resmi.</div>';
       wa360Btn.disabled = true;
       return;
     }
