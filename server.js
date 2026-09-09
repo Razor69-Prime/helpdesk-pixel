@@ -1059,6 +1059,11 @@ app.post('/api/projects/import', requireRole('superadmin'), async (req,res)=>{
       return res.status(400).json({ error: 'Data import kosong atau format salah.' });
     }
     const results = { success: 0, failed: 0, errors: [] };
+    const allUsers=await db.getUsers();
+    const activeSales=(allUsers||[]).filter(u=>
+      (u.role==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales')))
+      && u.is_active!==false
+    );
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       try {
@@ -1599,6 +1604,23 @@ app.get('/api/sales-visits', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// PXL-URG-0062 — normalisasi Sales PIC + week progress untuk import Kunjungan.
+function pxlNormalizeVisitSalesName(value){
+  return String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+function pxlVisitWeekProgress(dateStr){
+  if(!dateStr) return null;
+  const d=new Date(String(dateStr).slice(0,10)+'T12:00:00');
+  if(Number.isNaN(d.getTime())) return null;
+  const target=new Date(d.valueOf());
+  const dayNr=(d.getDay()+6)%7;
+  target.setDate(target.getDate()-dayNr+3);
+  const firstThursday=new Date(target.getFullYear(),0,4,12,0,0);
+  const diff=(target-firstThursday)/(86400000*7);
+  const weekNum=1+Math.floor(diff);
+  return 'W-'+String(weekNum).padStart(2,'0');
+}
+
 // POST bulk import kunjungan dari Excel — SUPERADMIN ONLY
 app.post('/api/sales-visits/import', requireRole('superadmin'), async (req, res) => {
   try {
@@ -1615,16 +1637,22 @@ app.post('/api/sales-visits/import', requireRole('superadmin'), async (req, res)
           results.errors.push(`Baris ${i+2}: customer_name dan prospect_date wajib diisi.`);
           continue;
         }
+        const rawSalesPic=String(r.sales_pic||req.session.user.name||'').trim();
+        const normalizedSalesPic=pxlNormalizeVisitSalesName(rawSalesPic);
+        const matchedSales=activeSales.find(u=>pxlNormalizeVisitSalesName(u.name)===normalizedSalesPic)||null;
+        const salesPic=matchedSales?.name||rawSalesPic;
         await db.insertSalesVisit({
-          sales_pic:       r.sales_pic || req.session.user.name,
-          sales_user_id:   req.session.user.id,
-          customer_name:   r.customer_name,
-          pic_name:        r.pic_name || null,
+          sales_pic:       salesPic,
+          sales_user_id:   matchedSales?.id || req.session.user.id,
+          customer_name:   String(r.customer_name||'').trim(),
+          pic_name:        r.pic_name ? String(r.pic_name).trim() : null,
           customer_phone:  r.customer_phone || null,
           address:         r.address || null,
           kabupaten:       r.kabupaten || null,
           customer_type:   r.customer_type || null,
           sub_segmentasi:  r.sub_segmentasi || null,
+          activity:        r.activity || null,
+          week_progress:   r.week_progress || pxlVisitWeekProgress(r.prospect_date),
           visit_status:    r.visit_status || 'Visited',
           cust_status:     r.cust_status || 'Canvasing',
           lat:             null,
@@ -1635,6 +1663,7 @@ app.post('/api/sales-visits/import', requireRole('superadmin'), async (req, res)
           prospect_date:   r.prospect_date,
           next_follow_up:  r.next_follow_up || null,
           notes:           r.notes || null,
+          status:          r.cust_status || 'prospect',
         });
         results.success++;
       } catch (rowErr) {
@@ -1661,7 +1690,7 @@ app.post('/api/sales-visits', requireAuth, async (req, res) => {
     }
     // Operator boleh override sales_pic dari body
     const isOperator = req.session.user.role === 'operator';
-    const salesPic = (isOperator && req.body.sales_pic_override) ? req.body.sales_pic_override : req.session.user.name;
+    const salesPic = String((isOperator && req.body.sales_pic_override) ? req.body.sales_pic_override : req.session.user.name).trim();
     const visit = await db.insertSalesVisit({
       sales_pic:       salesPic,
       sales_user_id:   req.session.user.id,

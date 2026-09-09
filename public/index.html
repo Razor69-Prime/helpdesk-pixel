@@ -4557,15 +4557,27 @@ function onKjCustomDateChange(){
 
 let kjActiveSalesNames=null; // cache nama sales yang masih aktif
 
+// PXL-URG-0062 — normalisasi nama Sales PIC agar data import/legacy tidak
+// hilang dari Dashboard Kunjungan hanya karena case/spasi ganda/whitespace.
+function normalizeKjSalesPic(value){
+  return String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
 async function getActiveSalesNames(){
   if(kjActiveSalesNames) return kjActiveSalesNames;
   try{
     const users=await api('GET','/sales-pics');
-    kjActiveSalesNames=new Set(users.map(u=>u.name));
+    kjActiveSalesNames=new Set(
+      (users||[]).map(u=>normalizeKjSalesPic(u.name)).filter(Boolean)
+    );
   }catch(e){
     kjActiveSalesNames=null; // gagal fetch → jangan filter apapun
   }
   return kjActiveSalesNames;
+}
+function isActiveKjSalesPic(value,activeSales){
+  if(!activeSales) return true;
+  const key=normalizeKjSalesPic(value);
+  return !!key && activeSales.has(key);
 }
 
 async function populateKjPicFilter(visits){
@@ -4573,7 +4585,7 @@ async function populateKjPicFilter(visits){
   if(!grp) return;
   const activeSales=await getActiveSalesNames();
   let pics=[...new Set(visits.map(v=>v.sales_pic).filter(Boolean))];
-  if(activeSales) pics=pics.filter(p=>activeSales.has(p));
+  if(activeSales) pics=pics.filter(p=>isActiveKjSalesPic(p,activeSales));
   pics.sort();
 
   const existingChips=grp.querySelectorAll('.kj-chip:not([data-val=""])');
@@ -4732,9 +4744,10 @@ async function renderDashSubKunjungan(){
   await populateKjPicFilter(allVisits);
   populateKjWeekFilter(allVisits);
 
-  // Sembunyikan data milik sales yang sudah nonaktif dari SEMUA tampilan dashboard
+  // PXL-URG-0062 — sales aktif tetap menjadi rule existing, tetapi matching
+  // memakai nama yang dinormalisasi agar data Excel/legacy tidak terbuang.
   const activeSales=await getActiveSalesNames();
-  const visibleVisits=activeSales ? allVisits.filter(v=>activeSales.has(v.sales_pic)) : allVisits;
+  const visibleVisits=activeSales ? allVisits.filter(v=>isActiveKjSalesPic(v.sales_pic,activeSales)) : allVisits;
 
   const visits=applyKjFilters(visibleVisits);
 
@@ -7959,11 +7972,11 @@ const IMPORT_CONFIG={
     title:'📥 Import Kunjungan dari Excel',
     sub:'Upload file .xlsx berisi data kunjungan sales sesuai template',
     endpoint:'/sales-visits/import',
-    templateHeaders:['customer_name','prospect_date','sales_pic','pic_name','customer_phone','address','kabupaten','customer_type','sub_segmentasi','visit_status','cust_status','estimasi_omzet','realisasi_omzet','next_follow_up','notes'],
+    templateHeaders:['customer_name','prospect_date','sales_pic','pic_name','customer_phone','address','kabupaten','customer_type','sub_segmentasi','activity','week_progress','visit_status','cust_status','estimasi_omzet','realisasi_omzet','next_follow_up','notes'],
     templateSample:{
       customer_name:'Toko Elektronik Maju', prospect_date:'2026-07-01', sales_pic:'Ngariani',
       pic_name:'Bapak Budi (Owner)', customer_phone:'081234567890', address:'Jl. Contoh No. 1',
-      kabupaten:'Badung', customer_type:'B2C', sub_segmentasi:'Retail', visit_status:'Visited',
+      kabupaten:'Badung', customer_type:'B2C', sub_segmentasi:'Retail', activity:'Canvassing', week_progress:'W-27', visit_status:'Visited',
       cust_status:'Canvasing', estimasi_omzet:9000000, realisasi_omzet:'', next_follow_up:'2026-07-04', notes:'Contoh catatan'
     },
     requiredFields:['customer_name','prospect_date'],
