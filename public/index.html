@@ -3140,17 +3140,22 @@ async function loadSalesPics(){
     }
   }catch(e){console.error('Failed to load sales PICs',e);}
 }
-function startPolling(){ clearInterval(pollTimer); pollTimer=setInterval(()=>{if(!document.hidden)loadTickets();},60000); }
+// PXL-URG-0063 — kurangi polling tiket dari 1 menit menjadi 5 menit untuk menekan Supabase egress.
+const TICKET_POLL_MS=5*60*1000;
+function startPolling(){ clearInterval(pollTimer); pollTimer=setInterval(()=>{if(!document.hidden)loadTickets();},TICKET_POLL_MS); }
 
 // ══ NOTIFIKASI ══
 let notifList=[];
 let notifPollTimer=null;
 const NOTIF_ICONS={tiket:'🎫',kunjungan:'🗺️',pr:'📝',mr:'📦',project:'📁',invoice:'🧾'};
 
+// PXL-URG-0063 — notifikasi tetap real-time-enough untuk operasional, tetapi polling periodik
+// diperlambat menjadi 5 menit. Panel notifikasi tetap refresh langsung saat dibuka.
+const NOTIF_POLL_MS=5*60*1000;
 function startNotifPolling(){
   loadNotifications();
   clearInterval(notifPollTimer);
-  notifPollTimer=setInterval(()=>{if(!document.hidden)loadNotifications();},60000);
+  notifPollTimer=setInterval(()=>{if(!document.hidden)loadNotifications();},NOTIF_POLL_MS);
 }
 
 async function loadNotifications(){
