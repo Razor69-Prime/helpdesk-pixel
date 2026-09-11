@@ -81,7 +81,6 @@
   document.addEventListener('visibilitychange',()=>{if(document.hidden)return;resumeFromIdle();});
   scheduleIdle();
 
-  // Jika polling PXL-URG-0063 sudah telanjur aktif sebelum file patch selesai dimuat, reset ke interval baru.
   setTimeout(()=>{
     if(!loggedIn())return;
     startTicket0064();
@@ -129,4 +128,81 @@
   setTimeout(installTicketRefresh,500);
   setTimeout(installTicketRefresh,1500);
   window.PXL_URG_0065={revision:REV,installTicketRefresh};
+})();
+
+// PXL-URG-0066 — Dashboard manual refresh mode.
+// Membuka Dashboard hanya merender data yang sudah ada; fetch baru dilakukan saat tombol Refresh Dashboard ditekan.
+(function(){
+  'use strict';
+  const REV='PXL-URG-0066';
+  const networkDashboardLoader=typeof window.loadDashboard==='function'?window.loadDashboard:null;
+  let lastRefreshAt=null;
+  let refreshing=false;
+
+  function fmtTime(d){
+    if(!d) return 'Belum direfresh manual';
+    try{return d.toLocaleString('id-ID',{timeZone:'Asia/Makassar',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});}catch(_){return d.toLocaleString('id-ID');}
+  }
+
+  function installDashboardRefresh(){
+    const tab=document.getElementById('tab-dashboard');
+    if(!tab) return false;
+    let bar=document.getElementById('pxl-dashboard-manual-refresh');
+    if(bar) return true;
+    bar=document.createElement('div');
+    bar.id='pxl-dashboard-manual-refresh';
+    bar.className='card';
+    bar.style.cssText='display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px';
+    bar.innerHTML='<button type="button" id="pxl-dashboard-refresh-btn" class="btn blue">🔄 Refresh Dashboard</button><span style="font-size:12px;color:var(--muted)">Dashboard tidak mengambil data otomatis. Data terakhir: <b id="pxl-dashboard-refresh-time">Belum direfresh manual</b></span>';
+    tab.insertBefore(bar,tab.firstChild);
+    const btn=bar.querySelector('#pxl-dashboard-refresh-btn');
+    btn.addEventListener('click',async()=>{
+      if(refreshing) return;
+      refreshing=true;
+      const old=btn.textContent;
+      btn.disabled=true;
+      btn.textContent='⏳ Memuat Dashboard...';
+      try{
+        if(networkDashboardLoader) await networkDashboardLoader();
+        lastRefreshAt=new Date();
+        const time=document.getElementById('pxl-dashboard-refresh-time');
+        if(time) time.textContent=fmtTime(lastRefreshAt)+' WITA';
+      }catch(e){
+        console.error(REV+' refresh gagal',e);
+        alert('Gagal refresh Dashboard: '+(e?.message||e));
+      }finally{
+        refreshing=false;
+        btn.disabled=false;
+        btn.textContent=old;
+      }
+    });
+    return true;
+  }
+
+  window.loadDashboard=async function(){
+    installDashboardRefresh();
+    try{if(typeof renderDashboard==='function')renderDashboard();}catch(e){console.warn(REV+' render cache',e);}
+    return null;
+  };
+  window.loadDashboard.__pxlManual0066=true;
+
+  const oldSwitchDashSub=window.switchDashSub;
+  if(typeof oldSwitchDashSub==='function'){
+    window.switchDashSub=function(sub,btn){
+      const before=window.PXL_DB4?.loadShared;
+      if(before){
+        const saved=window.PXL_DB4.loadShared;
+        window.PXL_DB4.loadShared=()=>Promise.resolve(null);
+        try{return oldSwitchDashSub.apply(this,arguments);}finally{window.PXL_DB4.loadShared=saved;}
+      }
+      return oldSwitchDashSub.apply(this,arguments);
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded',installDashboardRefresh);
+  setTimeout(installDashboardRefresh,0);
+  setTimeout(installDashboardRefresh,750);
+  setTimeout(installDashboardRefresh,1800);
+
+  window.PXL_URG_0066={revision:REV,manual:true,getLastRefresh:()=>lastRefreshAt,refresh:async()=>networkDashboardLoader&&networkDashboardLoader()};
 })();
