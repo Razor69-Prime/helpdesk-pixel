@@ -90,3 +90,43 @@
 
   window.PXL_URG_0064={revision:REV,ticketPollMs:TICKET_MS,notificationPollMs:NOTIF_MS,idlePauseMs:IDLE_MS};
 })();
+
+// PXL-URG-0065 — tampilkan kontrol refresh manual pada Daftar Tiket.
+(function(){
+  'use strict';
+  const REV='PXL-URG-0065';
+  function installTicketRefresh(){
+    if(document.getElementById('pxl-ticket-refresh-btn')) return true;
+    const updated=document.getElementById('last-updated');
+    if(!updated || !updated.parentElement) return false;
+    const wrap=updated.parentElement;
+    const label=[...wrap.querySelectorAll('span')].find(el=>/Diperbarui otomatis/i.test(el.textContent||''));
+    if(label) label.textContent='Diperbarui otomatis tiap 10 menit';
+    const btn=document.createElement('button');
+    btn.id='pxl-ticket-refresh-btn';
+    btn.type='button';
+    btn.className='btn sm blue';
+    btn.style.marginLeft='8px';
+    btn.textContent='🔄 Refresh';
+    btn.title='Ambil data tiket terbaru sekarang';
+    btn.addEventListener('click',async()=>{
+      const old=btn.textContent;
+      btn.disabled=true;
+      btn.textContent='⏳ Memuat...';
+      try{
+        if(typeof loadTickets==='function') await loadTickets(true);
+      }catch(e){console.warn(REV+' manual refresh',e);}
+      finally{
+        btn.disabled=false;
+        btn.textContent=old;
+      }
+    });
+    wrap.appendChild(btn);
+    return true;
+  }
+  document.addEventListener('DOMContentLoaded',installTicketRefresh);
+  setTimeout(installTicketRefresh,0);
+  setTimeout(installTicketRefresh,500);
+  setTimeout(installTicketRefresh,1500);
+  window.PXL_URG_0065={revision:REV,installTicketRefresh};
+})();
