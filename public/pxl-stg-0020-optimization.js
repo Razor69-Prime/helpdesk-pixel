@@ -106,3 +106,70 @@ window.PXL_STG_0020={revision:'PXL-STG-0020',baseline:'PXL-STG-0019-STABLE',prod
     getInvoiceCacheAge:()=>invoiceCacheAt?now()-invoiceCacheAt:null
   };
 })();
+
+// PXL-URG-0068A — deduplicate burst GET /tickets requests.
+// Satu request Supabase ticket membawa invoices + status_history + job_stages,
+// jadi mencegah request identik berdekatan langsung mengurangi seluruh relation burst.
+(function(){
+  'use strict';
+  const REV='PXL-URG-0068A';
+  const COOLDOWN_MS=8*1000;
+  let ticketCache=null;
+  let ticketCacheAt=0;
+  let ticketPending=null;
+  let forceUntil=0;
+
+  const now=()=>Date.now();
+  const clone=data=>JSON.parse(JSON.stringify(data??[]));
+  const invalidate=()=>{ticketCache=null;ticketCacheAt=0;};
+
+  const previousApi=typeof window.api==='function'?window.api:null;
+  if(previousApi&&!previousApi.__pxl0068a){
+    const optimizedApi=async function(method,path){
+      const m=String(method||'GET').toUpperCase();
+      const p=String(path||'');
+
+      if(m==='GET'&&p==='/tickets'){
+        const force=now()<forceUntil;
+        if(!force&&ticketPending) return ticketPending.then(clone);
+        if(!force&&Array.isArray(ticketCache)&&now()-ticketCacheAt<COOLDOWN_MS) return clone(ticketCache);
+
+        const run=Promise.resolve(previousApi.apply(this,arguments)).then(data=>{
+          if(Array.isArray(data)){
+            ticketCache=clone(data);
+            ticketCacheAt=now();
+          }
+          return data;
+        });
+        ticketPending=run.finally(()=>{ticketPending=null;});
+        return ticketPending.then(clone);
+      }
+
+      if(m!=='GET'&&p.startsWith('/tickets')){
+        invalidate();
+        const result=await previousApi.apply(this,arguments);
+        invalidate();
+        return result;
+      }
+
+      return previousApi.apply(this,arguments);
+    };
+    optimizedApi.__pxl0068a=true;
+    window.api=optimizedApi;
+  }
+
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('#pxl-ticket-refresh-btn')){
+      forceUntil=now()+3000;
+      invalidate();
+    }
+  },true);
+
+  window.PXL_URG_0068A={
+    revision:REV,
+    cooldownMs:COOLDOWN_MS,
+    invalidateTicketCache:invalidate,
+    forceNextTicketRefresh:()=>{forceUntil=now()+3000;invalidate();},
+    getTicketCacheAge:()=>ticketCacheAt?now()-ticketCacheAt:null
+  };
+})();
