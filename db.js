@@ -108,14 +108,41 @@ async function getInventoryTransactions() {
   return logPending.then(clone);
 }
 
+// PXL-URG-0070 — production sales_orders schema does not contain
+// cancelled_by/cancelled_at. Keep cancellation audit in history and use the
+// existing void_reason column when a note is supplied.
+async function updateSalesOrder(id, data) {
+  const patch = { ...(data || {}) };
+  const hadLegacyCancelFields = Object.prototype.hasOwnProperty.call(patch, 'cancelled_by') ||
+    Object.prototype.hasOwnProperty.call(patch, 'cancelled_at');
+
+  if (hadLegacyCancelFields) {
+    delete patch.cancelled_by;
+    delete patch.cancelled_at;
+
+    if ((patch.status === 'cancelled' || patch.status === 'void') && !patch.void_reason) {
+      const history = Array.isArray(patch.history) ? patch.history : [];
+      const last = history.length ? history[history.length - 1] : null;
+      if (last?.note) patch.void_reason = String(last.note);
+    }
+  }
+
+  return core.updateSalesOrder(id, patch);
+}
+
 module.exports = {
   ...core,
   getInventoryItems,
   getInventoryTransactions,
+  updateSalesOrder,
   PXL_URG_0069: {
     revision: 'PXL-URG-0069',
     itemCacheMs: ITEM_CACHE_MS,
     logCacheMs: LOG_CACHE_MS,
     timeoutMs: GET_TIMEOUT_MS
+  },
+  PXL_URG_0070: {
+    revision: 'PXL-URG-0070',
+    fix: 'sales-order-cancel-schema-mismatch'
   }
 };
