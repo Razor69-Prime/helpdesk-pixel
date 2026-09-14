@@ -173,3 +173,38 @@ window.PXL_STG_0020={revision:'PXL-STG-0020',baseline:'PXL-STG-0019-STABLE',prod
     getTicketCacheAge:()=>ticketCacheAt?now()-ticketCacheAt:null
   };
 })();
+
+// PXL-URG-0069 — Inventory iframe runtime guard.
+// Inventory memakai inline onchange clearGeneratedSku(); fungsi lama hilang dari runtime.
+(function(){
+  'use strict';
+  const REV='PXL-URG-0069';
+  function patchInventoryFrame(){
+    const frame=document.getElementById('inventory-frame');
+    if(!frame)return;
+    try{
+      const w=frame.contentWindow;
+      if(!w)return;
+      if(typeof w.clearGeneratedSku!=='function'){
+        w.clearGeneratedSku=function(){
+          try{
+            const id=w.document.getElementById('item-id')?.value||'';
+            const sku=w.document.getElementById('item-sku');
+            if(!id&&sku)sku.value='';
+          }catch(_){}
+        };
+      }
+      w.PXL_URG_0069={revision:REV,inventoryRuntimePatched:true};
+    }catch(_){}
+  }
+  function bind(){
+    const frame=document.getElementById('inventory-frame');
+    if(!frame)return;
+    if(frame.dataset.pxl0069!=='1'){
+      frame.dataset.pxl0069='1';
+      frame.addEventListener('load',()=>setTimeout(patchInventoryFrame,0));
+    }
+    setTimeout(patchInventoryFrame,0);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+})();
