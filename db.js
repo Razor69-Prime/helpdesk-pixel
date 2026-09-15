@@ -3,8 +3,6 @@
  * Keeps the full legacy adapter in db-core.js, but replaces the two heaviest
  * Inventory reads with bounded-time, retryable, deduplicated Supabase GETs.
  */
-// PXL-URG-0071A must install before db-core captures global.fetch.
-require('./pxl-urg-0071a-crm-batch');
 const core = require('./db-core');
 const cfg = require('./config');
 
@@ -146,8 +144,5 @@ module.exports = {
   PXL_URG_0070: {
     revision: 'PXL-URG-0070',
     fix: 'sales-order-cancel-schema-mismatch'
-  },
-  PXL_URG_0071A: global[Symbol.for('pxl.urg.0071a.crm.batch.fetch')] || {
-    revision: 'PXL-URG-0071A'
   }
 };
