@@ -208,3 +208,59 @@ window.PXL_STG_0020={revision:'PXL-STG-0020',baseline:'PXL-STG-0019-STABLE',prod
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 })();
+
+// PXL-URG-0072 — conservative global GET burst dedupe + 4s micro-cache.
+// POST/PATCH/DELETE bypass cache and invalidate all GET entries immediately.
+// /tickets is excluded because PXL-URG-0068A already owns its refresh semantics.
+(function(){
+  'use strict';
+  const REV='PXL-URG-0072';
+  const TTL_MS=4*1000;
+  const cache=new Map();
+  const pending=new Map();
+  const clone=value=>{try{return JSON.parse(JSON.stringify(value));}catch(_){return value;}};
+  const keyOf=(path,args)=>String(path||'')+'|'+JSON.stringify(args||[]);
+  const clear=()=>{cache.clear();pending.clear();};
+  const bypassPath=path=>path==='/tickets'||path.startsWith('/tickets?')||path.startsWith('/tickets/');
+
+  const previousApi=typeof window.api==='function'?window.api:null;
+  if(previousApi&&!previousApi.__pxl0072){
+    const guardedApi=async function(method,path){
+      const m=String(method||'GET').toUpperCase();
+      const p=String(path||'');
+      const rest=Array.prototype.slice.call(arguments,2);
+
+      if(m!=='GET'){
+        clear();
+        const result=await previousApi.apply(this,arguments);
+        clear();
+        return result;
+      }
+
+      if(bypassPath(p)) return previousApi.apply(this,arguments);
+
+      const key=keyOf(p,rest);
+      const hit=cache.get(key);
+      if(hit&&Date.now()-hit.at<TTL_MS) return clone(hit.data);
+      if(pending.has(key)) return pending.get(key).then(clone);
+
+      const ctx=this,args=arguments;
+      const run=Promise.resolve(previousApi.apply(ctx,args)).then(data=>{
+        cache.set(key,{at:Date.now(),data:clone(data)});
+        return data;
+      }).finally(()=>pending.delete(key));
+      pending.set(key,run);
+      return run.then(clone);
+    };
+    guardedApi.__pxl0072=true;
+    window.api=guardedApi;
+  }
+
+  window.PXL_URG_0072={
+    revision:REV,
+    ttlMs:TTL_MS,
+    clearGetCache:clear,
+    cacheSize:()=>cache.size,
+    pendingSize:()=>pending.size
+  };
+})();
