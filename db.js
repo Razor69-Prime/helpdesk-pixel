@@ -13,6 +13,8 @@ const REST_BASE = String(cfg.SUPABASE_URL || '').replace(/\/$/, '') + '/rest/v1'
 const ITEM_CACHE_MS = 8000;
 const LOG_CACHE_MS = 15000;
 const GET_TIMEOUT_MS = 7000;
+const TICKET_CACHE_MS = 15000;
+const TICKET_RELATION_CACHE_MS = 15000;
 
 let itemCache = null;
 let itemCacheAt = 0;
@@ -20,8 +22,13 @@ let itemPending = null;
 let logCache = null;
 let logCacheAt = 0;
 let logPending = null;
+const ticketCache = new Map();
+const ticketPending = new Map();
+const relationCache = new Map();
+const relationPending = new Map();
 
 const clone = value => JSON.parse(JSON.stringify(value == null ? [] : value));
+const cloneValue = value => value == null ? value : JSON.parse(JSON.stringify(value));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function headers() {
@@ -108,6 +115,78 @@ async function getInventoryTransactions() {
   return logPending.then(clone);
 }
 
+// PXL-URG-0073 — coalesce repeated ticket bundle reads at the server boundary.
+// A single /tickets refresh fans out to tickets + invoices + status_history + job_stages.
+// Cache is deliberately short and all related writes invalidate it immediately.
+function ticketKey(filterTech, includeArchived) {
+  return `${includeArchived ? '1' : '0'}|${String(filterTech || '')}`;
+}
+function relationKey(ticketIds) {
+  return [...new Set((ticketIds || []).filter(Boolean).map(String))].sort().join(',');
+}
+function invalidateTicketBundleCache() {
+  ticketCache.clear();
+  relationCache.clear();
+}
+
+async function getTickets(filterTech, includeArchived=false) {
+  if (!USE_SUPABASE) return core.getTickets(filterTech, includeArchived);
+  const key = ticketKey(filterTech, includeArchived);
+  const now = Date.now();
+  const hit = ticketCache.get(key);
+  if (hit && now - hit.at < TICKET_CACHE_MS) return cloneValue(hit.data);
+  if (ticketPending.has(key)) return ticketPending.get(key).then(cloneValue);
+
+  const run = Promise.resolve(core.getTickets(filterTech, includeArchived))
+    .then(rows => {
+      const data = Array.isArray(rows) ? cloneValue(rows) : [];
+      ticketCache.set(key, { at: Date.now(), data });
+      return data;
+    })
+    .finally(() => ticketPending.delete(key));
+  ticketPending.set(key, run);
+  return run.then(cloneValue);
+}
+
+async function getTicketRelationsBatch(ticketIds) {
+  if (!USE_SUPABASE) return core.getTicketRelationsBatch(ticketIds);
+  const key = relationKey(ticketIds);
+  if (!key) return { invoices:{}, status_history:{}, job_stages:{} };
+  const now = Date.now();
+  const hit = relationCache.get(key);
+  if (hit && now - hit.at < TICKET_RELATION_CACHE_MS) return cloneValue(hit.data);
+  if (relationPending.has(key)) return relationPending.get(key).then(cloneValue);
+
+  const normalizedIds = key.split(',');
+  const run = Promise.resolve(core.getTicketRelationsBatch(normalizedIds))
+    .then(data => {
+      const safe = cloneValue(data || { invoices:{}, status_history:{}, job_stages:{} });
+      relationCache.set(key, { at: Date.now(), data: safe });
+      return safe;
+    })
+    .finally(() => relationPending.delete(key));
+  relationPending.set(key, run);
+  return run.then(cloneValue);
+}
+
+function wrapTicketWrite(name) {
+  const fn = core[name];
+  if (typeof fn !== 'function') return undefined;
+  return async function(){
+    invalidateTicketBundleCache();
+    try { return await fn.apply(core, arguments); }
+    finally { invalidateTicketBundleCache(); }
+  };
+}
+
+const insertTicket = wrapTicketWrite('insertTicket');
+const updateTicket = wrapTicketWrite('updateTicket');
+const deleteTicket = wrapTicketWrite('deleteTicket');
+const insertStatusHistory = wrapTicketWrite('insertStatusHistory');
+const insertInvoice = wrapTicketWrite('insertInvoice');
+const deleteInvoice = wrapTicketWrite('deleteInvoice');
+const insertJobStage = wrapTicketWrite('insertJobStage');
+
 // PXL-URG-0070 — production sales_orders schema does not contain
 // cancelled_by/cancelled_at. Keep cancellation audit in history and use the
 // existing void_reason column when a note is supplied.
@@ -134,6 +213,15 @@ module.exports = {
   ...core,
   getInventoryItems,
   getInventoryTransactions,
+  getTickets,
+  getTicketRelationsBatch,
+  ...(insertTicket ? { insertTicket } : {}),
+  ...(updateTicket ? { updateTicket } : {}),
+  ...(deleteTicket ? { deleteTicket } : {}),
+  ...(insertStatusHistory ? { insertStatusHistory } : {}),
+  ...(insertInvoice ? { insertInvoice } : {}),
+  ...(deleteInvoice ? { deleteInvoice } : {}),
+  ...(insertJobStage ? { insertJobStage } : {}),
   updateSalesOrder,
   PXL_URG_0069: {
     revision: 'PXL-URG-0069',
@@ -144,5 +232,13 @@ module.exports = {
   PXL_URG_0070: {
     revision: 'PXL-URG-0070',
     fix: 'sales-order-cancel-schema-mismatch'
+  },
+  PXL_URG_0073: {
+    revision: 'PXL-URG-0073',
+    ticketCacheMs: TICKET_CACHE_MS,
+    ticketRelationCacheMs: TICKET_RELATION_CACHE_MS,
+    invalidateTicketBundleCache,
+    ticketCacheSize: () => ticketCache.size,
+    relationCacheSize: () => relationCache.size
   }
 };
