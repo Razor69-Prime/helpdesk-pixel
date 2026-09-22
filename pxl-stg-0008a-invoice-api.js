@@ -98,11 +98,21 @@ function register(app) {
       }
       const invoiceIds=(rows||[]).map(x=>x.id).filter(Boolean);
       const soIds=[...new Set((rows||[]).map(x=>x.source_so_id).filter(Boolean))];
-      const [relations,salesOrders,tickets]=await Promise.all([
-        invoiceIds.length?api.get(`/invoice_work_orders?invoice_id=in.(${invoiceIds.map(enc).join(',')})&select=invoice_id,ticket_id`):Promise.resolve([]),
+
+      // PXL-URG-0075 — batasi panjang filter PostgREST agar kompatibel dengan
+      // Nginx VPS. Daftar Invoice dapat berisi ratusan UUID, sehingga satu
+      // invoice_id=in.(...) dapat melewati batas request URI.
+      const relationBatches=[];
+      for(let i=0;i<invoiceIds.length;i+=50){
+        const batch=invoiceIds.slice(i,i+50);
+        relationBatches.push(api.get(`/invoice_work_orders?invoice_id=in.(${batch.map(enc).join(',')})&select=invoice_id,ticket_id`));
+      }
+      const [relationParts,salesOrders,tickets]=await Promise.all([
+        relationBatches.length?Promise.all(relationBatches):Promise.resolve([]),
         soIds.length?api.get(`/sales_orders?id=in.(${soIds.map(enc).join(',')})&select=id,so_number`):Promise.resolve([]),
         invoiceIds.length?api.get('/tickets?select=id,wo_number&limit=1000'):Promise.resolve([])
       ]);
+      const relations=relationParts.flat();
       const soById=new Map((salesOrders||[]).map(x=>[String(x.id),x]));
       const ticketById=new Map((tickets||[]).map(x=>[String(x.id),x]));
       const wosByInvoice=new Map();
