@@ -226,13 +226,23 @@ async function getTicketRelationsBatch(ticketIds) {
     return { invoices, status_history, job_stages };
   }
 
-  // UUID tidak mengandung koma; encode tiap nilai agar filter PostgREST tetap aman.
-  const inFilter = ids.map(id => encodeURIComponent(id)).join(',');
-  const [invoiceRows, historyRows, stageRows] = await Promise.all([
-    sbFetch('GET', `/invoices?ticket_id=in.(${inFilter})&order=uploaded_at.desc`),
-    sbFetch('GET', `/status_history?ticket_id=in.(${inFilter})&order=timestamp.desc`),
-    sbFetch('GET', `/job_stages?ticket_id=in.(${inFilter})&order=timestamp.asc`)
-  ]);
+  // PXL-URG-0074 — pecah relasi tiket menjadi batch kecil agar filter PostgREST
+  // tidak menghasilkan Request-URI Too Large saat jumlah tiket bertambah.
+  const RELATION_BATCH_SIZE = 50;
+  const invoiceRows = [], historyRows = [], stageRows = [];
+  for (let i = 0; i < ids.length; i += RELATION_BATCH_SIZE) {
+    const batch = ids.slice(i, i + RELATION_BATCH_SIZE);
+    // UUID tidak mengandung koma; encode tiap nilai agar filter PostgREST tetap aman.
+    const inFilter = batch.map(id => encodeURIComponent(id)).join(',');
+    const [batchInvoices, batchHistory, batchStages] = await Promise.all([
+      sbFetch('GET', `/invoices?ticket_id=in.(${inFilter})&order=uploaded_at.desc`),
+      sbFetch('GET', `/status_history?ticket_id=in.(${inFilter})&order=timestamp.desc`),
+      sbFetch('GET', `/job_stages?ticket_id=in.(${inFilter})&order=timestamp.asc`)
+    ]);
+    if (Array.isArray(batchInvoices)) invoiceRows.push(...batchInvoices);
+    if (Array.isArray(batchHistory)) historyRows.push(...batchHistory);
+    if (Array.isArray(batchStages)) stageRows.push(...batchStages);
+  }
   return {
     invoices: groupRowsByTicket(invoiceRows),
     status_history: groupRowsByTicket(historyRows),
