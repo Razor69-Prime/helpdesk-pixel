@@ -2237,7 +2237,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div>
+      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Service Center</div><div id="service-center-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Semua akun role Teknisi selalu memiliki akses baca (read only) ke Service Center. Permission di bawah hanya menambah kewenangan seperti update status atau upload foto.</div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
     <hr class="divider"/>
@@ -2860,6 +2860,13 @@ function buildNav(){
       ? [...new Set(customMenus)]
       : [...new Set([...getDefaultMenus(role),...customMenus])];
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id));
+  }
+
+  // PXL-URG-0078: seluruh role Teknisi selalu mendapat Service Center read-only,
+  // termasuk akun lama yang memakai custom_menus_override.
+  if(role==='technician' && !tabs.some(t=>t.id==='service_center')){
+    const serviceDef=ALL_TAB_DEFS.find(t=>t.id==='service_center');
+    if(serviceDef) tabs.push({...serviceDef,show:true});
   }
 
   // PXL-STG-0009A: Form Cuti / Izin wajib dapat diakses seluruh role.
@@ -4160,10 +4167,8 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const projectBox=document.getElementById('project-permission-checkboxes');
   if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');  const soBox=document.getElementById('sales-order-permission-checkboxes');
   if(soBox) soBox.innerHTML=SALES_ORDER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
-  const svcWrap=document.createElement('div');
-  svcWrap.style.cssText='margin-top:12px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden';
-  svcWrap.innerHTML='<div style="padding:8px 10px;background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Service Center Permissions</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px">'+SERVICE_CENTER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''}/>${m.label}</label>`).join('')+'</div>';
-  box.appendChild(svcWrap);
+  const svcBox=document.getElementById('service-center-permission-checkboxes');
+  if(svcBox) svcBox.innerHTML=SERVICE_CENTER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
 }
 
 
@@ -4195,9 +4200,15 @@ function resetMenuToRole(){
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
   const projectDefaults=['manager','superadmin'].includes(role)?PROJECT_PERMISSIONS.map(x=>x.id):[];
+  const serviceDefaults={
+    superadmin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
+    admin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
+    manager:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
+    operator:['service_view_all','service_create','service_assign','service_update','service_photo']
+  }[role]||[];
   [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
-    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id);
+    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id)||serviceDefaults.includes(m.id);
   });
 }
 
