@@ -814,9 +814,30 @@ app.post('/api/tickets/:id/invoice',
       let mime_type     = null;
 
       if (req.file) {
-      file_url = saveVpsUpload(req.file, 'invoice');
-      original_name = req.file.originalname;
-      mime_type     = req.file.mimetype;
+        file_url = saveVpsUpload(req.file, 'invoice');
+        original_name = req.file.originalname;
+        mime_type     = req.file.mimetype;
+      }
+
+      const inv = await db.insertInvoice({
+        ticket_id:     req.params.id,
+        file_url,
+        original_name,
+        mime_type,
+        uploaded_by:   req.session.user.name,
+        note:          req.body.note         || null,
+        total_amount:  req.body.total_amount ? Number(req.body.total_amount) : null,
+        sales_pic:     req.body.sales_pic    || null,
+      });
+      logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${original_name||'(tanpa file)'}`);
+      createNotification({
+        type: 'invoice',
+        text: `<b>Invoice baru</b> diupload oleh ${req.session.user.name}${inv.total_amount?` — Rp ${Number(inv.total_amount).toLocaleString('id-ID')}`:''}`,
+        target_role: 'superadmin',
+        ref_id: inv.id,
+        created_by: req.session.user.name,
+      });
+      res.status(201).json(inv);
     } catch(e) {
       console.error('Invoice upload error:', e.message);
       res.status(500).json({ error: e.message });
