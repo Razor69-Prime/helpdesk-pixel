@@ -2691,9 +2691,16 @@ async function checkSession(){
       return;
     }
     if(!r.ok) return;
-    const {user}=await r.json();
+    const data=await r.json();
+    const user=data.user;
     if(user){
-      window.__pxlAuthToken=token;
+      if(data.token){
+        window.__pxlAuthToken=data.token;
+        localStorage.setItem('pixel_token',data.token);
+        sessionStorage.setItem('pixel_token',data.token);
+      }else{
+        window.__pxlAuthToken=token;
+      }
       currentUser=user;
       showApp();
     }
@@ -2853,12 +2860,15 @@ function buildNav(){
   ];
 
   let tabs;
-  if(isSuperAdmin && currentUser.custom_menus_override!==true){
+  // PXL-URG-0079: Superadmin bypass seluruh pembatasan menu.
+  if(isSuperAdmin){
     tabs=ALL_TAB_DEFS.map(t=>({...t,show:true}));
   } else {
     const effective=currentUser.custom_menus_override===true
       ? [...new Set(customMenus)]
       : [...new Set([...getDefaultMenus(role),...customMenus])];
+    // Permission Service Center selalu menyinkronkan menu induknya.
+    if(customMenus.some(x=>String(x||'').startsWith('service_'))&&!effective.includes('service_center')) effective.push('service_center');
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id));
   }
 
@@ -4298,6 +4308,8 @@ async function saveEditUser(){
   if(password&&password.length<6){errEl.textContent='Password minimal 6 karakter.';errEl.style.display='block';return;}
   try{
     const checkedMenus=getCheckedMenus();
+    if(checkedMenus.some(x=>String(x||'').startsWith('service_'))&&!checkedMenus.includes('service_center')) checkedMenus.push('service_center');
+    if(role==='technician'&&!checkedMenus.includes('service_center')) checkedMenus.push('service_center');
     const defaultMenus=getDefaultMenus(role);
     // Collect PR roles
     const prRoles=[];
