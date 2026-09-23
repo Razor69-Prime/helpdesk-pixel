@@ -879,6 +879,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
         </div>
       </div>
     </div>
+    <div id="tab-system_tools" class="tab-content"><div id="system-tools-root"><div style="padding:24px;color:var(--muted)">Memuat System Tools...</div></div></div>
     <div id="tab-actlog" class="tab-content">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
@@ -2837,6 +2838,7 @@ function buildNav(){
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
+    {id:'system_tools',label:'🛠️ System Tools',     show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
     {id:'leave',     label:'🗓️ Form Cuti / Izin', show: true},
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
@@ -2869,7 +2871,7 @@ function buildNav(){
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory']},
-    {label:'Administrasi', ids:['leave','archive','users','actlog']},
+    {label:'Administrasi', ids:['leave','archive','users','actlog','system_tools']},
   ];
 
   const visibleById=new Map(tabs.map(t=>[t.id,t]));
@@ -3038,6 +3040,7 @@ function switchTab(tab,btn){
   if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); loadStandaloneInvoices().then(renderInvoiceList); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
   if(tab==='actlog')    loadActivityLog();
+  if(tab==='system_tools' && typeof window.loadSystemTools==='function') window.loadSystemTools();
   if(tab==='materials') loadMaterialRequests();
   if(tab==='leave' && typeof window.pxlLeaveOpen==='function') window.pxlLeaveOpen();
   if(tab==='inventory') {
@@ -4048,6 +4051,7 @@ const ALL_MENUS=[
   {id:'dashboard',label:'📊 Dashboard Manager'},
   {id:'users',   label:'👥 Manajemen Akun'},
   {id:'actlog',  label:'📋 Activity Log'},
+  {id:'system_tools',label:'🛠️ System Tools'},
   {id:'materials', label:'📦 Form Material Request'},
   {id:'inventory',label:'📦 Inventory Asset'},
   {id:'pr',      label:'📝 Purchase Request'},
@@ -4087,7 +4091,7 @@ function getDefaultMenus(role){
     case 'accounting': return ['tickets','invoice','archive','materials','pr','supplier'];
     case 'manager':    return ['dashboard','report','tickets','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
     case 'sales':      return ['report','tickets','kpi','kunjungan','projects','crm','sales_order','materials'];
-    case 'admin':      return ALL_MENUS.filter(m=>m.id!=='actlog').map(m=>m.id);
+    case 'admin':      return ALL_MENUS.filter(m=>!['actlog','system_tools'].includes(m.id)).map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id);
     default:           return [];
   }
@@ -4096,10 +4100,11 @@ function getDefaultMenus(role){
 // Modul sensitif yang tetap terkunci walaupun dicentang melalui custom access.
 function getForbiddenMenus(role){
   role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
-  if(role==='technician') return ['invoice','sales','crm','sales_order','archive','users','actlog','pr','supplier'];
-  if(role==='sales') return ['users','actlog'];
-  if(role==='accounting') return ['users','actlog'];
-  if(role==='operator') return ['invoice','sales','crm','sales_order','users','actlog','supplier'];
+  if(role==='technician') return ['invoice','sales','crm','sales_order','archive','users','actlog','system_tools','pr','supplier'];
+  if(role==='sales') return ['users','actlog','system_tools'];
+  if(role==='accounting') return ['users','actlog','system_tools'];
+  if(role==='operator') return ['invoice','sales','crm','sales_order','users','actlog','system_tools','supplier'];
+  if(role==='manager'||role==='admin') return ['system_tools'];
   return [];
 }
 
@@ -4120,7 +4125,7 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
     {label:'Accounting & Piutang',ids:['invoice']},
     {label:'Keuangan & Pengadaan',ids:['pr','supplier']},
     {label:'Gudang',ids:['inventory']},
-    {label:'Administrasi',ids:['archive','users','actlog']}
+    {label:'Administrasi',ids:['archive','users','actlog','system_tools']}
   ];
   box.style.display='block';
   box.innerHTML=groups.map(g=>{
@@ -10526,6 +10531,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-URG-0076"></script>
 </body>
 </html>
