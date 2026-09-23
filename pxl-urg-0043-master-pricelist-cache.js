@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0050 — Master Pricelist mapping audit list + safe bulk auto-mapping.
+/* PXL-URG-0083 — Master Pricelist local PostgREST cache/mapping migration.
  * Inventory is read-only from this module; mapping is stored separately. PR remains unconnected.
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
@@ -27,17 +27,17 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   const now=()=>new Date().toISOString();
 
   function cfg(){
-    const c=require('./config');
+    // PXL-URG-0083: Master Pricelist cache moved to local PostgREST/PostgreSQL.
+    // Env override is available for non-production/test environments.
     return {
-      url:String(c.SUPABASE_URL||'').replace(/\/$/,''),
-      key:process.env.SUPABASE_SERVICE_ROLE_KEY||''
+      url:String(process.env.MASTER_PRICELIST_REST_URL||'http://127.0.0.1:3003').replace(/\/$/,''),
+      key:String(process.env.MASTER_PRICELIST_REST_KEY||'')
     };
   }
   function headers(extra={}){
     const c=cfg();
     return {
-      apikey:c.key,
-      Authorization:'Bearer '+c.key,
+      ...(c.key?{apikey:c.key,Authorization:'Bearer '+c.key}:{}),
       'Content-Type':'application/json',
       Prefer:'return=representation',
       ...extra
@@ -45,7 +45,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   }
   async function sb(method,path,body,extraHeaders){
     const c=cfg();
-    if(!c.url||!c.key)throw new Error('SUPABASE_SERVICE_ROLE_KEY belum tersedia untuk Master Pricelist cache.');
+    if(!c.url)throw new Error('Endpoint PostgREST lokal Master Pricelist belum tersedia.');
     const f=global.fetch||require('node-fetch');
     const opt={method,headers:headers(extraHeaders)};
     if(body!==undefined&&body!==null)opt.body=JSON.stringify(body);
