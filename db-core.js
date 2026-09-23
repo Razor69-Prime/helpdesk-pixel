@@ -1105,6 +1105,71 @@ async function getCrmReport(){
   return {counts:{customers:customers.length,sales_orders:sos.length,work_orders:wos.length,material_requests:mrs.length,additional_material_requests:amrs.length,invoices:invoices.length,projects:projects.length,visits:visits.length,tickets:tickets.length},revenue,pipeline,customers,sales_orders:sos,work_orders:wos,material_requests:mrs,additional_material_requests:amrs,invoices,projects,visits,tickets};
 }
 
+
+// ─────────────────────────────────────────
+//  PXL-URG-0077 — SERVICE CENTER
+// ─────────────────────────────────────────
+const SERVICE_ORDERS_FILE=path.join(__dirname,'data','service_orders.json');
+const SERVICE_HISTORY_FILE=path.join(__dirname,'data','service_status_history.json');
+const SERVICE_PHOTOS_FILE=path.join(__dirname,'data','service_photos.json');
+function readServiceLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
+function writeServiceLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
+
+async function getServiceOrders(){
+  if(USE_SUPABASE) return await sbFetch('GET','/service_orders?order=created_at.desc')||[];
+  return readServiceLocal(SERVICE_ORDERS_FILE).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+}
+async function getServiceOrder(id){
+  if(USE_SUPABASE){const rows=await sbFetch('GET',`/service_orders?id=eq.${encodeURIComponent(id)}&limit=1`);return rows?.[0]||null;}
+  return readServiceLocal(SERVICE_ORDERS_FILE).find(x=>String(x.id)===String(id))||null;
+}
+async function getServiceOrderByToken(token){
+  if(USE_SUPABASE){const rows=await sbFetch('GET',`/service_orders?tracking_token=eq.${encodeURIComponent(token)}&limit=1`);return rows?.[0]||null;}
+  return readServiceLocal(SERVICE_ORDERS_FILE).find(x=>String(x.tracking_token)===String(token))||null;
+}
+async function insertServiceOrder(data){
+  const now=new Date().toISOString();
+  const row={id:crypto.randomUUID(),created_at:now,updated_at:now,is_archived:false,...data};
+  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_orders',row);return rows?.[0]||row;}
+  const all=readServiceLocal(SERVICE_ORDERS_FILE);all.push(row);writeServiceLocal(SERVICE_ORDERS_FILE,all);return row;
+}
+async function updateServiceOrder(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(USE_SUPABASE){const rows=await sbFetch('PATCH',`/service_orders?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||null;}
+  const all=readServiceLocal(SERVICE_ORDERS_FILE),idx=all.findIndex(x=>String(x.id)===String(id));
+  if(idx<0) throw new Error('Service tidak ditemukan.');
+  all[idx]={...all[idx],...data};writeServiceLocal(SERVICE_ORDERS_FILE,all);return all[idx];
+}
+async function getServiceHistory(serviceId,publicOnly=false){
+  if(USE_SUPABASE){
+    let q=`/service_status_history?service_id=eq.${encodeURIComponent(serviceId)}`;
+    if(publicOnly) q+='&customer_visible=eq.true';
+    q+='&order=created_at.asc';
+    return await sbFetch('GET',q)||[];
+  }
+  return readServiceLocal(SERVICE_HISTORY_FILE).filter(x=>String(x.service_id)===String(serviceId)&&(!publicOnly||x.customer_visible===true)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+}
+async function insertServiceHistory(data){
+  const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),customer_visible:data.customer_visible!==false,...data};
+  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_status_history',row);return rows?.[0]||row;}
+  const all=readServiceLocal(SERVICE_HISTORY_FILE);all.push(row);writeServiceLocal(SERVICE_HISTORY_FILE,all);return row;
+}
+async function getServicePhotos(serviceId,publicOnly=false){
+  if(USE_SUPABASE){
+    let q=`/service_photos?service_id=eq.${encodeURIComponent(serviceId)}&deleted_at=is.null`;
+    if(publicOnly) q+='&visible_to_customer=eq.true';
+    q+='&order=uploaded_at.asc';
+    return await sbFetch('GET',q)||[];
+  }
+  return readServiceLocal(SERVICE_PHOTOS_FILE).filter(x=>String(x.service_id)===String(serviceId)&&!x.deleted_at&&(!publicOnly||x.visible_to_customer===true)).sort((a,b)=>new Date(a.uploaded_at)-new Date(b.uploaded_at));
+}
+async function insertServicePhoto(data){
+  const now=new Date().toISOString();
+  const row={id:crypto.randomUUID(),uploaded_at:now,created_at:now,deleted_at:null,visible_to_customer:data.visible_to_customer!==false,...data};
+  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_photos',row);return rows?.[0]||row;}
+  const all=readServiceLocal(SERVICE_PHOTOS_FILE);all.push(row);writeServiceLocal(SERVICE_PHOTOS_FILE,all);return row;
+}
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -1139,5 +1204,6 @@ module.exports = {
   getCrmWorkOrders, insertCrmWorkOrder, updateCrmWorkOrder, deleteCrmWorkOrder,
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest, issueInventoryMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
-  getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport
+  getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport,
+  getServiceOrders, getServiceOrder, getServiceOrderByToken, insertServiceOrder, updateServiceOrder, getServiceHistory, insertServiceHistory, getServicePhotos, insertServicePhoto
 };
