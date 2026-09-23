@@ -49,11 +49,11 @@ function cloudinarySignature(params){
 }
 
 
-// ensure dirs & files — hanya di mode lokal
+// PXL-URG-0084 — VPS local uploads must always exist, including local PostgREST mode.
+[path.join(__dirname,'data'), UPLOADS_DIR].forEach(d => {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+});
 if (!db.USE_SUPABASE) {
-  [path.join(__dirname,'data'), UPLOADS_DIR].forEach(d => {
-    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-  });
   if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, '[]');
   if (!fs.existsSync(USERS_FILE)) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([
@@ -88,6 +88,20 @@ const upload = multer({
       ? cb(null,true) : cb(new Error('Format tidak didukung.'));
   }
 });
+
+function saveVpsUpload(file, prefix='invoice') {
+  if (!file) return null;
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const filename = prefix + '-' + crypto.randomBytes(10).toString('hex') + ext;
+  const filepath = path.join(UPLOADS_DIR, filename);
+  if (file.buffer) fs.writeFileSync(filepath, file.buffer);
+  else if (file.path) {
+    if (path.resolve(file.path) !== path.resolve(filepath)) fs.copyFileSync(file.path, filepath);
+  } else {
+    throw new Error('Berkas upload tidak memiliki buffer/path yang dapat disimpan.');
+  }
+  return '/uploads/' + filename;
+}
 
 
 // PXL-REV-0050 — upload khusus workbook Inventory.
@@ -800,60 +814,9 @@ app.post('/api/tickets/:id/invoice',
       let mime_type     = null;
 
       if (req.file) {
-        if (db.USE_SUPABASE) {
-          // Upload ke Supabase Storage
-          const ext      = path.extname(req.file.originalname).toLowerCase();
-          const filename = crypto.randomBytes(10).toString('hex') + ext;
-          const bucket   = 'invoices';
-
-          const uploadRes = await fetch(
-            `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
-            {
-              method:  'POST',
-              headers: {
-                'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
-                'Content-Type':  req.file.mimetype,
-                'x-upsert':      'true'
-              },
-              body: req.file.buffer
-            }
-          );
-          if (!uploadRes.ok) {
-            const err = await uploadRes.text();
-            throw new Error('Upload ke Supabase Storage gagal: ' + err);
-          }
-          file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
-        } else {
-          // Simpan ke disk lokal
-          const ext      = path.extname(req.file.originalname).toLowerCase();
-          const filename = crypto.randomBytes(10).toString('hex') + ext;
-          const filepath = path.join(UPLOADS_DIR, filename);
-          fs.writeFileSync(filepath, req.file.buffer || req.file.path);
-          file_url = '/uploads/' + filename;
-        }
-        original_name = req.file.originalname;
-        mime_type     = req.file.mimetype;
-      }
-
-      const inv = await db.insertInvoice({
-        ticket_id:     req.params.id,
-        file_url,
-        original_name,
-        mime_type,
-        uploaded_by:   req.session.user.name,
-        note:          req.body.note         || null,
-        total_amount:  req.body.total_amount ? Number(req.body.total_amount) : null,
-        sales_pic:     req.body.sales_pic    || null,
-      });
-      logActivity(req, 'invoice', 'UPLOAD INVOICE', `WO: ${req.params.id} · File: ${original_name||'(tanpa file)'}`);
-      createNotification({
-        type: 'invoice',
-        text: `<b>Invoice baru</b> diupload oleh ${req.session.user.name}${inv.total_amount?` — Rp ${Number(inv.total_amount).toLocaleString('id-ID')}`:''}`,
-        target_role: 'superadmin',
-        ref_id: inv.id,
-        created_by: req.session.user.name,
-      });
-      res.status(201).json(inv);
+      file_url = saveVpsUpload(req.file, 'invoice');
+      original_name = req.file.originalname;
+      mime_type     = req.file.mimetype;
     } catch(e) {
       console.error('Invoice upload error:', e.message);
       res.status(500).json({ error: e.message });
@@ -888,35 +851,7 @@ app.post('/api/invoices/standalone', requireRole('accounting','admin','manager',
     let mime_type     = null;
 
     if (req.file) {
-      if (db.USE_SUPABASE) {
-        const ext      = path.extname(req.file.originalname).toLowerCase();
-        const filename = crypto.randomBytes(10).toString('hex') + ext;
-        const bucket   = 'invoices';
-
-        const uploadRes = await fetch(
-          `${cfg.SUPABASE_URL}/storage/v1/object/${bucket}/${filename}`,
-          {
-            method:  'POST',
-            headers: {
-              'Authorization': `Bearer ${cfg.SUPABASE_KEY}`,
-              'Content-Type':  req.file.mimetype,
-              'x-upsert':      'true'
-            },
-            body: req.file.buffer
-          }
-        );
-        if (!uploadRes.ok) {
-          const err = await uploadRes.text();
-          throw new Error('Upload ke Supabase Storage gagal: ' + err);
-        }
-        file_url = `${cfg.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filename}`;
-      } else {
-        const ext      = path.extname(req.file.originalname).toLowerCase();
-        const filename = crypto.randomBytes(10).toString('hex') + ext;
-        const filepath = path.join(UPLOADS_DIR, filename);
-        fs.writeFileSync(filepath, req.file.buffer || req.file.path);
-        file_url = '/uploads/' + filename;
-      }
+      file_url = saveVpsUpload(req.file, 'invoice-standalone');
       original_name = req.file.originalname;
       mime_type     = req.file.mimetype;
     }
