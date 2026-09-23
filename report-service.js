@@ -53,4 +53,67 @@ function invoicePdf(res,inv){
   if(fs.existsSync(sign))doc.image(sign,390,ry+92,{width:170});else doc.fontSize(10).fillColor('#111').text('Pixel Solusindo\n\nI Putu Eka Hendrayana',410,ry+105,{align:'center'});
   doc.end();
 }
-module.exports={writeExcel,writePdf,invoicePdf};
+
+function dataUrlBuffer(v){
+  try{
+    const str=String(v||'');
+    const m=str.match(/^data:image\/(?:png|jpeg|jpg);base64,(.+)$/i);
+    return m?Buffer.from(m[1],'base64'):null;
+  }catch(_){return null;}
+}
+function serviceReceiptPdf(res,row,type='intake'){
+  const isHandover=type==='handover';
+  const title=isHandover?'BUKTI SERAH TERIMA KEMBALI':'TANDA TERIMA SERVICE';
+  const customerName=isHandover?(row.handover_customer_name||row.customer_name):(row.intake_customer_name||row.customer_name);
+  const customerSig=isHandover?row.handover_customer_signature:row.intake_customer_signature;
+  const pixelName=isHandover?(row.handover_pixel_name||'-'):(row.intake_pixel_name||row.created_by||'-');
+  const pixelSig=isHandover?row.handover_pixel_signature:row.intake_pixel_signature;
+  const signedAt=isHandover?row.handover_signed_at:row.intake_signed_at;
+  if(!customerSig||!pixelSig){res.status(409).json({error:'Tanda tangan belum lengkap.'});return;}
+  const doc=new PDFDocument({size:'A4',margin:34});
+  const safeNo=String(row.service_number||'service').replace(/[^a-z0-9_-]/gi,'-');
+  res.setHeader('Content-Type','application/pdf');
+  res.setHeader('Content-Disposition','inline; filename="'+safeNo+'-'+(isHandover?'pengembalian':'penerimaan')+'.pdf"');
+  doc.pipe(res);
+  const navy='#0B2E65',orange='#E07B39',muted='#6B7280';
+  doc.rect(0,0,595,18).fill(orange);
+  doc.font('Helvetica-Bold').fontSize(17).fillColor(navy).text('PIXEL SOLUSINDO',34,34);
+  doc.fontSize(15).fillColor('#111').text(title,34,58,{align:'right'});
+  doc.moveTo(34,82).lineTo(561,82).strokeColor('#D1D5DB').stroke();
+  const fmtDate=v=>v?new Date(v).toLocaleString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
+  const rows=[
+    ['No. Service',row.service_number||'-'],['Tanggal Masuk',fmtDate(row.received_at)],['Customer Utama',row.customer_name||'-'],['No. WhatsApp',row.customer_phone||'-'],
+    ['Perangkat',[row.device_type,row.brand,row.model].filter(Boolean).join(' ')||'-'],['Serial Number',row.serial_number||'-'],['Keluhan',row.complaint||'-'],
+    ['Kondisi Awal',row.initial_condition||'-'],['Kelengkapan',Array.isArray(row.accessories)?row.accessories.join(', '):(row.accessories||'-')],['Estimasi Selesai',row.estimated_done_date||'-'],['Teknisi In Charge',row.technician_name||'-']
+  ];
+  let y=96;
+  doc.fontSize(9);
+  rows.forEach(([k,v])=>{
+    const val=String(v||'-');
+    const h=Math.max(18,doc.heightOfString(val,{width:350})+8);
+    doc.font('Helvetica-Bold').fillColor(muted).text(k,38,y+5,{width:135});
+    doc.font('Helvetica').fillColor('#111').text(val,178,y+5,{width:350});
+    doc.moveTo(38,y+h).lineTo(557,y+h).strokeColor('#ECECEC').stroke();
+    y+=h;
+  });
+  y+=12;
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(navy).text(isHandover?'SERAH TERIMA KEMBALI':'PENERIMAAN BARANG',38,y);
+  y+=16;
+  doc.font('Helvetica').fontSize(8.5).fillColor(muted).text('Ditandatangani: '+fmtDate(signedAt),38,y);
+  y+=18;
+  const colW=245,left=38,right=312,boxH=100;
+  doc.roundedRect(left,y,colW,boxH,5,5).strokeColor('#D1D5DB').stroke();
+  doc.roundedRect(right,y,colW,boxH,5,5).strokeColor('#D1D5DB').stroke();
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111').text(isHandover?'Penerima Barang':'Penyerah / Customer',left+10,y+9,{width:colW-20,align:'center'});
+  doc.text(isHandover?'Petugas Pixel Menyerahkan':'Penerima Pixel',right+10,y+9,{width:colW-20,align:'center'});
+  const cb=dataUrlBuffer(customerSig),pb=dataUrlBuffer(pixelSig);
+  if(cb) try{doc.image(cb,left+50,y+26,{fit:[145,42],align:'center',valign:'center'});}catch(_){}
+  if(pb) try{doc.image(pb,right+50,y+26,{fit:[145,42],align:'center',valign:'center'});}catch(_){}
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#111').text(customerName||'-',left+10,y+75,{width:colW-20,align:'center'});
+  doc.text(pixelName||'-',right+10,y+75,{width:colW-20,align:'center'});
+  y+=boxH+16;
+  doc.font('Helvetica').fontSize(8).fillColor(muted).text('Tracking service tersedia melalui link yang diberikan Pixel Solusindo. Dokumen ini dibuat secara elektronik dari PixelApps.',38,y,{width:519,align:'center'});
+  doc.end();
+}
+
+module.exports={writeExcel,writePdf,invoicePdf,serviceReceiptPdf};
