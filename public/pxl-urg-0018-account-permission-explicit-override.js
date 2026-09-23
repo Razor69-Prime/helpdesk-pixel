@@ -1,4 +1,4 @@
-/* PXL-URG-0026D — Account Permission explicit override + Inventory bridge + active Leave Approval persistence. */
+/* PXL-URG-0082 — Account Permission validator + Service Center parent normalization. */
 (function(){
   'use strict';
 
@@ -19,6 +19,9 @@
       if(/_(read|write)$/.test(v)) values.push(v.replace(/_(read|write)$/,''));
     });
     if(values.some(v=>v==='inventory_view'||v==='inventory_view_read'||v==='inventory_view_write')) values.push('inventory');
+    // PXL-URG-0082: backend menambahkan parent Service Center saat ada service_* permission.
+    // Normalisasikan expected frontend agar verifikasi database tidak menghasilkan false mismatch.
+    if(values.some(v=>String(v).startsWith('service_'))) values.push('service_center');
     return unique(values);
   }
 
