@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tracking Service - Pixel Solusindo</title>
+<style>
+:root{--bg:#f6f2ee;--card:#fff;--text:#241f1b;--muted:#756c64;--line:#e8dfd7;--accent:#e07b39;--green:#147a45}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--text)}
+.wrap{max-width:760px;margin:0 auto;padding:24px 14px 50px}.brand{text-align:center;margin-bottom:18px}.brand img{height:46px;max-width:210px;object-fit:contain}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+h1{font-size:20px;margin:0 0 5px}.sub{font-size:12px;color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kv{padding:10px 0;border-bottom:1px solid var(--line)}.kv span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase}.kv b{font-size:13px}.badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#fff0e5;color:#9d4f19;font-size:11px;font-weight:bold}.timeline{border-left:2px solid var(--line);margin-left:7px;padding-left:18px}.event{position:relative;padding:0 0 18px}.event:before{content:'';position:absolute;left:-24px;top:2px;width:10px;height:10px;border-radius:50%;background:var(--accent)}.event b{font-size:12px}.event div{font-size:12px;color:var(--muted);margin-top:3px}.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.photos img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--line)}.contacts a{color:var(--accent);text-decoration:none;font-weight:bold}.error{text-align:center;padding:50px 10px;color:#a33}@media(max-width:600px){.grid{grid-template-columns:1fr}.photos{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><img src="/pixel-solusindo-logo.png" alt="Pixel Solusindo"/></div>
+  <div id="app"><div class="card">Memuat status service...</div></div>
+</div>
+<script>
+const STATUS={received:'Barang Diterima',diagnosis:'Diagnosa',waiting_approval:'Menunggu Persetujuan Customer',waiting_part:'Menunggu Sparepart',in_progress:'Dalam Pengerjaan',testing:'Testing',completed:'Selesai',ready_pickup:'Siap Diambil',picked_up:'Sudah Diambil',cancelled:'Batal'};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const token=location.pathname.split('/').filter(Boolean).pop();
+const date=v=>v?new Date(v).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}):'-';
+const day=v=>v?new Date(String(v).slice(0,10)+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'-';
+fetch('/api/service-track/'+encodeURIComponent(token),{cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||'Tracking tidak ditemukan');return d}).then(d=>{
+ const photos=(d.photos||[]).map(p=>'<a href="'+esc(p.secure_url||p.image_url)+'" target="_blank"><img src="'+esc(p.secure_url||p.image_url)+'" alt="Foto service"/></a>').join('');
+ const hist=(d.history||[]).map(h=>'<div class="event"><b>'+esc(STATUS[h.status]||h.status)+'</b><div>'+esc(h.note||'Update status service')+'</div><div>'+esc(date(h.created_at))+'</div></div>').join('');
+ document.getElementById('app').innerHTML=
+ '<div class="card"><h1>'+esc(d.service_number)+'</h1><div class="sub">Tracking Service Pixel Solusindo</div><div style="margin-top:12px"><span class="badge">'+esc(STATUS[d.status]||d.status)+'</span></div></div>'+
+ '<div class="card"><div class="grid"><div class="kv"><span>Customer</span><b>'+esc(d.customer_name)+'</b></div><div class="kv"><span>Perangkat</span><b>'+esc([d.device_type,d.brand,d.model].filter(Boolean).join(' '))+'</b></div><div class="kv"><span>Serial Number</span><b>'+esc(d.serial_number||'-')+'</b></div><div class="kv"><span>Estimasi Selesai</span><b>'+esc(day(d.estimated_done_date))+'</b></div></div><div class="kv"><span>Keluhan</span><b>'+esc(d.complaint||'-')+'</b></div><div class="kv"><span>Update Terakhir</span><b>'+esc(d.customer_update||'-')+'</b></div></div>'+
+ '<div class="card"><h1 style="font-size:15px">Timeline</h1><div class="timeline" style="margin-top:16px">'+(hist||'<div class="sub">Belum ada update.</div>')+'</div></div>'+
+ (photos?'<div class="card"><h1 style="font-size:15px">Foto Service</h1><div class="photos" style="margin-top:14px">'+photos+'</div></div>':'')+
+ '<div class="card contacts"><h1 style="font-size:15px">Kontak</h1><div class="kv"><span>Customer Care</span><b><a href="https://wa.me/6281139618857" target="_blank">'+esc(d.contacts.customer_care)+'</a></b></div><div class="kv"><span>Teknisi</span><b><a href="https://wa.me/6281226824787" target="_blank">'+esc(d.contacts.technician)+'</a></b></div></div>';
+}).catch(e=>document.getElementById('app').innerHTML='<div class="card error">'+esc(e.message)+'</div>');
+</script>
+</body></html>
