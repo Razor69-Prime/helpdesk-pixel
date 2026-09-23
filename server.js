@@ -216,6 +216,25 @@ const INVOICE_READ_ROLES=['accounting','admin','manager','superadmin'];
 function trackExpiry(t) { return new Date(new Date(t.created_at).getTime() + cfg.TRACK_DAYS * 864e5); }
 function isExpired(t)   { return new Date() > trackExpiry(t); }
 
+function buildSessionUser(u){
+  return {
+    id:u.id, username:u.username, name:u.name, role:u.role,
+    custom_menus:Array.isArray(u.custom_menus)?u.custom_menus:[],
+    custom_menus_override:u.custom_menus_override===true,
+    pr_roles:Array.isArray(u.pr_roles)?u.pr_roles:[],
+    extra_roles:Array.isArray(u.extra_roles)?u.extra_roles:[],
+    allow_invoice_no_wo:u.allow_invoice_no_wo===true
+  };
+}
+function normalizeServiceCenterMenus(role,menus){
+  const list=Array.isArray(menus)?[...new Set(menus)]:[];
+  const hasServicePermission=list.some(x=>String(x||'').startsWith('service_'));
+  if(String(role||'').toLowerCase()==='technician'||hasServicePermission){
+    if(!list.includes('service_center')) list.push('service_center');
+  }
+  return list;
+}
+
 // ══════════════════════════════════════════
 //  AUTH
 // ══════════════════════════════════════════
@@ -231,18 +250,7 @@ app.post('/api/login', async (req, res) => {
     }
     if (!u) return res.status(401).json({ error: 'Username atau password salah.' });
     if (u.is_active === false) return res.status(403).json({ error: 'Akun Anda telah dinonaktifkan. Hubungi admin untuk informasi lebih lanjut.' });
-    const userData = {
-      id:            u.id,
-      username:      u.username,
-      name:          u.name,
-      role:          u.role,
-      custom_menus:  Array.isArray(u.custom_menus) ? u.custom_menus : [],
-      custom_menus_override: u.custom_menus_override === true,
-      pr_roles:      Array.isArray(u.pr_roles) ? u.pr_roles : [],
-      extra_roles:   Array.isArray(u.extra_roles) ? u.extra_roles : [],
-      allow_invoice_no_wo: u.allow_invoice_no_wo === true,
-      // signature_url TIDAK disimpan di JWT (terlalu besar → HTTP 494)
-    };
+    const userData = buildSessionUser({...u,custom_menus:normalizeServiceCenterMenus(u.role,u.custom_menus)});
     req.session._setUser(userData);
     logActivity(req, 'auth', 'LOGIN', `${userData.name} (${userData.role}) login berhasil`);
     const token = jwt.sign({ user: userData }, JWT_SECRET, { expiresIn: '8h' });
@@ -256,10 +264,19 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy();
   res.json({ ok: true });
 });
-app.get('/api/me', (req, res) => {
+app.get('/api/me', async (req, res) => {
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, private');
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-  res.json({ user: req.session.user });
+  try{
+    const users=db.USE_SUPABASE?await db.getUsersWithPassword():readUsers();
+    const fresh=users.find(u=>String(u.id)===String(req.session.user.id));
+    if(!fresh||fresh.is_active===false) return res.status(401).json({error:'Unauthorized'});
+    const normalizedMenus=normalizeServiceCenterMenus(fresh.role,fresh.custom_menus);
+    const user=buildSessionUser({...fresh,custom_menus:normalizedMenus});
+    req.session._setUser(user);
+    const token=jwt.sign({user},JWT_SECRET,{expiresIn:'8h'});
+    res.json({user,token});
+  }catch(e){res.status(500).json({error:e.message});}
 });
 
 // ══════════════════════════════════════════
@@ -343,7 +360,10 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (name)                         patch.name          = name;
     if (password)                     patch.password      = password;
     if (role)                         patch.role          = role;
-    if (custom_menus !== undefined)   patch.custom_menus  = custom_menus;
+    if (custom_menus !== undefined) {
+      const effectiveRole=role||targetUser.role;
+      patch.custom_menus=normalizeServiceCenterMenus(effectiveRole,custom_menus);
+    }
     if (custom_menus_override !== undefined) patch.custom_menus_override = custom_menus_override === true;
     if (signature_url !== undefined)  patch.signature_url = signature_url;
     if (pr_roles !== undefined)       patch.pr_roles      = pr_roles;
