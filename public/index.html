@@ -880,6 +880,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
       </div>
     </div>
     <div id="tab-system_tools" class="tab-content"><div id="system-tools-root"><div style="padding:24px;color:var(--muted)">Memuat System Tools...</div></div></div>
+    <div id="tab-service_center" class="tab-content"><div id="service-center-root"><div style="padding:24px;color:var(--muted)">Memuat Service Center...</div></div></div>
     <div id="tab-actlog" class="tab-content">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
@@ -2791,6 +2792,7 @@ function showApp(){
   if(canAssign) loadTechnicianDropdown();
   buildNav();
   installUniversalReportButtons();
+  setTimeout(()=>window.pxlServiceCenter?.showReminder?.(),900);
   if(currentUser.role!=='accounting'&&currentUser.role!=='manager') startGPS();
   if(currentUser.role==='accounting'||currentUser.role==='admin') loadSalesPics();
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
@@ -2830,6 +2832,7 @@ function buildNav(){
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
     {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
     {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
+    {id:'service_center',label:'🔧 Service Center',show: role==='technician'||role==='operator'||role==='admin'||isManager||isSuperAdmin},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'piutang',   label:'💳 Daftar Piutang', show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
@@ -2866,7 +2869,7 @@ function buildNav(){
   }
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
-    {label:'Operasional Teknisi', ids:['report','tickets','materials']},
+    {label:'Operasional Teknisi', ids:['report','tickets','service_center','materials']},
     {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm','sales_order']},
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
@@ -3041,6 +3044,7 @@ function switchTab(tab,btn){
   if(tab==='users')     loadUsers();
   if(tab==='actlog')    loadActivityLog();
   if(tab==='system_tools' && typeof window.loadSystemTools==='function') window.loadSystemTools();
+  if(tab==='service_center' && window.pxlServiceCenter) window.pxlServiceCenter.refresh();
   if(tab==='materials') loadMaterialRequests();
   if(tab==='leave' && typeof window.pxlLeaveOpen==='function') window.pxlLeaveOpen();
   if(tab==='inventory') {
@@ -4043,6 +4047,7 @@ async function addUser(){
 const ALL_MENUS=[
   {id:'report',  label:'📋 Input Laporan'},
   {id:'tickets', label:'📄 Daftar Tiket'},
+  {id:'service_center',label:'🔧 Service Center'},
   {id:'invoice', label:'🧾 Invoice'},
   {id:'kpi',     label:'📊 KPI'},
   {id:'sales',   label:'💰 Sales Dashboard'},
@@ -4081,15 +4086,25 @@ const SALES_ORDER_PERMISSIONS=[
   {id:'sales_order_approve',label:'✅ Setujui Sales Order'},
   {id:'sales_order_create_wo',label:'🛠️ Buat Work Order'}
 ];
+const SERVICE_CENTER_PERMISSIONS=[
+  {id:'service_view_all',label:'🔧 Service: Lihat Semua'},
+  {id:'service_create',label:'➕ Service: Penerimaan'},
+  {id:'service_assign',label:'👨‍🔧 Service: Assign Teknisi'},
+  {id:'service_update',label:'📝 Service: Update Status'},
+  {id:'service_photo',label:'📷 Service: Upload Foto'},
+  {id:'service_cost',label:'💰 Service: Biaya'},
+  {id:'service_close',label:'✅ Service: Close'},
+  {id:'service_report',label:'📊 Service: Laporan'}
+];
 
 // Default menu per role/divisi. Default tidak dapat dicabut oleh custom access.
 function getDefaultMenus(role){
   role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
   switch(role){
-    case 'technician': return ['report','tickets','materials','projects'];
-    case 'operator':   return ['report','tickets','kunjungan','materials'];
+    case 'technician': return ['report','tickets','service_center','materials','projects'];
+    case 'operator':   return ['report','tickets','service_center','kunjungan','materials'];
     case 'accounting': return ['tickets','invoice','archive','materials','pr','supplier'];
-    case 'manager':    return ['dashboard','report','tickets','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
+    case 'manager':    return ['dashboard','report','tickets','service_center','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
     case 'sales':      return ['report','tickets','kpi','kunjungan','projects','crm','sales_order','materials'];
     case 'admin':      return ALL_MENUS.filter(m=>!['actlog','system_tools'].includes(m.id)).map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id);
@@ -4101,8 +4116,8 @@ function getDefaultMenus(role){
 function getForbiddenMenus(role){
   role=String(role||'').toLowerCase().replace(/[ _-]/g,'');
   if(role==='technician') return ['invoice','sales','crm','sales_order','archive','users','actlog','system_tools','pr','supplier'];
-  if(role==='sales') return ['users','actlog','system_tools'];
-  if(role==='accounting') return ['users','actlog','system_tools'];
+  if(role==='sales') return ['users','actlog','system_tools','service_center'];
+  if(role==='accounting') return ['users','actlog','system_tools','service_center'];
   if(role==='operator') return ['invoice','sales','crm','sales_order','users','actlog','system_tools','supplier'];
   if(role==='manager'||role==='admin') return ['system_tools'];
   return [];
@@ -4116,11 +4131,11 @@ function getEffectiveMenus(role, customMenus, exact=false){
 
 function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const box=document.getElementById('menu-checkboxes');
-  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id);
+  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id);
   if(forceSuperAdmin) currentMenus=allPermissionIds;
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
-    {label:'Operasional Teknisi',ids:['report','tickets','materials']},
+    {label:'Operasional Teknisi',ids:['report','tickets','service_center','materials']},
     {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','crm','sales_order']},
     {label:'Accounting & Piutang',ids:['invoice']},
     {label:'Keuangan & Pengadaan',ids:['pr','supplier']},
@@ -4145,6 +4160,10 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const projectBox=document.getElementById('project-permission-checkboxes');
   if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');  const soBox=document.getElementById('sales-order-permission-checkboxes');
   if(soBox) soBox.innerHTML=SALES_ORDER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+  const svcWrap=document.createElement('div');
+  svcWrap.style.cssText='margin-top:12px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden';
+  svcWrap.innerHTML='<div style="padding:8px 10px;background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Service Center Permissions</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px">'+SERVICE_CENTER_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''}/>${m.label}</label>`).join('')+'</div>';
+  box.appendChild(svcWrap);
 }
 
 
@@ -4158,13 +4177,13 @@ function ensureCrmChecklist(){
 }
 
 function getCheckedMenus(){
-  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].map(m=>m.id).filter(id=>
+  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id).filter(id=>
     document.querySelector(`[data-menu="${id}"]`)?.checked
   );
 }
 
 function setAllMenus(val){
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=val;
   });
@@ -4176,7 +4195,7 @@ function resetMenuToRole(){
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
   const projectDefaults=['manager','superadmin'].includes(role)?PROJECT_PERMISSIONS.map(x=>x.id):[];
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id);
   });
@@ -10531,6 +10550,6 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-URG-0076"></script>
+<script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-URG-0076"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0077"></script>
 </body>
 </html>
