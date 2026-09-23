@@ -2025,7 +2025,7 @@ app.get('/api/service-center/technicians',requireAuth,async(req,res)=>{
   catch(e){res.status(500).json({error:e.message});}
 });
 app.get('/api/service-orders',requireAuth,async(req,res)=>{
-  try{let rows=await db.getServiceOrders();if(!servicePerm(req,'service_view_all'))rows=rows.filter(row=>serviceCanOpen(req,row));res.json(rows.map(row=>({...row,reminder:serviceReminderLevel(row)})));}
+  try{let rows=await db.getServiceOrders();if(!servicePerm(req,'service_view_all'))rows=rows.filter(row=>serviceCanOpen(req,row));res.json(rows.map(row=>{const{intake_customer_signature:_,intake_pixel_signature:__,handover_customer_signature:___,handover_pixel_signature:____,...safe}=row;return{...safe,intake_signed:!!(row.intake_customer_signature&&row.intake_pixel_signature),handover_signed:!!(row.handover_customer_signature&&row.handover_pixel_signature),reminder:serviceReminderLevel(row)}}));}
   catch(e){res.status(500).json({error:e.message});}
 });
 app.get('/api/service-orders/:id',requireAuth,async(req,res)=>{
