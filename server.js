@@ -2002,7 +2002,7 @@ function serviceReminderLevel(row){
 async function nextServiceNumber(){
   const year=new Date().getFullYear();
   const rows=await db.getServiceOrders();
-  const re=new RegExp('^SRV-'+year+'-(\\d{4,})
+  const re=new RegExp('^SRV-'+year+'-(\\d{4,})$');
   let max=0;
   for(const row of rows){const m=String(row.service_number||'').match(re);if(m)max=Math.max(max,Number(m[1])||0);}
   return `SRV-${year}-${String(max+1).padStart(4,'0')}`;
