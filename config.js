@@ -27,11 +27,11 @@ require('./pxl-stg-0004a');
 
 module.exports = {
 
-  // Supabase
-  SUPABASE_URL: process.env.SUPABASE_URL || 'https://chgcictuycjeqdxfrnej.supabase.co',
-  SUPABASE_KEY: process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImNoZ2NpY3R1eWNqZXFkeGZybmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzA4MDIsImV4cCI6MjA5NjY0NjgwMn0.3vdiX3Eya1l1CON47m3htPKl7GsYF4PmQ9eyQgBHE-Q',
+  // Legacy adapter names retained; backend now points to VPS local PostgREST
+  SUPABASE_URL: process.env.SUPABASE_URL || 'http://127.0.0.1:3003',
+  SUPABASE_KEY: process.env.SUPABASE_KEY || 'local-compat-key',
 
-  // Database URL untuk session store (Supabase → Settings → Database → URI)
+  // Optional database URL override
   DATABASE_URL: process.env.DATABASE_URL || null,
 
   // Session secret
