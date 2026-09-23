@@ -82,7 +82,7 @@ function serviceReceiptPdf(res,row,type='intake'){
   doc.moveTo(34,82).lineTo(561,82).strokeColor('#D1D5DB').stroke();
   const fmtDate=v=>v?new Date(v).toLocaleString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
   const rows=[
-    ['No. Service',row.service_number||'-'],['Tanggal Masuk',fmtDate(row.received_at)],['Customer Utama',row.customer_name||'-'],['No. WhatsApp',row.customer_phone||'-'],
+    ['No. Service',row.service_number||'-'],['Tanggal Masuk',fmtDate(row.received_at)],['Customer Utama',row.customer_name||'-'],['No. WhatsApp',row.customer_phone||'-'],['Alamat',row.customer_address||'-'],
     ['Perangkat',[row.device_type,row.brand,row.model].filter(Boolean).join(' ')||'-'],['Serial Number',row.serial_number||'-'],['Keluhan',row.complaint||'-'],
     ['Kondisi Awal',row.initial_condition||'-'],['Kelengkapan',Array.isArray(row.accessories)?row.accessories.join(', '):(row.accessories||'-')],['Estimasi Selesai',row.estimated_done_date||'-'],['Teknisi In Charge',row.technician_name||'-']
   ];
