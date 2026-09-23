@@ -46,10 +46,8 @@ module.exports = {
 };
 
 // ═══════════════════════════════════════════════════════════
-//  CARA ISI:
-//  Lokal  → edit langsung nilai di atas
-//  Vercel → set di dashboard: Settings → Environment Variables
-//           SUPABASE_URL = https://chgcictuycjeqdxfrnej.supabase.co
-//           SUPABASE_KEY = eyJhbGci...
-//           SESSION_SECRET = pixel-helpdesk-2026-secret
+//  Production Supervisor:
+//  SUPABASE_URL = http://127.0.0.1:3003
+//  SUPABASE_KEY = local compatibility key
+//  Legacy variable names remain only for adapter compatibility.
 // ═══════════════════════════════════════════════════════════
