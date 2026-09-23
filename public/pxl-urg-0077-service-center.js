@@ -6,8 +6,9 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const idr=v=>v==null||v===''?'-':new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(v)||0);
   const d=v=>v?new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-';
-  const role=()=>String(window.currentUser?.role||'').toLowerCase();
-  const perms=()=>new Set([...(window.currentUser?.custom_menus||[]),...(window.currentUser?.pr_roles||[]),...(window.currentUser?.extra_roles||[])]);
+  const cu=()=>typeof currentUser!=='undefined'?currentUser:null;
+  const role=()=>String(cu()?.role||'').toLowerCase();
+  const perms=()=>new Set([...(cu()?.custom_menus||[]),...(cu()?.pr_roles||[]),...(cu()?.extra_roles||[])]);
   const has=p=>role()==='superadmin'||perms().has(p)||({
     manager:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
     admin:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
@@ -35,7 +36,7 @@
   }
   function filtered(){
     return rows.filter(r=>{
-      if(activeFilter==='mine')return String(r.technician_user_id||'')===String(currentUser?.id||'')||String(r.technician_name||'')===String(currentUser?.name||'');
+      if(activeFilter==='mine')return String(r.technician_user_id||'')===String(cu()?.id||'')||String(r.technician_name||'')===String(cu()?.name||'');
       if(activeFilter==='overdue')return ['overdue','priority'].includes(r.reminder?.key);
       if(activeFilter==='ready')return r.status==='ready_pickup';
       if(activeFilter==='history')return ['picked_up','cancelled'].includes(r.status)||r.is_archived===true;
