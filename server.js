@@ -2062,6 +2062,69 @@ app.patch('/api/service-orders/:id',requireAuth,async(req,res)=>{
     res.json({...updated,reminder:serviceReminderLevel(updated)});
   }catch(e){res.status(500).json({error:e.message});}
 });
+app.post('/api/service-orders/:id/signatures',requireAuth,async(req,res)=>{
+  try{
+    const current=await db.getServiceOrder(req.params.id);
+    if(!serviceCanOpen(req,current)) return res.status(current?403:404).json({error:current?'Akses ditolak.':'Service tidak ditemukan.'});
+    const stage=String(req.body.stage||'').toLowerCase();
+    if(!['intake','handover'].includes(stage)) return res.status(400).json({error:'Tahap tanda tangan tidak valid.'});
+    if(stage==='intake'&&!servicePerm(req,'service_create')) return res.status(403).json({error:'Tidak memiliki akses penerimaan service.'});
+    if(stage==='handover'&&!servicePerm(req,'service_update')) return res.status(403).json({error:'Tidak memiliki akses pengembalian service.'});
+    const customerName=String(req.body.customer_name||'').trim();
+    const customerSignature=String(req.body.customer_signature||'').trim();
+    const pixelSignature=String(req.body.pixel_signature||'').trim();
+    if(!customerName) return res.status(400).json({error:'Nama pihak customer wajib diisi.'});
+    if(!/^data:image\/(?:png|jpeg|jpg);base64,/i.test(customerSignature)) return res.status(400).json({error:'Tanda tangan customer tidak valid.'});
+    if(!/^data:image\/(?:png|jpeg|jpg);base64,/i.test(pixelSignature)) return res.status(400).json({error:'Tanda tangan petugas Pixel tidak valid.'});
+    const now=new Date().toISOString();
+    const prefix=stage==='intake'?'intake':'handover';
+    const patch={
+      [prefix+'_customer_name']:customerName,
+      [prefix+'_customer_signature']:customerSignature,
+      [prefix+'_pixel_user_id']:req.session.user.id||null,
+      [prefix+'_pixel_name']:req.session.user.name||null,
+      [prefix+'_pixel_signature']:pixelSignature,
+      [prefix+'_signed_at']:now,
+      updated_by:req.session.user.name
+    };
+    if(stage==='handover'){
+      patch.status='picked_up';
+      patch.picked_up_at=now;
+      patch.closed_at=now;
+      patch.is_archived=true;
+    }
+    const updated=await db.updateServiceOrder(current.id,patch);
+    await db.insertServiceHistory({
+      service_id:current.id,
+      status:stage==='handover'?'picked_up':current.status,
+      note:stage==='handover'?'Barang diserahkan kembali dan ditandatangani customer serta petugas Pixel.':'Penerimaan barang ditandatangani customer serta petugas Pixel.',
+      customer_visible:true,
+      created_by:req.session.user.name
+    });
+    logActivity(req,'service',stage==='handover'?'TTD PENGEMBALIAN SERVICE':'TTD PENERIMAAN SERVICE',current.service_number);
+    res.json(updated);
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-orders/:id/receipt.pdf',requireAuth,async(req,res)=>{
+  try{
+    const row=await db.getServiceOrder(req.params.id);
+    if(!serviceCanOpen(req,row)) return res.status(row?403:404).json({error:row?'Akses ditolak.':'Service tidak ditemukan.'});
+    const type=req.query.type==='handover'?'handover':'intake';
+    return reportSvc.serviceReceiptPdf(res,row,type);
+  }catch(e){if(!res.headersSent)res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-track/:token/receipt.pdf',async(req,res)=>{
+  try{
+    const row=await db.getServiceOrderByToken(req.params.token);
+    if(!row) return res.status(404).json({error:'Tracking service tidak ditemukan.'});
+    const type=req.query.type==='handover'?'handover':'intake';
+    res.setHeader('Cache-Control','private, no-store, max-age=0');
+    return reportSvc.serviceReceiptPdf(res,row,type);
+  }catch(e){if(!res.headersSent)res.status(500).json({error:'E-Tanda Terima sedang tidak tersedia.'});}
+});
+
 app.get('/api/service-center/reminders',requireAuth,async(req,res)=>{
   try{let rows=await db.getServiceOrders();if(!servicePerm(req,'service_view_all'))rows=rows.filter(row=>serviceCanOpen(req,row));const items=rows.map(row=>({row,reminder:serviceReminderLevel(row)})).filter(x=>x.reminder),counts={h1:0,today:0,overdue:0,priority:0};items.forEach(x=>counts[x.reminder.key]++);res.json({counts,total:items.length,items:items.slice(0,8).map(x=>({id:x.row.id,service_number:x.row.service_number,customer_name:x.row.customer_name,device:[x.row.device_type,x.row.brand,x.row.model].filter(Boolean).join(' '),...x.reminder}))});}
   catch(e){res.status(500).json({error:e.message});}
@@ -2089,7 +2152,7 @@ app.post('/api/service-orders/:id/photos',requireAuth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 app.get('/api/service-track/:token',async(req,res)=>{
-  try{const row=await db.getServiceOrderByToken(req.params.token);if(!row)return res.status(404).json({error:'Tracking service tidak ditemukan.'});const[history,photos]=await Promise.all([db.getServiceHistory(row.id,true),db.getServicePhotos(row.id,true)]);res.setHeader('Cache-Control','no-store, max-age=0');res.json({service_number:row.service_number,customer_name:row.customer_name,device_type:row.device_type,brand:row.brand,model:row.model,serial_number:row.serial_number,complaint:row.complaint,status:row.status,estimated_done_date:row.estimated_done_date,received_at:row.received_at,ready_at:row.ready_at,picked_up_at:row.picked_up_at,technician_name:row.technician_name,customer_update:row.customer_update,history,photos,contacts:{customer_care:SERVICE_CUSTOMER_CARE,technician:SERVICE_TECH_PHONE}});}
+  try{const row=await db.getServiceOrderByToken(req.params.token);if(!row)return res.status(404).json({error:'Tracking service tidak ditemukan.'});const[history,photos]=await Promise.all([db.getServiceHistory(row.id,true),db.getServicePhotos(row.id,true)]);res.setHeader('Cache-Control','no-store, max-age=0');res.json({service_number:row.service_number,customer_name:row.customer_name,device_type:row.device_type,brand:row.brand,model:row.model,serial_number:row.serial_number,complaint:row.complaint,status:row.status,estimated_done_date:row.estimated_done_date,received_at:row.received_at,ready_at:row.ready_at,picked_up_at:row.picked_up_at,technician_name:row.technician_name,customer_update:row.customer_update,history,photos,receipts:{intake:!!(row.intake_customer_signature&&row.intake_pixel_signature),handover:!!(row.handover_customer_signature&&row.handover_pixel_signature)},contacts:{customer_care:SERVICE_CUSTOMER_CARE,technician:SERVICE_TECH_PHONE}});}
   catch(e){res.status(500).json({error:'Tracking service sedang tidak tersedia.'});}
 });
 app.get('/service/track/:token',(req,res)=>res.sendFile(path.join(__dirname,'public','service-track.html')));
