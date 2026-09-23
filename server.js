@@ -1972,15 +1972,15 @@ function servicePerm(req,permission){
     manager:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
     admin:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
     operator:['service_view_all','service_create','service_assign','service_update','service_photo'],
-    technician:['service_update','service_photo']
+    technician:[]
   };
   return (defaults[role]||[]).includes(permission);
 }
 function serviceCanOpen(req,row){
   if(!row)return false;
   if(servicePerm(req,'service_view_all'))return true;
-  return String(req.session?.user?.role||'').toLowerCase()==='technician' &&
-    (String(row.technician_user_id||'')===String(req.session.user.id||'')||String(row.technician_name||'')===String(req.session.user.name||''));
+  if(String(req.session?.user?.role||'').toLowerCase()==='technician') return true;
+  return false;
 }
 function serviceReminderLevel(row){
   if(!row?.estimated_done_date||['picked_up','cancelled'].includes(row.status))return null;
