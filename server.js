@@ -8,6 +8,8 @@ const JSZip    = require('jszip');
 const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
+const os       = require('os');
+const { execFileSync } = require('child_process');
 
 // PXL-STG-0001 — staging safety guard.
 // Guard hanya aktif bila APP_ENV=staging, sehingga source tetap aman saat nanti di-merge ke production.
@@ -1567,6 +1569,88 @@ app.delete('/api/material-requests-form/:id', requireAuth, async (req,res)=>{
     await db.deleteMRForm(req.params.id);
     res.json({ok:true});
   }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ══════════════════════════════════════════
+//  SYSTEM TOOLS — READ ONLY (superadmin only)
+//  PXL-URG-0076
+// ══════════════════════════════════════════
+function pxlSysExec(bin,args=[],opts={}) {
+  try { return execFileSync(bin,args,{encoding:'utf8',timeout:1800,maxBuffer:1024*1024,...opts}).trim(); }
+  catch(_) { return ''; }
+}
+function pxlSysProc(pattern) { return Boolean(pxlSysExec('/usr/bin/pgrep',['-f',pattern])); }
+function pxlSysDisk() {
+  const out=pxlSysExec('/bin/df',['-kP','/']);
+  const p=(out.split('\n').filter(Boolean).pop()||'').trim().split(/\s+/);
+  if(p.length<6) return null;
+  return {total_bytes:Number(p[1])*1024,used_bytes:Number(p[2])*1024,free_bytes:Number(p[3])*1024,used_percent:Number(String(p[4]).replace('%',''))||0,mount:p[5]};
+}
+function pxlSysPathSize(target) {
+  if(!target||!fs.existsSync(target)) return 0;
+  const out=pxlSysExec('/usr/bin/du',['-sk',target]);
+  const kb=Number(String(out).split(/\s+/)[0]);
+  return Number.isFinite(kb)?kb*1024:0;
+}
+function pxlSysCpuSnapshot() {
+  return os.cpus().reduce((a,c)=>{ const t=c.times||{}; a.total+=Object.values(t).reduce((s,n)=>s+Number(n||0),0); a.idle+=Number(t.idle||0); return a; },{total:0,idle:0});
+}
+async function pxlSysCpuPercent() {
+  const a=pxlSysCpuSnapshot(); await new Promise(r=>setTimeout(r,180)); const b=pxlSysCpuSnapshot();
+  const dt=b.total-a.total,di=b.idle-a.idle;
+  return dt>0?Math.max(0,Math.min(100,Math.round((100-(di/dt*100))*10)/10)):0;
+}
+async function pxlSysProbe(url) {
+  const started=Date.now();
+  try {
+    const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),2500);
+    const response=await fetch(url,{signal:controller.signal,headers:{'Cache-Control':'no-cache'}}); clearTimeout(timer);
+    return {ok:response.ok,status:response.status,response_ms:Date.now()-started};
+  } catch(e) { return {ok:false,status:0,response_ms:Date.now()-started,error:String(e.name||e.message||e).slice(0,120)}; }
+}
+function pxlSysGit() {
+  const cwd=__dirname;
+  const sha=pxlSysExec('/usr/bin/git',['rev-parse','HEAD'],{cwd});
+  const branch=pxlSysExec('/usr/bin/git',['rev-parse','--abbrev-ref','HEAD'],{cwd});
+  const parts=pxlSysExec('/usr/bin/git',['log','-1','--pretty=%H%x09%s%x09%cI'],{cwd}).split('\t');
+  const subject=parts[1]||'';
+  return {sha:sha||parts[0]||null,short_sha:(sha||parts[0]||'').slice(0,7)||null,branch:branch||null,subject:subject||null,revision:(subject.match(/PXL-[A-Z]+-\d+[A-Z0-9-]*/)||[])[0]||null,committed_at:parts[2]||null};
+}
+function pxlSysBackup() {
+  const dir=path.join(__dirname,'backups');
+  if(!fs.existsSync(dir)) return {directory_exists:false,count:0,latest:null,total_bytes:0};
+  const files=fs.readdirSync(dir).map(name=>{try{const st=fs.statSync(path.join(dir,name));return st.isFile()?{name,size:st.size,mtime:st.mtime.toISOString()}:null}catch(_){return null}}).filter(Boolean).sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)));
+  return {directory_exists:true,count:files.length,latest:files[0]||null,total_bytes:files.reduce((s,f)=>s+f.size,0)};
+}
+function pxlSysErrors() {
+  const out=pxlSysExec('/usr/bin/tail',['-n','300','/var/log/pixelapps-node.log']);
+  if(!out) return [];
+  const re=/(error|gagal|bad gateway|request-uri too large|ECONN|\b50[0234]\b|\b414\b)/i;
+  return out.split('\n').filter(x=>re.test(x)).slice(-12).map(x=>x.replace(/\s+/g,' ').trim().slice(0,500));
+}
+function pxlSysDependencies() {
+  let compat=''; try{compat=fs.readFileSync('/etc/nginx/conf.d/pixelapps-rest-compat.conf','utf8')}catch(_){}
+  return {
+    cloudinary:{configured:cloudinaryReady()},
+    database:{mode:String(cfg.SUPABASE_URL||'').includes('127.0.0.1:3003')?'local-vps':'external'},
+    supabase_storage:{still_referenced:/storage\/v1\//.test(compat)&&/supabase\.co/.test(compat)}
+  };
+}
+app.get('/api/system-tools',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const memTotal=os.totalmem(),memFree=os.freemem();
+    const [cpuPercent,restProbe]=await Promise.all([pxlSysCpuPercent(),pxlSysProbe('http://127.0.0.1:3003/rest/v1/tickets?select=id&limit=1')]);
+    const backup=pxlSysBackup();
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.json({
+      revision:'PXL-URG-0076',generated_at:new Date().toISOString(),
+      server:{hostname:os.hostname(),uptime_seconds:Math.round(os.uptime()),cpu_count:os.cpus().length,cpu_percent:cpuPercent,load_average:os.loadavg().map(v=>Math.round(v*100)/100),memory:{total_bytes:memTotal,used_bytes:Math.max(0,memTotal-memFree),free_bytes:memFree,used_percent:memTotal?Math.round((memTotal-memFree)/memTotal*1000)/10:0},disk:pxlSysDisk()},
+      services:{pixelapps_node:{running:true,pid:process.pid},nginx:{running:pxlSysProc('nginx: master process')},postgresql17:{running:pxlSysProc('/usr/lib/postgresql/17/bin/postgres')},postgrest:{running:pxlSysProc('/usr/local/bin/postgrest /etc/pixelapps/postgrest.conf')}},
+      application:{node:{ok:true,status:200,response_ms:0},local_rest:restProbe},
+      storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
+      deployment:pxlSysGit(),dependencies:pxlSysDependencies(),recent_errors:pxlSysErrors()
+    });
+  }catch(e){console.error('[PXL-URG-0076] system tools error:',e);res.status(500).json({error:'System Tools gagal membaca status server.'});}
 });
 
 // ══════════════════════════════════════════
