@@ -1957,6 +1957,197 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
 
 
 // ══════════════════════════════════════════
+//  SERVICE CENTER — PXL-URG-0077
+// ══════════════════════════════════════════
+const SERVICE_CUSTOMER_CARE='+62 811-3961-8857';
+const SERVICE_TECH_PHONE='+62 812-2682-4787';
+const SERVICE_STATUSES=['received','diagnosis','waiting_approval','waiting_part','in_progress','testing','completed','ready_pickup','picked_up','cancelled'];
+
+function servicePerm(req,permission){
+  const u=req.session?.user||{};
+  const role=String(u.role||'').toLowerCase();
+  if(role==='superadmin') return true;
+  const granted=[...(Array.isArray(u.custom_menus)?u.custom_menus:[]),...(Array.isArray(u.pr_roles)?u.pr_roles:[]),...(Array.isArray(u.extra_roles)?u.extra_roles:[])];
+  if(granted.includes(permission)) return true;
+  const defaults={
+    manager:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
+    admin:['service_view_all','service_create','service_assign','service_update','service_photo','service_cost','service_close','service_report'],
+    operator:['service_view_all','service_create','service_assign','service_update','service_photo'],
+    technician:['service_update','service_photo']
+  };
+  return (defaults[role]||[]).includes(permission);
+}
+function serviceCanOpen(req,row){
+  if(!row) return false;
+  const role=String(req.session?.user?.role||'').toLowerCase();
+  if(servicePerm(req,'service_view_all')) return true;
+  if(role==='technician'){
+    return String(row.technician_user_id||'')===String(req.session.user.id||'') ||
+      String(row.technician_name||'')===String(req.session.user.name||'');
+  }
+  return false;
+}
+function serviceReminderLevel(row){
+  if(!row?.estimated_done_date || ['picked_up','cancelled'].includes(row.status)) return null;
+  const due=new Date(String(row.estimated_done_date).slice(0,10)+'T00:00:00');
+  const today=new Date(); today.setHours(0,0,0,0);
+  if(Number.isNaN(due.getTime())) return null;
+  const days=Math.floor((today-due)/86400000);
+  if(days>5) return {key:'priority',label:'Overdue Prioritas',days};
+  if(days>=2) return {key:'overdue',label:'Overdue',days};
+  if(days===0) return {key:'today',label:'Due Today',days};
+  if(days===-1) return {key:'h1',label:'H-1',days};
+  return null;
+}
+async function nextServiceNumber(){
+  const year=new Date().getFullYear();
+  const rows=await db.getServiceOrders();
+  const re=new RegExp('^SRV-'+year+'-(\\\\d{4,})$');
+  let max=0;
+  for(const row of rows){const m=String(row.service_number||'').match(re);if(m)max=Math.max(max,Number(m[1])||0);}
+  return `SRV-${year}-${String(max+1).padStart(4,'0')}`;
+}
+
+app.get('/api/service-center/technicians',requireAuth,async(req,res)=>{
+  try{
+    if(!servicePerm(req,'service_create')&&!servicePerm(req,'service_assign')) return res.status(403).json({error:'Akses ditolak.'});
+    const users=await db.getUsers();
+    res.json((users||[]).filter(u=>String(u.role||'').toLowerCase()==='technician'&&u.is_active!==false).map(u=>({id:u.id,name:u.name})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-orders',requireAuth,async(req,res)=>{
+  try{
+    let rows=await db.getServiceOrders();
+    if(!servicePerm(req,'service_view_all')) rows=rows.filter(row=>serviceCanOpen(req,row));
+    res.json(rows.map(row=>({...row,reminder:serviceReminderLevel(row)})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-orders/:id',requireAuth,async(req,res)=>{
+  try{
+    const row=await db.getServiceOrder(req.params.id);
+    if(!serviceCanOpen(req,row)) return res.status(row?403:404).json({error:row?'Akses ditolak.':'Service tidak ditemukan.'});
+    const [history,photos]=await Promise.all([db.getServiceHistory(row.id,false),db.getServicePhotos(row.id,false)]);
+    res.json({...row,history,photos,reminder:serviceReminderLevel(row),contacts:{customer_care:SERVICE_CUSTOMER_CARE,technician:SERVICE_TECH_PHONE}});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/service-orders',requireAuth,blockStagingDemoOnProduction,async(req,res)=>{
+  try{
+    if(!servicePerm(req,'service_create')) return res.status(403).json({error:'Tidak memiliki akses membuat penerimaan service.'});
+    const b=req.body||{};
+    if(!b.customer_name||!b.customer_phone||!b.device_type||!b.complaint) return res.status(400).json({error:'Customer, nomor WhatsApp, jenis perangkat, dan keluhan wajib diisi.'});
+    const now=new Date().toISOString();
+    const row=await db.insertServiceOrder({
+      service_number:await nextServiceNumber(),
+      tracking_token:crypto.randomBytes(16).toString('hex'),
+      customer_name:String(b.customer_name).trim(),
+      customer_phone:String(b.customer_phone).trim(),
+      device_type:String(b.device_type).trim(),
+      brand:String(b.brand||'').trim()||null,
+      model:String(b.model||'').trim()||null,
+      serial_number:String(b.serial_number||'').trim()||null,
+      complaint:String(b.complaint).trim(),
+      initial_condition:String(b.initial_condition||'').trim()||null,
+      accessories:Array.isArray(b.accessories)?b.accessories.map(x=>String(x).trim()).filter(Boolean):[],
+      technician_user_id:b.technician_user_id||null,
+      technician_name:String(b.technician_name||'').trim()||null,
+      status:'received',
+      estimated_done_date:b.estimated_done_date||null,
+      received_at:now,
+      created_by:req.session.user.name,
+      updated_by:req.session.user.name
+    });
+    await db.insertServiceHistory({service_id:row.id,status:'received',note:'Barang diterima di Pixel Solusindo.',customer_visible:true,created_by:req.session.user.name});
+    logActivity(req,'service','PENERIMAAN SERVICE',`${row.service_number} · ${row.customer_name} · ${row.device_type}`);
+    res.status(201).json({...row,tracking_url:`/service/track/${row.tracking_token}`,contacts:{customer_care:SERVICE_CUSTOMER_CARE,technician:SERVICE_TECH_PHONE}});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.patch('/api/service-orders/:id',requireAuth,async(req,res)=>{
+  try{
+    const current=await db.getServiceOrder(req.params.id);
+    if(!serviceCanOpen(req,current)) return res.status(current?403:404).json({error:current?'Akses ditolak.':'Service tidak ditemukan.'});
+    if(!servicePerm(req,'service_update')) return res.status(403).json({error:'Tidak memiliki akses update service.'});
+    const b=req.body||{}, role=String(req.session.user.role||'').toLowerCase();
+    const patch={updated_by:req.session.user.name};
+    const technicianFields=['status','diagnosis','customer_update'];
+    const privileged=servicePerm(req,'service_view_all');
+    const allowed=privileged?['status','diagnosis','customer_update','estimated_done_date','technician_user_id','technician_name','estimated_cost','final_cost','initial_condition','complaint','accessories']:technicianFields;
+    for(const key of allowed) if(Object.prototype.hasOwnProperty.call(b,key)) patch[key]=b[key];
+    if(patch.status!==undefined){
+      if(!SERVICE_STATUSES.includes(patch.status)) return res.status(400).json({error:'Status service tidak valid.'});
+      if(patch.status==='ready_pickup') patch.ready_at=new Date().toISOString();
+      if(patch.status==='picked_up'){patch.picked_up_at=new Date().toISOString();patch.closed_at=new Date().toISOString();patch.is_archived=true;}
+      if(patch.status==='cancelled'){patch.closed_at=new Date().toISOString();patch.is_archived=true;}
+    }
+    const updated=await db.updateServiceOrder(current.id,patch);
+    if(patch.status!==undefined || b.timeline_note){
+      await db.insertServiceHistory({
+        service_id:current.id,status:patch.status||current.status,note:String(b.timeline_note||b.customer_update||'').trim()||null,
+        customer_visible:b.customer_visible!==false,created_by:req.session.user.name
+      });
+    }
+    logActivity(req,'service','UPDATE SERVICE',`${current.service_number} · ${patch.status||'data'}`);
+    res.json({...updated,reminder:serviceReminderLevel(updated)});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-center/reminders',requireAuth,async(req,res)=>{
+  try{
+    let rows=await db.getServiceOrders();
+    if(!servicePerm(req,'service_view_all')) rows=rows.filter(row=>serviceCanOpen(req,row));
+    const items=rows.map(row=>({row,reminder:serviceReminderLevel(row)})).filter(x=>x.reminder);
+    const counts={h1:0,today:0,overdue:0,priority:0};
+    items.forEach(x=>counts[x.reminder.key]++);
+    res.json({counts,total:items.length,items:items.slice(0,8).map(x=>({id:x.row.id,service_number:x.row.service_number,customer_name:x.row.customer_name,device:`${x.row.device_type} ${x.row.brand||''} ${x.row.model||''}`.trim(),...x.reminder}))});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-orders/:id/photos',requireAuth,async(req,res)=>{
+  try{const row=await db.getServiceOrder(req.params.id);if(!serviceCanOpen(req,row))return res.status(row?403:404).json({error:'Akses ditolak.'});res.json(await db.getServicePhotos(row.id,false));}
+  catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/service-orders/:id/photos/signature',requireAuth,async(req,res)=>{
+  try{
+    if(!servicePerm(req,'service_photo')) return res.status(403).json({error:'Tidak memiliki akses upload foto.'});
+    if(!cloudinaryReady()) return res.status(503).json({error:'Cloudinary belum dikonfigurasi.'});
+    const row=await db.getServiceOrder(req.params.id);if(!serviceCanOpen(req,row))return res.status(row?403:404).json({error:'Akses ditolak.'});
+    const now=Date.now(),date=new Date(now).toISOString().slice(0,10).replace(/-/g,''),num=safeDocPart(row.service_number||row.id);
+    const public_id=`helpdesk-pixel/service-center/${num}/${num}-${date}-${now}-${Math.random().toString(36).slice(2,8)}`;
+    const timestamp=Math.floor(now/1000),params={public_id,timestamp};
+    res.json({cloud_name:CLOUDINARY_CLOUD_NAME,api_key:CLOUDINARY_API_KEY,timestamp,public_id,signature:cloudinarySignature(params),generated_filename:public_id.split('/').pop()});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/service-orders/:id/photos',requireAuth,async(req,res)=>{
+  try{
+    if(!servicePerm(req,'service_photo')) return res.status(403).json({error:'Tidak memiliki akses upload foto.'});
+    const row=await db.getServiceOrder(req.params.id);if(!serviceCanOpen(req,row))return res.status(row?403:404).json({error:'Akses ditolak.'});
+    if(!req.body.secure_url||!req.body.cloudinary_public_id) return res.status(400).json({error:'Data upload Cloudinary tidak lengkap.'});
+    const saved=await db.insertServicePhoto({service_id:row.id,photo_type:String(req.body.photo_type||'progress'),image_url:req.body.secure_url,secure_url:req.body.secure_url,cloudinary_public_id:req.body.cloudinary_public_id,original_filename:req.body.original_filename||null,generated_filename:req.body.generated_filename||null,caption:req.body.caption||null,visible_to_customer:req.body.visible_to_customer!==false,uploaded_by:req.session.user.name,uploaded_by_id:req.session.user.id});
+    logActivity(req,'service','UPLOAD FOTO SERVICE',`${row.service_number} · ${saved.photo_type}`);
+    res.status(201).json(saved);
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/service-track/:token',async(req,res)=>{
+  try{
+    const row=await db.getServiceOrderByToken(req.params.token);
+    if(!row) return res.status(404).json({error:'Tracking service tidak ditemukan.'});
+    const [history,photos]=await Promise.all([db.getServiceHistory(row.id,true),db.getServicePhotos(row.id,true)]);
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.json({
+      service_number:row.service_number,customer_name:row.customer_name,device_type:row.device_type,brand:row.brand,model:row.model,serial_number:row.serial_number,
+      complaint:row.complaint,status:row.status,estimated_done_date:row.estimated_done_date,received_at:row.received_at,ready_at:row.ready_at,picked_up_at:row.picked_up_at,
+      technician_name:row.technician_name,customer_update:row.customer_update,history,photos,
+      contacts:{customer_care:SERVICE_CUSTOMER_CARE,technician:SERVICE_TECH_PHONE}
+    });
+  }catch(e){res.status(500).json({error:'Tracking service sedang tidak tersedia.'});}
+});
+app.get('/service/track/:token',(req,res)=>res.sendFile(path.join(__dirname,'public','service-track.html')));
+
+// ══════════════════════════════════════════
 //  WORK ORDER PHOTOS — CLOUDINARY
 //  PXL-REV-0052
 // ══════════════════════════════════════════
