@@ -86,6 +86,70 @@
     const w=window.open('','_blank','width=760,height=900');if(!w)return;
     w.document.write('<!doctype html><html><head><title>'+esc(r.service_number)+'</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#222}.head{text-align:center;border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:18px}table{width:100%;border-collapse:collapse}td{padding:7px;border-bottom:1px solid #ddd;font-size:13px}td:first-child{width:190px;color:#666}.box{border:1px solid #bbb;padding:12px;margin-top:14px;font-size:12px}.foot{margin-top:25px;font-size:11px;color:#666}</style></head><body><div class="head"><h2>PIXEL SOLUSINDO</h2><b>TANDA TERIMA SERVICE</b></div><table><tr><td>No. Service</td><td><b>'+esc(r.service_number)+'</b></td></tr><tr><td>Tanggal Masuk</td><td>'+esc(d(r.received_at))+'</td></tr><tr><td>Customer</td><td>'+esc(r.customer_name)+'</td></tr><tr><td>No. WhatsApp</td><td>'+esc(r.customer_phone)+'</td></tr><tr><td>Perangkat</td><td>'+esc([r.device_type,r.brand,r.model].filter(Boolean).join(' '))+'</td></tr><tr><td>Serial Number</td><td>'+esc(r.serial_number||'-')+'</td></tr><tr><td>Keluhan</td><td>'+esc(r.complaint||'-')+'</td></tr><tr><td>Kondisi Awal</td><td>'+esc(r.initial_condition||'-')+'</td></tr><tr><td>Kelengkapan</td><td>'+esc((r.accessories||[]).join(', ')||'-')+'</td></tr><tr><td>Estimasi Selesai</td><td>'+esc(d(r.estimated_done_date))+'</td></tr><tr><td>Teknisi In Charge</td><td>'+esc(r.technician_name||'-')+'</td></tr></table><div class="box"><b>Tracking Service</b><br>'+esc(track)+'<div id="qr" style="margin-top:10px"></div></div><div class="box"><b>Kontak</b><br>Customer Care: '+CONTACT_CC+'<br>Teknisi: '+CONTACT_TECH+'</div><div class="foot">Estimasi dapat berubah setelah proses diagnosa dan konfirmasi customer.</div><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById("qr"),{text:'+JSON.stringify(track)+',width:110,height:110});setTimeout(()=>window.print(),500);<\/script></body></html>');w.document.close();
   }
+
+  const sigPads={};
+  function initSigPad(id){
+    const canvas=document.getElementById(id);if(!canvas)return null;
+    const dpr=window.devicePixelRatio||1,rect=canvas.getBoundingClientRect();
+    canvas.width=Math.max(320,Math.round(rect.width*dpr));canvas.height=Math.round(145*dpr);
+    const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';
+    const st={canvas,ctx,drawing:false,hasData:false};sigPads[id]=st;
+    const pos=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+    canvas.onpointerdown=e=>{e.preventDefault();st.drawing=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);canvas.setPointerCapture?.(e.pointerId)};
+    canvas.onpointermove=e=>{if(!st.drawing)return;e.preventDefault();const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x,p.y);st.hasData=true};
+    canvas.onpointerup=canvas.onpointercancel=()=>{st.drawing=false};
+    return st;
+  }
+  function clearSig(id){
+    const st=sigPads[id];if(!st)return;
+    const dpr=window.devicePixelRatio||1;
+    st.ctx.clearRect(0,0,st.canvas.width/dpr,st.canvas.height/dpr);
+    st.hasData=false;
+  }
+  function exportSig(id){
+    const st=sigPads[id];if(!st||!st.hasData)return'';
+    const out=document.createElement('canvas');out.width=st.canvas.width;out.height=st.canvas.height;
+    const c=out.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,out.width,out.height);c.drawImage(st.canvas,0,0);
+    return out.toDataURL('image/png');
+  }
+  async function openSignature(id,stage){
+    const r=await api('GET','/service-orders/'+id),handover=stage==='handover';
+    const defaultName=handover?(r.handover_customer_name||r.customer_name):(r.intake_customer_name||r.customer_name);
+    const profile=cu()?.signature_url||'';
+    modal('<div style="display:flex;justify-content:space-between;gap:12px"><div><b>✍️ '+(handover?'TTD Pengembalian Service':'TTD Penerimaan Service')+'</b><div style="font-size:11px;color:var(--muted);margin-top:3px">'+esc(r.service_number)+' · '+esc([r.device_type,r.brand,r.model].filter(Boolean).join(' '))+'</div></div><button class="btn sm" onclick="pxlServiceCenter.close()">✕</button></div><div class="form-group" style="margin-top:14px"><label>'+(handover?'Nama Penerima Barang':'Nama Penyerah / Customer')+'</label><input id="svc-sign-customer-name" value="'+esc(defaultName||'')+'"><div style="font-size:11px;color:var(--muted)">Boleh berbeda dari customer utama.</div></div><div class="svc-sign-grid"><div class="svc-sign-box"><b>'+(handover?'TTD Penerima Barang':'TTD Customer / Penyerah')+'</b><canvas id="svc-sign-customer" class="svc-sign-canvas"></canvas><div class="svc-sign-status">Tanda tangan langsung pada kotak.</div><button class="btn sm" style="margin-top:7px" onclick="pxlServiceCenter.clearSig(\'svc-sign-customer\')">Hapus TTD</button></div><div class="svc-sign-box"><b>'+(handover?'TTD Petugas Pixel Menyerahkan':'TTD Penerima Pixel')+'</b><div style="font-size:11px;color:var(--muted);margin:4px 0 7px">Petugas: '+esc(cu()?.name||'-')+'</div><canvas id="svc-sign-pixel" class="svc-sign-canvas"></canvas>'+(profile?'<label style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:11px;text-transform:none"><input type="checkbox" id="svc-use-profile-sign"> Gunakan TTD profil akun Pixel</label>':'')+'<button class="btn sm" style="margin-top:7px" onclick="pxlServiceCenter.clearSig(\'svc-sign-pixel\')">Hapus TTD</button></div></div><div id="svc-sign-error" style="display:none;color:var(--red);font-size:12px;margin-top:10px"></div><div class="svc-actions" style="justify-content:flex-end;margin-top:14px"><button class="btn" onclick="pxlServiceCenter.close()">Batal</button><button class="btn primary" onclick="pxlServiceCenter.saveSignature(\''+id+'\',\''+stage+'\')">Simpan TTD '+(handover?'Pengembalian':'Penerimaan')+'</button></div>');
+    requestAnimationFrame(()=>{initSigPad('svc-sign-customer');initSigPad('svc-sign-pixel')});
+  }
+  async function saveSignature(id,stage){
+    const err=document.getElementById('svc-sign-error');err.style.display='none';
+    const customer_name=document.getElementById('svc-sign-customer-name').value.trim();
+    const customer_signature=exportSig('svc-sign-customer');
+    const useProfile=!!document.getElementById('svc-use-profile-sign')?.checked&&!!cu()?.signature_url;
+    const pixel_signature=useProfile?cu().signature_url:exportSig('svc-sign-pixel');
+    if(!customer_name){err.textContent='Nama pihak customer wajib diisi.';err.style.display='block';return}
+    if(!customer_signature){err.textContent='Tanda tangan customer wajib diisi.';err.style.display='block';return}
+    if(!pixel_signature){err.textContent='Tanda tangan petugas Pixel wajib diisi.';err.style.display='block';return}
+    try{
+      await api('POST','/service-orders/'+id+'/signatures',{stage,customer_name,customer_signature,pixel_signature});
+      close();await refresh();await openDetail(id);
+    }catch(e){err.textContent=e.message||'Gagal menyimpan tanda tangan.';err.style.display='block'}
+  }
+  function receiptUrl(r,type='intake'){return location.origin+'/api/service-track/'+r.tracking_token+'/receipt.pdf?type='+encodeURIComponent(type)}
+  async function openReceiptPdf(id,type='intake'){
+    const r=await api('GET','/service-orders/'+id);
+    const ok=type==='handover'?(r.handover_customer_signature&&r.handover_pixel_signature):(r.intake_customer_signature&&r.intake_pixel_signature);
+    if(!ok)return alert('Tanda tangan '+(type==='handover'?'pengembalian':'penerimaan')+' belum lengkap.');
+    window.open(receiptUrl(r,type),'_blank');
+  }
+  async function sendEReceipt(id,type='intake'){
+    const r=await api('GET','/service-orders/'+id),handover=type==='handover';
+    const ok=handover?(r.handover_customer_signature&&r.handover_pixel_signature):(r.intake_customer_signature&&r.intake_pixel_signature);
+    if(!ok)return alert('Tanda tangan '+(handover?'pengembalian':'penerimaan')+' belum lengkap.');
+    const track=location.origin+'/service/track/'+r.tracking_token;
+    const pdf=receiptUrl(r,type);
+    const text='Halo Bapak/Ibu '+(r.customer_name||'')+',\n\nBerikut '+(handover?'Bukti Serah Terima Kembali':'e-Tanda Terima Service')+' dari Pixel Solusindo.\n\nNo. Service: '+r.service_number+'\nPerangkat: '+[r.device_type,r.brand,r.model].filter(Boolean).join(' ')+'\n\nPDF:\n'+pdf+'\n\nTracking Service:\n'+track+'\n\nKontak:\nCustomer Care: '+CONTACT_CC+'\nTeknisi: '+CONTACT_TECH+'\n\nTerima kasih.\nPixel Solusindo';
+    window.open('https://wa.me/'+waNum(r.customer_phone)+'?text='+encodeURIComponent(text),'_blank');
+  }
+
   async function openDetail(id,printAfter){
     const r=await api('GET','/service-orders/'+id);
     const photos=(r.photos||[]).map(p=>'<a href="'+esc(p.secure_url||p.image_url)+'" target="_blank"><img src="'+esc(p.secure_url||p.image_url)+'"></a>').join('');
