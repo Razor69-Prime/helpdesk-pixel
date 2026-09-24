@@ -41,7 +41,14 @@ function list(){
     :'';
   const selectHead=superAdmin?'<th style="width:38px">Pilih</th>':'';
   $('#app').innerHTML='<div class="toolbar"><input id="q" placeholder="Cari nomor, customer, SO, atau WO"><select id="st"><option value="">Semua status</option><option value="draft">Draft</option><option value="pending_approval">Menunggu Persetujuan</option><option value="issued">Terbit</option></select><button class="btn" id="reload">Muat Ulang</button>'+bulkTools+'</div><div class="table"><table><thead><tr>'+selectHead+'<th>Nomor</th><th>Customer</th><th>SO</th><th>WO</th><th>Jenis</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
-    ((S.rows||[]).map(r=>{
+    ((S.rows||[]).slice().sort((a,b)=>{
+      const published=x=>['issued','partially_paid','paid'].includes(String(x?.invoice_status||'').toLowerCase());
+      const ap=published(a),bp=published(b);
+      if(ap!==bp)return ap?1:-1;
+      const ta=Date.parse(a.updated_at||a.created_at||a.invoice_date||0)||0;
+      const tb=Date.parse(b.updated_at||b.created_at||b.invoice_date||0)||0;
+      return tb-ta;
+    }).map(r=>{
       const wo=arr(r.work_order_numbers).join(' ');
       const key=((r.invoice_number||r.temporary_number||'')+' '+(r.customer_name_snapshot||'')+' '+(r.source_so_number||'')+' '+wo).toLowerCase();
       const pdf=['issued','partially_paid','paid'].includes(r.invoice_status)?'<button class="btn pdf" data-id="'+esc(r.id)+'">PDF</button>':'';
