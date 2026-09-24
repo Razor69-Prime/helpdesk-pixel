@@ -1,5 +1,5 @@
 'use strict';
-/* PXL-URG-0081 — Service Center Optional Fields + Manual Address */
+/* PXL-URG-0085 — Service Center Search */
 (function(){
   const CONTACT_CC='+62 811-3961-8857', CONTACT_TECH='+62 812-2682-4787';
   const STATUS={received:'Diterima',diagnosis:'Diagnosa',waiting_approval:'Menunggu Persetujuan Customer',waiting_part:'Menunggu Sparepart',in_progress:'Dalam Pengerjaan',testing:'Testing',completed:'Selesai',ready_pickup:'Siap Diambil',picked_up:'Sudah Diambil',cancelled:'Batal'};
@@ -15,7 +15,7 @@
     operator:['service_view_all','service_create','service_assign','service_update','service_photo'],
     technician:[]
   }[role()]||[]).includes(p);
-  let rows=[],techs=[],activeFilter='all';
+  let rows=[],techs=[],activeFilter='all',searchQuery='';
 
   function css(){
     if(document.getElementById('pxl-urg-0077-css'))return;
@@ -35,13 +35,23 @@
     ].filter(x=>x[0]!=='all'||has('service_view_all')||role()==='technician');
   }
   function filtered(){
+    const q=String(searchQuery||'').trim().toLowerCase();
     return rows.filter(r=>{
-      if(activeFilter==='mine')return String(r.technician_user_id||'')===String(cu()?.id||'')||String(r.technician_name||'')===String(cu()?.name||'');
-      if(activeFilter==='overdue')return ['overdue','priority'].includes(r.reminder?.key);
-      if(activeFilter==='ready')return r.status==='ready_pickup';
-      if(activeFilter==='history')return ['picked_up','cancelled'].includes(r.status)||r.is_archived===true;
-      return !r.is_archived;
+      let inTab=true;
+      if(activeFilter==='mine')inTab=String(r.technician_user_id||'')===String(cu()?.id||'')||String(r.technician_name||'')===String(cu()?.name||'');
+      else if(activeFilter==='overdue')inTab=['overdue','priority'].includes(r.reminder?.key);
+      else if(activeFilter==='ready')inTab=r.status==='ready_pickup';
+      else if(activeFilter==='history')inTab=['picked_up','cancelled'].includes(r.status)||r.is_archived===true;
+      else inTab=!r.is_archived;
+      if(!inTab)return false;
+      if(!q)return true;
+      return [r.customer_name,r.service_number,r.customer_address].some(v=>String(v||'').toLowerCase().includes(q));
     });
+  }
+  function setSearch(v){
+    searchQuery=String(v||'');
+    render();
+    requestAnimationFrame(()=>{const el=document.getElementById('svc-search');if(el){el.focus();const n=el.value.length;try{el.setSelectionRange(n,n)}catch(_){}}});
   }
   function render(){
     css();const el=root();if(!el)return;
@@ -49,6 +59,7 @@
     const stats={active:rows.filter(x=>!x.is_archived).length,overdue:rows.filter(x=>['overdue','priority'].includes(x.reminder?.key)).length,priority:rows.filter(x=>x.reminder?.key==='priority').length,ready:rows.filter(x=>x.status==='ready_pickup').length};
     el.innerHTML='<div class="svc-head"><div><div style="font-size:18px;font-weight:700">🔧 Service Center</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Penerimaan dan monitoring service komputer, laptop, printer.</div></div><div class="svc-actions">'+(has('service_create')?'<button class="btn primary sm" onclick="pxlServiceCenter.openIntake()">+ Penerimaan Service</button>':'')+'<button class="btn sm" onclick="pxlServiceCenter.refresh()">↻ Refresh</button></div></div>'+
     '<div class="svc-grid"><div class="svc-stat"><b>'+stats.active+'</b><span>Service Aktif</span></div><div class="svc-stat"><b>'+stats.overdue+'</b><span>Overdue H+2</span></div><div class="svc-stat"><b>'+stats.priority+'</b><span>Prioritas > H+5</span></div><div class="svc-stat"><b>'+stats.ready+'</b><span>Siap Diambil</span></div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="svc-search" value="'+esc(searchQuery)+'" oninput="pxlServiceCenter.setSearch(this.value)" placeholder="Cari customer / nomor service / alamat..." style="flex:1"><button class="btn sm" onclick="pxlServiceCenter.setSearch(\'\')">× Bersihkan</button></div>'+
     '<div class="svc-tabs">'+filters().map(x=>'<button class="svc-tab '+(activeFilter===x[0]?'active':'')+'" onclick="pxlServiceCenter.setFilter(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'</div>'+
     '<div class="svc-table-wrap"><table class="svc-table"><thead><tr><th>No Service</th><th>Customer</th><th>Perangkat</th><th>Teknisi</th><th>Status</th><th>Estimasi</th><th>Reminder</th><th>Aksi</th></tr></thead><tbody>'+
     (visible.length?visible.map(r=>'<tr><td><b>'+esc(r.service_number)+'</b></td><td>'+esc(r.customer_name)+'<br><a href="https://wa.me/'+waNum(r.customer_phone)+'" target="_blank">'+esc(r.customer_phone)+'</a></td><td>'+esc([r.device_type,r.brand,r.model].filter(Boolean).join(' '))+'</td><td>'+esc(r.technician_name||'-')+'</td><td><span class="svc-badge">'+esc(STATUS[r.status]||r.status)+'</span></td><td>'+esc(d(r.estimated_done_date))+'</td><td>'+reminderBadge(r.reminder)+'</td><td><button class="btn sm" onclick="pxlServiceCenter.openDetail(\''+r.id+'\')">Buka</button></td></tr>').join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:25px">Belum ada data service.</td></tr>')+
@@ -174,5 +185,5 @@
       const t=document.createElement('div');t.className='svc-toast';t.innerHTML='<div>🔧 <b>Service Reminder</b> · '+x.total+' perlu perhatian'+(x.counts.priority?' · '+x.counts.priority+' prioritas':'')+'</div><button class="btn sm" id="svc-toast-open">Lihat</button>';document.body.appendChild(t);setTimeout(()=>t.classList.add('show'),80);t.querySelector('#svc-toast-open').onclick=()=>{t.remove();const b=document.querySelector('[data-tab-id="service_center"]');if(b)switchTab('service_center',b);activeFilter='overdue';refresh()};setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},5500);
     }catch(_){}
   }
-  window.pxlServiceCenter={refresh,render,setFilter:f=>{activeFilter=f;render()},openIntake,saveIntake,openDetail,close,saveUpdate,uploadDetailPhoto,printReceipt,sendWA,showReminder,openSignature,saveSignature,clearSig,openReceiptPdf,sendEReceipt};
+  window.pxlServiceCenter={refresh,render,setFilter:f=>{activeFilter=f;render()},setSearch,openIntake,saveIntake,openDetail,close,saveUpdate,uploadDetailPhoto,printReceipt,sendWA,showReminder,openSignature,saveSignature,clearSig,openReceiptPdf,sendEReceipt};
 })();
