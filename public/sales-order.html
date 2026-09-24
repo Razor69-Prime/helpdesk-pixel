@@ -89,6 +89,10 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
 
   <div class="section">
     <div class="toolbar"><div><b>Daftar Sales Order</b><div class="sub">Draft dapat diedit. Manager/Admin/Superadmin dapat menyetujui atau membatalkan.</div></div></div>
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0 12px">
+      <input id="soSearch" placeholder="Cari customer / nomor SO / penawaran / alamat..." style="flex:1">
+      <button class="btn" id="soSearchClear" type="button">× Bersihkan</button>
+    </div>
     <div id="soTable" class="table"></div>
   </div>
 </div>
@@ -452,7 +456,15 @@ async function act(id, action) {
 }
 
 function render() {
-  const rows = Array.isArray(D.sales_orders) ? D.sales_orders : [];
+  const allRows = Array.isArray(D.sales_orders) ? D.sales_orders : [];
+  const q = String(byId('soSearch')?.value || '').trim().toLowerCase();
+  const rows = q ? allRows.filter(item => [
+    item.customer_name,
+    item.so_number,
+    item.quotation_number,
+    item.address,
+    item.location
+  ].some(value => String(value || '').toLowerCase().includes(q))) : allRows;
   const metrics = byId('metrics');
   const table = byId('soTable');
   if (!metrics || !table) {
@@ -460,11 +472,11 @@ function render() {
     return;
   }
 
-  const totalValue = rows.reduce((sum, item) => sum + numberValue(item.quotation_total ?? item.total_amount), 0);
+  const totalValue = allRows.reduce((sum, item) => sum + numberValue(item.quotation_total ?? item.total_amount), 0);
   metrics.innerHTML = [
-    ['Total SO', rows.length],
-    ['Draft', rows.filter(item => item.status === 'draft').length],
-    ['Disetujui', rows.filter(item => item.status === 'approved').length],
+    ['Total SO', allRows.length],
+    ['Draft', allRows.filter(item => item.status === 'draft').length],
+    ['Disetujui', allRows.filter(item => item.status === 'approved').length],
     ['Total Nilai', rp(totalValue)]
   ].map(item => `<div class="card metric"><div class="label">${item[0]}</div><b>${item[1]}</b></div>`).join('');
 
@@ -543,6 +555,8 @@ async function load() {
 }
 
 byId('refreshBtn')?.addEventListener('click', load);
+byId('soSearch')?.addEventListener('input', render);
+byId('soSearchClear')?.addEventListener('click', () => { if(byId('soSearch')) byId('soSearch').value=''; render(); byId('soSearch')?.focus(); });
 byId('resetBtn')?.addEventListener('click', reset);
 byId('saveBtn')?.addEventListener('click', save);
 byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
