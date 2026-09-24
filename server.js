@@ -1933,6 +1933,149 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
 
 
 // ══════════════════════════════════════════
+//  PXL-URG-0086 — PACKAGE RECIPE (STANDALONE UAT)
+//  No Sales Order / MR / WO / Inventory quantity integration.
+// ══════════════════════════════════════════
+function packageNum(value){const n=Number(value);return Number.isFinite(n)?n:0;}
+function packageText(value,max=160){return String(value??'').trim().slice(0,max);}
+function normalizePackageItems(items){
+  if(!Array.isArray(items))return[];
+  return items.map((item,index)=>{
+    const type=['material','service','cost'].includes(String(item.item_type||'').toLowerCase())?String(item.item_type).toLowerCase():'material';
+    const category=['camera','dvr','cable','other'].includes(String(item.item_category||'').toLowerCase())?String(item.item_category).toLowerCase():'other';
+    return {
+      sort_order:index,
+      item_type:type,
+      item_category:category,
+      item_name:packageText(item.item_name,200),
+      brand:packageText(item.brand,100)||null,
+      qty:Math.max(0,packageNum(item.qty)),
+      unit:packageText(item.unit,40)||'pcs',
+      hpp_unit:Math.max(0,packageNum(item.hpp_unit)),
+      markup_percent:packageNum(item.markup_percent),
+      dvr_channels:category==='dvr'?Math.max(0,Math.trunc(packageNum(item.dvr_channels)))||null:null,
+      cable_type:category==='cable'?packageText(item.cable_type,40)||null:null,
+      is_optional:item.is_optional===true
+    };
+  }).filter(item=>item.item_name);
+}
+function packagePricing(recipe,items){
+  const ppn=Math.max(0,packageNum(recipe.ppn_percent));
+  const hpp=items.reduce((sum,item)=>sum+packageNum(item.qty)*packageNum(item.hpp_unit),0);
+  const exPpn=items.reduce((sum,item)=>{
+    const base=packageNum(item.qty)*packageNum(item.hpp_unit);
+    return sum+base*(1+packageNum(item.markup_percent)/100);
+  },0);
+  const suggested=exPpn*(1+ppn/100);
+  const basePrice=packageNum(recipe.package_price)>0?packageNum(recipe.package_price):suggested;
+  const discount=Math.min(100,Math.max(0,packageNum(recipe.discount_percent)));
+  const finalPrice=basePrice*(1-discount/100);
+  const finalExPpn=ppn>=0?finalPrice/(1+ppn/100):finalPrice;
+  const profit=finalExPpn-hpp;
+  const margin=finalExPpn>0?profit/finalExPpn*100:0;
+  return {hpp_total:hpp,sell_ex_ppn:exPpn,ppn_percent:ppn,suggested_price:suggested,base_price:basePrice,discount_percent:discount,final_price:finalPrice,profit,margin_percent:margin};
+}
+function validatePackageRecipe(recipe,items){
+  const warnings=[];
+  const cameraItems=items.filter(x=>x.item_category==='camera'&&x.item_type==='material');
+  const dvrItems=items.filter(x=>x.item_category==='dvr'&&x.item_type==='material');
+  const cableItems=items.filter(x=>x.item_category==='cable'&&x.item_type==='material'&&['rg59','rg6'].includes(String(x.cable_type||'').trim().toLowerCase()));
+  const cameraQty=cameraItems.reduce((s,x)=>s+packageNum(x.qty),0);
+  const cableMeters=cableItems.reduce((s,x)=>s+packageNum(x.qty),0);
+  const cableMin=cameraQty*10;
+  if(cameraQty>0&&cableMeters<cableMin){
+    warnings.push({rule_id:'RULE-PKG-001',level:'warning',message:`Kabel RG59/RG6 kurang dari standar: tersedia ${cableMeters} m, minimum ${cableMin} m untuk ${cameraQty} kamera.`,actual:cableMeters,expected:cableMin});
+  }
+  let requiredChannels=0;
+  if(cameraQty>=1&&cameraQty<=4)requiredChannels=4;
+  else if(cameraQty>=5&&cameraQty<=8)requiredChannels=8;
+  else if(cameraQty>=9&&cameraQty<=16)requiredChannels=16;
+  if(requiredChannels){
+    const maxChannels=Math.max(0,...dvrItems.map(x=>packageNum(x.dvr_channels)));
+    if(maxChannels<requiredChannels){
+      warnings.push({rule_id:cameraQty<=4?'RULE-PKG-002':cameraQty<=8?'RULE-PKG-003':'RULE-PKG-004',level:'warning',message:`Kapasitas DVR tidak sesuai: ${cameraQty} kamera membutuhkan minimal DVR ${requiredChannels} Channel, tersedia maksimum ${maxChannels||0} Channel.`,actual:maxChannels,expected:requiredChannels});
+    }
+  }
+  const cameraBrands=[...new Set(cameraItems.map(x=>packageText(x.brand,100).toLowerCase()).filter(Boolean))];
+  const dvrBrands=[...new Set(dvrItems.map(x=>packageText(x.brand,100).toLowerCase()).filter(Boolean))];
+  if(cameraBrands.length&&dvrBrands.length){
+    const mismatch=cameraBrands.some(b=>!dvrBrands.includes(b))||dvrBrands.some(b=>!cameraBrands.includes(b));
+    if(mismatch)warnings.push({rule_id:'RULE-PKG-005',level:'warning',message:'Brand Camera dan DVR berbeda. Periksa kompatibilitas perangkat sebelum paket digunakan.',actual:{camera:cameraBrands,dvr:dvrBrands},expected:'brand sama'});
+  }
+  return {camera_qty:cameraQty,cable_rg59_rg6_m:cableMeters,required_cable_m:cableMin,warnings,warning_count:warnings.length};
+}
+async function nextPackageCode(){
+  const year=new Date().getFullYear(),rows=await db.getPackageRecipes();
+  const re=new RegExp('^PKG-'+year+'-(\\d{4,})$');
+  let max=0;(rows||[]).forEach(row=>{const m=String(row.package_code||'').match(re);if(m)max=Math.max(max,Number(m[1])||0);});
+  return 'PKG-'+year+'-'+String(max+1).padStart(4,'0');
+}
+function packagePayload(body,user,existing){
+  const items=normalizePackageItems(body?.items);
+  if(!packageText(body?.name,200))throw new Error('Nama paket wajib diisi.');
+  if(!items.length)throw new Error('Recipe minimal memiliki satu item.');
+  const recipe={
+    name:packageText(body.name,200),
+    brand:packageText(body.brand,100)||null,
+    category:packageText(body.category,100)||'CCTV',
+    status:['draft','active','inactive'].includes(String(body.status||'').toLowerCase())?String(body.status).toLowerCase():'draft',
+    ppn_percent:Math.max(0,packageNum(body.ppn_percent||11)),
+    package_price:packageNum(body.package_price)>0?packageNum(body.package_price):null,
+    discount_percent:Math.min(100,Math.max(0,packageNum(body.discount_percent))),
+    notes:packageText(body.notes,3000)||null,
+    updated_by:user?.name||null
+  };
+  if(!existing)recipe.created_by=user?.name||null;
+  return {recipe,items,pricing:packagePricing(recipe,items),validation:validatePackageRecipe(recipe,items)};
+}
+app.get('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const rows=await db.getPackageRecipes();
+    res.json((rows||[]).map(row=>({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+  try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});}
+  catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/package-recipes/validate',requireRole('superadmin'),async(req,res)=>{
+  try{const items=normalizePackageItems(req.body?.items);const recipe={ppn_percent:req.body?.ppn_percent,package_price:req.body?.package_price,discount_percent:req.body?.discount_percent};res.json({pricing:packagePricing(recipe,items),validation:validatePackageRecipe(recipe,items)});}
+  catch(e){res.status(400).json({error:e.message});}
+});
+app.post('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const parsed=packagePayload(req.body,req.session.user,null);
+    const row=await db.insertPackageRecipe({...parsed.recipe,package_code:await nextPackageCode()},parsed.items);
+    logActivity(req,'package_recipe','BUAT PAKET',`${row.package_code} · ${row.name}`);
+    res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
+  }catch(e){res.status(400).json({error:e.message});}
+});
+app.patch('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const existing=await db.getPackageRecipe(req.params.id);if(!existing)return res.status(404).json({error:'Paket tidak ditemukan.'});
+    const parsed=packagePayload(req.body,req.session.user,existing);
+    const row=await db.updatePackageRecipe(req.params.id,parsed.recipe,parsed.items);
+    logActivity(req,'package_recipe','UPDATE PAKET',`${row.package_code} · ${row.name}`);
+    res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
+  }catch(e){res.status(400).json({error:e.message});}
+});
+app.post('/api/package-recipes/:id/copy',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const source=await db.getPackageRecipe(req.params.id);if(!source)return res.status(404).json({error:'Paket sumber tidak ditemukan.'});
+    const name=packageText(req.body?.name,200)||source.name+' - Copy';
+    const data={name,brand:source.brand,category:source.category,status:'draft',ppn_percent:source.ppn_percent,package_price:source.package_price,discount_percent:source.discount_percent,notes:source.notes,created_by:req.session.user.name,updated_by:req.session.user.name,package_code:await nextPackageCode()};
+    const items=(source.items||[]).map(({id,package_id,created_at,sort_order,...item})=>item);
+    const row=await db.insertPackageRecipe(data,items);
+    logActivity(req,'package_recipe','COPY PAKET',`${source.package_code} → ${row.package_code}`);
+    res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
+  }catch(e){res.status(400).json({error:e.message});}
+});
+app.delete('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+  try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});await db.deletePackageRecipe(req.params.id);logActivity(req,'package_recipe','HAPUS PAKET',`${row.package_code} · ${row.name}`);res.json({ok:true});}
+  catch(e){res.status(500).json({error:e.message});}
+});
+
+// ══════════════════════════════════════════
 //  SERVICE CENTER — PXL-URG-0077
 // ══════════════════════════════════════════
 const SERVICE_CUSTOMER_CARE='+62 811-3961-8857';
