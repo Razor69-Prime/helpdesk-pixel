@@ -1,0 +1,21 @@
+VERIFICATION PXL-URG-0086
+
+Static checks
+- node --check server.js
+- node --check db-core.js
+- node --check public/pxl-urg-0086-package-recipes.js
+- Inline JavaScript public/package-recipes.html
+- Inline JavaScript public/index.html
+- git diff --check
+
+UAT setelah migration + deploy (belum dijalankan)
+1. Login Superadmin -> menu Master Paket muncul.
+2. Buat paket baru dan tambahkan recipe Material/Jasa/Cost.
+3. Test 4 camera + kabel 30m -> RULE-PKG-001 warning.
+4. Test 6 camera + DVR 4CH -> RULE-PKG-003 warning.
+5. Test 12 camera + DVR 8CH -> RULE-PKG-004 warning.
+6. Test camera Hikvision + DVR Dahua -> RULE-PKG-005 warning.
+7. Test DVR lebih besar dari kebutuhan -> tidak warning kapasitas.
+8. Copy Paket -> kode baru, status Draft, isi recipe tercopy.
+9. Edit paket -> version snapshot bertambah.
+10. Pastikan tidak ada SO/MR/WO/Inventory quantity yang berubah.
