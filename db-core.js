@@ -1170,6 +1170,96 @@ async function insertServicePhoto(data){
   const all=readServiceLocal(SERVICE_PHOTOS_FILE);all.push(row);writeServiceLocal(SERVICE_PHOTOS_FILE,all);return row;
 }
 
+
+// ─────────────────────────────────────────
+//  PXL-URG-0086 — STANDALONE PACKAGE RECIPE
+// ─────────────────────────────────────────
+const PACKAGE_RECIPES_FILE=path.join(__dirname,'data','package_recipes.json');
+const PACKAGE_ITEMS_FILE=path.join(__dirname,'data','package_recipe_items.json');
+const PACKAGE_VERSIONS_FILE=path.join(__dirname,'data','package_recipe_versions.json');
+function readPackageLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
+function writePackageLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
+function packageSnapshot(recipe,items){return {...recipe,items:Array.isArray(items)?items:[]};}
+
+async function getPackageRecipes(){
+  if(USE_SUPABASE){
+    const [recipes,items]=await Promise.all([
+      sbFetch('GET','/package_recipes?order=updated_at.desc'),
+      sbFetch('GET','/package_recipe_items?order=package_id.asc,sort_order.asc')
+    ]);
+    const byPackage=new Map();
+    (items||[]).forEach(item=>{const key=String(item.package_id);if(!byPackage.has(key))byPackage.set(key,[]);byPackage.get(key).push(item);});
+    return (recipes||[]).map(row=>({...row,items:byPackage.get(String(row.id))||[]}));
+  }
+  const recipes=readPackageLocal(PACKAGE_RECIPES_FILE);
+  const items=readPackageLocal(PACKAGE_ITEMS_FILE);
+  return recipes.sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)).map(row=>({...row,items:items.filter(x=>String(x.package_id)===String(row.id)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))}));
+}
+async function getPackageRecipe(id){
+  if(USE_SUPABASE){
+    const [rows,items,versions]=await Promise.all([
+      sbFetch('GET',`/package_recipes?id=eq.${encodeURIComponent(id)}&limit=1`),
+      sbFetch('GET',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}&order=sort_order.asc`),
+      sbFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(id)}&order=revision_no.desc`)
+    ]);
+    return rows?.[0]?{...rows[0],items:items||[],versions:versions||[]}:null;
+  }
+  const row=readPackageLocal(PACKAGE_RECIPES_FILE).find(x=>String(x.id)===String(id));
+  if(!row)return null;
+  const items=readPackageLocal(PACKAGE_ITEMS_FILE).filter(x=>String(x.package_id)===String(id)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const versions=readPackageLocal(PACKAGE_VERSIONS_FILE).filter(x=>String(x.package_id)===String(id)).sort((a,b)=>(b.revision_no||0)-(a.revision_no||0));
+  return {...row,items,versions};
+}
+async function insertPackageVersion(packageId,recipe,items,createdBy){
+  if(USE_SUPABASE){
+    const versions=await sbFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(packageId)}&select=revision_no&order=revision_no.desc&limit=1`)||[];
+    const revisionNo=Number(versions?.[0]?.revision_no||0)+1;
+    const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items),created_by:createdBy||null,created_at:new Date().toISOString()};
+    const out=await sbFetch('POST','/package_recipe_versions',row);return out?.[0]||row;
+  }
+  const all=readPackageLocal(PACKAGE_VERSIONS_FILE);
+  const revisionNo=Math.max(0,...all.filter(x=>String(x.package_id)===String(packageId)).map(x=>Number(x.revision_no)||0))+1;
+  const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items),created_by:createdBy||null,created_at:new Date().toISOString()};
+  all.push(row);writePackageLocal(PACKAGE_VERSIONS_FILE,all);return row;
+}
+async function insertPackageRecipe(data,items=[]){
+  const now=new Date().toISOString();
+  const row={id:crypto.randomUUID(),created_at:now,updated_at:now,...data};
+  let saved=row;
+  if(USE_SUPABASE){
+    const out=await sbFetch('POST','/package_recipes',row);saved=out?.[0]||row;
+    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:saved.id,sort_order:i,...items[i],created_at:now};await sbFetch('POST','/package_recipe_items',item);}
+  }else{
+    const recipes=readPackageLocal(PACKAGE_RECIPES_FILE);recipes.push(row);writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
+    const allItems=readPackageLocal(PACKAGE_ITEMS_FILE);items.forEach((item,i)=>allItems.push({id:crypto.randomUUID(),package_id:row.id,sort_order:i,...item,created_at:now}));writePackageLocal(PACKAGE_ITEMS_FILE,allItems);
+  }
+  const full=await getPackageRecipe(saved.id);await insertPackageVersion(saved.id,full||saved,full?.items||items,data.created_by||null);return await getPackageRecipe(saved.id);
+}
+async function updatePackageRecipe(id,patch,items=[]){
+  const now=new Date().toISOString(),data={...patch,updated_at:now};
+  if(USE_SUPABASE){
+    const out=await sbFetch('PATCH',`/package_recipes?id=eq.${encodeURIComponent(id)}`,data);
+    if(!out?.[0])throw new Error('Paket tidak ditemukan.');
+    await sbFetch('DELETE',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}`);
+    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:id,sort_order:i,...items[i],created_at:now};await sbFetch('POST','/package_recipe_items',item);}
+  }else{
+    const recipes=readPackageLocal(PACKAGE_RECIPES_FILE),idx=recipes.findIndex(x=>String(x.id)===String(id));if(idx<0)throw new Error('Paket tidak ditemukan.');
+    recipes[idx]={...recipes[idx],...data};writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
+    const old=readPackageLocal(PACKAGE_ITEMS_FILE).filter(x=>String(x.package_id)!==String(id));
+    items.forEach((item,i)=>old.push({id:crypto.randomUUID(),package_id:id,sort_order:i,...item,created_at:now}));writePackageLocal(PACKAGE_ITEMS_FILE,old);
+  }
+  const full=await getPackageRecipe(id);await insertPackageVersion(id,full||data,full?.items||items,patch.updated_by||null);return await getPackageRecipe(id);
+}
+async function deletePackageRecipe(id){
+  if(USE_SUPABASE){const out=await sbFetch('DELETE',`/package_recipes?id=eq.${encodeURIComponent(id)}`);return out?.[0]||{id};}
+  const recipes=readPackageLocal(PACKAGE_RECIPES_FILE),idx=recipes.findIndex(x=>String(x.id)===String(id));if(idx<0)throw new Error('Paket tidak ditemukan.');
+  const [row]=recipes.splice(idx,1);writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
+  writePackageLocal(PACKAGE_ITEMS_FILE,readPackageLocal(PACKAGE_ITEMS_FILE).filter(x=>String(x.package_id)!==String(id)));
+  writePackageLocal(PACKAGE_VERSIONS_FILE,readPackageLocal(PACKAGE_VERSIONS_FILE).filter(x=>String(x.package_id)!==String(id)));
+  return row;
+}
+
+
 module.exports = {
   USE_SUPABASE,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -1205,5 +1295,6 @@ module.exports = {
   getCrmMaterialRequests, insertCrmMaterialRequest, updateCrmMaterialRequest, issueInventoryMaterialRequest,
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
   getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport,
-  getServiceOrders, getServiceOrder, getServiceOrderByToken, insertServiceOrder, updateServiceOrder, getServiceHistory, insertServiceHistory, getServicePhotos, insertServicePhoto
+  getServiceOrders, getServiceOrder, getServiceOrderByToken, insertServiceOrder, updateServiceOrder, getServiceHistory, insertServiceHistory, getServicePhotos, insertServicePhoto,
+  getPackageRecipes, getPackageRecipe, insertPackageRecipe, updatePackageRecipe, deletePackageRecipe
 };
