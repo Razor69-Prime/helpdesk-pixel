@@ -3,7 +3,7 @@
  */
 (function(){
   'use strict';
-  const REV='PXL-URG-0069';
+  const REV='PXL-URG-0094';
   if(window.PXL_URG_0048_SO?.revision===REV)return;
 
   let catalog=[];
@@ -32,18 +32,24 @@
   async function load(force=false){
     if(!force&&loaded&&Date.now()-loadedAt<MAX_AGE_MS)return catalog;
     if(loading)return loading;
-    loading=api('/api/master-pricelist/catalog').then(d=>{
-      catalog=Array.isArray(d.catalog)?d.catalog:[];
+    loading=api('/api/material-catalog').then(d=>{
+      catalog=Array.isArray(d.items)?d.items:[];
       loaded=true;loadedAt=Date.now();return catalog;
     }).catch(e=>{console.warn('[PXL-URG-0069] catalog',e.message);return[]}).finally(()=>{loading=null});
     return loading;
   }
 
   function inventoryId(row){return String(row?.dataset?.inventoryId||'').trim();}
+  function catalogId(row){return String(row?.dataset?.catalogId||'').trim();}
+  function sourceKey(row){return String(row?.dataset?.sourceKey||'').trim();}
   function sku(row){return String(row?.dataset?.sku||'').trim();}
   function findCatalog(row){
+    const cid=catalogId(row);
+    if(cid){const hit=catalog.find(x=>String(x.id)===cid);if(hit)return hit;}
+    const key=sourceKey(row);
+    if(key){const hit=catalog.find(x=>String(x.source_key||'')===key);if(hit)return hit;}
     const id=inventoryId(row);
-    if(id){const hit=catalog.find(x=>String(x.inventory_item_id)===id);if(hit)return hit;}
+    if(id){const hit=catalog.find(x=>String(x.inventory_item_id||'')===id);if(hit)return hit;}
     const code=sku(row).toLowerCase();
     if(!code)return null;
     const matches=catalog.filter(x=>String(x.sku||'').trim().toLowerCase()===code);
@@ -61,12 +67,13 @@
       host.appendChild(badge);
     }
     const hit=findCatalog(row);
-    if(hit&&hit.price!=null){
-      row.dataset.masterHpp=String(Number(hit.price)||0);
+    if(hit&&(hit.hpp!=null||hit.price!=null)){
+      const hpp=hit.hpp!=null?hit.hpp:hit.price;
+      row.dataset.masterHpp=String(Number(hpp)||0);
       row.dataset.masterPricelistSource=hit.source_key||'';
       row.dataset.masterPricelistSku=hit.sku||sku(row)||'';
       row.dataset.masterPricelistBrand=hit.brand||'';
-      const html='Master Pricelist · <b>'+rp(hit.price)+'</b>'+(hit.sku?' · '+String(hit.sku):'')+(hit.brand?' · '+String(hit.brand):'');
+      const html='Master Pricelist · <b>'+rp(hpp)+'</b>'+(hit.sku?' · '+String(hit.sku):'')+(hit.brand?' · '+String(hit.brand):'');
       if(badge.innerHTML!==html)badge.innerHTML=html;
       if(badge.style.display==='none')badge.style.display='';
     }else{
@@ -74,7 +81,7 @@
       delete row.dataset.masterPricelistSource;
       delete row.dataset.masterPricelistSku;
       delete row.dataset.masterPricelistBrand;
-      const label=loaded?(inventoryId(row)||sku(row)?'Master Pricelist · Belum Ada Harga':'Master Pricelist · Pilih item Inventory'):'Master Pricelist · dimuat saat diperlukan';
+      const label=loaded?(inventoryId(row)||catalogId(row)||sourceKey(row)||sku(row)?'Master Pricelist · Belum Ada Harga':'Master Pricelist · Pilih item'):'Master Pricelist · dimuat saat diperlukan';
       if(badge.textContent!==label)badge.textContent=label;
       if(badge.style.display==='none')badge.style.display='';
     }
