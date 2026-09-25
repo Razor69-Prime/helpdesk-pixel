@@ -15,7 +15,7 @@ h2{margin:0;font-size:19px}.sub{font-size:11px;color:var(--muted);margin-top:3px
 .form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}
 input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;background:#fff}textarea{min-height:70px}.items{display:grid;gap:7px}
 .line-row{display:grid;grid-template-columns:2fr .65fr .75fr 1fr 1fr auto;gap:7px;align-items:end;padding:9px;border:1px solid #eee;border-radius:9px;background:#fff}.item-picker{position:relative}.item-results{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;max-height:230px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.12)}
-.item-results.open{display:block}.item-option{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.item-option:hover{filter:brightness(.98)}.item-option b{display:block}.item-option small{color:var(--muted)}.item-option.hpp-ready{background:#eef7e7;border-left:4px solid #7aaa45}.item-option.hpp-missing{background:#fff6dc;border-left:4px solid #d1a12b}.item-option.hpp-ready small{color:#3b6d11}.item-option.hpp-missing small{color:#8a5a00}
+.item-results.open{display:block}.item-option{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.item-option:hover{filter:brightness(.98)}.item-option b{display:block}.item-option small{color:var(--muted)}.item-option.hpp-ready{background:#eef7e7;border-left:4px solid #7aaa45}.item-option.hpp-missing{background:#fff6dc;border-left:4px solid #d1a12b}.item-option.pricelist-only{background:#eef5ff;border-left:4px solid #4388c9}.item-option.hpp-ready small{color:#3b6d11}.item-option.hpp-missing small{color:#8a5a00}
 .selected-item{font-size:10px;color:var(--green);margin-top:4px}.notice{padding:10px;border-radius:8px;background:#fff4ea;border:1px solid #f0d1b5;margin-top:10px}.flow-note{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.flow-note div{padding:9px;border-radius:8px;border:1px solid var(--line);background:#fafafa}.flow-note b{display:block;margin-bottom:3px}
 .line-section{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfbfa}.line-section.service-box{border-color:#cbdcf0;background:#f7fbff}.section-title{font-size:13px}.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.total-box{border:1px solid var(--line);border-radius:9px;padding:10px;background:#fff}.total-box strong{display:block;font-size:16px;margin-top:4px}.total-box.grand{border-color:#efbd97;background:#fff7ef}
 .form-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.form-actions .btn{padding:11px 18px}.form-actions .primary{min-width:150px}
@@ -177,7 +177,7 @@ function renderMaterialResults(row, query = '') {
   if (!box) return;
   const matches = inventoryMatches(query);
   box.innerHTML = matches.length
-    ? matches.map(item => {const h=MASTER_HPP_BY_ID.get(String(item.id));const ready=!!(h&&h.price!=null);return `<div class="item-option ${ready?'hpp-ready':'hpp-missing'}" data-id="${item.id}"><b>${esc(item.name)}</b><small>${item.sku ? esc(item.sku) + ' · ' : ''}stok ${numberValue(item.stock)} ${esc(item.unit || 'pcs')} · ${ready?'HPP Rp '+Math.round(numberValue(h.price)).toLocaleString('id-ID'):'HPP belum termapping'}</small></div>`}).join('')
+    ? matches.map(item => {const ready=item.hpp!=null;const priceOnly=item.inventory_available===false;return `<div class="item-option ${priceOnly?'pricelist-only':(ready?'hpp-ready':'hpp-missing')}" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><small>${priceOnly?'🔵 Master Pricelist · belum Inventory':((item.sku?esc(item.sku)+' · ':'')+'stok '+numberValue(item.stock)+' '+esc(item.unit||'pcs'))} · ${ready?'HPP Rp '+Math.round(numberValue(item.hpp)).toLocaleString('id-ID'):'HPP belum termapping'}</small></div>`}).join('')
     : '<div class="item-option"><small>Material tidak ditemukan.</small></div>';
   box.classList.add('open');
   box.querySelectorAll('[data-id]').forEach(element => {
@@ -191,7 +191,10 @@ function renderMaterialResults(row, query = '') {
 function selectInventory(row, id) {
   const item = OPT.inventory_items.find(entry => String(entry.id) === String(id));
   if (!item || !row) return;
-  row.dataset.inventoryId = item.id;
+  row.dataset.inventoryId = item.inventory_item_id || '';
+  row.dataset.catalogId = item.id || '';
+  row.dataset.sourceType = item.source_type || 'inventory';
+  row.dataset.sourceKey = item.source_key || '';
   row.dataset.sku = item.sku || '';
   const search = row.querySelector('.item-search');
   const unit = row.querySelector('.unit');
@@ -199,7 +202,8 @@ function selectInventory(row, id) {
   const results = row.querySelector('.item-results');
   if (search) search.value = item.name || '';
   if (unit) unit.value = item.unit || 'pcs';
-  if (selected) selected.textContent = `Dipilih: ${item.name}${item.sku ? ' · ' + item.sku : ''} · stok ${numberValue(item.stock)} ${item.unit || 'pcs'}`;
+  if (selected) selected.textContent = item.inventory_available===false ? `Master Pricelist: ${item.name} · HPP ${rp(item.hpp||0)} · belum ada di Inventory` : `Dipilih: ${item.name}${item.sku ? ' · ' + item.sku : ''} · stok ${numberValue(item.stock)} ${item.unit || 'pcs'}`;
+  const price=row.querySelector('.price'); if(price && item.hpp!=null && !numberValue(price.value)) price.value=numberValue(item.hpp);
   if (results) results.classList.remove('open');
   updateTotals();
 }
@@ -221,10 +225,13 @@ function addMaterial(data = {}) {
   const container = byId('materialItems');
   if (!container) return;
   container.querySelector('.empty-hint')?.remove();
-  const selected = OPT.inventory_items.find(item => String(item.id) === String(data.inventory_item_id || ''));
+  const selected = OPT.inventory_items.find(item => String(item.id) === String(data.inventory_item_id || '')) || OPT.inventory_items.find(item => data.source_key&&String(item.source_key||'')===String(data.source_key));
   const row = document.createElement('div');
   row.className = 'line-row material-row';
-  row.dataset.inventoryId = selected?.id || data.inventory_item_id || '';
+  row.dataset.inventoryId = selected?.inventory_item_id || data.inventory_item_id || '';
+  row.dataset.catalogId = selected?.id || '';
+  row.dataset.sourceType = selected?.source_type || (data.inventory_item_id?'inventory':'');
+  row.dataset.sourceKey = selected?.source_key || data.source_key || '';
   row.dataset.sku = selected?.sku || data.sku || '';
   row.innerHTML = `
     <div class="wide item-picker">
@@ -243,6 +250,9 @@ function addMaterial(data = {}) {
   search?.addEventListener('focus', () => renderMaterialResults(row, search.value));
   search?.addEventListener('input', () => {
     row.dataset.inventoryId = '';
+    row.dataset.catalogId = '';
+    row.dataset.sourceType = '';
+    row.dataset.sourceKey = '';
     row.dataset.sku = '';
     const selectedText = row.querySelector('.selected-item');
     if (selectedText) selectedText.textContent = '';
@@ -328,13 +338,15 @@ function collect() {
 
   document.querySelectorAll('.material-row').forEach(row => {
     const typedName = row.querySelector('.item-search')?.value.trim() || '';
-    const inventory = OPT.inventory_items.find(item => String(item.id) === String(row.dataset.inventoryId || ''));
+    const inventory = OPT.inventory_items.find(item => String(item.id) === String(row.dataset.catalogId || '')) || OPT.inventory_items.find(item => String(item.inventory_item_id||'') === String(row.dataset.inventoryId || ''));
     if (!typedName && !inventory) return;
-    if (!inventory) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil pencarian Inventory.`);
+    if (!inventory) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
     const qty = numberValue(row.querySelector('.qty')?.value);
     if (qty <= 0) throw new Error(`Qty material ${inventory.name} harus lebih dari 0.`);
     items.push({
-      inventory_item_id: inventory.id,
+      inventory_item_id: inventory.inventory_item_id || null,
+      source_type: inventory.source_type || 'inventory',
+      source_key: inventory.source_key || null,
       name: inventory.name || '',
       item_name: inventory.name || '',
       sku: inventory.sku || null,
@@ -342,7 +354,8 @@ function collect() {
       unit: row.querySelector('.unit')?.value || inventory.unit || 'pcs',
       unit_price: numberValue(row.querySelector('.price')?.value),
       item_type: 'item',
-      stock_at_select: inventory.stock ?? null
+      stock_at_select: inventory.inventory_available===false ? null : (inventory.stock ?? null),
+      hpp_reference: inventory.hpp ?? null
     });
   });
 
@@ -519,15 +532,16 @@ function render() {
 
 async function load() {
   try {
-    const [options, report, masterPrice] = await Promise.all([
+    const [options, report, unified] = await Promise.all([
       api('GET', '/api/sales-orders/options'),
       api('GET', '/api/crm/report'),
-      api('GET', '/api/master-pricelist/catalog').catch(() => ({ catalog: [] }))
+      api('GET', '/api/material-catalog').catch(() => ({ items: [] }))
     ]);
-    MASTER_HPP_BY_ID = new Map((Array.isArray(masterPrice.catalog)?masterPrice.catalog:[]).map(x=>[String(x.inventory_item_id||''),x]));
+    const unifiedItems=Array.isArray(unified.items)&&unified.items.length?unified.items:(Array.isArray(options.inventory_items)?options.inventory_items.map(x=>({...x,inventory_item_id:x.id,source_type:'inventory',source_status:'inventory_only',inventory_available:true,hpp:null,hpp_mapped:false})):[]);
+    MASTER_HPP_BY_ID = new Map(unifiedItems.filter(x=>x.inventory_item_id).map(x=>[String(x.inventory_item_id),{price:x.hpp}]));
     OPT = {
       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
-      inventory_items: Array.isArray(options.inventory_items) ? options.inventory_items : [],
+      inventory_items: unifiedItems,
       can_approve: options.can_approve === true,
       can_issue: options.can_issue === true,
       current_user: options.current_user || null
@@ -575,5 +589,7 @@ load().then(reset);
 <script src="/pxl-prod-0022d7-project-pdf-sync.js?v=PXL-PROD-0022D7"></script>
 </body>
 </html>
+
+[executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
 
 [executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
