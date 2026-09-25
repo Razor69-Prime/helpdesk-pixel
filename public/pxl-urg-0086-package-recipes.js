@@ -1,4 +1,4 @@
-/* PXL-URG-0089 — Master Paket compact UI + Inventory fast search (Superadmin UAT only). */
+/* PXL-URG-0090 — Master Paket HPP sync confirmation + DVR/NVR rules (Superadmin UAT only). */
 (function(){
   'use strict';
   const TAB='package_recipes',TAB_ID='tab-'+TAB,BTN_ID='pxl-package-recipes-menu',FRAME_ID='package-recipes-frame';
@@ -32,7 +32,7 @@
     ensureTab();
     if(typeof window.switchTab==='function')window.switchTab(TAB,btn||document.getElementById(BTN_ID));
     const frame=document.getElementById(FRAME_ID);
-    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0089';frame.dataset.loaded='1';}
+    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0090';frame.dataset.loaded='1';}
     try{if(frame&&typeof window.sendModuleToken==='function')window.sendModuleToken(frame)}catch(_){}
   }
   function apply(){
