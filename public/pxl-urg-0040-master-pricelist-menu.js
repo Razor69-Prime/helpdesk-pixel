@@ -1,7 +1,7 @@
-/* PXL-URG-0050 — Master Pricelist menu controlled by Account Management permission. */
+/* PXL-URG-0091 — Master Pricelist price-link highlight cache revision. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0050';
+  const REV='PXL-URG-0091';
   if(window.PXL_URG_0040?.revision===REV)return;
   const norm=v=>String(v??'').trim().toLowerCase().replace(/[ _-]/g,'');
   function user(){try{return window.currentUser||currentUser||null}catch(_){return window.currentUser||null}}
