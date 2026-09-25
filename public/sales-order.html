@@ -167,8 +167,8 @@ function inventoryMatches(query) {
   const value = String(query || '').trim().toLowerCase();
   if (!value) return OPT.inventory_items.slice(0, 20);
   return OPT.inventory_items.filter(item =>
-    String(item.name || '').toLowerCase().includes(value)
-    || String(item.sku || '').toLowerCase().includes(value)
+    [item.name,item.sku,item.brand,item.pricelist_name,item.source_key]
+      .map(v=>String(v||'').toLowerCase()).some(v=>v.includes(value))
   ).slice(0, 30);
 }
 
@@ -177,7 +177,7 @@ function renderMaterialResults(row, query = '') {
   if (!box) return;
   const matches = inventoryMatches(query);
   box.innerHTML = matches.length
-    ? matches.map(item => {const ready=item.hpp!=null;const priceOnly=item.inventory_available===false;return `<div class="item-option ${priceOnly?'pricelist-only':(ready?'hpp-ready':'hpp-missing')}" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><small>${priceOnly?'🔵 Master Pricelist · belum Inventory':((item.sku?esc(item.sku)+' · ':'')+'stok '+numberValue(item.stock)+' '+esc(item.unit||'pcs'))} · ${ready?'HPP Rp '+Math.round(numberValue(item.hpp)).toLocaleString('id-ID'):'HPP belum termapping'}</small></div>`}).join('')
+    ? matches.map(item => {const ready=item.hpp!=null;const priceOnly=item.inventory_available===false;const alias=item.pricelist_name&&String(item.pricelist_name).trim()!==String(item.name||'').trim()?` · Master: ${esc(item.pricelist_name)}`:'';return `<div class="item-option ${priceOnly?'pricelist-only':(ready?'hpp-ready':'hpp-missing')}" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><small>${priceOnly?'🔵 Master Pricelist · belum Inventory':((item.sku?esc(item.sku)+' · ':'')+'stok '+numberValue(item.stock)+' '+esc(item.unit||'pcs'))}${alias} · ${ready?'HPP Rp '+Math.round(numberValue(item.hpp)).toLocaleString('id-ID'):'HPP belum termapping'}</small></div>`}).join('')
     : '<div class="item-option"><small>Material tidak ditemukan.</small></div>';
   box.classList.add('open');
   box.querySelectorAll('[data-id]').forEach(element => {
