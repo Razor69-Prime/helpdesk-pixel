@@ -1979,7 +1979,7 @@ function validatePackageRecipe(recipe,items){
   const warnings=[];
   const cameraItems=items.filter(x=>x.item_category==='camera'&&x.item_type==='material');
   const dvrItems=items.filter(x=>x.item_category==='dvr'&&x.item_type==='material');
-  const cableItems=items.filter(x=>x.item_category==='cable'&&x.item_type==='material'&&['rg59','rg6'].includes(String(x.cable_type||'').trim().toLowerCase()));
+  const cableItems=items.filter(x=>x.item_category==='cable'&&x.item_type==='material'&&(/\bRG59\b/i.test(String(x.item_name||''))||/\bRG6\b/i.test(String(x.item_name||''))||['rg59','rg6'].includes(String(x.cable_type||'').trim().toLowerCase())));
   const cameraQty=cameraItems.reduce((s,x)=>s+packageNum(x.qty),0);
   const cableMeters=cableItems.reduce((s,x)=>s+packageNum(x.qty),0);
   const cableMin=cameraQty*10;
@@ -1991,7 +1991,11 @@ function validatePackageRecipe(recipe,items){
   else if(cameraQty>=5&&cameraQty<=8)requiredChannels=8;
   else if(cameraQty>=9&&cameraQty<=16)requiredChannels=16;
   if(requiredChannels){
-    const maxChannels=Math.max(0,...dvrItems.map(x=>packageNum(x.dvr_channels)));
+    const maxChannels=Math.max(0,...dvrItems.map(x=>{
+      const explicit=packageNum(x.dvr_channels);if(explicit)return explicit;
+      const m=String(x.item_name||'').toUpperCase().match(/\b(4|8|16|32)\s*(?:CH|CHANNEL)\b/);
+      return m?Number(m[1]):0;
+    }));
     if(maxChannels<requiredChannels){
       warnings.push({rule_id:cameraQty<=4?'RULE-PKG-002':cameraQty<=8?'RULE-PKG-003':'RULE-PKG-004',level:'warning',message:`Kapasitas DVR tidak sesuai: ${cameraQty} kamera membutuhkan minimal DVR ${requiredChannels} Channel, tersedia maksimum ${maxChannels||0} Channel.`,actual:maxChannels,expected:requiredChannels});
     }
@@ -2028,6 +2032,49 @@ function packagePayload(body,user,existing){
   if(!existing)recipe.created_by=user?.name||null;
   return {recipe,items,pricing:packagePricing(recipe,items),validation:validatePackageRecipe(recipe,items)};
 }
+app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const inventory=await db.getInventoryItems();
+    const baseUrl=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY||'';
+    let prices=[],maps=[];
+    try{
+      const headers={'Content-Type':'application/json',...(key?{'apikey':key,'Authorization':'Bearer '+key}:{})};
+      const [priceRes,mapRes]=await Promise.all([
+        fetch(baseUrl+'/rest/v1/master_pricelist_items?is_active=eq.true&select=source_key,brand,item_name,price'),
+        fetch(baseUrl+'/rest/v1/master_pricelist_inventory_map?select=inventory_item_id,source_key')
+      ]);
+      if(priceRes.ok)prices=await priceRes.json();
+      if(mapRes.ok)maps=await mapRes.json();
+    }catch(_){}
+    const priceByKey=new Map((Array.isArray(prices)?prices:[]).map(x=>[String(x.source_key),x]));
+    const mapByInv=new Map((Array.isArray(maps)?maps:[]).map(x=>[String(x.inventory_item_id),x]));
+    const rows=(Array.isArray(inventory)?inventory:[]).map(inv=>{
+      const map=mapByInv.get(String(inv.id));
+      const price=map?.source_key?priceByKey.get(String(map.source_key)):null;
+      const name=String(inv.name||'');
+      const upper=name.toUpperCase();
+      let inferred='other';
+      if(/\b(DVR|XVR|NVR)\b/.test(upper))inferred='dvr';
+      else if(/\b(RG59|RG6|CABLE|KABEL)\b/.test(upper))inferred='cable';
+      else if(/\b(CAMERA|KAMERA|CCTV|IPC|HAC)\b/.test(upper))inferred='camera';
+      return {
+        inventory_item_id:inv.id,
+        sku:inv.sku||null,
+        name,
+        category:inv.category||null,
+        recipe_category:inferred,
+        unit:inv.unit||'pcs',
+        stock:Number(inv.stock||0),
+        brand:price?.brand||null,
+        hpp:price?Number(price.price||0):null,
+        hpp_mapped:!!price
+      };
+    });
+    res.json({items:rows});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
   try{
     const rows=await db.getPackageRecipes();
