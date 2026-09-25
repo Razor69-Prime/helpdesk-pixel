@@ -1,8 +1,9 @@
-/* PXL-URG-0086 — Standalone Package Recipe module loader (Superadmin UAT only). */
+/* PXL-URG-0087 — Master Paket menu visibility fix (Superadmin UAT only). */
 (function(){
   'use strict';
   const TAB='package_recipes',TAB_ID='tab-'+TAB,BTN_ID='pxl-package-recipes-menu',FRAME_ID='package-recipes-frame';
-  function isSuperadmin(){try{return String(window.currentUser?.role||'').toLowerCase()==='superadmin'}catch(_){return false}}
+  function appUser(){try{return typeof currentUser!=='undefined'&&currentUser?currentUser:(window.currentUser||null)}catch(_){return window.currentUser||null}}
+  function isSuperadmin(){try{return String(appUser()?.role||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin'}catch(_){return false}}
   function ensureTab(){
     if(document.getElementById(TAB_ID))return;
     const host=document.getElementById('app-content');if(!host)return;
@@ -24,7 +25,7 @@
     ensureTab();
     if(typeof window.switchTab==='function')window.switchTab(TAB,btn||document.getElementById(BTN_ID));
     const frame=document.getElementById(FRAME_ID);
-    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0086';frame.dataset.loaded='1';}
+    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0087';frame.dataset.loaded='1';}
     try{if(frame&&typeof window.sendModuleToken==='function')window.sendModuleToken(frame)}catch(_){}
   }
   function apply(){
