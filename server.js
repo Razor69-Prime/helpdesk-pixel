@@ -1955,7 +1955,8 @@ function normalizePackageItems(items){
       markup_percent:packageNum(item.markup_percent),
       dvr_channels:category==='dvr'?Math.max(0,Math.trunc(packageNum(item.dvr_channels)))||null:null,
       cable_type:category==='cable'?packageText(item.cable_type,40)||null:null,
-      is_optional:item.is_optional===true
+      is_optional:item.is_optional===true,
+      inventory_item_id:packageText(item.inventory_item_id,80)||null
     };
   }).filter(item=>item.item_name);
 }
@@ -2032,46 +2033,77 @@ function packagePayload(body,user,existing){
   if(!existing)recipe.created_by=user?.name||null;
   return {recipe,items,pricing:packagePricing(recipe,items),validation:validatePackageRecipe(recipe,items)};
 }
-app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async(req,res)=>{
+async function loadPackageInventoryCatalog(){
+  const inventory=await db.getInventoryItems();
+  const baseUrl=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY||'';
+  let prices=[],maps=[];
   try{
-    const inventory=await db.getInventoryItems();
-    const baseUrl=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-    const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY||'';
-    let prices=[],maps=[];
-    try{
-      const headers={'Content-Type':'application/json',...(key?{'apikey':key,'Authorization':'Bearer '+key}:{})};
-      const [priceRes,mapRes]=await Promise.all([
-        fetch(baseUrl+'/rest/v1/master_pricelist_items?is_active=eq.true&select=source_key,brand,item_name,price',{headers}),
-        fetch(baseUrl+'/rest/v1/master_pricelist_inventory_map?select=inventory_item_id,source_key',{headers})
-      ]);
-      if(priceRes.ok)prices=await priceRes.json();
-      if(mapRes.ok)maps=await mapRes.json();
-    }catch(_){}
-    const priceByKey=new Map((Array.isArray(prices)?prices:[]).map(x=>[String(x.source_key),x]));
-    const mapByInv=new Map((Array.isArray(maps)?maps:[]).map(x=>[String(x.inventory_item_id),x]));
-    const rows=(Array.isArray(inventory)?inventory:[]).map(inv=>{
-      const map=mapByInv.get(String(inv.id));
-      const price=map?.source_key?priceByKey.get(String(map.source_key)):null;
-      const name=String(inv.name||'');
-      const upper=name.toUpperCase();
-      let inferred='other';
-      if(/\b(DVR|XVR|NVR)\b/.test(upper))inferred='dvr';
-      else if(/\b(RG59|RG6|CABLE|KABEL)\b/.test(upper))inferred='cable';
-      else if(/\b(CAMERA|KAMERA|CCTV|IPC|HAC)\b/.test(upper))inferred='camera';
-      return {
-        inventory_item_id:inv.id,
-        sku:inv.sku||null,
-        name,
-        category:inv.category||null,
-        recipe_category:inferred,
-        unit:inv.unit||'pcs',
-        stock:Number(inv.stock||0),
-        brand:price?.brand||null,
-        hpp:price?Number(price.price||0):null,
-        hpp_mapped:!!price
-      };
-    });
-    res.json({items:rows});
+    const headers={'Content-Type':'application/json',...(key?{'apikey':key,'Authorization':'Bearer '+key}:{})};
+    const [priceRes,mapRes]=await Promise.all([
+      fetch(baseUrl+'/rest/v1/master_pricelist_items?is_active=eq.true&select=source_key,brand,item_name,price',{headers}),
+      fetch(baseUrl+'/rest/v1/master_pricelist_inventory_map?select=inventory_item_id,source_key',{headers})
+    ]);
+    if(priceRes.ok)prices=await priceRes.json();
+    if(mapRes.ok)maps=await mapRes.json();
+  }catch(_){}
+  const priceByKey=new Map((Array.isArray(prices)?prices:[]).map(x=>[String(x.source_key),x]));
+  const mapByInv=new Map((Array.isArray(maps)?maps:[]).map(x=>[String(x.inventory_item_id),x]));
+  return (Array.isArray(inventory)?inventory:[]).map(inv=>{
+    const map=mapByInv.get(String(inv.id));
+    const price=map?.source_key?priceByKey.get(String(map.source_key)):null;
+    const name=String(inv.name||'');
+    const upper=name.toUpperCase();
+    let inferred='other';
+    if(/\b(DVR|XVR|NVR)\b/.test(upper))inferred='dvr';
+    else if(/\b(RG59|RG6|CABLE|KABEL)\b/.test(upper))inferred='cable';
+    else if(/\b(CAMERA|KAMERA|CCTV|IPC|HAC)\b/.test(upper))inferred='camera';
+    return {inventory_item_id:inv.id,sku:inv.sku||null,name,category:inv.category||null,recipe_category:inferred,unit:inv.unit||'pcs',stock:Number(inv.stock||0),brand:price?.brand||null,hpp:price?Number(price.price||0):null,hpp_mapped:!!price};
+  });
+}
+function packagePriceDiffs(packages,catalog){
+  const byId=new Map(catalog.map(x=>[String(x.inventory_item_id),x]));
+  const byName=new Map(catalog.map(x=>[String(x.name||'').trim().toLowerCase(),x]));
+  const diffs=[];
+  (packages||[]).forEach(pkg=>(pkg.items||[]).forEach(item=>{
+    if(item.item_type!=='material')return;
+    const cat=(item.inventory_item_id&&byId.get(String(item.inventory_item_id)))||byName.get(String(item.item_name||'').trim().toLowerCase());
+    if(!cat||cat.hpp==null)return;
+    const oldPrice=Number(item.hpp_unit||0),newPrice=Number(cat.hpp||0);
+    if(oldPrice!==newPrice)diffs.push({package_id:pkg.id,package_code:pkg.package_code,package_name:pkg.name,item_id:item.id,item_name:item.item_name,inventory_item_id:cat.inventory_item_id,old_hpp:oldPrice,new_hpp:newPrice});
+  }));
+  return diffs;
+}
+app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async(req,res)=>{
+  try{res.json({items:await loadPackageInventoryCatalog()});}catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/package-recipes/hpp-refresh-preview',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const [packages,catalog]=await Promise.all([db.getPackageRecipes(),loadPackageInventoryCatalog()]);
+    const changes=packagePriceDiffs(packages,catalog);
+    res.json({changes,package_count:new Set(changes.map(x=>x.package_id)).size,item_count:changes.length});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/package-recipes/hpp-refresh-apply',requireRole('superadmin'),async(req,res)=>{
+  try{
+    const [packages,catalog]=await Promise.all([db.getPackageRecipes(),loadPackageInventoryCatalog()]);
+    const changes=packagePriceDiffs(packages,catalog);
+    const grouped=new Map();
+    changes.forEach(c=>{if(!grouped.has(c.package_id))grouped.set(c.package_id,[]);grouped.get(c.package_id).push(c);});
+    let updatedPackages=0,updatedItems=0;
+    for(const pkg of packages||[]){
+      const list=grouped.get(pkg.id);if(!list?.length)continue;
+      const byItem=new Map(list.map(x=>[String(x.item_id),x]));
+      const items=(pkg.items||[]).map(item=>{
+        const ch=byItem.get(String(item.id));if(!ch)return item;
+        updatedItems++;
+        return {...item,hpp_unit:ch.new_hpp,inventory_item_id:ch.inventory_item_id||item.inventory_item_id||null};
+      });
+      await db.updatePackageRecipe(pkg.id,{name:pkg.name,brand:pkg.brand,category:pkg.category,status:pkg.status,ppn_percent:pkg.ppn_percent,package_price:pkg.package_price,discount_percent:pkg.discount_percent,notes:pkg.notes,updated_by:req.session.user.name},items);
+      updatedPackages++;
+    }
+    logActivity(req,'package_recipe','SINKRON HPP PAKET',updatedItems+' item · '+updatedPackages+' paket');
+    res.json({ok:true,updated_packages:updatedPackages,updated_items:updatedItems});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
