@@ -13,14 +13,16 @@
   }
   function ensureMenu(){
     const nav=document.getElementById('main-nav');if(!nav||!isSuperadmin())return;
-    nav.querySelectorAll('[data-package-recipe="1"]').forEach(el=>el.remove());
-    if(document.getElementById(BTN_ID))return;
-    let group=[...nav.querySelectorAll('.sidebar-group')].find(g=>{
+    const group=[...nav.querySelectorAll('.sidebar-group')].find(g=>{
       const title=g.querySelector('.sidebar-group-toggle span');
       return title&&String(title.textContent||'').trim()==='Sales & Proyek';
     });
     if(!group)return;
     const content=group.querySelector('.sidebar-group-content')||group;
+    const existing=document.getElementById(BTN_ID);
+    if(existing&&existing.parentElement===content)return;
+    nav.querySelectorAll('.sidebar-section-line[data-package-recipe="1"],.sidebar-section[data-package-recipe="1"]').forEach(el=>el.remove());
+    if(existing)existing.remove();
     const btn=document.createElement('button');btn.type='button';btn.id=BTN_ID;btn.className='nav-btn';btn.dataset.tabId=TAB;btn.dataset.packageRecipe='1';btn.innerHTML='📦 <span class="nav-label">Master Paket</span>';
     btn.onclick=function(){open(btn)};
     content.appendChild(btn);
