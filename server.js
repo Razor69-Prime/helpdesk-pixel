@@ -2041,8 +2041,8 @@ app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async
     try{
       const headers={'Content-Type':'application/json',...(key?{'apikey':key,'Authorization':'Bearer '+key}:{})};
       const [priceRes,mapRes]=await Promise.all([
-        fetch(baseUrl+'/rest/v1/master_pricelist_items?is_active=eq.true&select=source_key,brand,item_name,price'),
-        fetch(baseUrl+'/rest/v1/master_pricelist_inventory_map?select=inventory_item_id,source_key')
+        fetch(baseUrl+'/rest/v1/master_pricelist_items?is_active=eq.true&select=source_key,brand,item_name,price',{headers}),
+        fetch(baseUrl+'/rest/v1/master_pricelist_inventory_map?select=inventory_item_id,source_key',{headers})
       ]);
       if(priceRes.ok)prices=await priceRes.json();
       if(mapRes.ok)maps=await mapRes.json();
