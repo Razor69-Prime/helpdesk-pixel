@@ -1994,8 +1994,14 @@ function validatePackageRecipe(recipe,items){
   if(requiredChannels){
     const maxChannels=Math.max(0,...dvrItems.map(x=>{
       const explicit=packageNum(x.dvr_channels);if(explicit)return explicit;
-      const m=String(x.item_name||'').toUpperCase().match(/\b(4|8|16|32)\s*(?:CH|CHANNEL)\b/);
-      return m?Number(m[1]):0;
+      const name=String(x.item_name||'').toUpperCase();
+      let m=name.match(/\b(4|8|16|32)\s*(?:CH|CHANNEL)\b/);
+      if(m)return Number(m[1]);
+      m=name.match(/\bNVR[-\s]?(?:1)?(04|08|16|32)\b/);
+      if(m)return Number(m[1]);
+      m=name.match(/\bDS-[0-9]{2}(04|08|16|32)[A-Z0-9-]*\b/);
+      if(m)return Number(m[1]);
+      return 0;
     }));
     if(maxChannels<requiredChannels){
       warnings.push({rule_id:cameraQty<=4?'RULE-PKG-002':cameraQty<=8?'RULE-PKG-003':'RULE-PKG-004',level:'warning',message:`Kapasitas DVR tidak sesuai: ${cameraQty} kamera membutuhkan minimal DVR ${requiredChannels} Channel, tersedia maksimum ${maxChannels||0} Channel.`,actual:maxChannels,expected:requiredChannels});
