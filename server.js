@@ -2092,7 +2092,7 @@ function packageRecipesCanAccess(req){
   const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
   if(role==='superadmin')return true;
   const perms=new Set([...(Array.isArray(user.custom_menus)?user.custom_menus:[]),...(Array.isArray(user.extra_roles)?user.extra_roles:[])].map(String));
-  return perms.has('package_recipes')||perms.has('package_recipes_view')||perms.has('package_recipes_manage');
+  return perms.has('package_recipes')||perms.has('package_recipes_read')||perms.has('package_recipes_write')||perms.has('package_recipes_view')||perms.has('package_recipes_manage');
 }
 function requirePackageRecipes(req,res,next){
   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
