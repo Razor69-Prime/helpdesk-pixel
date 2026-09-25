@@ -32,7 +32,7 @@
   var accessGroups=[
     {label:'Operasional Teknisi',rows:[['report','Input Laporan'],['tickets','Daftar Tiket'],['materials','Material Request']]},
     {label:'Gudang',rows:[['inventory_view','Inventory'],['material_request_view','Material Request'],['material_request_edit','Persiapan / Pengembalian'],['material_request_issue','Pengeluaran Material']]},
-    {label:'Sales & Proyek',rows:[['sales','Sales Dashboard'],['kunjungan','Kunjungan'],['projects','Project'],['crm','CRM'],['sales_order','Sales Order']]},
+    {label:'Sales & Proyek',rows:[['sales','Sales Dashboard'],['kunjungan','Kunjungan'],['projects','Project'],['crm','CRM'],['sales_order','Sales Order'],['package_recipes','Master Paket']]},
     {label:'Keuangan & Pengadaan',rows:[['invoice','Invoice'],['pr','Purchase Request'],['supplier','Supplier']]},
     {label:'Administrasi',rows:[['archive','Arsip'],['users','Manajemen Akun'],['actlog','Activity Log']]}
   ];
