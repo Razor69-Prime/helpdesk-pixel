@@ -233,6 +233,48 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   }
 
 
+  // PXL-URG-0093 — Unified Material Catalog for SO, Master Paket, and Material Request.
+  // Inventory remains the only source of physical stock. Pricelist-only rows are quotation/procurement references.
+  app.get('/api/material-catalog',requireAuth,async(req,res)=>{
+    try{
+      const [inventory,priceRows,mapRows]=await Promise.all([
+        inventoryRows(),
+        sb('GET','/master_pricelist_items?is_active=eq.true&select=source_key,category,brand,item_name,price,source_cell'),
+        sb('GET','/master_pricelist_inventory_map?select=inventory_item_id,source_key,mapping_status')
+      ]);
+      const prices=Array.isArray(priceRows)?priceRows:[];
+      const maps=Array.isArray(mapRows)?mapRows:[];
+      const priceByKey=new Map(prices.map(x=>[String(x.source_key),x]));
+      const mapByInventory=new Map(maps.map(x=>[String(x.inventory_item_id),x]));
+      const usedSources=new Set(maps.map(x=>x.source_key).filter(Boolean).map(String));
+      const items=inventory.map(inv=>{
+        const map=mapByInventory.get(String(inv.id))||null;
+        const price=map?.source_key?priceByKey.get(String(map.source_key))||null:null;
+        const upper=String(inv.name||'').toUpperCase();
+        let recipeCategory='other';
+        if(/\b(DVR|XVR|NVR)\b/.test(upper))recipeCategory='dvr';
+        else if(/\b(RG59|RG6|CABLE|KABEL)\b/.test(upper))recipeCategory='cable';
+        else if(/\b(CAMERA|KAMERA|CCTV|IPC|HAC)\b/.test(upper))recipeCategory='camera';
+        return {
+          id:String(inv.id),inventory_item_id:inv.id,source_type:price?'inventory_pricelist':'inventory',
+          source_status:price?'inventory_pricelist':'inventory_only',source_key:price?.source_key||null,
+          name:inv.name||'',sku:inv.sku||null,barcode:inv.barcode||inv.manufacturer_barcode||null,recipe_category:recipeCategory,
+          product_number:inv.product_number||null,category:inv.category||null,subcategory:inv.subcategory||null,
+          brand:price?.brand||null,unit:inv.unit||'pcs',stock:Number(inv.stock||0),
+          hpp:price?Number(price.price||0):null,hpp_mapped:!!price,inventory_available:true,
+          pricelist_name:price?.item_name||null
+        };
+      });
+      prices.filter(p=>!usedSources.has(String(p.source_key))).forEach(price=>items.push({
+        id:'price:'+String(price.source_key),inventory_item_id:null,source_type:'pricelist',source_status:'pricelist_only',
+        source_key:price.source_key,name:price.item_name||'',sku:null,barcode:null,product_number:null,recipe_category:'other',
+        category:price.category||null,subcategory:null,brand:price.brand||null,unit:'pcs',stock:null,
+        hpp:Number(price.price||0),hpp_mapped:true,inventory_available:false,pricelist_name:price.item_name||''
+      }));
+      res.json({items,inventory_count:inventory.length,pricelist_only_count:items.filter(x=>x.source_status==='pricelist_only').length});
+    }catch(e){apiError(res,e)}
+  });
+
   app.get('/api/master-pricelist/catalog',requireAuth,async(req,res)=>{
     if(!canRead(req))return res.status(403).json({error:'Anda tidak memiliki permission Master Pricelist.'});
     try{
@@ -512,3 +554,5 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
     }catch(e){apiError(res,e)}
   });
 };
+
+[executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
