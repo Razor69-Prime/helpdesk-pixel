@@ -158,7 +158,7 @@
   document.querySelectorAll('script[data-pxl-master-price-so]').forEach(el=>el.remove());
   const bridge=document.createElement('script');
   bridge.dataset.pxlMasterPriceSo='0048B';
-  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0048B';
+  bridge.src='/pxl-urg-0045-master-pricelist-so-bridge.js?v=PXL-URG-0094';
   bridge.onload=()=>{
     // PXL-URG-0058A — ensure Sales Order loads the current drag-safe Pricing Calculator.
     // Loader/version only; Kanban, SO payload, pricing formula, and other procedures unchanged.
