@@ -2080,6 +2080,13 @@ function packagePriceDiffs(packages,catalog){
   }));
   return diffs;
 }
+app.get('/api/inventory/price-status',requireAuth,async(req,res)=>{
+  try{
+    const rows=await loadPackageInventoryCatalog();
+    res.json({items:(rows||[]).map(x=>({inventory_item_id:x.inventory_item_id,has_price:x.hpp_mapped===true}))});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async(req,res)=>{
   try{res.json({items:await loadPackageInventoryCatalog()});}catch(e){res.status(500).json({error:e.message});}
 });
