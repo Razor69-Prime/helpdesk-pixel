@@ -1,9 +1,10 @@
-/* PXL-URG-0091 — Price status highlights across Package/Inventory/Pricelist. */
+/* PXL-URG-0098 — Master Paket Account Management permission. */
 (function(){
   'use strict';
   const TAB='package_recipes',TAB_ID='tab-'+TAB,BTN_ID='pxl-package-recipes-menu',FRAME_ID='package-recipes-frame';
   function appUser(){try{return typeof currentUser!=='undefined'&&currentUser?currentUser:(window.currentUser||null)}catch(_){return window.currentUser||null}}
   function isSuperadmin(){try{return String(appUser()?.role||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin'}catch(_){return false}}
+  function canAccess(){const u=appUser()||{};if(isSuperadmin())return true;const p=new Set(Array.isArray(u.custom_menus)?u.custom_menus.map(String):[]);return p.has('package_recipes')||p.has('package_recipes_view')||p.has('package_recipes_manage')}
   function ensureTab(){
     if(document.getElementById(TAB_ID))return;
     const host=document.getElementById('app-content');if(!host)return;
@@ -12,7 +13,8 @@
     host.appendChild(tab);
   }
   function ensureMenu(){
-    const nav=document.getElementById('main-nav');if(!nav||!isSuperadmin())return;
+    const nav=document.getElementById('main-nav');if(!nav)return;
+    const old=document.getElementById(BTN_ID);if(!canAccess()){old?.remove();return;}
     const group=[...nav.querySelectorAll('.sidebar-group')].find(g=>{
       const title=g.querySelector('.sidebar-group-toggle span');
       return title&&String(title.textContent||'').trim()==='Sales & Proyek';
@@ -28,11 +30,11 @@
     content.appendChild(btn);
   }
   function open(btn){
-    if(!isSuperadmin())return;
+    if(!canAccess())return;
     ensureTab();
     if(typeof window.switchTab==='function')window.switchTab(TAB,btn||document.getElementById(BTN_ID));
     const frame=document.getElementById(FRAME_ID);
-    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0091';frame.dataset.loaded='1';}
+    if(frame&&!frame.dataset.loaded){frame.src='/package-recipes.html?v=PXL-URG-0098';frame.dataset.loaded='1';}
     try{if(frame&&typeof window.sendModuleToken==='function')window.sendModuleToken(frame)}catch(_){}
   }
   function apply(){
