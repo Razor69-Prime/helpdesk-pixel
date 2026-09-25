@@ -2087,17 +2087,30 @@ app.get('/api/inventory/price-status',requireAuth,async(req,res)=>{
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-app.get('/api/package-recipes/inventory-catalog',requireRole('superadmin'),async(req,res)=>{
+function packageRecipesCanAccess(req){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(role==='superadmin')return true;
+  const perms=new Set([...(Array.isArray(user.custom_menus)?user.custom_menus:[]),...(Array.isArray(user.extra_roles)?user.extra_roles:[])].map(String));
+  return perms.has('package_recipes')||perms.has('package_recipes_view')||perms.has('package_recipes_manage');
+}
+function requirePackageRecipes(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(!packageRecipesCanAccess(req))return res.status(403).json({error:'Tidak memiliki akses Master Paket.'});
+  next();
+}
+
+app.get('/api/package-recipes/inventory-catalog',requirePackageRecipes,async(req,res)=>{
   try{res.json({items:await loadPackageInventoryCatalog()});}catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/package-recipes/hpp-refresh-preview',requireRole('superadmin'),async(req,res)=>{
+app.get('/api/package-recipes/hpp-refresh-preview',requirePackageRecipes,async(req,res)=>{
   try{
     const [packages,catalog]=await Promise.all([db.getPackageRecipes(),loadPackageInventoryCatalog()]);
     const changes=packagePriceDiffs(packages,catalog);
     res.json({changes,package_count:new Set(changes.map(x=>x.package_id)).size,item_count:changes.length});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/package-recipes/hpp-refresh-apply',requireRole('superadmin'),async(req,res)=>{
+app.post('/api/package-recipes/hpp-refresh-apply',requirePackageRecipes,async(req,res)=>{
   try{
     const [packages,catalog]=await Promise.all([db.getPackageRecipes(),loadPackageInventoryCatalog()]);
     const changes=packagePriceDiffs(packages,catalog);
@@ -2120,21 +2133,21 @@ app.post('/api/package-recipes/hpp-refresh-apply',requireRole('superadmin'),asyn
   }catch(e){res.status(500).json({error:e.message});}
 });
 
-app.get('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
+app.get('/api/package-recipes',requirePackageRecipes,async(req,res)=>{
   try{
     const rows=await db.getPackageRecipes();
     res.json((rows||[]).map(row=>({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])})));
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+app.get('/api/package-recipes/:id',requirePackageRecipes,async(req,res)=>{
   try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});}
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/package-recipes/validate',requireRole('superadmin'),async(req,res)=>{
+app.post('/api/package-recipes/validate',requirePackageRecipes,async(req,res)=>{
   try{const items=normalizePackageItems(req.body?.items);const recipe={ppn_percent:req.body?.ppn_percent,package_price:req.body?.package_price,discount_percent:req.body?.discount_percent};res.json({pricing:packagePricing(recipe,items),validation:validatePackageRecipe(recipe,items)});}
   catch(e){res.status(400).json({error:e.message});}
 });
-app.post('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
+app.post('/api/package-recipes',requirePackageRecipes,async(req,res)=>{
   try{
     const parsed=packagePayload(req.body,req.session.user,null);
     const row=await db.insertPackageRecipe({...parsed.recipe,package_code:await nextPackageCode()},parsed.items);
@@ -2142,7 +2155,7 @@ app.post('/api/package-recipes',requireRole('superadmin'),async(req,res)=>{
     res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
 });
-app.patch('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+app.patch('/api/package-recipes/:id',requirePackageRecipes,async(req,res)=>{
   try{
     const existing=await db.getPackageRecipe(req.params.id);if(!existing)return res.status(404).json({error:'Paket tidak ditemukan.'});
     const parsed=packagePayload(req.body,req.session.user,existing);
@@ -2151,7 +2164,7 @@ app.patch('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
     res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
 });
-app.post('/api/package-recipes/:id/copy',requireRole('superadmin'),async(req,res)=>{
+app.post('/api/package-recipes/:id/copy',requirePackageRecipes,async(req,res)=>{
   try{
     const source=await db.getPackageRecipe(req.params.id);if(!source)return res.status(404).json({error:'Paket sumber tidak ditemukan.'});
     const name=packageText(req.body?.name,200)||source.name+' - Copy';
@@ -2162,7 +2175,7 @@ app.post('/api/package-recipes/:id/copy',requireRole('superadmin'),async(req,res
     res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
 });
-app.delete('/api/package-recipes/:id',requireRole('superadmin'),async(req,res)=>{
+app.delete('/api/package-recipes/:id',requirePackageRecipes,async(req,res)=>{
   try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});await db.deletePackageRecipe(req.params.id);logActivity(req,'package_recipe','HAPUS PAKET',`${row.package_code} · ${row.name}`);res.json({ok:true});}
   catch(e){res.status(500).json({error:e.message});}
 });
