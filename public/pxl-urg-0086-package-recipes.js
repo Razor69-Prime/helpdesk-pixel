@@ -1,4 +1,4 @@
-/* PXL-URG-0098 — Master Paket Account Management permission. */
+/* PXL-URG-0098C — Master Paket permission navigation fix. */
 (function(){
   'use strict';
   const TAB='package_recipes',TAB_ID='tab-'+TAB,BTN_ID='pxl-package-recipes-menu',FRAME_ID='package-recipes-frame';
@@ -38,7 +38,7 @@
     try{if(frame&&typeof window.sendModuleToken==='function')window.sendModuleToken(frame)}catch(_){}
   }
   function apply(){
-    if(!isSuperadmin())return;
+    if(!canAccess()){document.getElementById(BTN_ID)?.remove();return;}
     ensureTab();ensureMenu();
   }
   window.pxlPackageRecipes={open,apply};
