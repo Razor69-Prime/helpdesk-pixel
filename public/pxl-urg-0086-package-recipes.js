@@ -4,7 +4,7 @@
   const TAB='package_recipes',TAB_ID='tab-'+TAB,BTN_ID='pxl-package-recipes-menu',FRAME_ID='package-recipes-frame';
   function appUser(){try{return typeof currentUser!=='undefined'&&currentUser?currentUser:(window.currentUser||null)}catch(_){return window.currentUser||null}}
   function isSuperadmin(){try{return String(appUser()?.role||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin'}catch(_){return false}}
-  function canAccess(){const u=appUser()||{};if(isSuperadmin())return true;const p=new Set(Array.isArray(u.custom_menus)?u.custom_menus.map(String):[]);return p.has('package_recipes')||p.has('package_recipes_view')||p.has('package_recipes_manage')}
+  function canAccess(){const u=appUser()||{};if(isSuperadmin())return true;const p=new Set(Array.isArray(u.custom_menus)?u.custom_menus.map(String):[]);return p.has('package_recipes')||p.has('package_recipes_read')||p.has('package_recipes_write')||p.has('package_recipes_view')||p.has('package_recipes_manage')}
   function ensureTab(){
     if(document.getElementById(TAB_ID))return;
     const host=document.getElementById('app-content');if(!host)return;
