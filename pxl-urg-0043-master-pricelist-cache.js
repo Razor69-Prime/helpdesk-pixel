@@ -554,5 +554,3 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
     }catch(e){apiError(res,e)}
   });
 };
-
-[executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
