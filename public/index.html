@@ -997,6 +997,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
               <div style="font-size:10px;color:var(--muted);margin-top:3px">Hanya akun Admin, Akunting, atau Manager</div>
             </div>
           </div>
+
           <!-- Tabel Material -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
             <div style="font-size:12px;font-weight:700">DAFTAR MATERIAL</div>
@@ -9300,7 +9301,7 @@ function renderMRSearchSuggestions(value){
   const box=document.getElementById('mr-search-results');if(!box)return;
   const q=String(value||'').trim();if(!q){box.style.display='none';box.innerHTML='';return}
   const matches=findMRInventoryMatches(q);
-  box.innerHTML=matches.length?matches.slice(0,12).map(i=>{const po=i.inventory_available===false;const bg=po?'#eef5ff':(i.hpp_mapped?'#eef7e7':'#fff6dc');const border=po?'#4388c9':(i.hpp_mapped?'#7aaa45':'#d1a12b');return `<div onclick="selectMRSearchItem('${String(i.id).replace(/'/g,"\'")}')" style="padding:9px 11px;border-bottom:1px solid var(--border);border-left:4px solid ${border};background:${bg};cursor:pointer"><b>${String(i.name||'').replace(/</g,'&lt;')}</b><div style="font-size:10px;color:var(--muted)">${po?'🔵 Master Pricelist · Belum Inventory · HPP '+rp(i.hpp||0):('SKU: '+(i.sku||'-')+' · Stok: '+Number(i.stock)+' '+(i.unit||'pcs')+(i.hpp_mapped?' · HPP '+rp(i.hpp||0):' · HPP belum ada'))}</div></div>`}).join(''):'<div style="padding:10px;color:var(--muted)">Item tidak ditemukan.</div>';
+  box.innerHTML=matches.length?matches.slice(0,12).map(i=>{const po=i.inventory_available===false;const bg=po?'#eef5ff':(i.hpp_mapped?'#eef7e7':'#fff6dc');const border=po?'#4388c9':(i.hpp_mapped?'#7aaa45':'#d1a12b');return `<div onclick="selectMRSearchItem('${String(i.id).replace(/'/g,"\\'")}')" style="padding:9px 11px;border-bottom:1px solid var(--border);border-left:4px solid ${border};background:${bg};cursor:pointer"><b>${String(i.name||'').replace(/</g,'&lt;')}</b><div style="font-size:10px;color:var(--muted)">${po?'🔵 Master Pricelist · Belum Inventory · HPP '+rp(i.hpp||0):('SKU: '+(i.sku||'-')+' · Stok: '+Number(i.stock)+' '+(i.unit||'pcs')+(i.hpp_mapped?' · HPP '+rp(i.hpp||0):' · HPP belum ada'))}</div></div>`}).join(''):'<div style="padding:10px;color:var(--muted)">Item tidak ditemukan.</div>';
   box.style.display='block';
 }
 function selectMRSearchItem(id){const item=mrInventoryItems.find(i=>String(i.id)===String(id));if(!item)return;addMRInventoryItem(item);const input=document.getElementById('mr-sku-input');input.value='';document.getElementById('mr-search-results').style.display='none';input.focus()}
