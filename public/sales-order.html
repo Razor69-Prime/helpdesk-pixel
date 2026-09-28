@@ -53,9 +53,18 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
       <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
       <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
 
+      <div class="full" style="border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff8f1">
+        <div style="display:grid;grid-template-columns:180px minmax(240px,1fr) auto;gap:8px;align-items:end">
+          <div><label>Sumber Item</label><select id="itemSource"><option value="inventory">Inventory / Manual</option><option value="master_package">Master Paket</option></select></div>
+          <div><label>Pilih Master Paket</label><select id="masterPackageSelect" disabled><option value="">Pilih paket...</option></select></div>
+          <button class="btn primary" id="applyMasterPackageBtn" type="button" disabled>Gunakan Master Paket</button>
+        </div>
+        <div class="sub" id="masterPackageNote" style="margin-top:6px">Inventory / Manual: tambahkan material dan jasa seperti biasa.</div>
+      </div>
+
       <div class="full line-section">
         <div class="toolbar">
-          <div><b class="section-title">A. Material / Barang</b><div class="sub">Wajib dipilih dari Inventory. Material akan tersedia pada Form Material Request.</div></div>
+          <div><b class="section-title">A. Material / Barang</b><div class="sub">Material Inventory masuk Material Request. Item Master Paket yang belum terhubung Inventory tetap bisa masuk SO, tetapi tidak masuk Material Request.</div></div>
           <button class="btn" id="addMaterialBtn" type="button">Tambah Material</button>
         </div>
         <div class="items" id="materialItems"></div>
@@ -101,7 +110,7 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
 <script>
 let runtimeToken = '';
 let D = { sales_orders: [] };
-let OPT = { sales_users: [], inventory_items: [], can_approve: false, can_issue:false, current_user:null };
+let OPT = { sales_users: [], inventory_items: [], package_recipes: [], can_approve: false, can_issue:false, current_user:null };
 let MASTER_HPP_BY_ID = new Map();
 let editId = null;
 
@@ -202,6 +211,35 @@ function resolveSalesOrderInventorySelection(items, ref = {}) {
   return hit || null;
 }
 
+function salesOrderItemsFromPackage(pkg) {
+  const out = { materials: [], services: [], costs: [] };
+  const packageId = pkg?.id || null;
+  const packageName = pkg?.name || '';
+  (Array.isArray(pkg?.items) ? pkg.items : []).forEach(item => {
+    const type = String(item.item_type || 'material').toLowerCase();
+    const hpp = numberValue(item.hpp_unit);
+    const markup = numberValue(item.markup_percent);
+    const line = {
+      inventory_item_id: item.inventory_item_id || null,
+      item_name: item.item_name || item.name || '',
+      name: item.item_name || item.name || '',
+      qty: numberValue(item.qty || 1),
+      unit: item.unit || (type === 'service' ? 'jasa' : 'pcs'),
+      unit_price: hpp * (1 + markup / 100),
+      hpp_reference: hpp,
+      markup_percent: markup,
+      source_type: 'master_package',
+      package_id: packageId,
+      package_item_id: item.id || null,
+      package_name: packageName
+    };
+    if (type === 'service' || type === 'jasa') out.services.push(line);
+    else if (type === 'cost') out.costs.push(line);
+    else out.materials.push(line);
+  });
+  return out;
+}
+
 function inventoryMatches(query) {
   const value = String(query || '').trim().toLowerCase();
   if (!value) return OPT.inventory_items.slice(0, 20);
@@ -272,12 +310,17 @@ function addMaterial(data = {}) {
   row.dataset.sourceType = selected?.source_type || (data.inventory_item_id?'inventory':'');
   row.dataset.sourceKey = selected?.source_key || data.source_key || '';
   row.dataset.sku = selected?.sku || data.sku || '';
+  row.dataset.packageId = data.package_id || '';
+  row.dataset.packageItemId = data.package_item_id || '';
+  row.dataset.packageName = data.package_name || '';
+  row.dataset.hppReference = data.hpp_reference ?? data.hpp_unit ?? '';
+  if (data.source_type === 'master_package') row.dataset.sourceType = 'master_package';
   row.innerHTML = `
     <div class="wide item-picker">
       <label>Cari Nama Material / SKU</label>
       <input class="item-search" autocomplete="off" placeholder="Ketik nama atau SKU..." value="${esc(selected?.name || data.item_name || data.name || '')}">
       <div class="item-results"></div>
-      <div class="selected-item">${selected ? `Dipilih: ${esc(selected.name)}${selected.sku ? ' · ' + esc(selected.sku) : ''} · stok ${numberValue(selected.stock)} ${esc(selected.unit || 'pcs')}` : ''}</div>
+      <div class="selected-item">${selected ? `Dipilih: ${esc(selected.name)}${selected.sku ? ' · ' + esc(selected.sku) : ''} · stok ${numberValue(selected.stock)} ${esc(selected.unit || 'pcs')}` : (data.source_type==='master_package' ? `Master Paket: ${esc(data.package_name||'')} · ${data.inventory_item_id?'terhubung Inventory':'belum Inventory'}` : '')}</div>
     </div>
     <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
     <div><label>Satuan</label><input class="unit" value="${esc(data.unit || selected?.unit || 'pcs')}" readonly></div>
@@ -309,6 +352,10 @@ function addService(data = {}) {
   container.querySelector('.empty-hint')?.remove();
   const row = document.createElement('div');
   row.className = 'line-row service-row';
+  row.dataset.sourceType = data.source_type || '';
+  row.dataset.packageId = data.package_id || '';
+  row.dataset.packageItemId = data.package_item_id || '';
+  row.dataset.packageName = data.package_name || '';
   row.innerHTML = `
     <div class="wide"><label>Nama Jasa / Pekerjaan</label><input class="service-name" placeholder="Contoh: Jasa instalasi CCTV" value="${esc(data.item_name || data.name || '')}"></div>
     <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
@@ -319,6 +366,41 @@ function addService(data = {}) {
   bindLineEvents(row);
   container.appendChild(row);
   updateTotals();
+}
+
+function renderMasterPackageOptions() {
+  const select = byId('masterPackageSelect');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = '<option value="">Pilih paket...</option>' + (OPT.package_recipes || []).map(pkg =>
+    `<option value="${esc(pkg.id)}">${esc(pkg.package_code || '')} · ${esc(pkg.name || '')}</option>`
+  ).join('');
+  if ([...select.options].some(o => o.value === current)) select.value = current;
+}
+
+function syncItemSourceUI() {
+  const isPackage = byId('itemSource')?.value === 'master_package';
+  if (byId('masterPackageSelect')) byId('masterPackageSelect').disabled = !isPackage;
+  if (byId('applyMasterPackageBtn')) byId('applyMasterPackageBtn').disabled = !isPackage || !byId('masterPackageSelect')?.value;
+  if (byId('masterPackageNote')) byId('masterPackageNote').textContent = isPackage
+    ? 'Pilih paket untuk auto-fill Material dan Jasa. Item masih bisa ditambah, diubah, atau dihapus manual.'
+    : 'Inventory / Manual: tambahkan material dan jasa seperti biasa.';
+}
+
+function applyMasterPackageToSO() {
+  const id = byId('masterPackageSelect')?.value || '';
+  const pkg = (OPT.package_recipes || []).find(x => String(x.id) === String(id));
+  if (!pkg) return;
+  const mapped = salesOrderItemsFromPackage(pkg);
+  mapped.materials.forEach(addMaterial);
+  mapped.services.forEach(addService);
+  updateEmptyHints();
+  updateTotals();
+  const missing = mapped.materials.filter(x => !x.inventory_item_id).length;
+  const notes = [`${mapped.materials.length} material`, `${mapped.services.length} jasa`];
+  if (missing) notes.push(`${missing} material belum Inventory`);
+  if (mapped.costs.length) notes.push(`${mapped.costs.length} cost tidak dimasukkan ke Material/Jasa`);
+  msg(`Master Paket ${pkg.name} ditambahkan: ${notes.join(' · ')}`);
 }
 
 function updateEmptyHints() {
@@ -390,23 +472,28 @@ function collect() {
       row.dataset.sourceKey = inventory.source_key || '';
       row.dataset.sku = inventory.sku || '';
     }
+    const packageMaterial = row.dataset.sourceType === 'master_package' || !!row.dataset.packageId;
     if (!typedName && !inventory) return;
-    if (!inventory) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
+    if (!inventory && !packageMaterial) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
     const qty = numberValue(row.querySelector('.qty')?.value);
-    if (qty <= 0) throw new Error(`Qty material ${inventory.name} harus lebih dari 0.`);
+    const materialName = inventory?.name || typedName;
+    if (qty <= 0) throw new Error(`Qty material ${materialName} harus lebih dari 0.`);
     items.push({
-      inventory_item_id: inventory.inventory_item_id || null,
-      source_type: inventory.source_type || 'inventory',
-      source_key: inventory.source_key || null,
-      name: inventory.name || '',
-      item_name: inventory.name || '',
-      sku: inventory.sku || null,
+      inventory_item_id: inventory?.inventory_item_id || row.dataset.inventoryId || null,
+      source_type: packageMaterial ? 'master_package' : (inventory?.source_type || 'inventory'),
+      source_key: inventory?.source_key || row.dataset.sourceKey || null,
+      package_id: row.dataset.packageId || null,
+      package_item_id: row.dataset.packageItemId || null,
+      package_name: row.dataset.packageName || null,
+      name: materialName || '',
+      item_name: materialName || '',
+      sku: inventory?.sku || row.dataset.sku || null,
       qty,
-      unit: row.querySelector('.unit')?.value || inventory.unit || 'pcs',
+      unit: row.querySelector('.unit')?.value || inventory?.unit || 'pcs',
       unit_price: numberValue(row.querySelector('.price')?.value),
       item_type: 'item',
-      stock_at_select: inventory.inventory_available===false ? null : (inventory.stock ?? null),
-      hpp_reference: inventory.hpp ?? null
+      stock_at_select: inventory ? (inventory.inventory_available===false ? null : (inventory.stock ?? null)) : null,
+      hpp_reference: inventory?.hpp ?? (numberValue(row.dataset.hppReference || 0) || null)
     });
   });
 
@@ -422,7 +509,11 @@ function collect() {
       qty,
       unit: row.querySelector('.unit')?.value.trim() || 'jasa',
       unit_price: numberValue(row.querySelector('.price')?.value),
-      item_type: 'service'
+      item_type: 'service',
+      source_type: row.dataset.sourceType || null,
+      package_id: row.dataset.packageId || null,
+      package_item_id: row.dataset.packageItemId || null,
+      package_name: row.dataset.packageName || null
     });
   });
 
@@ -583,20 +674,24 @@ function render() {
 
 async function load() {
   try {
-    const [options, report, unified] = await Promise.all([
+    const [options, report, unified, packages] = await Promise.all([
       api('GET', '/api/sales-orders/options'),
       api('GET', '/api/crm/report'),
-      api('GET', '/api/material-catalog').catch(() => ({ items: [] }))
+      api('GET', '/api/material-catalog').catch(() => ({ items: [] })),
+      api('GET', '/api/sales-orders/package-recipes').catch(() => ({ items: [] }))
     ]);
     const unifiedItems=Array.isArray(unified.items)&&unified.items.length?unified.items:(Array.isArray(options.inventory_items)?options.inventory_items.map(x=>({...x,inventory_item_id:x.id,source_type:'inventory',source_status:'inventory_only',inventory_available:true,hpp:null,hpp_mapped:false})):[]);
     MASTER_HPP_BY_ID = new Map(unifiedItems.filter(x=>x.inventory_item_id).map(x=>[String(x.inventory_item_id),{price:x.hpp}]));
     OPT = {
       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
       inventory_items: unifiedItems,
+      package_recipes: Array.isArray(packages.items) ? packages.items : [],
       can_approve: options.can_approve === true,
       can_issue: options.can_issue === true,
       current_user: options.current_user || null
     };
+    renderMasterPackageOptions();
+    syncItemSourceUI();
     D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
     const salesPic = byId('salesPic');
     if (salesPic) {
@@ -627,6 +722,9 @@ byId('soSearch')?.addEventListener('input', render);
 byId('soSearchClear')?.addEventListener('click', () => { if(byId('soSearch')) byId('soSearch').value=''; render(); byId('soSearch')?.focus(); });
 byId('resetBtn')?.addEventListener('click', reset);
 byId('saveBtn')?.addEventListener('click', save);
+byId('itemSource')?.addEventListener('change', syncItemSourceUI);
+byId('masterPackageSelect')?.addEventListener('change', syncItemSourceUI);
+byId('applyMasterPackageBtn')?.addEventListener('click', applyMasterPackageToSO);
 byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
 byId('addServiceBtn')?.addEventListener('click', () => addService());
 
