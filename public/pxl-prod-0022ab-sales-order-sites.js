@@ -1,4 +1,3 @@
-/* PXL-PROD-0022A/0022B — Sales Order Site Structure + Copy Site + Site Template */
 (function(){
   'use strict';
 
@@ -107,8 +106,14 @@
         })
       : (getOPT().inventory_items||[]).find(x=>String(x.inventory_item_id||x.id||'')===String(id));
     if(!typed && !inventory) return null;
+    const packageMaterial=row.dataset.sourceType==='master_package'||!!row.dataset.packageId;
     return {
       inventory_item_id: inventory?.inventory_item_id || inventory?.id || id || null,
+      source_type:packageMaterial?'master_package':(inventory?.source_type||'inventory'),
+      source_key:inventory?.source_key||row.dataset.sourceKey||null,
+      package_id:row.dataset.packageId||null,
+      package_item_id:row.dataset.packageItemId||null,
+      package_name:row.dataset.packageName||null,
       name: inventory?.name || typed,
       item_name: inventory?.name || typed,
       sku: inventory?.sku || row.dataset.sku || null,
@@ -134,6 +139,10 @@
       unit:row.querySelector('.unit')?.value?.trim()||'jasa',
       unit_price:num(row.querySelector('.price')?.value),
       item_type:'service',
+      source_type:row.dataset.sourceType||null,
+      package_id:row.dataset.packageId||null,
+      package_item_id:row.dataset.packageItemId||null,
+      package_name:row.dataset.packageName||null,
       ppn_applied: row.dataset.ppnApplied==='1',
       ppn_rate: row.dataset.ppnApplied==='1' ? num(row.dataset.ppnRate) : 0,
       ppn_amount: row.dataset.ppnApplied==='1' ? (num(row.querySelector('.qty')?.value)*num(row.querySelector('.price')?.value)*num(row.dataset.ppnRate)/100) : 0
@@ -249,7 +258,8 @@
     for(const x of items){
       if(!x.name || num(x.qty)<=0) throw new Error(`Item pada ${x.site_name} belum lengkap atau Qty tidak valid.`);
       const service=['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase());
-      if(!service && !x.inventory_item_id) throw new Error(`Material “${x.name}” pada ${x.site_name} wajib dipilih dari Inventory.`);
+      const packageMaterial=String(x.source_type||'').toLowerCase()==='master_package'&&!!x.package_id;
+      if(!service && !x.inventory_item_id && !packageMaterial) throw new Error(`Material “${x.name}” pada ${x.site_name} wajib dipilih dari Inventory.`);
     }
   }
 
