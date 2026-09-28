@@ -163,6 +163,43 @@ function esc(value) {
   }[char]));
 }
 
+function normalizeMaterialLookup(value) {
+  return String(value || '').toLowerCase().replace(/\b(kamera)\b/g, 'camera').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function resolveSalesOrderInventorySelection(items, ref = {}) {
+  const list = Array.isArray(items) ? items : [];
+  const catalogId = String(ref.catalogId || '');
+  const inventoryId = String(ref.inventoryId || '');
+  const sku = normalizeMaterialLookup(ref.sku);
+  const name = normalizeMaterialLookup(ref.name);
+  let hit = catalogId ? list.find(item => String(item.id || '') === catalogId) : null;
+  if (!hit && inventoryId) hit = list.find(item => String(item.inventory_item_id || item.id || '') === inventoryId);
+  if (!hit && sku) hit = list.find(item => normalizeMaterialLookup(item.sku) === sku);
+  if (!hit && name) hit = list.find(item => normalizeMaterialLookup(item.name) === name);
+  if (hit || !name) return hit || null;
+
+  const queryTokens = name.split(' ').filter(Boolean);
+  const modelTokens = queryTokens.filter(token => /[a-z]/.test(token) && /\d/.test(token) && token.length >= 4);
+  if (modelTokens.length) {
+    const modelHits = list.filter(item => {
+      const tokens = new Set(normalizeMaterialLookup([item.name,item.sku,item.product_number,item.pricelist_name].filter(Boolean).join(' ')).split(' '));
+      return modelTokens.some(token => tokens.has(token));
+    });
+    if (modelHits.length === 1) return modelHits[0];
+  }
+
+  if (queryTokens.length >= 2) {
+    const fuzzyHits = list.filter(item => {
+      const tokens = new Set(normalizeMaterialLookup(item.name).split(' ').filter(Boolean));
+      const matched = queryTokens.filter(token => tokens.has(token)).length;
+      return matched / queryTokens.length >= 0.75;
+    });
+    if (fuzzyHits.length === 1) return fuzzyHits[0];
+  }
+  return null;
+}
+
 function inventoryMatches(query) {
   const value = String(query || '').trim().toLowerCase();
   if (!value) return OPT.inventory_items.slice(0, 20);
@@ -338,7 +375,19 @@ function collect() {
 
   document.querySelectorAll('.material-row').forEach(row => {
     const typedName = row.querySelector('.item-search')?.value.trim() || '';
-    const inventory = OPT.inventory_items.find(item => String(item.id) === String(row.dataset.catalogId || '')) || OPT.inventory_items.find(item => String(item.inventory_item_id||'') === String(row.dataset.inventoryId || ''));
+    const inventory = resolveSalesOrderInventorySelection(OPT.inventory_items, {
+      catalogId: row.dataset.catalogId,
+      inventoryId: row.dataset.inventoryId,
+      sku: row.dataset.sku,
+      name: typedName
+    });
+    if (inventory) {
+      row.dataset.inventoryId = inventory.inventory_item_id || '';
+      row.dataset.catalogId = inventory.id || '';
+      row.dataset.sourceType = inventory.source_type || 'inventory';
+      row.dataset.sourceKey = inventory.source_key || '';
+      row.dataset.sku = inventory.sku || '';
+    }
     if (!typedName && !inventory) return;
     if (!inventory) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
     const qty = numberValue(row.querySelector('.qty')?.value);
