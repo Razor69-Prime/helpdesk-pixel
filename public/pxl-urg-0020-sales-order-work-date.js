@@ -142,8 +142,18 @@
     return wrap.querySelector('#pxlGoogleMapsUrl');
   }
 
+  function resetPackageLauncher(row){
+    row.dataset.packageLauncher='0';
+    row.querySelector('.pxl-master-package-picker')?.remove();
+    const input=row.querySelector('.item-search'),selected=row.querySelector('.selected-item');
+    if(input)input.style.display='';
+    if(selected)selected.style.display='';
+    [...row.children].forEach(el=>{if(!el.classList.contains('wide'))el.style.display='';});
+  }
+
   function setMode(row,manual){
     if(!row)return;
+    resetPackageLauncher(row);
     row.dataset.manualMaterial=manual?'1':'0';
     const source=row.querySelector('.pxl-material-source');
     if(source)source.value=manual?'manual':'inventory';
@@ -163,6 +173,49 @@
     }
   }
 
+  function setPackageItemMode(row,data={}){
+    resetPackageLauncher(row);
+    row.dataset.manualMaterial='0';
+    const source=row.querySelector('.pxl-material-source');
+    if(source)source.value='master_package';
+    const input=row.querySelector('.item-search');
+    const label=input?.closest('.item-picker')?.querySelector('label');
+    const selected=row.querySelector('.selected-item');
+    if(label)label.textContent='Material dari Master Paket';
+    if(input)input.placeholder='Nama item Master Paket';
+    if(selected){
+      selected.style.color='#6b4a22';
+      if(!selected.textContent)selected.textContent='Master Paket: '+String(data.package_name||'-')+(data.inventory_item_id?' · terhubung Inventory':' · belum Inventory');
+    }
+  }
+
+  function showPackagePicker(row){
+    if(!row)return;
+    resetPackageLauncher(row);
+    row.dataset.manualMaterial='0';
+    row.dataset.packageLauncher='1';
+    const source=row.querySelector('.pxl-material-source');
+    if(source)source.value='master_package';
+    const picker=row.querySelector('.item-picker'),input=row.querySelector('.item-search'),selected=row.querySelector('.selected-item');
+    const label=picker?.querySelector('label');
+    if(label)label.textContent='Pilih Master Paket';
+    if(input)input.style.display='none';
+    if(selected)selected.style.display='none';
+    row.querySelector('.item-results')?.classList.remove('open');
+    [...row.children].forEach(el=>{if(!el.classList.contains('wide'))el.style.display='none';});
+    const box=document.createElement('div');
+    box.className='pxl-master-package-picker';
+    box.style.cssText='display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:7px;margin-top:2px';
+    const select=document.createElement('select');
+    select.innerHTML='<option value="">Pilih paket...</option>';
+    (window.getSalesOrderPackageRecipes?.()||[]).forEach(pkg=>{const o=document.createElement('option');o.value=String(pkg.id||'');o.textContent=(pkg.package_code?pkg.package_code+' · ':'')+String(pkg.name||'');select.appendChild(o);});
+    const button=document.createElement('button');
+    button.type='button';button.className='btn primary';button.textContent='Gunakan Master Paket';
+    button.onclick=()=>{if(!select.value)return window.toast?.('Pilih Master Paket terlebih dahulu.');if(typeof window.applySalesOrderMasterPackage!=='function')return window.toast?.('Master Paket belum siap. Muat ulang halaman.');window.applySalesOrderMasterPackage(select.value,row);};
+    box.append(select,button);
+    picker?.insertBefore(box,input);
+  }
+
   function enhance(row,data={}){
     if(!row||row.dataset.pxl0021c==='1')return;
     const picker=row.querySelector('.item-picker');
@@ -171,13 +224,15 @@
     const source=document.createElement('select');
     source.className='pxl-material-source';
     source.style.cssText='margin-bottom:6px;width:100%;padding:7px 9px;border:1px solid #e4e1d8;border-radius:8px;background:#fff';
-    source.innerHTML='<option value="inventory">Pilih dari Inventory</option><option value="manual">Input Manual</option>';
+    source.innerHTML='<option value="inventory">Pilih dari Inventory</option><option value="manual">Input Manual</option><option value="master_package">Master Paket</option>';
     const input=picker.querySelector('.item-search');
     picker.insertBefore(source,input);
-    setMode(row,data?.manual_material===true||String(data?.inventory_item_id||'').startsWith(MANUAL_PREFIX));
-    source.addEventListener('change',()=>setMode(row,source.value==='manual'));
-    input?.addEventListener('focus',e=>{if(row.dataset.manualMaterial==='1'){e.stopImmediatePropagation();row.querySelector('.item-results')?.classList.remove('open');}},true);
-    input?.addEventListener('input',e=>{if(row.dataset.manualMaterial==='1'){e.stopImmediatePropagation();row.querySelector('.item-results')?.classList.remove('open');}},true);
+    const isPackage=String(data?.source_type||'')==='master_package'&&!!data?.package_id;
+    if(isPackage)setPackageItemMode(row,data);
+    else setMode(row,data?.manual_material===true||String(data?.inventory_item_id||'').startsWith(MANUAL_PREFIX));
+    source.addEventListener('change',()=>{if(source.value==='master_package')showPackagePicker(row);else setMode(row,source.value==='manual');});
+    input?.addEventListener('focus',e=>{if(row.dataset.manualMaterial==='1'||row.dataset.packageLauncher==='1'){e.stopImmediatePropagation();row.querySelector('.item-results')?.classList.remove('open');}},true);
+    input?.addEventListener('input',e=>{if(row.dataset.manualMaterial==='1'||row.dataset.packageLauncher==='1'){e.stopImmediatePropagation();row.querySelector('.item-results')?.classList.remove('open');}},true);
   }
 
   function install(){
