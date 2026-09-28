@@ -53,15 +53,6 @@ td{padding:9px;border-top:1px solid #efede7;white-space:nowrap}.badge{padding:3p
       <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
       <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
 
-      <div class="full" style="border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff8f1">
-        <div style="display:grid;grid-template-columns:180px minmax(240px,1fr) auto;gap:8px;align-items:end">
-          <div><label>Sumber Item</label><select id="itemSource"><option value="inventory">Inventory / Manual</option><option value="master_package">Master Paket</option></select></div>
-          <div><label>Pilih Master Paket</label><select id="masterPackageSelect" disabled><option value="">Pilih paket...</option></select></div>
-          <button class="btn primary" id="applyMasterPackageBtn" type="button" disabled>Gunakan Master Paket</button>
-        </div>
-        <div class="sub" id="masterPackageNote" style="margin-top:6px">Inventory / Manual: tambahkan material dan jasa seperti biasa.</div>
-      </div>
-
       <div class="full line-section">
         <div class="toolbar">
           <div><b class="section-title">A. Material / Barang</b><div class="sub">Material Inventory masuk Material Request. Item Master Paket yang belum terhubung Inventory tetap bisa masuk SO, tetapi tidak masuk Material Request.</div></div>
@@ -368,29 +359,14 @@ function addService(data = {}) {
   updateTotals();
 }
 
-function renderMasterPackageOptions() {
-  const select = byId('masterPackageSelect');
-  if (!select) return;
-  const current = select.value;
-  select.innerHTML = '<option value="">Pilih paket...</option>' + (OPT.package_recipes || []).map(pkg =>
-    `<option value="${esc(pkg.id)}">${esc(pkg.package_code || '')} · ${esc(pkg.name || '')}</option>`
-  ).join('');
-  if ([...select.options].some(o => o.value === current)) select.value = current;
+function getSalesOrderPackageRecipes() {
+  return Array.isArray(OPT.package_recipes) ? OPT.package_recipes : [];
 }
 
-function syncItemSourceUI() {
-  const isPackage = byId('itemSource')?.value === 'master_package';
-  if (byId('masterPackageSelect')) byId('masterPackageSelect').disabled = !isPackage;
-  if (byId('applyMasterPackageBtn')) byId('applyMasterPackageBtn').disabled = !isPackage || !byId('masterPackageSelect')?.value;
-  if (byId('masterPackageNote')) byId('masterPackageNote').textContent = isPackage
-    ? 'Pilih paket untuk auto-fill Material dan Jasa. Item masih bisa ditambah, diubah, atau dihapus manual.'
-    : 'Inventory / Manual: tambahkan material dan jasa seperti biasa.';
-}
-
-function applyMasterPackageToSO() {
-  const id = byId('masterPackageSelect')?.value || '';
-  const pkg = (OPT.package_recipes || []).find(x => String(x.id) === String(id));
-  if (!pkg) return;
+function applySalesOrderMasterPackage(id, launcherRow = null) {
+  const pkg = getSalesOrderPackageRecipes().find(x => String(x.id) === String(id));
+  if (!pkg) return false;
+  if (launcherRow?.remove) launcherRow.remove();
   const mapped = salesOrderItemsFromPackage(pkg);
   mapped.materials.forEach(addMaterial);
   mapped.services.forEach(addService);
@@ -400,8 +376,11 @@ function applyMasterPackageToSO() {
   const notes = [`${mapped.materials.length} material`, `${mapped.services.length} jasa`];
   if (missing) notes.push(`${missing} material belum Inventory`);
   if (mapped.costs.length) notes.push(`${mapped.costs.length} cost tidak dimasukkan ke Material/Jasa`);
-  msg(`Master Paket ${pkg.name} ditambahkan: ${notes.join(' · ')}`);
+  toast(`Master Paket ${pkg.name} ditambahkan: ${notes.join(' · ')}`);
+  return true;
 }
+window.getSalesOrderPackageRecipes = getSalesOrderPackageRecipes;
+window.applySalesOrderMasterPackage = applySalesOrderMasterPackage;
 
 function updateEmptyHints() {
   const materialContainer = byId('materialItems');
@@ -690,8 +669,6 @@ async function load() {
       can_issue: options.can_issue === true,
       current_user: options.current_user || null
     };
-    renderMasterPackageOptions();
-    syncItemSourceUI();
     D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
     const salesPic = byId('salesPic');
     if (salesPic) {
@@ -722,9 +699,6 @@ byId('soSearch')?.addEventListener('input', render);
 byId('soSearchClear')?.addEventListener('click', () => { if(byId('soSearch')) byId('soSearch').value=''; render(); byId('soSearch')?.focus(); });
 byId('resetBtn')?.addEventListener('click', reset);
 byId('saveBtn')?.addEventListener('click', save);
-byId('itemSource')?.addEventListener('change', syncItemSourceUI);
-byId('masterPackageSelect')?.addEventListener('change', syncItemSourceUI);
-byId('applyMasterPackageBtn')?.addEventListener('click', applyMasterPackageToSO);
 byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
 byId('addServiceBtn')?.addEventListener('click', () => addService());
 
