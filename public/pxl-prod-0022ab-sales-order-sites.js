@@ -97,11 +97,18 @@
 
   function rowToMaterial(row){
     const id=row.dataset.inventoryId||'';
-    const inventory=(getOPT().inventory_items||[]).find(x=>String(x.id)===String(id));
     const typed=row.querySelector('.item-search')?.value?.trim()||'';
+    const inventory=typeof window.resolveSalesOrderInventorySelection==='function'
+      ? window.resolveSalesOrderInventorySelection(getOPT().inventory_items||[],{
+          catalogId:row.dataset.catalogId,
+          inventoryId:id,
+          sku:row.dataset.sku,
+          name:typed
+        })
+      : (getOPT().inventory_items||[]).find(x=>String(x.inventory_item_id||x.id||'')===String(id));
     if(!typed && !inventory) return null;
     return {
-      inventory_item_id: inventory?.id || id || null,
+      inventory_item_id: inventory?.inventory_item_id || inventory?.id || id || null,
       name: inventory?.name || typed,
       item_name: inventory?.name || typed,
       sku: inventory?.sku || row.dataset.sku || null,
