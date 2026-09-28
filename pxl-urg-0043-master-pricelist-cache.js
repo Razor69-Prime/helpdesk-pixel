@@ -151,10 +151,27 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
     if(!b||b==='LAINNYA')return false;
     return normalizeName(invName).includes(b.replace(/[^A-Z0-9]+/g,' '));
   }
+  function autoPairHardConflict(a,b){
+    const parse=v=>{
+      const raw=String(v||'').toUpperCase();
+      const resolution=(raw.match(/\b(\d{1,2})\s*MP\b/)||[])[1]||null;
+      const location=/\bINDOOR\b/.test(raw)?'INDOOR':(/\bOUTDOOR\b/.test(raw)?'OUTDOOR':null);
+      const parts=raw.replace(/[^A-Z0-9]+/g,' ').split(/\s+/).filter(Boolean);
+      const models=[...new Set(parts.filter(x=>/[A-Z]/.test(x)&&/\d/.test(x)&&x.length>=3&&!/^\d+(?:MP|GB|TB|CH|PORT|V|A|W|M|MM|INCH)$/.test(x)))];
+      return {resolution,location,models};
+    };
+    const x=parse(a),y=parse(b);
+    if(x.resolution&&y.resolution&&x.resolution!==y.resolution)return true;
+    if(x.location&&y.location&&x.location!==y.location)return true;
+    if(x.models.length&&y.models.length&&!x.models.some(m=>y.models.includes(m)))return true;
+    return false;
+  }
+
   function scoreAutoPair(inv,price){
     const invName=text(inv.name),priceName=text(price.item_name);
     const a=normalizeName(invName),b=normalizeName(priceName);
     if(!a||!b)return {score:0,reason:''};
+    if(autoPairHardConflict(invName,priceName))return {score:0,reason:'Konflik model/resolusi/lokasi'};
 
     const exactModel=sharedExactModel(invName,priceName);
     const coreModel=sharedCoreModel(invName,priceName);
