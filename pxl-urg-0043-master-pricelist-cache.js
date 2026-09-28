@@ -5,7 +5,23 @@
  */
 const crypto=require('crypto');
 
-module.exports=function installMasterPricelistCache(app,{requireAuth}){
+function attachPackageItemAliases(items,packages){
+  const aliasByInventory=new Map();
+  (Array.isArray(packages)?packages:[]).forEach(pkg=>(pkg.items||[]).forEach(item=>{
+    if(String(item.item_type||'material').toLowerCase()!=='material'||!item.inventory_item_id)return;
+    const alias=String(item.item_name||'').trim();
+    if(!alias)return;
+    const key=String(item.inventory_item_id);
+    if(!aliasByInventory.has(key))aliasByInventory.set(key,new Set());
+    aliasByInventory.get(key).add(alias);
+  }));
+  return (Array.isArray(items)?items:[]).map(item=>{
+    const aliases=[...(aliasByInventory.get(String(item.inventory_item_id||''))||[])].filter(x=>x&&x.toLowerCase()!==String(item.name||'').trim().toLowerCase());
+    return {...item,aliases};
+  });
+}
+
+module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
   const role=v=>String(v||'').trim().toLowerCase().replace(/[ _-]/g,'');
   const text=v=>String(v??'').trim();
   const allowedTabs=new Set(['CCTV','NETWORKING','ACCESSORIES']);
@@ -237,10 +253,11 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
   // Inventory remains the only source of physical stock. Pricelist-only rows are quotation/procurement references.
   app.get('/api/material-catalog',requireAuth,async(req,res)=>{
     try{
-      const [inventory,priceRows,mapRows]=await Promise.all([
+      const [inventory,priceRows,mapRows,packages]=await Promise.all([
         inventoryRows(),
         sb('GET','/master_pricelist_items?is_active=eq.true&select=source_key,category,brand,item_name,price,source_cell'),
-        sb('GET','/master_pricelist_inventory_map?select=inventory_item_id,source_key,mapping_status')
+        sb('GET','/master_pricelist_inventory_map?select=inventory_item_id,source_key,mapping_status'),
+        db?.getPackageRecipes?db.getPackageRecipes().catch(()=>[]):Promise.resolve([])
       ]);
       const prices=Array.isArray(priceRows)?priceRows:[];
       const maps=Array.isArray(mapRows)?mapRows:[];
@@ -271,7 +288,8 @@ module.exports=function installMasterPricelistCache(app,{requireAuth}){
         category:price.category||null,subcategory:null,brand:price.brand||null,unit:'pcs',stock:null,
         hpp:Number(price.price||0),hpp_mapped:true,inventory_available:false,pricelist_name:price.item_name||''
       }));
-      res.json({items,inventory_count:inventory.length,pricelist_only_count:items.filter(x=>x.source_status==='pricelist_only').length});
+      const aliasedItems=attachPackageItemAliases(items,packages);
+      res.json({items:aliasedItems,inventory_count:inventory.length,pricelist_only_count:aliasedItems.filter(x=>x.source_status==='pricelist_only').length});
     }catch(e){apiError(res,e)}
   });
 
