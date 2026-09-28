@@ -177,12 +177,14 @@ function resolveSalesOrderInventorySelection(items, ref = {}) {
   if (!hit && inventoryId) hit = list.find(item => String(item.inventory_item_id || item.id || '') === inventoryId);
   if (!hit && sku) hit = list.find(item => normalizeMaterialLookup(item.sku) === sku);
   if (!hit && name) hit = list.find(item => normalizeMaterialLookup(item.name) === name);
-  if (hit || !name) return hit || null;
+  if (hit && hit.inventory_item_id) return hit;
+  if (!name) return hit || null;
 
+  const inventoryBacked = list.filter(item => item.inventory_item_id);
   const queryTokens = name.split(' ').filter(Boolean);
   const modelTokens = queryTokens.filter(token => /[a-z]/.test(token) && /\d/.test(token) && token.length >= 4);
   if (modelTokens.length) {
-    const modelHits = list.filter(item => {
+    const modelHits = inventoryBacked.filter(item => {
       const tokens = new Set(normalizeMaterialLookup([item.name,item.sku,item.product_number,item.pricelist_name].filter(Boolean).join(' ')).split(' '));
       return modelTokens.some(token => tokens.has(token));
     });
@@ -190,14 +192,14 @@ function resolveSalesOrderInventorySelection(items, ref = {}) {
   }
 
   if (queryTokens.length >= 2) {
-    const fuzzyHits = list.filter(item => {
+    const fuzzyHits = inventoryBacked.filter(item => {
       const tokens = new Set(normalizeMaterialLookup(item.name).split(' ').filter(Boolean));
       const matched = queryTokens.filter(token => tokens.has(token)).length;
       return matched / queryTokens.length >= 0.75;
     });
     if (fuzzyHits.length === 1) return fuzzyHits[0];
   }
-  return null;
+  return hit || null;
 }
 
 function inventoryMatches(query) {
