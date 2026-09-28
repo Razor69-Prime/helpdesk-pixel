@@ -1,4 +1,4 @@
-const express  = require('express');
+require('express');
 const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
@@ -2708,7 +2708,7 @@ app.post('/api/sales-orders/:id/material-request',requireRole('sales','manager',
     let mr=all.find(x=>String(x.sales_order_id||'')===String(so.id)&&String(x.work_order_id||'')===String(so.linked_work_order_id)&&!['cancelled','void'].includes(x.status));
     let created=false;
     if(!mr){
-      const items=(so.items||[]).filter(i=>(i.item_type||'item')!=='service').map(i=>({inventory_item_id:i.inventory_item_id||null,name:i.item_name||i.name,qty:Number(i.qty||0),unit:i.unit||'pcs',stock_at_request:i.stock_at_select??null}));
+      const items=(so.items||[]).filter(i=>(i.item_type||'item')!=='service'&&i.inventory_item_id).map(i=>({inventory_item_id:i.inventory_item_id,name:i.item_name||i.name,qty:Number(i.qty||0),unit:i.unit||'pcs',stock_at_request:i.stock_at_select??null}));
       if(!items.length)return res.status(400).json({error:'SO tidak memiliki item Inventory untuk Material Request.'});
       mr=await db.insertCrmMaterialRequest({sales_order_id:so.id,so_number:so.so_number,work_order_id:so.linked_work_order_id,wo_number:so.linked_wo_number,customer_name:so.customer_name,items,technician:null,created_by:req.session.user.name});created=true;
       logActivity(req,'mr','BUAT MR DARI WO',`${so.linked_wo_number} / ${so.so_number}`);
@@ -2731,6 +2731,15 @@ app.post('/api/crm/material-requests/:id/issue',requireRole('manager','admin','s
 });
 
 app.get('/api/sales-orders',requireRole(...SO_READ_ROLES),async(req,res)=>{try{res.json(await db.getSalesOrders())}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/sales-orders/package-recipes',requireRole(...SO_READ_ROLES),async(req,res)=>{
+  try{
+    const rows=await db.getPackageRecipes();
+    res.json({items:(rows||[]).filter(x=>!['inactive'].includes(String(x.status||'').toLowerCase())).map(x=>({
+      id:x.id,package_code:x.package_code,name:x.name,brand:x.brand,status:x.status,ppn_percent:x.ppn_percent,package_price:x.package_price,
+      items:(x.items||[]).map(i=>({id:i.id,item_type:i.item_type,item_category:i.item_category,item_name:i.item_name,brand:i.brand,qty:i.qty,unit:i.unit,hpp_unit:i.hpp_unit,markup_percent:i.markup_percent,inventory_item_id:i.inventory_item_id||null}))
+    }))});
+  }catch(e){res.status(500).json({error:e.message})}
+});
 // PXL-PROD-0022B — reusable Site templates for Sales Order.
 app.get('/api/sales-orders/site-templates',requireRole(...SO_READ_ROLES),async(req,res)=>{
   try{res.json(await db.getSalesOrderSiteTemplates())}catch(e){res.status(500).json({error:e.message})}
@@ -2759,9 +2768,10 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnP
     const items=Array.isArray(req.body.items)?req.body.items:[];
     const invalid=items.some(i=>{
       const service=['service','jasa'].includes(String(i.item_type||i.type||'item').toLowerCase());
-      return !i.name||Number(i.qty||0)<=0||(!service&&!i.inventory_item_id);
+      const packageMaterial=String(i.source_type||'').toLowerCase()==='master_package'&&!!i.package_id;
+      return !i.name||Number(i.qty||0)<=0||(!service&&!i.inventory_item_id&&!packageMaterial);
     });
-    if(!items.length||invalid)return res.status(400).json({error:'Minimal satu Material/Jasa valid wajib diisi. Material wajib dipilih dari Inventory.'});
+    if(!items.length||invalid)return res.status(400).json({error:'Minimal satu Material/Jasa valid wajib diisi. Material manual wajib dipilih dari Inventory; material Master Paket boleh belum termapping.'});
     const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);
     const x=await db.insertSalesOrder({...req.body,status:'draft',items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});
     logActivity(req,'so','BUAT SALES ORDER',x.so_number);
@@ -2865,7 +2875,7 @@ app.post('/api/crm/work-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemo
 app.patch('/api/crm/work-orders/:id',requireAuth,async(req,res)=>{try{res.json(await db.updateCrmWorkOrder(req.params.id,req.body))}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/material-requests',requireAuth,async(req,res)=>{try{res.json(await db.getCrmMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/material-requests/from-so/:soId',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const items=(so.items||[]).filter(x=>(x.item_type||'item')!=='service');const x=await db.insertCrmMaterialRequest({sales_order_id:so.id,so_number:so.so_number,work_order_id:req.body.work_order_id||null,wo_number:req.body.wo_number||null,customer_name:so.customer_name,items,technician:req.body.technician||null,created_by:req.session.user.name});logActivity(req,'mr','BUAT MR DARI SO',x.mr_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/material-requests/from-so/:soId',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const items=(so.items||[]).filter(x=>(x.item_type||'item')!=='service'&&x.inventory_item_id);if(!items.length)return res.status(400).json({error:'SO tidak memiliki material yang terhubung ke Inventory.'});const x=await db.insertCrmMaterialRequest({sales_order_id:so.id,so_number:so.so_number,work_order_id:req.body.work_order_id||null,wo_number:req.body.wo_number||null,customer_name:so.customer_name,items,technician:req.body.technician||null,created_by:req.session.user.name});logActivity(req,'mr','BUAT MR DARI SO',x.mr_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/material-requests/:id/verify',requireRole('technician','manager','admin','superadmin'),async(req,res)=>{try{if(!req.body.technician_signature)return res.status(400).json({error:'Tanda tangan teknisi wajib diisi'});const x=await db.updateCrmMaterialRequest(req.params.id,{status:'verified_signed',technician:req.session.user.name,technician_note:req.body.technician_note||null,technician_signature:req.body.technician_signature,verified_at:new Date().toISOString(),verified_items:req.body.items||null});logActivity(req,'mr','VERIFIKASI & SIGN TEKNISI',x.mr_number||req.params.id);res.json(x)}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/additional-materials',requireAuth,async(req,res)=>{try{res.json(await db.getAdditionalMaterialRequests())}catch(e){res.status(500).json({error:e.message})}});
