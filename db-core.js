@@ -9,7 +9,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const cfg    = require('./config');
 
-const USE_SUPABASE = cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes('GANTI');
+const USE_POSTGREST = cfg.POSTGREST_URL && !cfg.POSTGREST_URL.includes('GANTI');
 
 // ─────────────────────────────────────────
 //  MODE LOKAL — file JSON
@@ -28,25 +28,25 @@ function writeLocal(data) {
 //  MODE SUPABASE — REST API
 // ─────────────────────────────────────────
 let fetch;
-if (USE_SUPABASE) {
+if (USE_POSTGREST) {
   try { fetch = require('node-fetch'); } catch(e) {}
 }
 
-const sbBase = () => `${cfg.SUPABASE_URL}/rest/v1`;
+const restBase = () => `${cfg.POSTGREST_URL}/rest/v1`;
 // PXL-REV-0063 — Server-side Supabase writes must use the service-role key.
 // Keep the existing SUPABASE_KEY as a read/fallback key for backward compatibility.
-const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.SUPABASE_KEY;
-const sbHdrs = () => ({
-  'apikey':        SUPABASE_SERVER_KEY,
-  'Authorization': `Bearer ${SUPABASE_SERVER_KEY}`,
+const POSTGREST_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.POSTGREST_KEY;
+const restHeaders = () => ({
+  'apikey':        POSTGREST_SERVER_KEY,
+  'Authorization': `Bearer ${POSTGREST_SERVER_KEY}`,
   'Content-Type':  'application/json',
   'Prefer':        'return=representation'
 });
 
-async function sbFetch(method, path, body, extraHeaders) {
-  const opts = { method, headers: { ...sbHdrs(), ...(extraHeaders||{}) } };
+async function restFetch(method, path, body, extraHeaders) {
+  const opts = { method, headers: { ...restHeaders(), ...(extraHeaders||{}) } };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(sbBase() + path, opts);
+  const r = await fetch(restBase() + path, opts);
   if (!r.ok) throw new Error(await r.text());
   const txt = await r.text();
   return txt ? JSON.parse(txt) : null;
@@ -59,7 +59,7 @@ async function sbFetch(method, path, body, extraHeaders) {
 // ── TICKETS ──────────────────────────────
 
 async function getTickets(filterTech, includeArchived=false) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     let rows = readLocal().sort((a,b) => new Date(b.worked_at) - new Date(a.worked_at));
     // by default exclude archived
     if (!includeArchived) rows = rows.filter(t => !t.archived);
@@ -80,28 +80,28 @@ async function getTickets(filterTech, includeArchived=false) {
     const jsonArr = JSON.stringify([filterTech]);
     p += `&technicians=cs.${encodeURIComponent(jsonArr)}`;
   }
-  return sbFetch('GET', p);
+  return restFetch('GET', p);
 }
 
 async function getArchivedTickets() {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     return readLocal()
       .filter(t => t.archived === true)
       .sort((a,b) => new Date(b.worked_at) - new Date(a.worked_at));
   }
-  return sbFetch('GET', '/tickets?archived=is.true&order=worked_at.desc');
+  return restFetch('GET', '/tickets?archived=is.true&order=worked_at.desc');
 }
 
 async function getTicketByToken(token) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     return readLocal().find(t => t.tracking_token === token) || null;
   }
-  const rows = await sbFetch('GET', `/tickets?tracking_token=eq.${token}&limit=1`);
+  const rows = await restFetch('GET', `/tickets?tracking_token=eq.${token}&limit=1`);
   return rows?.length ? rows[0] : null;
 }
 
 async function insertTicket(data) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const ticket  = {
       id:         crypto.randomUUID(),
@@ -115,12 +115,12 @@ async function insertTicket(data) {
     writeLocal(tickets);
     return ticket;
   }
-  const rows = await sbFetch('POST', '/tickets', data);
+  const rows = await restFetch('POST', '/tickets', data);
   return rows?.[0] || null;
 }
 
 async function updateTicket(id, patch) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const idx = tickets.findIndex(t => t.id === id);
     if (idx === -1) throw new Error('Tiket tidak ditemukan');
@@ -128,30 +128,30 @@ async function updateTicket(id, patch) {
     writeLocal(tickets);
     return tickets[idx];
   }
-  const rows = await sbFetch('PATCH', `/tickets?id=eq.${id}`, patch);
+  const rows = await restFetch('PATCH', `/tickets?id=eq.${id}`, patch);
   return rows?.[0] || null;
 }
 
 async function deleteTicket(id) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     writeLocal(readLocal().filter(t => t.id !== id));
     return;
   }
-  return sbFetch('DELETE', `/tickets?id=eq.${id}`);
+  return restFetch('DELETE', `/tickets?id=eq.${id}`);
 }
 
 // ── STATUS HISTORY ────────────────────────
 
 async function getStatusHistory(ticketId) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const t = readLocal().find(t => t.id === ticketId);
     return t?.status_history || [];
   }
-  return sbFetch('GET', `/status_history?ticket_id=eq.${ticketId}&order=timestamp.desc`);
+  return restFetch('GET', `/status_history?ticket_id=eq.${ticketId}&order=timestamp.desc`);
 }
 
 async function insertStatusHistory(data) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const idx = tickets.findIndex(t => t.id === data.ticket_id);
     if (idx === -1) return;
@@ -161,16 +161,16 @@ async function insertStatusHistory(data) {
     writeLocal(tickets);
     return entry;
   }
-  const rows = await sbFetch('POST', '/status_history', data);
+  const rows = await restFetch('POST', '/status_history', data);
   return rows?.[0] || null;
 }
 
 // ── INVOICES ──────────────────────────────
 
 async function getInvoiceV1ByTicket(ticketId) {
-  if (!USE_SUPABASE) return [];
+  if (!USE_POSTGREST) return [];
 
-  const relations = await sbFetch(
+  const relations = await restFetch(
     'GET',
     `/invoice_work_orders?ticket_id=eq.${encodeURIComponent(ticketId)}&select=invoice_id,ticket_id`
   ) || [];
@@ -183,18 +183,18 @@ async function getInvoiceV1ByTicket(ticketId) {
 
   const inFilter = invoiceIds.map(id => encodeURIComponent(id)).join(',');
 
-  return await sbFetch(
+  return await restFetch(
     'GET',
     `/invoices?id=in.(${inFilter})&select=*&order=issued_at.desc.nullslast,updated_at.desc.nullslast`
   ) || [];
 }
 
 async function getInvoicesByTicket(ticketId) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const t = readLocal().find(t => t.id === ticketId);
     return t?.invoices || [];
   }
-  return sbFetch('GET', `/invoices?ticket_id=eq.${ticketId}&order=uploaded_at.desc`);
+  return restFetch('GET', `/invoices?ticket_id=eq.${ticketId}&order=uploaded_at.desc`);
 }
 
 
@@ -212,7 +212,7 @@ async function getTicketRelationsBatch(ticketIds) {
   const ids = [...new Set((ticketIds || []).filter(Boolean).map(String))];
   if (!ids.length) return { invoices:{}, status_history:{}, job_stages:{} };
 
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const wanted = new Set(ids);
     const invoices = {}, status_history = {}, job_stages = {};
@@ -235,9 +235,9 @@ async function getTicketRelationsBatch(ticketIds) {
     // UUID tidak mengandung koma; encode tiap nilai agar filter PostgREST tetap aman.
     const inFilter = batch.map(id => encodeURIComponent(id)).join(',');
     const [batchInvoices, batchHistory, batchStages] = await Promise.all([
-      sbFetch('GET', `/invoices?ticket_id=in.(${inFilter})&order=uploaded_at.desc`),
-      sbFetch('GET', `/status_history?ticket_id=in.(${inFilter})&order=timestamp.desc`),
-      sbFetch('GET', `/job_stages?ticket_id=in.(${inFilter})&order=timestamp.asc`)
+      restFetch('GET', `/invoices?ticket_id=in.(${inFilter})&order=uploaded_at.desc`),
+      restFetch('GET', `/status_history?ticket_id=in.(${inFilter})&order=timestamp.desc`),
+      restFetch('GET', `/job_stages?ticket_id=in.(${inFilter})&order=timestamp.asc`)
     ]);
     if (Array.isArray(batchInvoices)) invoiceRows.push(...batchInvoices);
     if (Array.isArray(batchHistory)) historyRows.push(...batchHistory);
@@ -251,7 +251,7 @@ async function getTicketRelationsBatch(ticketIds) {
 }
 
 async function insertInvoice(data) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const idx = tickets.findIndex(t => t.id === data.ticket_id);
     if (idx === -1) throw new Error('Tiket tidak ditemukan');
@@ -267,12 +267,12 @@ async function insertInvoice(data) {
     writeLocal(tickets);
     return inv;
   }
-  const rows = await sbFetch('POST', '/invoices', data);
+  const rows = await restFetch('POST', '/invoices', data);
   return rows?.[0] || null;
 }
 
 async function deleteInvoice(id, ticketId) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const idx = tickets.findIndex(t => t.id === ticketId);
     if (idx !== -1 && tickets[idx].invoices) {
@@ -281,25 +281,25 @@ async function deleteInvoice(id, ticketId) {
     }
     return;
   }
-  return sbFetch('DELETE', `/invoices?id=eq.${id}`);
+  return restFetch('DELETE', `/invoices?id=eq.${id}`);
 }
 
 // ─────────────────────────────────────────
 //  INVOICE TANPA WO (STANDALONE)
 // ─────────────────────────────────────────
 async function getStandaloneInvoices() {
-  if (!USE_SUPABASE) return [];
-  return await sbFetch('GET', '/standalone_invoices?order=uploaded_at.desc') || [];
+  if (!USE_POSTGREST) return [];
+  return await restFetch('GET', '/standalone_invoices?order=uploaded_at.desc') || [];
 }
 async function insertStandaloneInvoice(data) {
   const entry = { id: crypto.randomUUID(), ...data, uploaded_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
-  const rows = await sbFetch('POST', '/standalone_invoices', entry);
+  if (!USE_POSTGREST) return entry;
+  const rows = await restFetch('POST', '/standalone_invoices', entry);
   return rows?.[0] || entry;
 }
 async function deleteStandaloneInvoice(id) {
-  if (!USE_SUPABASE) return;
-  await sbFetch('DELETE', `/standalone_invoices?id=eq.${id}`);
+  if (!USE_POSTGREST) return;
+  await restFetch('DELETE', `/standalone_invoices?id=eq.${id}`);
 }
 
 // ─────────────────────────────────────────
@@ -307,18 +307,18 @@ async function deleteStandaloneInvoice(id) {
 // ─────────────────────────────────────────
 async function insertNotification(data) {
   const entry = { id: crypto.randomUUID(), ...data, is_read: false, read_by: [], created_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
-  const rows = await sbFetch('POST', '/notifications', entry);
+  if (!USE_POSTGREST) return entry;
+  const rows = await restFetch('POST', '/notifications', entry);
   return rows?.[0] || entry;
 }
 
 async function getNotificationsForUser(user) {
-  if (!USE_SUPABASE) return [];
+  if (!USE_POSTGREST) return [];
   // Ambil notif yang: target_user_id = user.id, ATAU target_role = user.role, ATAU target_role null (broadcast)
   // Dipecah jadi query terpisah (lebih aman daripada .or() PostgREST yang rawan salah escape)
   const [byUser, byRole] = await Promise.all([
-    sbFetch('GET', `/notifications?target_user_id=eq.${user.id}&order=created_at.desc&limit=50`),
-    sbFetch('GET', `/notifications?target_role=eq.${user.role}&order=created_at.desc&limit=50`),
+    restFetch('GET', `/notifications?target_user_id=eq.${user.id}&order=created_at.desc&limit=50`),
+    restFetch('GET', `/notifications?target_role=eq.${user.role}&order=created_at.desc&limit=50`),
   ]);
   const combined = [...(byUser || []), ...(byRole || [])];
   // Dedupe berdasarkan id, lalu urutkan terbaru dulu
@@ -330,41 +330,41 @@ async function getNotificationsForUser(user) {
 }
 
 async function markNotificationRead(id, userId) {
-  if (!USE_SUPABASE) return;
+  if (!USE_POSTGREST) return;
   // Ambil dulu read_by yang ada, tambahkan userId, simpan lagi
-  const rows = await sbFetch('GET', `/notifications?id=eq.${id}&select=read_by`);
+  const rows = await restFetch('GET', `/notifications?id=eq.${id}&select=read_by`);
   const current = rows?.[0]?.read_by || [];
   if (!current.includes(userId)) current.push(userId);
-  await sbFetch('PATCH', `/notifications?id=eq.${id}`, { read_by: current, is_read: true });
+  await restFetch('PATCH', `/notifications?id=eq.${id}`, { read_by: current, is_read: true });
 }
 
 async function markAllNotificationsRead(user) {
-  if (!USE_SUPABASE) return;
+  if (!USE_POSTGREST) return;
   const notifs = await getNotificationsForUser(user);
   for (const n of notifs) {
     const current = n.read_by || [];
     if (!current.includes(user.id)) {
       current.push(user.id);
-      await sbFetch('PATCH', `/notifications?id=eq.${n.id}`, { read_by: current, is_read: true });
+      await restFetch('PATCH', `/notifications?id=eq.${n.id}`, { read_by: current, is_read: true });
     }
   }
 }
 
-console.log(`💾 Storage: ${USE_SUPABASE ? 'Supabase (online)' : 'Local JSON (lokal)'}`);
+console.log(`💾 Storage: ${USE_POSTGREST ? 'Supabase (online)' : 'Local JSON (lokal)'}`);
 
 // ── Job Stages ────────────────────────────
 
 async function getJobStages(ticketId) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const t = readLocal().find(t => t.id === ticketId);
     return t?.job_stages || [];
   }
-  return sbFetch('GET', `/job_stages?ticket_id=eq.${ticketId}&order=timestamp.asc`);
+  return restFetch('GET', `/job_stages?ticket_id=eq.${ticketId}&order=timestamp.asc`);
 }
 
 async function insertJobStage(data) {
   // data: { ticket_id, stage, timestamp, lat, lng, technician }
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const tickets = readLocal();
     const idx = tickets.findIndex(t => t.id === data.ticket_id);
     if (idx === -1) throw new Error('Tiket tidak ditemukan');
@@ -374,7 +374,7 @@ async function insertJobStage(data) {
     writeLocal(tickets);
     return entry;
   }
-  const rows = await sbFetch('POST', '/job_stages', data);
+  const rows = await restFetch('POST', '/job_stages', data);
   return rows?.[0] || null;
 }
 
@@ -400,10 +400,10 @@ function computePipelineDates(prospectDate) {
 }
 
 async function getSalesVisits(filterUserId=null) {
-  if (USE_SUPABASE) {
+  if (USE_POSTGREST) {
     let path = '/sales_visits?order=created_at.desc';
     if (filterUserId) path += `&sales_user_id=eq.${filterUserId}`;
-    return await sbFetch('GET', path) || [];
+    return await restFetch('GET', path) || [];
   }
   let rows = readVisits().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if (filterUserId) rows = rows.filter(v => v.sales_user_id === filterUserId);
@@ -420,8 +420,8 @@ async function insertSalesVisit(data) {
     ...data,
     status: data.status || 'prospect',
   };
-  if (USE_SUPABASE) {
-    const rows = await sbFetch('POST', '/sales_visits', visit);
+  if (USE_POSTGREST) {
+    const rows = await restFetch('POST', '/sales_visits', visit);
     return rows?.[0] || visit;
   }
   const visits = readVisits();
@@ -431,13 +431,13 @@ async function insertSalesVisit(data) {
 }
 
 async function updateSalesVisit(id, patch) {
-  if (USE_SUPABASE) {
+  if (USE_POSTGREST) {
     if (patch.prospect_date) {
       const pipeline = computePipelineDates(patch.prospect_date);
       Object.assign(patch, pipeline);
     }
     patch.updated_at = new Date().toISOString();
-    const rows = await sbFetch('PATCH', `/sales_visits?id=eq.${id}`, patch);
+    const rows = await restFetch('PATCH', `/sales_visits?id=eq.${id}`, patch);
     return rows?.[0] || null;
   }
   const visits = readVisits();
@@ -453,8 +453,8 @@ async function updateSalesVisit(id, patch) {
 }
 
 async function deleteSalesVisit(id) {
-  if (USE_SUPABASE) {
-    await sbFetch('DELETE', `/sales_visits?id=eq.${id}`);
+  if (USE_POSTGREST) {
+    await restFetch('DELETE', `/sales_visits?id=eq.${id}`);
     return;
   }
   const visits = readVisits().filter(v => v.id !== id);
@@ -466,33 +466,33 @@ async function deleteSalesVisit(id) {
 //  USERS (Supabase only)
 // ─────────────────────────────────────────
 async function getUsers() {
-  if (!USE_SUPABASE) return [];
-  const rows = await sbFetch('GET', '/users?order=created_at.asc');
+  if (!USE_POSTGREST) return [];
+  const rows = await restFetch('GET', '/users?order=created_at.asc');
   return (rows || []).map(({ password: _, ...u }) => u);
 }
 
 async function getUsersWithPassword() {
-  if (!USE_SUPABASE) return [];
-  return await sbFetch('GET', '/users?order=created_at.asc') || [];
+  if (!USE_POSTGREST) return [];
+  return await restFetch('GET', '/users?order=created_at.asc') || [];
 }
 
 async function insertUser(data) {
-  if (!USE_SUPABASE) return null;
-  const rows = await sbFetch('POST', '/users', { ...data, id: require('crypto').randomUUID(), created_at: new Date().toISOString() });
+  if (!USE_POSTGREST) return null;
+  const rows = await restFetch('POST', '/users', { ...data, id: require('crypto').randomUUID(), created_at: new Date().toISOString() });
   const { password: _, ...safe } = rows?.[0] || {};
   return safe;
 }
 
 async function updateUser(id, patch) {
-  if (!USE_SUPABASE) return null;
-  const rows = await sbFetch('PATCH', `/users?id=eq.${id}`, patch);
+  if (!USE_POSTGREST) return null;
+  const rows = await restFetch('PATCH', `/users?id=eq.${id}`, patch);
   const { password: _, ...safe } = rows?.[0] || {};
   return safe;
 }
 
 async function deleteUser(id) {
-  if (!USE_SUPABASE) return;
-  await sbFetch('DELETE', `/users?id=eq.${id}`);
+  if (!USE_POSTGREST) return;
+  await restFetch('DELETE', `/users?id=eq.${id}`);
 }
 
 
@@ -504,12 +504,12 @@ function readTargetsLocal()      { try { return JSON.parse(require('fs').readFil
 function writeTargetsLocal(data) { require('fs').writeFileSync(TARGETS_FILE, JSON.stringify(data,null,2)); }
 
 async function getSalesTargets() {
-  if (!USE_SUPABASE) return readTargetsLocal();
-  return await sbFetch('GET', '/sales_targets?order=year_month.desc') || [];
+  if (!USE_POSTGREST) return readTargetsLocal();
+  return await restFetch('GET', '/sales_targets?order=year_month.desc') || [];
 }
 
 async function upsertSalesTarget({ sales_pic, year_month, target_amount, updated_by }) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const targets = readTargetsLocal();
     const idx = targets.findIndex(t => t.sales_pic === sales_pic && t.year_month === year_month);
     const entry = {
@@ -524,7 +524,7 @@ async function upsertSalesTarget({ sales_pic, year_month, target_amount, updated
     return entry;
   }
   // Supabase upsert via on_conflict
-  const rows = await sbFetch('POST', '/sales_targets?on_conflict=sales_pic,year_month', {
+  const rows = await restFetch('POST', '/sales_targets?on_conflict=sales_pic,year_month', {
     sales_pic, year_month,
     target_amount: Number(target_amount),
     updated_at: new Date().toISOString(),
@@ -534,11 +534,11 @@ async function upsertSalesTarget({ sales_pic, year_month, target_amount, updated
 }
 
 async function deleteSalesTarget(id) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     writeTargetsLocal(readTargetsLocal().filter(t => t.id !== id));
     return;
   }
-  await sbFetch('DELETE', `/sales_targets?id=eq.${id}`);
+  await restFetch('DELETE', `/sales_targets?id=eq.${id}`);
 }
 
 
@@ -555,7 +555,7 @@ async function insertLog(entry) {
     timestamp: new Date().toISOString(),
     ...entry
   };
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const logs = readLogLocal();
     logs.unshift(log);
     // Simpan max 5000 log
@@ -563,177 +563,177 @@ async function insertLog(entry) {
     return log;
   }
   try {
-    await sbFetch('POST', '/activity_logs', log);
+    await restFetch('POST', '/activity_logs', log);
   } catch(e) { console.error('Log insert error:', e.message); }
   return log;
 }
 
 async function getLogs(limit=500) {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     return readLogLocal().slice(0, limit);
   }
-  return await sbFetch('GET', `/activity_logs?order=timestamp.desc&limit=${limit}`) || [];
+  return await restFetch('GET', `/activity_logs?order=timestamp.desc&limit=${limit}`) || [];
 }
 
 async function clearLogs() {
-  if (!USE_SUPABASE) { writeLogLocal([]); return; }
-  await sbFetch('DELETE', '/activity_logs?id=neq.00000000-0000-0000-0000-000000000000');
+  if (!USE_POSTGREST) { writeLogLocal([]); return; }
+  await restFetch('DELETE', '/activity_logs?id=neq.00000000-0000-0000-0000-000000000000');
 }
 
 // ─────────────────────────────────────────
 //  PURCHASE REQUESTS
 // ─────────────────────────────────────────
 async function getPurchaseRequests(){
-  if(!USE_SUPABASE) return [];
-  return await sbFetch('GET','/purchase_requests?order=created_at.desc')||[];
+  if(!USE_POSTGREST) return [];
+  return await restFetch('GET','/purchase_requests?order=created_at.desc')||[];
 }
 async function insertPurchaseRequest(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/purchase_requests',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/purchase_requests',entry);
   return rows?.[0]||entry;
 }
 async function updatePurchaseRequest(id,data){
-  if(!USE_SUPABASE) return {id,...data};
-  const rows=await sbFetch('PATCH',`/purchase_requests?id=eq.${id}`,data);
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/purchase_requests?id=eq.${id}`,data);
   return rows?.[0]||{id,...data};
 }
 async function deletePurchaseRequest(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/purchase_requests?id=eq.${id}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/purchase_requests?id=eq.${id}`);
 }
 
 // ─────────────────────────────────────────
 //  PROJECT TRACKER
 // ─────────────────────────────────────────
 async function getProjects(){
-  if(!USE_SUPABASE) return [];
-  return await sbFetch('GET','/projects?order=created_at.desc')||[];
+  if(!USE_POSTGREST) return [];
+  return await restFetch('GET','/projects?order=created_at.desc')||[];
 }
 async function insertProject(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/projects',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/projects',entry);
   return rows?.[0]||entry;
 }
 async function updateProject(id,data){
   const patch={...data,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return {id,...patch};
-  const rows=await sbFetch('PATCH',`/projects?id=eq.${id}`,patch);
+  if(!USE_POSTGREST) return {id,...patch};
+  const rows=await restFetch('PATCH',`/projects?id=eq.${id}`,patch);
   return rows?.[0]||{id,...patch};
 }
 async function deleteProject(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/projects?id=eq.${id}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/projects?id=eq.${id}`);
 }
 
 // PXL-STG-0010 — PROJECT REPORT
 async function getProjectReports(){
-  if(!USE_SUPABASE) return [];
-  return await sbFetch('GET','/project_reports?order=updated_at.desc')||[];
+  if(!USE_POSTGREST) return [];
+  return await restFetch('GET','/project_reports?order=updated_at.desc')||[];
 }
 async function upsertProjectReport(projectId,totalBoq,updatedBy){
   const payload={project_id:projectId,total_boq:Number(totalBoq),updated_by:updatedBy||null,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return {id:require('crypto').randomUUID(),...payload};
-  const existing=await sbFetch('GET',`/project_reports?project_id=eq.${projectId}&limit=1`);
+  if(!USE_POSTGREST) return {id:require('crypto').randomUUID(),...payload};
+  const existing=await restFetch('GET',`/project_reports?project_id=eq.${projectId}&limit=1`);
   if(existing?.length){
-    const rows=await sbFetch('PATCH',`/project_reports?project_id=eq.${projectId}`,payload);
+    const rows=await restFetch('PATCH',`/project_reports?project_id=eq.${projectId}`,payload);
     return rows?.[0]||{...existing[0],...payload};
   }
-  const rows=await sbFetch('POST','/project_reports',payload);
+  const rows=await restFetch('POST','/project_reports',payload);
   return rows?.[0]||payload;
 }
 async function getProjectReportAchievements(projectId=null){
-  if(!USE_SUPABASE) return [];
+  if(!USE_POSTGREST) return [];
   let q='/project_report_achievements?order=achievement_date.desc,created_at.desc';
   if(projectId) q+=`&project_id=eq.${projectId}`;
-  return await sbFetch('GET',q)||[];
+  return await restFetch('GET',q)||[];
 }
 async function insertProjectReportAchievement(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/project_report_achievements',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/project_report_achievements',entry);
   return rows?.[0]||entry;
 }
 async function updateProjectReportAchievement(id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return {id,...data};
-  const rows=await sbFetch('PATCH',`/project_report_achievements?id=eq.${id}`,data);
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/project_report_achievements?id=eq.${id}`,data);
   return rows?.[0]||{id,...data};
 }
 async function deleteProjectReportAchievement(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/project_report_achievements?id=eq.${id}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/project_report_achievements?id=eq.${id}`);
 }
 
 
 // PXL-STG-0011 — PROJECT REPORT DETAIL BOQ
 async function getProjectReportItems(projectId=null){
-  if(!USE_SUPABASE) return [];
+  if(!USE_POSTGREST) return [];
   let q='/project_report_items?order=sort_order.asc,created_at.asc';
   if(projectId) q+=`&project_id=eq.${encodeURIComponent(projectId)}`;
-  return await sbFetch('GET',q)||[];
+  return await restFetch('GET',q)||[];
 }
 async function insertProjectReportItem(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/project_report_items',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/project_report_items',entry);
   return rows?.[0]||entry;
 }
 async function updateProjectReportItem(id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return {id,...data};
-  const rows=await sbFetch('PATCH',`/project_report_items?id=eq.${encodeURIComponent(id)}`,data);
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/project_report_items?id=eq.${encodeURIComponent(id)}`,data);
   return rows?.[0]||{id,...data};
 }
 async function deleteProjectReportItem(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/project_report_items?id=eq.${encodeURIComponent(id)}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/project_report_items?id=eq.${encodeURIComponent(id)}`);
 }
 async function getProjectReportItemAchievements(itemId=null){
-  if(!USE_SUPABASE) return [];
+  if(!USE_POSTGREST) return [];
   let q='/project_report_item_achievements?order=achievement_date.desc,created_at.desc';
   if(itemId) q+=`&item_id=eq.${encodeURIComponent(itemId)}`;
-  return await sbFetch('GET',q)||[];
+  return await restFetch('GET',q)||[];
 }
 async function insertProjectReportItemAchievement(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/project_report_item_achievements',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/project_report_item_achievements',entry);
   return rows?.[0]||entry;
 }
 async function updateProjectReportItemAchievement(id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return {id,...data};
-  const rows=await sbFetch('PATCH',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`,data);
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`,data);
   return rows?.[0]||{id,...data};
 }
 async function deleteProjectReportItemAchievement(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`);
 }
 
 // ─────────────────────────────────────────
 //  SUPPLIERS
 // ─────────────────────────────────────────
 async function getSuppliers(){
-  if(!USE_SUPABASE) return [];
-  return await sbFetch('GET','/suppliers?order=name.asc')||[];
+  if(!USE_POSTGREST) return [];
+  return await restFetch('GET','/suppliers?order=name.asc')||[];
 }
 async function insertSupplier(data){
   const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString()};
-  if(!USE_SUPABASE) return entry;
-  const rows=await sbFetch('POST','/suppliers',entry);
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/suppliers',entry);
   return rows?.[0]||entry;
 }
 async function updateSupplier(id,data){
-  if(!USE_SUPABASE) return {id,...data};
-  const rows=await sbFetch('PATCH',`/suppliers?id=eq.${id}`,data);
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/suppliers?id=eq.${id}`,data);
   return rows?.[0]||{id,...data};
 }
 async function deleteSupplier(id){
-  if(!USE_SUPABASE) return;
-  await sbFetch('DELETE',`/suppliers?id=eq.${id}`);
+  if(!USE_POSTGREST) return;
+  await restFetch('DELETE',`/suppliers?id=eq.${id}`);
 }
 
 // ─────────────────────────────────────────
@@ -754,42 +754,42 @@ async function insertMaterialRequest({ ticket_id, wo_number, technician, materia
     notes:      notes || null,
     created_at: new Date().toISOString(),
   };
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     const all = readMaterialsLocal();
     all.unshift(entry);
     writeMaterialsLocal(all);
     return entry;
   }
-  const rows = await sbFetch('POST', '/material_requests', entry);
+  const rows = await restFetch('POST', '/material_requests', entry);
   return rows?.[0] || entry;
 }
 
 async function getMaterialRequests() {
-  if (!USE_SUPABASE) return readMaterialsLocal();
-  return await sbFetch('GET', '/material_requests?order=created_at.desc') || [];
+  if (!USE_POSTGREST) return readMaterialsLocal();
+  return await restFetch('GET', '/material_requests?order=created_at.desc') || [];
 }
 
 // ─────────────────────────────────────────
 //  MATERIAL REQUEST FORM (tabel baru)
 // ─────────────────────────────────────────
 async function getMRForms() {
-  if (!USE_SUPABASE) return [];
-  return await sbFetch('GET', '/material_request_forms?order=created_at.desc') || [];
+  if (!USE_POSTGREST) return [];
+  return await restFetch('GET', '/material_request_forms?order=created_at.desc') || [];
 }
 async function insertMRForm(data) {
   const entry = { id: require('crypto').randomUUID(), ...data, created_at: new Date().toISOString() };
-  if (!USE_SUPABASE) return entry;
-  const rows = await sbFetch('POST', '/material_request_forms', entry);
+  if (!USE_POSTGREST) return entry;
+  const rows = await restFetch('POST', '/material_request_forms', entry);
   return rows?.[0] || entry;
 }
 async function updateMRForm(id, data) {
-  if (!USE_SUPABASE) return { id, ...data };
-  const rows = await sbFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
+  if (!USE_POSTGREST) return { id, ...data };
+  const rows = await restFetch('PATCH', `/material_request_forms?id=eq.${id}`, data);
   return rows?.[0] || { id, ...data };
 }
 async function deleteMRForm(id) {
-  if (!USE_SUPABASE) return;
-  await sbFetch('DELETE', `/material_request_forms?id=eq.${id}`);
+  if (!USE_POSTGREST) return;
+  await restFetch('DELETE', `/material_request_forms?id=eq.${id}`);
 }
 
 
@@ -799,15 +799,15 @@ async function deleteMRForm(id) {
 //  INVENTORY — PXL-REV-0050
 // ─────────────────────────────────────────
 function requireInventorySupabase() {
-  if (!USE_SUPABASE) {
+  if (!USE_POSTGREST) {
     throw new Error('Supabase belum aktif. Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia di Vercel Environment Variables.');
   }
 }
 
 async function getInventoryCategories() {
   requireInventorySupabase();
-  const categories = await sbFetch('GET', '/inventory_categories?is_active=is.true&order=sort_order.asc,name.asc') || [];
-  const subcategories = await sbFetch('GET', '/inventory_subcategories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  const categories = await restFetch('GET', '/inventory_categories?is_active=is.true&order=sort_order.asc,name.asc') || [];
+  const subcategories = await restFetch('GET', '/inventory_subcategories?is_active=is.true&order=sort_order.asc,name.asc') || [];
   return categories.map(c => ({
     id: c.id, name: c.name, code: c.code,
     subcategories: subcategories.filter(sc => sc.category_id === c.id).map(sc => ({ id: sc.id, name: sc.name, code: sc.code }))
@@ -815,63 +815,63 @@ async function getInventoryCategories() {
 }
 async function generateInventoryBarcode() {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_next_barcode', {}, { Prefer: 'return=representation' });
+  const result = await restFetch('POST', '/rpc/inventory_next_barcode', {}, { Prefer: 'return=representation' });
   return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
 }
 async function findInventoryItemByCode(code) {
   requireInventorySupabase();
   const q = encodeURIComponent(String(code || '').trim());
-  const rows = await sbFetch('GET', `/inventory_items?or=(manufacturer_barcode.eq.${q},barcode.eq.${q},sku.eq.${q},product_number.eq.${q})&is_active=is.true&limit=1`);
+  const rows = await restFetch('GET', `/inventory_items?or=(manufacturer_barcode.eq.${q},barcode.eq.${q},sku.eq.${q},product_number.eq.${q})&is_active=is.true&limit=1`);
   return rows?.[0] || null;
 }
 async function findInventoryItemByManufacturerBarcode(code) {
   requireInventorySupabase();
   const q = encodeURIComponent(String(code || '').trim());
-  const rows = await sbFetch('GET', `/inventory_items?manufacturer_barcode=eq.${q}&is_active=is.true&limit=1`);
+  const rows = await restFetch('GET', `/inventory_items?manufacturer_barcode=eq.${q}&is_active=is.true&limit=1`);
   return rows?.[0] || null;
 }
 async function getInventoryHealth() {
   requireInventorySupabase();
-  const rows = await sbFetch('GET', '/inventory_items?select=id&limit=1');
+  const rows = await restFetch('GET', '/inventory_items?select=id&limit=1');
   return { connected: true, table: 'inventory_items', sample_count: Array.isArray(rows) ? rows.length : 0 };
 }
 async function getInventoryItems() {
   requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_items?is_active=is.true&order=name.asc') || [];
+  return await restFetch('GET', '/inventory_items?is_active=is.true&order=name.asc') || [];
 }
 async function getInventoryItem(id) {
   requireInventorySupabase();
-  const rows = await sbFetch('GET', `/inventory_items?id=eq.${encodeURIComponent(id)}&limit=1`);
+  const rows = await restFetch('GET', `/inventory_items?id=eq.${encodeURIComponent(id)}&limit=1`);
   return rows?.[0] || null;
 }
 async function insertInventoryItem(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  const rows = await sbFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
+  const rows = await restFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
   if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
   return rows[0];
 }
 async function updateInventoryItem(id, data) {
   requireInventorySupabase();
   const patch = { ...data, updated_at: new Date().toISOString() };
-  const rows = await sbFetch('PATCH', `/inventory_items?id=eq.${encodeURIComponent(id)}`, patch, { Prefer: 'return=representation' });
+  const rows = await restFetch('PATCH', `/inventory_items?id=eq.${encodeURIComponent(id)}`, patch, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...patch };
 }
 async function generateInventorySku(category, subcategory) {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_next_sku', { p_category: category, p_subcategory: subcategory }, { Prefer: 'return=representation' });
+  const result = await restFetch('POST', '/rpc/inventory_next_sku', { p_category: category, p_subcategory: subcategory }, { Prefer: 'return=representation' });
   return typeof result === 'string' ? result : (Array.isArray(result) ? result[0] : result);
 }
 async function deleteInventoryItem(id, actor = 'System') {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_soft_delete', { p_item_id: id, p_actor: actor }, { Prefer: 'return=representation' });
+  const result = await restFetch('POST', '/rpc/inventory_soft_delete', { p_item_id: id, p_actor: actor }, { Prefer: 'return=representation' });
   const deleted = Array.isArray(result) ? result[0] : result;
   if (!deleted || deleted.ok !== true) throw new Error(deleted?.error || 'Supabase tidak mengonfirmasi penghapusan barang.');
   return deleted;
 }
 async function restockInventoryBatch(itemId, qty, serialNumbers, reference, actor) {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_restock_batch', {
+  const result = await restFetch('POST', '/rpc/inventory_restock_batch', {
     p_item_id: itemId, p_qty: Number(qty || 0), p_serial_numbers: Array.isArray(serialNumbers) ? serialNumbers : [],
     p_reference: reference || 'Restock', p_actor: actor || 'System'
   }, { Prefer: 'return=representation' });
@@ -881,38 +881,38 @@ async function restockInventoryBatch(itemId, qty, serialNumbers, reference, acto
 }
 async function getInventoryTransactions() {
   requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
+  return await restFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
 }
 async function insertInventoryTransaction(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  const rows = await sbFetch('POST', '/inventory_transactions', entry, { Prefer: 'return=representation' });
+  const rows = await restFetch('POST', '/inventory_transactions', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 async function getInventoryOpnames() {
   requireInventorySupabase();
-  return await sbFetch('GET', '/inventory_opnames?order=created_at.desc&limit=50') || [];
+  return await restFetch('GET', '/inventory_opnames?order=created_at.desc&limit=50') || [];
 }
 async function insertInventoryOpname(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  const rows = await sbFetch('POST', '/inventory_opnames', entry, { Prefer: 'return=representation' });
+  const rows = await restFetch('POST', '/inventory_opnames', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 async function updateInventoryOpname(id, data) {
   requireInventorySupabase();
-  const rows = await sbFetch('PATCH', `/inventory_opnames?id=eq.${encodeURIComponent(id)}`, data, { Prefer: 'return=representation' });
+  const rows = await restFetch('PATCH', `/inventory_opnames?id=eq.${encodeURIComponent(id)}`, data, { Prefer: 'return=representation' });
   return rows?.[0] || { id, ...data };
 }
 async function insertInventoryOpnameItem(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
-  const rows = await sbFetch('POST', '/inventory_opname_items', entry, { Prefer: 'return=representation' });
+  const rows = await restFetch('POST', '/inventory_opname_items', entry, { Prefer: 'return=representation' });
   return rows?.[0] || entry;
 }
 async function importInventoryCutoff(rows, actor) {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_apply_cutoff', { p_rows: rows, p_actor: actor || 'System' }, { Prefer: 'return=representation' });
+  const result = await restFetch('POST', '/rpc/inventory_apply_cutoff', { p_rows: rows, p_actor: actor || 'System' }, { Prefer: 'return=representation' });
   const output = Array.isArray(result) ? result[0] : result;
   if (output?.ok === false) throw new Error(output.error || 'Import Inventory gagal.');
   return output || result;
@@ -920,7 +920,7 @@ async function importInventoryCutoff(rows, actor) {
 
 async function mergeInventoryDuplicatesBulk(merges, actor) {
   requireInventorySupabase();
-  const result = await sbFetch('POST', '/rpc/inventory_merge_duplicates_bulk', {
+  const result = await restFetch('POST', '/rpc/inventory_merge_duplicates_bulk', {
     p_merges: Array.isArray(merges) ? merges : [],
     p_actor: actor || 'System'
   }, { Prefer: 'return=representation' });
@@ -955,21 +955,21 @@ function nextDocNo(prefix,rows,field){
   return `${prefix}-${year}-${String(max+1).padStart(6,'0')}`;
 }
 async function listEntity(table,localKey,order='created_at.desc'){
-  if(!USE_SUPABASE) return readJsonFile(CRM_FILES[localKey]).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
-  return await sbFetch('GET',`/${table}?order=${order}`)||[];
+  if(!USE_POSTGREST) return readJsonFile(CRM_FILES[localKey]).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  return await restFetch('GET',`/${table}?order=${order}`)||[];
 }
 async function insertEntity(table,localKey,data){
   const entry={id:crypto.randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES[localKey]);rows.unshift(entry);writeJsonFile(CRM_FILES[localKey],rows);return entry;}
-  const rows=await sbFetch('POST',`/${table}`,entry);return rows?.[0]||entry;
+  if(!USE_POSTGREST){const rows=readJsonFile(CRM_FILES[localKey]);rows.unshift(entry);writeJsonFile(CRM_FILES[localKey],rows);return entry;}
+  const rows=await restFetch('POST',`/${table}`,entry);return rows?.[0]||entry;
 }
 async function updateEntity(table,localKey,id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES[localKey]);const i=rows.findIndex(x=>x.id===id);if(i<0)throw new Error('Data tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES[localKey],rows);return rows[i];}
-  const rows=await sbFetch('PATCH',`/${table}?id=eq.${id}`,data);return rows?.[0]||{id,...data};
+  if(!USE_POSTGREST){const rows=readJsonFile(CRM_FILES[localKey]);const i=rows.findIndex(x=>x.id===id);if(i<0)throw new Error('Data tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES[localKey],rows);return rows[i];}
+  const rows=await restFetch('PATCH',`/${table}?id=eq.${id}`,data);return rows?.[0]||{id,...data};
 }
 async function deleteEntity(table,localKey,id){
-  if(!USE_SUPABASE){
+  if(!USE_POSTGREST){
     const rows=readJsonFile(CRM_FILES[localKey]);
     const i=rows.findIndex(x=>x.id===id);
     if(i<0) throw new Error('Data tidak ditemukan');
@@ -977,7 +977,7 @@ async function deleteEntity(table,localKey,id){
     writeJsonFile(CRM_FILES[localKey],rows);
     return deleted;
   }
-  const rows=await sbFetch('DELETE',`/${table}?id=eq.${id}`);
+  const rows=await restFetch('DELETE',`/${table}?id=eq.${id}`);
   return rows?.[0]||{id};
 }
 async function getCrmCustomers(){return listEntity('crm_customers','customers','name.asc')}
@@ -1014,7 +1014,7 @@ async function insertCrmMaterialRequest(data){
 async function updateCrmMaterialRequest(id,data){return updateEntity('crm_material_requests','crm_material_requests',id,data)}
 async function issueInventoryMaterialRequest(requestId,items,actor,woNumber){
   requireInventorySupabase();
-  const result=await sbFetch('POST','/rpc/inventory_issue_material_request',{p_request_id:requestId,p_items:items,p_actor:actor||'System',p_wo_number:woNumber||''},{Prefer:'return=representation'});
+  const result=await restFetch('POST','/rpc/inventory_issue_material_request',{p_request_id:requestId,p_items:items,p_actor:actor||'System',p_wo_number:woNumber||''},{Prefer:'return=representation'});
   return Array.isArray(result)?result[0]:result;
 }
 async function getAdditionalMaterialRequests(){return listEntity('additional_material_requests','additional_material_requests')}
@@ -1039,7 +1039,7 @@ async function insertCommunicationHistory(data){return insertEntity('crm_communi
 
 // PXL-REV-0052 — Dokumentasi foto Work Order (Cloudinary metadata)
 async function getWorkOrderPhotos(ticketId, publicOnly=false){
-  if(!USE_SUPABASE){
+  if(!USE_POSTGREST){
     return readJsonFile(CRM_FILES.work_order_photos)
       .filter(x=>String(x.ticket_id)===String(ticketId) && !x.deleted_at && (!publicOnly || x.visible_to_customer===true))
       .sort((a,b)=>new Date(a.uploaded_at||a.created_at||0)-new Date(b.uploaded_at||b.created_at||0));
@@ -1047,7 +1047,7 @@ async function getWorkOrderPhotos(ticketId, publicOnly=false){
   let q=`/work_order_photos?ticket_id=eq.${encodeURIComponent(ticketId)}&deleted_at=is.null`;
   if(publicOnly) q += '&visible_to_customer=eq.true';
   q += '&order=uploaded_at.asc';
-  return await sbFetch('GET',q)||[];
+  return await restFetch('GET',q)||[];
 }
 async function insertWorkOrderPhoto(data){
   const entry={
@@ -1066,13 +1066,13 @@ async function insertWorkOrderPhoto(data){
     created_at:new Date().toISOString(),
     deleted_at:null
   };
-  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES.work_order_photos);rows.push(entry);writeJsonFile(CRM_FILES.work_order_photos,rows);return entry;}
-  const rows=await sbFetch('POST','/work_order_photos',entry);return rows?.[0]||entry;
+  if(!USE_POSTGREST){const rows=readJsonFile(CRM_FILES.work_order_photos);rows.push(entry);writeJsonFile(CRM_FILES.work_order_photos,rows);return entry;}
+  const rows=await restFetch('POST','/work_order_photos',entry);return rows?.[0]||entry;
 }
 async function updateWorkOrderPhoto(id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(!USE_SUPABASE){const rows=readJsonFile(CRM_FILES.work_order_photos);const i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Foto tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES.work_order_photos,rows);return rows[i];}
-  const rows=await sbFetch('PATCH',`/work_order_photos?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||{id,...data};
+  if(!USE_POSTGREST){const rows=readJsonFile(CRM_FILES.work_order_photos);const i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Foto tidak ditemukan');rows[i]={...rows[i],...data};writeJsonFile(CRM_FILES.work_order_photos,rows);return rows[i];}
+  const rows=await restFetch('PATCH',`/work_order_photos?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||{id,...data};
 }
 
 // PXL-STG-0009A — Form Cuti / Izin
@@ -1083,18 +1083,18 @@ const LEAVE_OPTIONS_FILE=path.join(__dirname,'data','leave_hr_options.json');
 const LEAVE_SIGNATORIES_FILE=path.join(__dirname,'data','leave_signatory_settings.json');
 function readLeaveLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
 function writeLeaveLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
-async function getLeaveRequests(){return USE_SUPABASE?sbFetch('GET','/leave_requests?order=created_at.desc'):readLeaveLocal(LEAVE_REQUESTS_FILE).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
-async function insertLeaveRequest(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),status:'draft',...data};if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_requests',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_REQUESTS_FILE);all.push(row);writeLeaveLocal(LEAVE_REQUESTS_FILE,all);return row;}
-async function updateLeaveRequest(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_SUPABASE){const rows=await sbFetch('PATCH',`/leave_requests?id=eq.${encodeURIComponent(id)}`,patch);return rows?.[0]||null;}const all=readLeaveLocal(LEAVE_REQUESTS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pengajuan tidak ditemukan');all[i]={...all[i],...patch};writeLeaveLocal(LEAVE_REQUESTS_FILE,all);return all[i];}
-async function getLeaveBalances(){return USE_SUPABASE?sbFetch('GET','/leave_balances?order=year.desc'):readLeaveLocal(LEAVE_BALANCES_FILE);}
-async function upsertLeaveBalance(data){if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_balances?on_conflict=user_id%2Cyear',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_BALANCES_FILE),i=all.findIndex(x=>String(x.user_id)===String(data.user_id)&&Number(x.year)===Number(data.year));const row={id:i>=0?all[i].id:crypto.randomUUID(),...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_BALANCES_FILE,all);return row;}
-async function insertLeaveHistory(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),...data};if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_request_history',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_HISTORY_FILE);all.push(row);writeLeaveLocal(LEAVE_HISTORY_FILE,all);return row;}
-async function getLeaveHrOptions(){return USE_SUPABASE?sbFetch('GET','/leave_hr_options?order=option_type.asc,sort_order.asc,option_value.asc'):readLeaveLocal(LEAVE_OPTIONS_FILE);}
-async function insertLeaveHrOption(data){const row={id:crypto.randomUUID(),is_active:true,sort_order:0,...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_hr_options',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE);all.push(row);writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return row;}
-async function updateLeaveHrOption(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_SUPABASE){const rows=await sbFetch('PATCH',`/leave_hr_options?id=eq.${encodeURIComponent(id)}`,patch);return rows?.[0]||null;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pilihan HRD tidak ditemukan');all[i]={...all[i],...patch};writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return all[i];}
-async function deleteLeaveHrOption(id){if(USE_SUPABASE){const rows=await sbFetch('DELETE',`/leave_hr_options?id=eq.${encodeURIComponent(id)}`);return rows?.[0]||{id};}const all=readLeaveLocal(LEAVE_OPTIONS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pilihan HRD tidak ditemukan');const [row]=all.splice(i,1);writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return row;}
-async function getLeaveSignatories(){return USE_SUPABASE?sbFetch('GET','/leave_signatory_settings?order=signatory_type.asc'):readLeaveLocal(LEAVE_SIGNATORIES_FILE);}
-async function upsertLeaveSignatory(data){if(USE_SUPABASE){const rows=await sbFetch('POST','/leave_signatory_settings',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_SIGNATORIES_FILE),i=all.findIndex(x=>x.signatory_type===data.signatory_type);const row={...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_SIGNATORIES_FILE,all);return row;}
+async function getLeaveRequests(){return USE_POSTGREST?restFetch('GET','/leave_requests?order=created_at.desc'):readLeaveLocal(LEAVE_REQUESTS_FILE).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
+async function insertLeaveRequest(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),status:'draft',...data};if(USE_POSTGREST){const rows=await restFetch('POST','/leave_requests',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_REQUESTS_FILE);all.push(row);writeLeaveLocal(LEAVE_REQUESTS_FILE,all);return row;}
+async function updateLeaveRequest(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_POSTGREST){const rows=await restFetch('PATCH',`/leave_requests?id=eq.${encodeURIComponent(id)}`,patch);return rows?.[0]||null;}const all=readLeaveLocal(LEAVE_REQUESTS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pengajuan tidak ditemukan');all[i]={...all[i],...patch};writeLeaveLocal(LEAVE_REQUESTS_FILE,all);return all[i];}
+async function getLeaveBalances(){return USE_POSTGREST?restFetch('GET','/leave_balances?order=year.desc'):readLeaveLocal(LEAVE_BALANCES_FILE);}
+async function upsertLeaveBalance(data){if(USE_POSTGREST){const rows=await restFetch('POST','/leave_balances?on_conflict=user_id%2Cyear',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_BALANCES_FILE),i=all.findIndex(x=>String(x.user_id)===String(data.user_id)&&Number(x.year)===Number(data.year));const row={id:i>=0?all[i].id:crypto.randomUUID(),...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_BALANCES_FILE,all);return row;}
+async function insertLeaveHistory(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),...data};if(USE_POSTGREST){const rows=await restFetch('POST','/leave_request_history',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_HISTORY_FILE);all.push(row);writeLeaveLocal(LEAVE_HISTORY_FILE,all);return row;}
+async function getLeaveHrOptions(){return USE_POSTGREST?restFetch('GET','/leave_hr_options?order=option_type.asc,sort_order.asc,option_value.asc'):readLeaveLocal(LEAVE_OPTIONS_FILE);}
+async function insertLeaveHrOption(data){const row={id:crypto.randomUUID(),is_active:true,sort_order:0,...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};if(USE_POSTGREST){const rows=await restFetch('POST','/leave_hr_options',row);return rows?.[0]||row;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE);all.push(row);writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return row;}
+async function updateLeaveHrOption(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_POSTGREST){const rows=await restFetch('PATCH',`/leave_hr_options?id=eq.${encodeURIComponent(id)}`,patch);return rows?.[0]||null;}const all=readLeaveLocal(LEAVE_OPTIONS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pilihan HRD tidak ditemukan');all[i]={...all[i],...patch};writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return all[i];}
+async function deleteLeaveHrOption(id){if(USE_POSTGREST){const rows=await restFetch('DELETE',`/leave_hr_options?id=eq.${encodeURIComponent(id)}`);return rows?.[0]||{id};}const all=readLeaveLocal(LEAVE_OPTIONS_FILE),i=all.findIndex(x=>String(x.id)===String(id));if(i<0)throw new Error('Pilihan HRD tidak ditemukan');const [row]=all.splice(i,1);writeLeaveLocal(LEAVE_OPTIONS_FILE,all);return row;}
+async function getLeaveSignatories(){return USE_POSTGREST?restFetch('GET','/leave_signatory_settings?order=signatory_type.asc'):readLeaveLocal(LEAVE_SIGNATORIES_FILE);}
+async function upsertLeaveSignatory(data){if(USE_POSTGREST){const rows=await restFetch('POST','/leave_signatory_settings',data,{'Prefer':'resolution=merge-duplicates,return=representation'});return rows?.[0]||data;}const all=readLeaveLocal(LEAVE_SIGNATORIES_FILE),i=all.findIndex(x=>x.signatory_type===data.signatory_type);const row={...data,updated_at:new Date().toISOString()};if(i>=0)all[i]=row;else all.push(row);writeLeaveLocal(LEAVE_SIGNATORIES_FILE,all);return row;}
 
 async function getCrmReport(){
   const [customers,sos,wos,mrs,amrs,invoices,projects,visits,tickets]=await Promise.all([
@@ -1116,57 +1116,57 @@ function readServiceLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8
 function writeServiceLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
 
 async function getServiceOrders(){
-  if(USE_SUPABASE) return await sbFetch('GET','/service_orders?order=created_at.desc')||[];
+  if(USE_POSTGREST) return await restFetch('GET','/service_orders?order=created_at.desc')||[];
   return readServiceLocal(SERVICE_ORDERS_FILE).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
 }
 async function getServiceOrder(id){
-  if(USE_SUPABASE){const rows=await sbFetch('GET',`/service_orders?id=eq.${encodeURIComponent(id)}&limit=1`);return rows?.[0]||null;}
+  if(USE_POSTGREST){const rows=await restFetch('GET',`/service_orders?id=eq.${encodeURIComponent(id)}&limit=1`);return rows?.[0]||null;}
   return readServiceLocal(SERVICE_ORDERS_FILE).find(x=>String(x.id)===String(id))||null;
 }
 async function getServiceOrderByToken(token){
-  if(USE_SUPABASE){const rows=await sbFetch('GET',`/service_orders?tracking_token=eq.${encodeURIComponent(token)}&limit=1`);return rows?.[0]||null;}
+  if(USE_POSTGREST){const rows=await restFetch('GET',`/service_orders?tracking_token=eq.${encodeURIComponent(token)}&limit=1`);return rows?.[0]||null;}
   return readServiceLocal(SERVICE_ORDERS_FILE).find(x=>String(x.tracking_token)===String(token))||null;
 }
 async function insertServiceOrder(data){
   const now=new Date().toISOString();
   const row={id:crypto.randomUUID(),created_at:now,updated_at:now,is_archived:false,...data};
-  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_orders',row);return rows?.[0]||row;}
+  if(USE_POSTGREST){const rows=await restFetch('POST','/service_orders',row);return rows?.[0]||row;}
   const all=readServiceLocal(SERVICE_ORDERS_FILE);all.push(row);writeServiceLocal(SERVICE_ORDERS_FILE,all);return row;
 }
 async function updateServiceOrder(id,patch){
   const data={...patch,updated_at:new Date().toISOString()};
-  if(USE_SUPABASE){const rows=await sbFetch('PATCH',`/service_orders?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||null;}
+  if(USE_POSTGREST){const rows=await restFetch('PATCH',`/service_orders?id=eq.${encodeURIComponent(id)}`,data);return rows?.[0]||null;}
   const all=readServiceLocal(SERVICE_ORDERS_FILE),idx=all.findIndex(x=>String(x.id)===String(id));
   if(idx<0) throw new Error('Service tidak ditemukan.');
   all[idx]={...all[idx],...data};writeServiceLocal(SERVICE_ORDERS_FILE,all);return all[idx];
 }
 async function getServiceHistory(serviceId,publicOnly=false){
-  if(USE_SUPABASE){
+  if(USE_POSTGREST){
     let q=`/service_status_history?service_id=eq.${encodeURIComponent(serviceId)}`;
     if(publicOnly) q+='&customer_visible=eq.true';
     q+='&order=created_at.asc';
-    return await sbFetch('GET',q)||[];
+    return await restFetch('GET',q)||[];
   }
   return readServiceLocal(SERVICE_HISTORY_FILE).filter(x=>String(x.service_id)===String(serviceId)&&(!publicOnly||x.customer_visible===true)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
 }
 async function insertServiceHistory(data){
   const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),customer_visible:data.customer_visible!==false,...data};
-  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_status_history',row);return rows?.[0]||row;}
+  if(USE_POSTGREST){const rows=await restFetch('POST','/service_status_history',row);return rows?.[0]||row;}
   const all=readServiceLocal(SERVICE_HISTORY_FILE);all.push(row);writeServiceLocal(SERVICE_HISTORY_FILE,all);return row;
 }
 async function getServicePhotos(serviceId,publicOnly=false){
-  if(USE_SUPABASE){
+  if(USE_POSTGREST){
     let q=`/service_photos?service_id=eq.${encodeURIComponent(serviceId)}&deleted_at=is.null`;
     if(publicOnly) q+='&visible_to_customer=eq.true';
     q+='&order=uploaded_at.asc';
-    return await sbFetch('GET',q)||[];
+    return await restFetch('GET',q)||[];
   }
   return readServiceLocal(SERVICE_PHOTOS_FILE).filter(x=>String(x.service_id)===String(serviceId)&&!x.deleted_at&&(!publicOnly||x.visible_to_customer===true)).sort((a,b)=>new Date(a.uploaded_at)-new Date(b.uploaded_at));
 }
 async function insertServicePhoto(data){
   const now=new Date().toISOString();
   const row={id:crypto.randomUUID(),uploaded_at:now,created_at:now,deleted_at:null,visible_to_customer:data.visible_to_customer!==false,...data};
-  if(USE_SUPABASE){const rows=await sbFetch('POST','/service_photos',row);return rows?.[0]||row;}
+  if(USE_POSTGREST){const rows=await restFetch('POST','/service_photos',row);return rows?.[0]||row;}
   const all=readServiceLocal(SERVICE_PHOTOS_FILE);all.push(row);writeServiceLocal(SERVICE_PHOTOS_FILE,all);return row;
 }
 
@@ -1182,10 +1182,10 @@ function writePackageLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive
 function packageSnapshot(recipe,items,audit=null){return {...recipe,items:Array.isArray(items)?items:[],...(audit?{audit}: {})};}
 
 async function getPackageRecipes(){
-  if(USE_SUPABASE){
+  if(USE_POSTGREST){
     const [recipes,items]=await Promise.all([
-      sbFetch('GET','/package_recipes?order=updated_at.desc'),
-      sbFetch('GET','/package_recipe_items?order=package_id.asc,sort_order.asc')
+      restFetch('GET','/package_recipes?order=updated_at.desc'),
+      restFetch('GET','/package_recipe_items?order=package_id.asc,sort_order.asc')
     ]);
     const byPackage=new Map();
     (items||[]).forEach(item=>{const key=String(item.package_id);if(!byPackage.has(key))byPackage.set(key,[]);byPackage.get(key).push(item);});
@@ -1196,11 +1196,11 @@ async function getPackageRecipes(){
   return recipes.sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)).map(row=>({...row,items:items.filter(x=>String(x.package_id)===String(row.id)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))}));
 }
 async function getPackageRecipe(id){
-  if(USE_SUPABASE){
+  if(USE_POSTGREST){
     const [rows,items,versions]=await Promise.all([
-      sbFetch('GET',`/package_recipes?id=eq.${encodeURIComponent(id)}&limit=1`),
-      sbFetch('GET',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}&order=sort_order.asc`),
-      sbFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(id)}&order=revision_no.desc`)
+      restFetch('GET',`/package_recipes?id=eq.${encodeURIComponent(id)}&limit=1`),
+      restFetch('GET',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}&order=sort_order.asc`),
+      restFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(id)}&order=revision_no.desc`)
     ]);
     return rows?.[0]?{...rows[0],items:items||[],versions:versions||[]}:null;
   }
@@ -1211,11 +1211,11 @@ async function getPackageRecipe(id){
   return {...row,items,versions};
 }
 async function insertPackageVersion(packageId,recipe,items,createdBy,audit=null){
-  if(USE_SUPABASE){
-    const versions=await sbFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(packageId)}&select=revision_no&order=revision_no.desc&limit=1`)||[];
+  if(USE_POSTGREST){
+    const versions=await restFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(packageId)}&select=revision_no&order=revision_no.desc&limit=1`)||[];
     const revisionNo=Number(versions?.[0]?.revision_no||0)+1;
     const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items,audit),created_by:createdBy||null,created_at:new Date().toISOString()};
-    const out=await sbFetch('POST','/package_recipe_versions',row);return out?.[0]||row;
+    const out=await restFetch('POST','/package_recipe_versions',row);return out?.[0]||row;
   }
   const all=readPackageLocal(PACKAGE_VERSIONS_FILE);
   const revisionNo=Math.max(0,...all.filter(x=>String(x.package_id)===String(packageId)).map(x=>Number(x.revision_no)||0))+1;
@@ -1226,9 +1226,9 @@ async function insertPackageRecipe(data,items=[],audit=null){
   const now=new Date().toISOString();
   const row={id:crypto.randomUUID(),created_at:now,updated_at:now,...data};
   let saved=row;
-  if(USE_SUPABASE){
-    const out=await sbFetch('POST','/package_recipes',row);saved=out?.[0]||row;
-    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:saved.id,sort_order:i,...items[i],created_at:now};await sbFetch('POST','/package_recipe_items',item);}
+  if(USE_POSTGREST){
+    const out=await restFetch('POST','/package_recipes',row);saved=out?.[0]||row;
+    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:saved.id,sort_order:i,...items[i],created_at:now};await restFetch('POST','/package_recipe_items',item);}
   }else{
     const recipes=readPackageLocal(PACKAGE_RECIPES_FILE);recipes.push(row);writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
     const allItems=readPackageLocal(PACKAGE_ITEMS_FILE);items.forEach((item,i)=>allItems.push({id:crypto.randomUUID(),package_id:row.id,sort_order:i,...item,created_at:now}));writePackageLocal(PACKAGE_ITEMS_FILE,allItems);
@@ -1237,11 +1237,11 @@ async function insertPackageRecipe(data,items=[],audit=null){
 }
 async function updatePackageRecipe(id,patch,items=[],audit=null){
   const now=new Date().toISOString(),data={...patch,updated_at:now};
-  if(USE_SUPABASE){
-    const out=await sbFetch('PATCH',`/package_recipes?id=eq.${encodeURIComponent(id)}`,data);
+  if(USE_POSTGREST){
+    const out=await restFetch('PATCH',`/package_recipes?id=eq.${encodeURIComponent(id)}`,data);
     if(!out?.[0])throw new Error('Paket tidak ditemukan.');
-    await sbFetch('DELETE',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}`);
-    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:id,sort_order:i,...items[i],created_at:now};await sbFetch('POST','/package_recipe_items',item);}
+    await restFetch('DELETE',`/package_recipe_items?package_id=eq.${encodeURIComponent(id)}`);
+    for(let i=0;i<items.length;i++){const item={id:crypto.randomUUID(),package_id:id,sort_order:i,...items[i],created_at:now};await restFetch('POST','/package_recipe_items',item);}
   }else{
     const recipes=readPackageLocal(PACKAGE_RECIPES_FILE),idx=recipes.findIndex(x=>String(x.id)===String(id));if(idx<0)throw new Error('Paket tidak ditemukan.');
     recipes[idx]={...recipes[idx],...data};writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
@@ -1251,7 +1251,7 @@ async function updatePackageRecipe(id,patch,items=[],audit=null){
   const full=await getPackageRecipe(id);await insertPackageVersion(id,full||data,full?.items||items,patch.updated_by||null,audit);return await getPackageRecipe(id);
 }
 async function deletePackageRecipe(id){
-  if(USE_SUPABASE){const out=await sbFetch('DELETE',`/package_recipes?id=eq.${encodeURIComponent(id)}`);return out?.[0]||{id};}
+  if(USE_POSTGREST){const out=await restFetch('DELETE',`/package_recipes?id=eq.${encodeURIComponent(id)}`);return out?.[0]||{id};}
   const recipes=readPackageLocal(PACKAGE_RECIPES_FILE),idx=recipes.findIndex(x=>String(x.id)===String(id));if(idx<0)throw new Error('Paket tidak ditemukan.');
   const [row]=recipes.splice(idx,1);writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
   writePackageLocal(PACKAGE_ITEMS_FILE,readPackageLocal(PACKAGE_ITEMS_FILE).filter(x=>String(x.package_id)!==String(id)));
@@ -1261,7 +1261,8 @@ async function deletePackageRecipe(id){
 
 
 module.exports = {
-  USE_SUPABASE,
+  USE_POSTGREST,
+  USE_SUPABASE: USE_POSTGREST,
   getTickets, getArchivedTickets, getTicketByToken,
   insertTicket, updateTicket, deleteTicket,
   getStatusHistory, insertStatusHistory,
