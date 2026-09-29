@@ -2777,7 +2777,8 @@ app.get('/api/sales-orders/package-recipes',requireRole(...SO_READ_ROLES),async(
   try{
     const rows=await db.getPackageRecipes();
     res.json({items:(rows||[]).filter(x=>!['inactive'].includes(String(x.status||'').toLowerCase())).map(x=>({
-      id:x.id,package_code:x.package_code,name:x.name,brand:x.brand,status:x.status,ppn_percent:x.ppn_percent,package_price:x.package_price,
+      id:x.id,package_code:x.package_code,name:x.name,brand:x.brand,status:x.status,ppn_percent:x.ppn_percent,package_price:x.package_price,discount_percent:x.discount_percent,
+      pricing:packagePricing(x,x.items||[]),
       items:(x.items||[]).map(i=>({id:i.id,item_type:i.item_type,item_category:i.item_category,item_name:i.item_name,brand:i.brand,qty:i.qty,unit:i.unit,hpp_unit:i.hpp_unit,markup_percent:i.markup_percent,inventory_item_id:i.inventory_item_id||null}))
     }))});
   }catch(e){res.status(500).json({error:e.message})}
