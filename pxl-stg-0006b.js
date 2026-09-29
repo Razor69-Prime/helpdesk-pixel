@@ -1,5 +1,7 @@
 'use strict';
 
+const { materialRequiresInventory } = require('./pxl-urg-0107f2-so-package-validation');
+
 /**
  * PXL-STG-0006I
  * Validasi backend Sales Order untuk Material/Barang dan Jasa/Pekerjaan.
@@ -47,7 +49,7 @@ function installSalesOrderRoutePatch() {
       if (qty <= 0) throw validationError(`Qty ${name} harus lebih dari 0.`);
       if (unitPrice < 0) throw validationError(`Harga satuan ${name} tidak boleh negatif.`);
       if (!unit) throw validationError(`Satuan ${name} wajib diisi.`);
-      if (itemType === 'item' && !raw?.inventory_item_id) {
+      if (materialRequiresInventory(raw)) {
         throw validationError(`Material ${name} wajib dipilih dari Inventory.`);
       }
 
