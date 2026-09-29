@@ -12,10 +12,11 @@ usage(){
 }
 
 [[ -n "$DUMP" && -f "$DUMP" ]] || { usage; exit 2; }
-command -v pg_restore >/dev/null || { echo "pg_restore tidak tersedia"; exit 1; }
+if [[ -x /usr/lib/postgresql/17/bin/pg_restore ]]; then PG_RESTORE_BIN=/usr/lib/postgresql/17/bin/pg_restore; else PG_RESTORE_BIN="$(command -v pg_restore || true)"; fi
+[[ -n "$PG_RESTORE_BIN" ]] || { echo "pg_restore tidak tersedia"; exit 1; }
 
 if [[ "$MODE" == "--verify-only" ]]; then
-  pg_restore -l "$DUMP" >/dev/null
+  "$PG_RESTORE_BIN" -l "$DUMP" >/dev/null
   echo "VERIFY_OK $(basename "$DUMP")"
   exit 0
 fi
@@ -41,7 +42,7 @@ for k,v in {
 PY
 )"
 
-pg_restore -l "$DUMP" >/dev/null
+"$PG_RESTORE_BIN" -l "$DUMP" >/dev/null
 echo "WARNING: restore akan mengganti object database target. Pastikan aplikasi dihentikan."
-pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="$PGDATABASE" "$DUMP"
+"$PG_RESTORE_BIN" --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="$PGDATABASE" "$DUMP"
 echo "RESTORE_OK $(basename "$DUMP")"
