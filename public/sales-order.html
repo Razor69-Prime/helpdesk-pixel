@@ -206,23 +206,44 @@ function salesOrderItemsFromPackage(pkg) {
   const out = { materials: [], services: [], costs: [] };
   const packageId = pkg?.id || null;
   const packageName = pkg?.name || '';
-  (Array.isArray(pkg?.items) ? pkg.items : []).forEach(item => {
+  const raw = (Array.isArray(pkg?.items) ? pkg.items : []).map(item => {
     const type = String(item.item_type || 'material').toLowerCase();
     const hpp = numberValue(item.hpp_unit);
     const markup = numberValue(item.markup_percent);
+    const qty = Math.max(0.000001, numberValue(item.qty || 1));
+    return { item, type, hpp, markup, qty, weight: qty * hpp * (1 + markup / 100) };
+  });
+  const formulaEx = raw.reduce((sum,x) => sum + x.weight, 0);
+  const ppn = Math.max(0, numberValue(pkg?.ppn_percent));
+  const suggested = formulaEx * (1 + ppn / 100);
+  const base = numberValue(pkg?.package_price) > 0 ? numberValue(pkg.package_price) : suggested;
+  const discount = Math.min(100, Math.max(0, numberValue(pkg?.discount_percent)));
+  const calculatedFinal = base * (1 - discount / 100);
+  const finalPrice = numberValue(pkg?.pricing?.final_price) > 0 ? numberValue(pkg.pricing.final_price) : calculatedFinal;
+  let remainingCents = Math.round(finalPrice * 100);
+
+  raw.forEach((x,index) => {
+    const {item,type,hpp,markup,qty,weight} = x;
+    const lineCents = index === raw.length - 1
+      ? remainingCents
+      : (formulaEx > 0 ? Math.round(Math.round(finalPrice * 100) * weight / formulaEx) : 0);
+    remainingCents -= lineCents;
     const line = {
       inventory_item_id: item.inventory_item_id || null,
       item_name: item.item_name || item.name || '',
       name: item.item_name || item.name || '',
-      qty: numberValue(item.qty || 1),
+      qty,
       unit: item.unit || (type === 'service' ? 'jasa' : 'pcs'),
-      unit_price: hpp * (1 + markup / 100),
+      unit_price: (lineCents / 100) / qty,
       hpp_reference: hpp,
       markup_percent: markup,
       source_type: 'master_package',
       package_id: packageId,
       package_item_id: item.id || null,
       package_name: packageName,
+      package_final_price: finalPrice,
+      package_ppn_percent: ppn,
+      package_discount_percent: discount,
       item_type: type
     };
     if (type === 'service' || type === 'jasa') out.services.push({...line,item_type:'service'});
