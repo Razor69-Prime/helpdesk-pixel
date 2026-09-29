@@ -70,7 +70,7 @@ echo "Physical local upload files: $physical_files"
 echo "Missing local files referenced by DB: $missing_local"
 
 echo '--- Runtime source URL literals ---'
-runtime_supabase_literals="$(grep -RIl --include='*.js' --include='*.html' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=backups -E 'https?://[^"[:space:]]*supabase\.co|/storage/v1/' "$APP_ROOT" 2>/dev/null | wc -l | tr -d ' ')"
+runtime_supabase_literals="$(grep -RIl --include='*.js' --include='*.html' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=backups --exclude-dir=ops -E 'https?://[^"[:space:]]*supabase\.co|/storage/v1/' "$APP_ROOT" 2>/dev/null | wc -l | tr -d ' ')"
 echo "Files with Supabase/storage URL literals: $runtime_supabase_literals"
 
 echo '--- Cloudinary configuration ---'
