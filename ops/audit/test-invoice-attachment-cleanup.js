@@ -1,0 +1,17 @@
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'../..');
+const mod=require(path.join(root,'pxl-urg-0107f1-attachment-cleanup'));
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const core=fs.readFileSync(path.join(root,'db-core.js'),'utf8');
+const now=new Date('2026-09-29T00:00:00Z');
+assert.equal(mod.ATTACH_EXPIRE_DAYS,30);
+assert.equal(mod.isExpiredLocalAttachment({file_url:'/uploads/a.pdf',uploaded_at:'2026-08-29T00:00:00Z'},now),true);
+assert.equal(mod.isExpiredLocalAttachment({file_url:'/uploads/a.pdf',uploaded_at:'2026-09-10T00:00:00Z'},now),false);
+assert.equal(mod.isExpiredLocalAttachment({file_url:'https://res.cloudinary.com/x/a.jpg',uploaded_at:'2026-08-01T00:00:00Z'},now),false);
+assert(server.includes('getInvoiceAttachmentsForCleanup'));
+assert(!server.includes("fs.readFileSync(TICKETS_FILE, 'utf8')"));
+assert(core.includes('markInvoiceAttachmentDeleted'));
+assert(core.includes('clearStandaloneInvoiceAttachment'));
+console.log('PASS PXL-URG-0107F1');
