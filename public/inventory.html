@@ -164,7 +164,7 @@ async function bulkMergeExactDuplicates(){
   if(btn){btn.disabled=true;btn.textContent='Memproses Merge 100%...'}
   if(box){
     box.style.display='block';
-    box.innerHTML='<b>Memproses Merge Massal 100%...</b><div class="item-meta">Mohon tunggu, stok dan item duplikat sedang diproses melalui Supabase.</div>';
+    box.innerHTML='<b>Memproses Merge Massal 100%...</b><div class="item-meta">Mohon tunggu, stok dan item duplikat sedang diproses melalui PostgreSQL VPS.</div>';
   }
 
   try{
@@ -288,7 +288,7 @@ async function load(){
   const status=document.getElementById('db-status');
   try{
     await api('/api/inventory/health');
-    if(status){status.textContent='● Supabase terhubung';status.style.color='#3B6D11'}
+    if(status){status.textContent='● PostgREST VPS terhubung';status.style.color='#3B6D11'}
     const loaded=await Promise.all([
       api('/api/inventory/items'),
       api('/api/inventory/logs'),
@@ -352,12 +352,12 @@ async function saveItem(event){
       await api('/api/inventory/items/'+encodeURIComponent(id)+'/restock',{method:'POST',body:JSON.stringify({qty,reference:document.getElementById('restock-reference').value.trim()})});
     }else{
       const saved=await api('/api/inventory/items',{method:'POST',body:JSON.stringify({name,sku:document.getElementById('item-sku').value.trim(),product_number:document.getElementById('item-pn').value.trim(),subcategory:document.getElementById('item-subcategory').value.trim(),barcode:document.getElementById('item-barcode').value.trim(),manufacturer_barcode:document.getElementById('item-manufacturer-barcode').value.trim(),category:document.getElementById('item-category').value,unit:document.getElementById('item-unit').value,tracking_mode:document.getElementById('item-tracking-mode').value,qty,min_stock:minStock})});
-      if(!saved?.item?.id)throw new Error('Server tidak mengonfirmasi penyimpanan ke Supabase.');
+      if(!saved?.item?.id)throw new Error('Server VPS tidak mengonfirmasi penyimpanan inventory.');
     }
     await load();
     if(!id && !items.some(x=>x.name===name))throw new Error('Data belum muncul kembali dari database setelah disimpan.');
     closeModal();
-    toast('✅ Data inventory tersimpan di Supabase');
+    toast('✅ Data inventory tersimpan di PostgreSQL VPS');
   }catch(e){
     console.error('Inventory save error:',e);
     toast('⚠️ '+(e.message||'Data gagal disimpan'));
