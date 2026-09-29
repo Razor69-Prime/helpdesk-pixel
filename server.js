@@ -8,6 +8,7 @@ const JSZip    = require('jszip');
 const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
+const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -17,6 +18,9 @@ const APP_ENV = String(process.env.APP_ENV || '').trim().toLowerCase();
 const IS_STAGING = APP_ENV === 'staging';
 const STAGING_SUPABASE_PROJECT_REF = String(process.env.STAGING_SUPABASE_PROJECT_REF || '').trim();
 const PRODUCTION_SUPABASE_PROJECT_REF = 'chgcictuycjeqdxfrnej';
+
+// PXL-URG-0107D — production Full-VPS guard: block accidental Supabase Cloud fallback.
+assertVpsOnlyDatabase(cfg.SUPABASE_URL, APP_ENV);
 
 if (IS_STAGING) {
   const configuredSupabaseUrl = String(cfg.SUPABASE_URL || '').trim();
