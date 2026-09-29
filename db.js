@@ -7,9 +7,9 @@ const core = require('./db-core');
 const cfg = require('./config');
 
 const fetchImpl = global.fetch || require('node-fetch');
-const USE_SUPABASE = !!core.USE_SUPABASE;
-const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.SUPABASE_KEY;
-const REST_BASE = String(cfg.SUPABASE_URL || '').replace(/\/$/, '') + '/rest/v1';
+const USE_POSTGREST = !!core.USE_POSTGREST;
+const POSTGREST_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.POSTGREST_KEY;
+const REST_BASE = String(cfg.POSTGREST_URL || '').replace(/\/$/, '') + '/rest/v1';
 const ITEM_CACHE_MS = 8000;
 const LOG_CACHE_MS = 15000;
 const GET_TIMEOUT_MS = 7000;
@@ -33,14 +33,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function headers() {
   return {
-    apikey: SUPABASE_SERVER_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVER_KEY}`,
+    apikey: POSTGREST_SERVER_KEY,
+    Authorization: `Bearer ${POSTGREST_SERVER_KEY}`,
     'Content-Type': 'application/json',
     Prefer: 'return=representation'
   };
 }
 
-async function readSupabase(path, { timeoutMs = GET_TIMEOUT_MS, retries = 1 } = {}) {
+async function readPostgrest(path, { timeoutMs = GET_TIMEOUT_MS, retries = 1 } = {}) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
@@ -76,7 +76,7 @@ async function readSupabase(path, { timeoutMs = GET_TIMEOUT_MS, retries = 1 } = 
 }
 
 async function getInventoryItems() {
-  if (!USE_SUPABASE) return core.getInventoryItems();
+  if (!USE_POSTGREST) return core.getInventoryItems();
   const now = Date.now();
   if (Array.isArray(itemCache) && now - itemCacheAt < ITEM_CACHE_MS) return clone(itemCache);
   if (itemPending) return itemPending.then(clone);
@@ -86,7 +86,7 @@ async function getInventoryItems() {
     'stock','min_stock','barcode','manufacturer_barcode','is_active','created_at','updated_at'
   ].join(',');
 
-  itemPending = readSupabase(`/inventory_items?select=${select}&is_active=is.true&order=name.asc`)
+  itemPending = readPostgrest(`/inventory_items?select=${select}&is_active=is.true&order=name.asc`)
     .then(rows => {
       itemCache = Array.isArray(rows) ? rows : [];
       itemCacheAt = Date.now();
@@ -98,13 +98,13 @@ async function getInventoryItems() {
 }
 
 async function getInventoryTransactions() {
-  if (!USE_SUPABASE) return core.getInventoryTransactions();
+  if (!USE_POSTGREST) return core.getInventoryTransactions();
   const now = Date.now();
   if (Array.isArray(logCache) && now - logCacheAt < LOG_CACHE_MS) return clone(logCache);
   if (logPending) return logPending.then(clone);
 
   const select = 'id,item_id,transaction_type,qty,balance_after,reference,notes,created_by,created_at,inventory_items(name,unit)';
-  logPending = readSupabase(`/inventory_transactions?select=${select}&order=created_at.desc&limit=200`)
+  logPending = readPostgrest(`/inventory_transactions?select=${select}&order=created_at.desc&limit=200`)
     .then(rows => {
       logCache = Array.isArray(rows) ? rows : [];
       logCacheAt = Date.now();
@@ -130,7 +130,7 @@ function invalidateTicketBundleCache() {
 }
 
 async function getTickets(filterTech, includeArchived=false) {
-  if (!USE_SUPABASE) return core.getTickets(filterTech, includeArchived);
+  if (!USE_POSTGREST) return core.getTickets(filterTech, includeArchived);
   const key = ticketKey(filterTech, includeArchived);
   const now = Date.now();
   const hit = ticketCache.get(key);
@@ -149,7 +149,7 @@ async function getTickets(filterTech, includeArchived=false) {
 }
 
 async function getTicketRelationsBatch(ticketIds) {
-  if (!USE_SUPABASE) return core.getTicketRelationsBatch(ticketIds);
+  if (!USE_POSTGREST) return core.getTicketRelationsBatch(ticketIds);
   const key = relationKey(ticketIds);
   if (!key) return { invoices:{}, status_history:{}, job_stages:{} };
   const now = Date.now();
