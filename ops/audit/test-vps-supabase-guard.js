@@ -18,6 +18,6 @@ assert.throws(
 assert.doesNotThrow(() => guard.assertVpsOnlyDatabase('https://staging-ref.supabase.co', 'staging'));
 
 assert(server.includes("require('./pxl-urg-0107d-vps-guard')"));
-assert(server.includes("assertVpsOnlyDatabase(cfg.SUPABASE_URL, APP_ENV)"));
+assert(server.includes("assertVpsOnlyDatabase(cfg.POSTGREST_URL, APP_ENV)"));
 
 console.log('PASS PXL-URG-0107D');
