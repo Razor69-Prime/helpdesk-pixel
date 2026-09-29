@@ -61,17 +61,20 @@ if [[ "$MODE" == "--dry-run" ]]; then
   exit 0
 fi
 
-for cmd in pg_dump pg_restore psql git gzip sha256sum; do
+if [[ -x /usr/lib/postgresql/17/bin/pg_dump ]]; then PG_DUMP_BIN=/usr/lib/postgresql/17/bin/pg_dump; else PG_DUMP_BIN="$(command -v pg_dump || true)"; fi
+if [[ -x /usr/lib/postgresql/17/bin/pg_restore ]]; then PG_RESTORE_BIN=/usr/lib/postgresql/17/bin/pg_restore; else PG_RESTORE_BIN="$(command -v pg_restore || true)"; fi
+[[ -n "$PG_DUMP_BIN" && -n "$PG_RESTORE_BIN" ]] || { log "ERROR pg_dump/pg_restore tidak tersedia"; exit 1; }
+for cmd in psql git gzip sha256sum; do
   command -v "$cmd" >/dev/null || { log "ERROR $cmd tidak tersedia"; exit 1; }
 done
 
 load_db_env
 log "Mulai backup PixelApps"
-pg_dump -Fc --no-owner --no-privileges -f "$DB_FILE"
-pg_restore -l "$DB_FILE" >/dev/null
+"$PG_DUMP_BIN" -Fc --no-owner --no-privileges -f "$DB_FILE"
+"$PG_RESTORE_BIN" -l "$DB_FILE" >/dev/null
 log "Database dump OK: $(basename "$DB_FILE")"
 
-pg_dump --schema-only --no-owner --no-privileges | gzip -9 > "$SCHEMA_FILE"
+"$PG_DUMP_BIN" --schema-only --no-owner --no-privileges | gzip -9 > "$SCHEMA_FILE"
 gzip -t "$SCHEMA_FILE"
 log "Schema dump OK: $(basename "$SCHEMA_FILE")"
 
