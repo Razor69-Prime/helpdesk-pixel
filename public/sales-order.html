@@ -222,10 +222,11 @@ function salesOrderItemsFromPackage(pkg) {
       source_type: 'master_package',
       package_id: packageId,
       package_item_id: item.id || null,
-      package_name: packageName
+      package_name: packageName,
+      item_type: type
     };
-    if (type === 'service' || type === 'jasa') out.services.push(line);
-    else if (type === 'cost') out.costs.push(line);
+    if (type === 'service' || type === 'jasa') out.services.push({...line,item_type:'service'});
+    else if (type === 'cost') out.services.push({...line,item_type:'service',revenue_source:'cost'});
     else out.materials.push(line);
   });
   return out;
@@ -347,6 +348,7 @@ function addService(data = {}) {
   row.dataset.packageId = data.package_id || '';
   row.dataset.packageItemId = data.package_item_id || '';
   row.dataset.packageName = data.package_name || '';
+  row.dataset.revenueSource = data.revenue_source || '';
   row.innerHTML = `
     <div class="wide"><label>Nama Jasa / Pekerjaan</label><input class="service-name" placeholder="Contoh: Jasa instalasi CCTV" value="${esc(data.item_name || data.name || '')}"></div>
     <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
@@ -375,7 +377,8 @@ function applySalesOrderMasterPackage(id, launcherRow = null) {
   const missing = mapped.materials.filter(x => !x.inventory_item_id).length;
   const notes = [`${mapped.materials.length} material`, `${mapped.services.length} jasa`];
   if (missing) notes.push(`${missing} material belum Inventory`);
-  if (mapped.costs.length) notes.push(`${mapped.costs.length} cost tidak dimasukkan ke Material/Jasa`);
+  const revenueCount=mapped.services.filter(x=>x.revenue_source==='cost').length;
+  if (revenueCount) notes.push(`${revenueCount} Cost/Omzet masuk Jasa/Omzet`);
   toast(`Master Paket ${pkg.name} ditambahkan: ${notes.join(' · ')}`);
   return true;
 }
@@ -492,7 +495,8 @@ function collect() {
       source_type: row.dataset.sourceType || null,
       package_id: row.dataset.packageId || null,
       package_item_id: row.dataset.packageItemId || null,
-      package_name: row.dataset.packageName || null
+      package_name: row.dataset.packageName || null,
+      revenue_source: row.dataset.revenueSource || null
     });
   });
 
