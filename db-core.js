@@ -350,7 +350,7 @@ async function markAllNotificationsRead(user) {
   }
 }
 
-console.log(`💾 Storage: ${USE_POSTGREST ? 'Supabase (online)' : 'Local JSON (lokal)'}`);
+console.log(`💾 Storage: ${USE_POSTGREST ? 'PostgREST VPS' : 'Local JSON (lokal)'}`);
 
 // ── Job Stages ────────────────────────────
 
@@ -800,7 +800,7 @@ async function deleteMRForm(id) {
 // ─────────────────────────────────────────
 function requireInventorySupabase() {
   if (!USE_POSTGREST) {
-    throw new Error('Supabase belum aktif. Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia di Vercel Environment Variables.');
+    throw new Error('PostgREST VPS belum aktif. Pastikan POSTGREST_URL dan POSTGREST_KEY tersedia di konfigurasi server.');
   }
 }
 
@@ -848,7 +848,7 @@ async function insertInventoryItem(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   const rows = await restFetch('POST', '/inventory_items', entry, { Prefer: 'return=representation' });
-  if (!rows?.[0]) throw new Error('Supabase tidak mengembalikan data barang setelah insert.');
+  if (!rows?.[0]) throw new Error('PostgREST VPS tidak mengembalikan data barang setelah insert.');
   return rows[0];
 }
 async function updateInventoryItem(id, data) {
@@ -866,7 +866,7 @@ async function deleteInventoryItem(id, actor = 'System') {
   requireInventorySupabase();
   const result = await restFetch('POST', '/rpc/inventory_soft_delete', { p_item_id: id, p_actor: actor }, { Prefer: 'return=representation' });
   const deleted = Array.isArray(result) ? result[0] : result;
-  if (!deleted || deleted.ok !== true) throw new Error(deleted?.error || 'Supabase tidak mengonfirmasi penghapusan barang.');
+  if (!deleted || deleted.ok !== true) throw new Error(deleted?.error || 'PostgREST VPS tidak mengonfirmasi penghapusan barang.');
   return deleted;
 }
 async function restockInventoryBatch(itemId, qty, serialNumbers, reference, actor) {
