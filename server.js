@@ -1962,7 +1962,7 @@ function normalizePackageItems(items){
 }
 function packagePricing(recipe,items){
   const ppn=Math.max(0,packageNum(recipe.ppn_percent));
-  const hpp=items.reduce((sum,item)=>sum+packageNum(item.qty)*packageNum(item.hpp_unit),0);
+  const hpp=items.reduce((sum,item)=>item.item_type==='cost'?sum:sum+packageNum(item.qty)*packageNum(item.hpp_unit),0);
   const exPpn=items.reduce((sum,item)=>{
     const base=packageNum(item.qty)*packageNum(item.hpp_unit);
     return sum+base*(1+packageNum(item.markup_percent)/100);
@@ -1976,6 +1976,44 @@ function packagePricing(recipe,items){
   const margin=finalExPpn>0?profit/finalExPpn*100:0;
   return {hpp_total:hpp,sell_ex_ppn:exPpn,ppn_percent:ppn,suggested_price:suggested,base_price:basePrice,discount_percent:discount,final_price:finalPrice,profit,margin_percent:margin};
 }
+function packageVersionHistory(row){
+  const versions=Array.isArray(row?.versions)?row.versions:[];
+  const key=item=>{
+    const inv=String(item?.inventory_item_id||'').trim();
+    if(inv)return 'inv:'+inv;
+    return [String(item?.item_type||'material').toLowerCase(),String(item?.item_name||'').trim().toLowerCase(),String(item?.sort_order??'')].join('|');
+  };
+  const sourceLabel=(version)=>{
+    const source=String(version?.snapshot?.audit?.source||'').toLowerCase();
+    if(source==='master_pricelist')return 'Master Pricelist';
+    if(source==='manual')return 'Manual';
+    if(source==='copy')return 'Copy Paket';
+    if(source==='excel_import')return 'Excel Import';
+    const by=String(version?.created_by||'').toLowerCase();
+    if(by.includes('bulk import')||by.includes('excel')||by.includes('pxl-urg-0099'))return 'Excel Import';
+    return 'Legacy / Sistem';
+  };
+  return versions.map((version,index)=>{
+    const current=version?.snapshot||{},previous=versions[index+1]?.snapshot||null;
+    const prevItems=new Map((Array.isArray(previous?.items)?previous.items:[]).map(item=>[key(item),item]));
+    const hppChanges=[];
+    for(const item of Array.isArray(current.items)?current.items:[]){
+      const old=prevItems.get(key(item));
+      if(!old)continue;
+      const oldHpp=packageNum(old.hpp_unit),newHpp=packageNum(item.hpp_unit);
+      if(oldHpp!==newHpp)hppChanges.push({item_name:item.item_name||old.item_name||'',inventory_item_id:item.inventory_item_id||old.inventory_item_id||null,old_hpp:oldHpp,new_hpp:newHpp});
+    }
+    const fieldChanges=[];
+    if(previous){
+      for(const field of ['name','brand','category','status','ppn_percent','package_price','discount_percent']){
+        const a=previous?.[field]??null,b=current?.[field]??null;
+        if(String(a)!==String(b))fieldChanges.push({field,old_value:a,new_value:b});
+      }
+    }
+    return {revision_no:version.revision_no,created_at:version.created_at,created_by:version.created_by||null,source:sourceLabel(version),action:current?.audit?.action||(!previous?'create':'update'),note:current?.audit?.note||null,hpp_changes:hppChanges,field_changes:fieldChanges};
+  });
+}
+
 function validatePackageRecipe(recipe,items){
   const warnings=[];
   const cameraItems=items.filter(x=>x.item_category==='camera'&&x.item_type==='material');
@@ -2125,7 +2163,7 @@ app.post('/api/package-recipes/hpp-refresh-apply',requirePackageRecipes,async(re
         updatedItems++;
         return {...item,hpp_unit:ch.new_hpp,inventory_item_id:ch.inventory_item_id||item.inventory_item_id||null};
       });
-      await db.updatePackageRecipe(pkg.id,{name:pkg.name,brand:pkg.brand,category:pkg.category,status:pkg.status,ppn_percent:pkg.ppn_percent,package_price:pkg.package_price,discount_percent:pkg.discount_percent,notes:pkg.notes,updated_by:req.session.user.name},items);
+      await db.updatePackageRecipe(pkg.id,{name:pkg.name,brand:pkg.brand,category:pkg.category,status:pkg.status,ppn_percent:pkg.ppn_percent,package_price:pkg.package_price,discount_percent:pkg.discount_percent,notes:pkg.notes,updated_by:req.session.user.name},items,{source:'master_pricelist',action:'hpp_sync',note:list.length+' HPP item diperbarui'});
       updatedPackages++;
     }
     logActivity(req,'package_recipe','SINKRON HPP PAKET',updatedItems+' item · '+updatedPackages+' paket');
@@ -2139,6 +2177,10 @@ app.get('/api/package-recipes',requirePackageRecipes,async(req,res)=>{
     res.json((rows||[]).map(row=>({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])})));
   }catch(e){res.status(500).json({error:e.message});}
 });
+app.get('/api/package-recipes/:id/history',requirePackageRecipes,async(req,res)=>{
+  try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});res.json({package_id:row.id,package_code:row.package_code,name:row.name,history:packageVersionHistory(row)});}
+  catch(e){res.status(500).json({error:e.message});}
+});
 app.get('/api/package-recipes/:id',requirePackageRecipes,async(req,res)=>{
   try{const row=await db.getPackageRecipe(req.params.id);if(!row)return res.status(404).json({error:'Paket tidak ditemukan.'});res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});}
   catch(e){res.status(500).json({error:e.message});}
@@ -2150,7 +2192,7 @@ app.post('/api/package-recipes/validate',requirePackageRecipes,async(req,res)=>{
 app.post('/api/package-recipes',requirePackageRecipes,async(req,res)=>{
   try{
     const parsed=packagePayload(req.body,req.session.user,null);
-    const row=await db.insertPackageRecipe({...parsed.recipe,package_code:await nextPackageCode()},parsed.items);
+    const row=await db.insertPackageRecipe({...parsed.recipe,package_code:await nextPackageCode()},parsed.items,{source:'manual',action:'create'});
     logActivity(req,'package_recipe','BUAT PAKET',`${row.package_code} · ${row.name}`);
     res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
@@ -2159,7 +2201,7 @@ app.patch('/api/package-recipes/:id',requirePackageRecipes,async(req,res)=>{
   try{
     const existing=await db.getPackageRecipe(req.params.id);if(!existing)return res.status(404).json({error:'Paket tidak ditemukan.'});
     const parsed=packagePayload(req.body,req.session.user,existing);
-    const row=await db.updatePackageRecipe(req.params.id,parsed.recipe,parsed.items);
+    const row=await db.updatePackageRecipe(req.params.id,parsed.recipe,parsed.items,{source:'manual',action:'update'});
     logActivity(req,'package_recipe','UPDATE PAKET',`${row.package_code} · ${row.name}`);
     res.json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
@@ -2170,7 +2212,7 @@ app.post('/api/package-recipes/:id/copy',requirePackageRecipes,async(req,res)=>{
     const name=packageText(req.body?.name,200)||source.name+' - Copy';
     const data={name,brand:source.brand,category:source.category,status:'draft',ppn_percent:source.ppn_percent,package_price:source.package_price,discount_percent:source.discount_percent,notes:source.notes,created_by:req.session.user.name,updated_by:req.session.user.name,package_code:await nextPackageCode()};
     const items=(source.items||[]).map(({id,package_id,created_at,sort_order,...item})=>item);
-    const row=await db.insertPackageRecipe(data,items);
+    const row=await db.insertPackageRecipe(data,items,{source:'copy',action:'copy',note:'Copy dari '+source.package_code});
     logActivity(req,'package_recipe','COPY PAKET',`${source.package_code} → ${row.package_code}`);
     res.status(201).json({...row,pricing:packagePricing(row,row.items||[]),validation:validatePackageRecipe(row,row.items||[])});
   }catch(e){res.status(400).json({error:e.message});}
