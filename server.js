@@ -20,7 +20,7 @@ const STAGING_SUPABASE_PROJECT_REF = String(process.env.STAGING_SUPABASE_PROJECT
 const PRODUCTION_SUPABASE_PROJECT_REF = 'chgcictuycjeqdxfrnej';
 
 // PXL-URG-0107D — production Full-VPS guard: block accidental Supabase Cloud fallback.
-assertVpsOnlyDatabase(cfg.SUPABASE_URL, APP_ENV);
+assertVpsOnlyDatabase(cfg.POSTGREST_URL, APP_ENV);
 
 if (IS_STAGING) {
   const configuredSupabaseUrl = String(cfg.SUPABASE_URL || '').trim();
@@ -57,7 +57,7 @@ function cloudinarySignature(params){
 [path.join(__dirname,'data'), UPLOADS_DIR].forEach(d => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
-if (!db.USE_SUPABASE) {
+if (!db.USE_POSTGREST) {
   if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, '[]');
   if (!fs.existsSync(USERS_FILE)) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([
@@ -69,16 +69,16 @@ if (!db.USE_SUPABASE) {
 
 // ── User helpers ──
 function readUsers() {
-  if (db.USE_SUPABASE) return []; // Supabase: gunakan async getUsers()
+  if (db.USE_POSTGREST) return []; // Supabase: gunakan async getUsers()
   return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
 }
 function writeUsers(data) {
-  if (db.USE_SUPABASE) return; // Supabase: gunakan async updateUser()
+  if (db.USE_POSTGREST) return; // Supabase: gunakan async updateUser()
   fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
 }
 
 // ── Multer — memory storage untuk Supabase, disk untuk lokal ──
-const storage = db.USE_SUPABASE
+const storage = db.USE_POSTGREST
   ? multer.memoryStorage()
   : multer.diskStorage({
       destination: (_,__,cb) => cb(null, UPLOADS_DIR),
@@ -259,7 +259,7 @@ function normalizeServiceCenterMenus(role,menus){
 app.post('/api/login', async (req, res) => {
   try {
     let u;
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const users = await db.getUsersWithPassword();
       u = users.find(u => u.username === req.body.username && u.password === req.body.password);
     } else {
@@ -286,7 +286,7 @@ app.get('/api/me', async (req, res) => {
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, private');
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   try{
-    const users=db.USE_SUPABASE?await db.getUsersWithPassword():readUsers();
+    const users=db.USE_POSTGREST?await db.getUsersWithPassword():readUsers();
     const fresh=users.find(u=>String(u.id)===String(req.session.user.id));
     if(!fresh||fresh.is_active===false) return res.status(401).json({error:'Unauthorized'});
     const normalizedMenus=normalizeServiceCenterMenus(fresh.role,fresh.custom_menus);
@@ -303,7 +303,7 @@ app.get('/api/me', async (req, res) => {
 
 app.get('/api/users', requireRole('admin','superadmin'), async (req, res) => {
   try {
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const users = await db.getUsers();
       // Exclude signature_url dari list (besar, tidak perlu di list)
       return res.json(users.map(({ signature_url: _, ...u }) => u));
@@ -326,7 +326,7 @@ app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
     const { username, password, name, role, custom_menus } = req.body;
     if (!username || !password || !name || !role)
       return res.status(400).json({ error: 'Semua field wajib diisi.' });
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const existing = await db.getUsersWithPassword();
       if (existing.find(u => u.username === username))
         return res.status(409).json({ error: 'Username sudah digunakan.' });
@@ -349,7 +349,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
   try {
     const callerRole = req.session.user.role;
     let targetUser;
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const all = await db.getUsersWithPassword();
       targetUser = all.find(u => u.id === req.params.id);
     } else {
@@ -367,7 +367,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
 
     // Validasi & cek duplikat username jika diubah
     if (req.body.username && req.body.username !== targetUser.username) {
-      const allUsersList = db.USE_SUPABASE ? await db.getUsersWithPassword() : readUsers();
+      const allUsersList = db.USE_POSTGREST ? await db.getUsersWithPassword() : readUsers();
       const clash = allUsersList.find(u => u.username === req.body.username && u.id !== req.params.id);
       if (clash) return res.status(409).json({ error: 'Username sudah digunakan oleh akun lain.' });
     }
@@ -389,7 +389,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
     if (allow_invoice_no_wo !== undefined) patch.allow_invoice_no_wo = allow_invoice_no_wo;
     if (is_active !== undefined)      patch.is_active     = is_active;
 
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const updated = await db.updateUser(req.params.id, patch);
       return res.json(updated);
     }
@@ -407,7 +407,7 @@ app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res)
     if (req.session.user.id === req.params.id)
       return res.status(400).json({ error: 'Tidak bisa menghapus akun Anda sendiri.' });
     let target;
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       const all = await db.getUsersWithPassword();
       target = all.find(u => u.id === req.params.id);
     } else {
@@ -416,7 +416,7 @@ app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res)
     if (!target) return res.status(404).json({ error: 'User tidak ditemukan.' });
     if (target.role === 'superadmin' && req.session.user.role !== 'superadmin')
       return res.status(403).json({ error: 'Hanya Super Admin yang bisa menghapus akun Super Admin.' });
-    if (db.USE_SUPABASE) {
+    if (db.USE_POSTGREST) {
       await db.deleteUser(req.params.id);
     } else {
       writeUsers(readUsers().filter(u => u.id !== req.params.id));
@@ -430,7 +430,7 @@ app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res)
 app.get('/api/sales-pics', requireAuth, async (req, res) => {
   try {
     let users;
-    if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
+    if (db.USE_POSTGREST) users = await db.getUsersWithPassword();
     else users = readUsers();
     const sales = users.filter(u =>
       (u.role === 'sales' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('sales')))
@@ -445,7 +445,7 @@ app.get('/api/sales-pics', requireAuth, async (req, res) => {
 app.get('/api/technician-pics', requireAuth, async (req, res) => {
   try {
     let users;
-    if (db.USE_SUPABASE) users = await db.getUsersWithPassword();
+    if (db.USE_POSTGREST) users = await db.getUsersWithPassword();
     else users = readUsers();
     const techs = users.filter(u =>
       (u.role === 'technician' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('technician')))
@@ -1612,7 +1612,7 @@ function pxlSysDependencies() {
   let compat=''; try{compat=fs.readFileSync('/etc/nginx/conf.d/pixelapps-rest-compat.conf','utf8')}catch(_){}
   return {
     cloudinary:{configured:cloudinaryReady()},
-    database:{mode:String(cfg.SUPABASE_URL||'').includes('127.0.0.1:3003')?'local-vps':'external'},
+    database:{mode:String(cfg.POSTGREST_URL||'').includes('127.0.0.1:3003')?'local-vps':'external'},
     supabase_storage:{still_referenced:/storage\/v1\//.test(compat)&&/supabase\.co/.test(compat)}
   };
 }
@@ -2083,8 +2083,8 @@ function packagePayload(body,user,existing){
 }
 async function loadPackageInventoryCatalog(){
   const inventory=await db.getInventoryItems();
-  const baseUrl=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.SUPABASE_KEY||'';
+  const baseUrl=String(cfg.POSTGREST_URL||'').replace(/\/$/,'');
+  const key=cfg.POSTGREST_KEY||'';
   let prices=[],maps=[];
   try{
     const headers={'Content-Type':'application/json',...(key?{'apikey':key,'Authorization':'Bearer '+key}:{})};
@@ -4273,7 +4273,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname,'public','index.html
 
 app.listen(PORT, () => {
   console.log(`\n✅ Helpdesk Pixel v5.3 → http://localhost:${PORT}`);
-  console.log(`💾 Mode: ${db.USE_SUPABASE ? 'Supabase' : 'Local JSON'}`);
+  console.log(`💾 Mode: ${db.USE_POSTGREST ? 'Supabase' : 'Local JSON'}`);
   console.log(`🗑️  Auto-delete invoice attachment: ${ATTACH_EXPIRE_DAYS} hari\n`);
 
   // Jalankan saat server start
