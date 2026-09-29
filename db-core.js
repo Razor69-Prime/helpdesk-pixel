@@ -35,7 +35,7 @@ if (USE_POSTGREST) {
 const restBase = () => `${cfg.POSTGREST_URL}/rest/v1`;
 // PXL-REV-0063 — Server-side Supabase writes must use the service-role key.
 // Keep the existing SUPABASE_KEY as a read/fallback key for backward compatibility.
-const POSTGREST_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.POSTGREST_KEY;
+const POSTGREST_SERVER_KEY = cfg.POSTGREST_KEY;
 const restHeaders = () => ({
   'apikey':        POSTGREST_SERVER_KEY,
   'Authorization': `Bearer ${POSTGREST_SERVER_KEY}`,
