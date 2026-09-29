@@ -1,0 +1,1 @@
+15 2 * * * /var/www/internal.pixelsolusindo.com/ops/backup/pixelapps-backup.sh >> /home/deploy/pixelapps-backups/logs/cron.log 2>&1
