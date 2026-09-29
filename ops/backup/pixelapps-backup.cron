@@ -1,1 +1,2 @@
+CRON_TZ=Asia/Makassar
 15 2 * * * /bin/bash /var/www/internal.pixelsolusindo.com/ops/backup/pixelapps-backup.sh >> /home/deploy/pixelapps-backups/logs/cron.log 2>&1
