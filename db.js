@@ -53,7 +53,7 @@ async function readPostgrest(path, { timeoutMs = GET_TIMEOUT_MS, retries = 1 } =
       });
       const raw = await response.text();
       if (!response.ok) {
-        const err = new Error(raw || `Supabase HTTP ${response.status}`);
+        const err = new Error(raw || `PostgREST HTTP ${response.status}`);
         err.status = response.status;
         throw err;
       }
@@ -68,8 +68,8 @@ async function readPostgrest(path, { timeoutMs = GET_TIMEOUT_MS, retries = 1 } =
     }
   }
   if (lastError?.name === 'AbortError') {
-    const e = new Error(`Supabase read timeout setelah ${GET_TIMEOUT_MS}ms`);
-    e.code = 'SUPABASE_READ_TIMEOUT';
+    const e = new Error(`PostgREST read timeout setelah ${GET_TIMEOUT_MS}ms`);
+    e.code = 'POSTGREST_READ_TIMEOUT';
     throw e;
   }
   throw lastError;
