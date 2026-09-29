@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  KONFIGURASI — isi bagian ini sebelum deploy
-//  Dapatkan nilai dari: https://supabase.com → Settings → API
+//  KONFIGURASI RUNTIME PIXELAPPS — PostgreSQL/PostgREST VPS
 // ═══════════════════════════════════════════════════════════
 
 // PXL-AI-0005A — Gemini health wrapper only; no business data is sent.
