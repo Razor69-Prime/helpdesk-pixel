@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT=/tmp/pxl-urg-0107a/test-backups
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT=/tmp/pxl-urg-0107a-test-backups
 rm -rf "$ROOT"
-SCRIPT=/tmp/pxl-urg-0107a/pixelapps-backup.sh
-RESTORE=/tmp/pxl-urg-0107a/pixelapps-restore.sh
-[[ -x "$SCRIPT" ]] || { echo 'FAIL backup script missing'; exit 1; }
-[[ -x "$RESTORE" ]] || { echo 'FAIL restore script missing'; exit 1; }
-BACKUP_ROOT="$ROOT" APP_ROOT="/var/www/internal.pixelsolusindo.com" "$SCRIPT" --dry-run >/tmp/pxl-urg-0107a/dryrun.out
+SCRIPT="$HERE/pixelapps-backup.sh"
+RESTORE="$HERE/pixelapps-restore.sh"
+
+BACKUP_ROOT="$ROOT" APP_ROOT="${APP_ROOT:-/var/www/internal.pixelsolusindo.com}" /bin/bash "$SCRIPT" --dry-run >/tmp/pxl-urg-0107a-dryrun.out
 for d in database/daily database/weekly database/monthly source logs manifests; do
   [[ -d "$ROOT/$d" ]] || { echo "FAIL missing dir $d"; exit 1; }
 done
