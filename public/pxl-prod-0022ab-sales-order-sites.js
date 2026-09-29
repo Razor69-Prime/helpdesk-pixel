@@ -143,6 +143,7 @@
       package_id:row.dataset.packageId||null,
       package_item_id:row.dataset.packageItemId||null,
       package_name:row.dataset.packageName||null,
+      revenue_source:row.dataset.revenueSource||null,
       ppn_applied: row.dataset.ppnApplied==='1',
       ppn_rate: row.dataset.ppnApplied==='1' ? num(row.dataset.ppnRate) : 0,
       ppn_amount: row.dataset.ppnApplied==='1' ? (num(row.querySelector('.qty')?.value)*num(row.querySelector('.price')?.value)*num(row.dataset.ppnRate)/100) : 0
