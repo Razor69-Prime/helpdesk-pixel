@@ -8,7 +8,7 @@ const cfg = require('./config');
 
 const fetchImpl = global.fetch || require('node-fetch');
 const USE_POSTGREST = !!core.USE_POSTGREST;
-const POSTGREST_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || cfg.POSTGREST_KEY;
+const POSTGREST_SERVER_KEY = cfg.POSTGREST_KEY;
 const REST_BASE = String(cfg.POSTGREST_URL || '').replace(/\/$/, '') + '/rest/v1';
 const ITEM_CACHE_MS = 8000;
 const LOG_CACHE_MS = 15000;
