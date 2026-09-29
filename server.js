@@ -9,6 +9,7 @@ const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
 const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
+const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -2943,54 +2944,41 @@ app.get('/api/crm/invoices',requireRole(...INVOICE_READ_ROLES),async(req,res)=>{
 app.post('/api/crm/invoices/from-so/:soId',requireRole('accounting','manager','admin','superadmin'),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const amrs=(await db.getAdditionalMaterialRequests()).filter(x=>x.sales_order_id===so.id&&x.status==='approved');const additional=amrs.flatMap(x=>(x.items||[]).map(i=>({...i,amr_number:x.amr_number})));const base=Number(so.total_amount||0),extra=additional.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const grand=base+extra,downPayment=Number(req.body.down_payment||0),redemption=Number(req.body.redemption||0);const x=await db.insertCrmInvoice({sales_order_id:so.id,so_number:so.so_number,customer_id:so.customer_id||null,customer_name:so.customer_name,work_order_ids:req.body.work_order_ids||[],items:so.items||[],additional_items:additional,base_total:base,additional_total:extra,grand_total:grand,invoice_date:req.body.invoice_date||new Date().toISOString().slice(0,10),due_date:req.body.due_date||null,down_payment:downPayment,redemption,balance_due:Math.max(0,grand-downPayment-redemption),payment_method:req.body.payment_method||'CASH & TRANSFER BANK',remark:req.body.remark||null,billing_address:req.body.billing_address||null,created_by:req.session.user.name});for(const a of amrs)await db.updateAdditionalMaterialRequest(a.id,{status:'invoiced',invoice_id:x.id});logActivity(req,'invoice','BUAT INVOICE DARI SO',x.invoice_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 
 // ══════════════════════════════════════════
-//  AUTO-DELETE ATTACHMENT (14 hari)
-//  File fisik dihapus, metadata tetap ada
+//  AUTO-DELETE ATTACHMENT (30 hari)
+//  File fisik lokal VPS dihapus, metadata database tetap ada
 // ══════════════════════════════════════════
-const ATTACH_EXPIRE_DAYS = 14;
-
 async function cleanExpiredAttachments() {
   try {
-    const now      = new Date();
-    const tickets  = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
-    let   changed  = false;
-    let   deleted  = 0;
+    const now = new Date();
+    const deletedAt = now.toISOString();
+    const groups = await db.getInvoiceAttachmentsForCleanup();
+    let deleted = 0;
 
-    tickets.forEach(ticket => {
-      (ticket.invoices || []).forEach(inv => {
-        // skip jika sudah ditandai expired atau tidak punya file_url lokal
-        if (inv.file_deleted) return;
-        if (!inv.file_url || !inv.uploaded_at) return;
-
-        const uploadedAt = new Date(inv.uploaded_at);
-        const ageMs      = now - uploadedAt;
-        const ageDays    = ageMs / (1000 * 60 * 60 * 24);
-
-        if (ageDays >= ATTACH_EXPIRE_DAYS) {
-          // Hapus file fisik
-          const filename  = inv.file_url.replace('/uploads/', '');
-          const filepath  = path.join(UPLOADS_DIR, filename);
-          if (fs.existsSync(filepath)) {
-            try {
-              fs.unlinkSync(filepath);
-              deleted++;
-              console.log(`🗑️  Auto-delete: ${filename} (${Math.floor(ageDays)} hari)`);
-            } catch(e) {
-              console.error(`⚠️  Gagal hapus file: ${filename}`, e.message);
-            }
-          }
-          // Tandai di metadata — file sudah dihapus, data tetap ada
-          inv.file_deleted    = true;
-          inv.file_deleted_at = now.toISOString();
-          inv.file_url        = null;   // clear url, metadata lain tetap
-          changed = true;
-        }
-      });
-    });
-
-    if (changed) {
-      fs.writeFileSync(TICKETS_FILE, JSON.stringify(tickets, null, 2));
-      console.log(`✅ Auto-delete selesai: ${deleted} file dihapus`);
+    for (const inv of groups.invoices || []) {
+      if (!isExpiredLocalAttachment(inv, now)) continue;
+      const filename = path.basename(inv.file_url);
+      const filepath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        deleted++;
+        console.log(`🗑️  Auto-delete invoice: ${filename}`);
+      }
+      await db.markInvoiceAttachmentDeleted(inv.id, deletedAt);
     }
+
+    for (const inv of groups.standalone || []) {
+      if (!isExpiredLocalAttachment(inv, now)) continue;
+      const filename = path.basename(inv.file_url);
+      const filepath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        deleted++;
+        console.log(`🗑️  Auto-delete standalone invoice: ${filename}`);
+      }
+      await db.clearStandaloneInvoiceAttachment(inv.id);
+    }
+
+    if (deleted > 0) console.log(`✅ Auto-delete selesai: ${deleted} file dihapus`);
   } catch(e) {
     console.error('❌ Auto-delete error:', e.message);
   }
