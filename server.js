@@ -3563,7 +3563,7 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
       reference: 'Stok awal', notes: 'Barang baru', created_by: req.session.user.name
     });
     const persisted = await db.getInventoryItem(item.id);
-    if (!persisted) throw new Error('Barang tidak ditemukan kembali setelah disimpan ke Supabase.');
+    if (!persisted) throw new Error('Barang tidak ditemukan kembali setelah disimpan ke PostgreSQL VPS.');
     logActivity(req, 'inventory', 'TAMBAH BARANG', `${name} · stok awal ${qty}`);
     res.status(201).json({ ok: true, item: persisted });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -3980,7 +3980,7 @@ app.post('/api/inventory/duplicates/merge-exact-bulk', requireInventoryPermissio
     const message=String(e.message||e);
     res.status(message.includes('inventory_merge_duplicates_bulk')?503:500).json({
       error:message.includes('inventory_merge_duplicates_bulk')
-        ?'RPC Supabase inventory_merge_duplicates_bulk belum tersedia. Jalankan SQL PXL-URG-0051G terlebih dahulu.'
+        ?'RPC PostgreSQL inventory_merge_duplicates_bulk belum tersedia. Jalankan SQL PXL-URG-0051G terlebih dahulu.'
         :message
     });
   }
@@ -4227,7 +4227,7 @@ async function getReportRows(moduleName){
     users:await db.getUsers(),
     actlog:await db.getLogs(),
     materials:await db.getMRForms(),
-    inventory:[{keterangan:'Inventory menggunakan halaman inventory.html/Supabase langsung. Export detail tetap tersedia dari tombol Export Excel pada modul Inventory.'}],
+    inventory:[{keterangan:'Inventory menggunakan PostgreSQL/PostgREST VPS. Export detail tetap tersedia dari tombol Export Excel pada modul Inventory.'}],
     pr:await db.getPurchaseRequests(),
     projects:crm.projects,
     crm:[...(crm.customers||[]),...(crm.sales_orders||[]),...(crm.work_orders||[])],
@@ -4273,7 +4273,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname,'public','index.html
 
 app.listen(PORT, () => {
   console.log(`\n✅ Helpdesk Pixel v5.3 → http://localhost:${PORT}`);
-  console.log(`💾 Mode: ${db.USE_POSTGREST ? 'Supabase' : 'Local JSON'}`);
+  console.log(`💾 Mode: ${db.USE_POSTGREST ? 'PostgREST VPS' : 'Local JSON'}`);
   console.log(`🗑️  Auto-delete invoice attachment: ${ATTACH_EXPIRE_DAYS} hari\n`);
 
   // Jalankan saat server start
