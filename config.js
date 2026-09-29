@@ -25,11 +25,18 @@ require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
 
+const POSTGREST_URL = process.env.POSTGREST_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:3003';
+const POSTGREST_KEY = process.env.POSTGREST_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || 'local-compat-key';
+
 module.exports = {
 
-  // Legacy adapter names retained; backend now points to VPS local PostgREST
-  SUPABASE_URL: process.env.SUPABASE_URL || 'http://127.0.0.1:3003',
-  SUPABASE_KEY: process.env.SUPABASE_KEY || 'local-compat-key',
+  // PXL-URG-0107E — canonical runtime names for VPS local PostgREST.
+  POSTGREST_URL,
+  POSTGREST_KEY,
+
+  // Backward-compatible aliases for legacy wrappers; remove in a later cleanup phase.
+  SUPABASE_URL: POSTGREST_URL,
+  SUPABASE_KEY: POSTGREST_KEY,
 
   // Optional database URL override
   DATABASE_URL: process.env.DATABASE_URL || null,
@@ -47,7 +54,7 @@ module.exports = {
 
 // ═══════════════════════════════════════════════════════════
 //  Production Supervisor:
-//  SUPABASE_URL = http://127.0.0.1:3003
-//  SUPABASE_KEY = local compatibility key
-//  Legacy variable names remain only for adapter compatibility.
+//  POSTGREST_URL = http://127.0.0.1:3003
+//  POSTGREST_KEY = local compatibility key
+//  Legacy SUPABASE_* aliases remain temporarily for adapter compatibility.
 // ═══════════════════════════════════════════════════════════
