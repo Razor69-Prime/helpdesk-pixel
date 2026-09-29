@@ -302,6 +302,29 @@ async function deleteStandaloneInvoice(id) {
   await restFetch('DELETE', `/standalone_invoices?id=eq.${id}`);
 }
 
+async function getInvoiceAttachmentsForCleanup() {
+  if (!USE_POSTGREST) return { invoices: [], standalone: [] };
+  const [invoices, standalone] = await Promise.all([
+    restFetch('GET', '/invoices?select=id,file_url,uploaded_at,file_deleted,file_deleted_at'),
+    restFetch('GET', '/standalone_invoices?select=id,file_url,uploaded_at')
+  ]);
+  return { invoices: invoices || [], standalone: standalone || [] };
+}
+
+async function markInvoiceAttachmentDeleted(id, deletedAt) {
+  if (!USE_POSTGREST) return null;
+  const rows = await restFetch('PATCH', `/invoices?id=eq.${encodeURIComponent(id)}`, {
+    file_url: null, file_deleted: true, file_deleted_at: deletedAt
+  });
+  return rows?.[0] || null;
+}
+
+async function clearStandaloneInvoiceAttachment(id) {
+  if (!USE_POSTGREST) return null;
+  const rows = await restFetch('PATCH', `/standalone_invoices?id=eq.${encodeURIComponent(id)}`, { file_url: null });
+  return rows?.[0] || null;
+}
+
 // ─────────────────────────────────────────
 //  NOTIFICATIONS
 // ─────────────────────────────────────────
@@ -1268,6 +1291,7 @@ module.exports = {
   getStatusHistory, insertStatusHistory,
   getInvoicesByTicket, getInvoiceV1ByTicket, getTicketRelationsBatch, insertInvoice, deleteInvoice,
   getStandaloneInvoices, insertStandaloneInvoice, deleteStandaloneInvoice,
+  getInvoiceAttachmentsForCleanup, markInvoiceAttachmentDeleted, clearStandaloneInvoiceAttachment,
   insertNotification, getNotificationsForUser, markNotificationRead, markAllNotificationsRead,
   getJobStages, insertJobStage,
   getSalesVisits, insertSalesVisit, updateSalesVisit, deleteSalesVisit,
