@@ -1179,7 +1179,7 @@ const PACKAGE_ITEMS_FILE=path.join(__dirname,'data','package_recipe_items.json')
 const PACKAGE_VERSIONS_FILE=path.join(__dirname,'data','package_recipe_versions.json');
 function readPackageLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
 function writePackageLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
-function packageSnapshot(recipe,items){return {...recipe,items:Array.isArray(items)?items:[]};}
+function packageSnapshot(recipe,items,audit=null){return {...recipe,items:Array.isArray(items)?items:[],...(audit?{audit}: {})};}
 
 async function getPackageRecipes(){
   if(USE_SUPABASE){
@@ -1210,19 +1210,19 @@ async function getPackageRecipe(id){
   const versions=readPackageLocal(PACKAGE_VERSIONS_FILE).filter(x=>String(x.package_id)===String(id)).sort((a,b)=>(b.revision_no||0)-(a.revision_no||0));
   return {...row,items,versions};
 }
-async function insertPackageVersion(packageId,recipe,items,createdBy){
+async function insertPackageVersion(packageId,recipe,items,createdBy,audit=null){
   if(USE_SUPABASE){
     const versions=await sbFetch('GET',`/package_recipe_versions?package_id=eq.${encodeURIComponent(packageId)}&select=revision_no&order=revision_no.desc&limit=1`)||[];
     const revisionNo=Number(versions?.[0]?.revision_no||0)+1;
-    const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items),created_by:createdBy||null,created_at:new Date().toISOString()};
+    const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items,audit),created_by:createdBy||null,created_at:new Date().toISOString()};
     const out=await sbFetch('POST','/package_recipe_versions',row);return out?.[0]||row;
   }
   const all=readPackageLocal(PACKAGE_VERSIONS_FILE);
   const revisionNo=Math.max(0,...all.filter(x=>String(x.package_id)===String(packageId)).map(x=>Number(x.revision_no)||0))+1;
-  const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items),created_by:createdBy||null,created_at:new Date().toISOString()};
+  const row={id:crypto.randomUUID(),package_id:packageId,revision_no:revisionNo,snapshot:packageSnapshot(recipe,items,audit),created_by:createdBy||null,created_at:new Date().toISOString()};
   all.push(row);writePackageLocal(PACKAGE_VERSIONS_FILE,all);return row;
 }
-async function insertPackageRecipe(data,items=[]){
+async function insertPackageRecipe(data,items=[],audit=null){
   const now=new Date().toISOString();
   const row={id:crypto.randomUUID(),created_at:now,updated_at:now,...data};
   let saved=row;
@@ -1233,9 +1233,9 @@ async function insertPackageRecipe(data,items=[]){
     const recipes=readPackageLocal(PACKAGE_RECIPES_FILE);recipes.push(row);writePackageLocal(PACKAGE_RECIPES_FILE,recipes);
     const allItems=readPackageLocal(PACKAGE_ITEMS_FILE);items.forEach((item,i)=>allItems.push({id:crypto.randomUUID(),package_id:row.id,sort_order:i,...item,created_at:now}));writePackageLocal(PACKAGE_ITEMS_FILE,allItems);
   }
-  const full=await getPackageRecipe(saved.id);await insertPackageVersion(saved.id,full||saved,full?.items||items,data.created_by||null);return await getPackageRecipe(saved.id);
+  const full=await getPackageRecipe(saved.id);await insertPackageVersion(saved.id,full||saved,full?.items||items,data.created_by||null,audit);return await getPackageRecipe(saved.id);
 }
-async function updatePackageRecipe(id,patch,items=[]){
+async function updatePackageRecipe(id,patch,items=[],audit=null){
   const now=new Date().toISOString(),data={...patch,updated_at:now};
   if(USE_SUPABASE){
     const out=await sbFetch('PATCH',`/package_recipes?id=eq.${encodeURIComponent(id)}`,data);
@@ -1248,7 +1248,7 @@ async function updatePackageRecipe(id,patch,items=[]){
     const old=readPackageLocal(PACKAGE_ITEMS_FILE).filter(x=>String(x.package_id)!==String(id));
     items.forEach((item,i)=>old.push({id:crypto.randomUUID(),package_id:id,sort_order:i,...item,created_at:now}));writePackageLocal(PACKAGE_ITEMS_FILE,old);
   }
-  const full=await getPackageRecipe(id);await insertPackageVersion(id,full||data,full?.items||items,patch.updated_by||null);return await getPackageRecipe(id);
+  const full=await getPackageRecipe(id);await insertPackageVersion(id,full||data,full?.items||items,patch.updated_by||null,audit);return await getPackageRecipe(id);
 }
 async function deletePackageRecipe(id){
   if(USE_SUPABASE){const out=await sbFetch('DELETE',`/package_recipes?id=eq.${encodeURIComponent(id)}`);return out?.[0]||{id};}
