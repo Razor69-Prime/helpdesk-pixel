@@ -130,7 +130,7 @@ async function main(){
   const [tickets,salesOrders,services]=await Promise.all([db.getTickets(null,true),db.getSalesOrders(),db.getServiceOrders()]);
   const soById=new Map(salesOrders.map(x=>[String(x.id),x]));
   const soByNo=new Map(salesOrders.map(x=>[String(x.so_number||''),x]));
-  const manifest={revision:'PXL-SYS-0001',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,dry_run,work_orders:0,services:0,files:[],errors:[]};
+  const manifest={revision:'PXL-SYS-0001',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,dry_run:dryRun,work_orders:0,services:0,files:[],errors:[]};
   log('Mulai Cloudinary backup mode='+mode+' backfill='+backfill+' dry_run='+dryRun);
   for(const t0 of tickets){
     if(!selected(t0))continue;
