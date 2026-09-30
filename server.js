@@ -1603,6 +1603,16 @@ function pxlSysBackup() {
   const files=fs.readdirSync(dir).map(name=>{try{const st=fs.statSync(path.join(dir,name));return st.isFile()?{name,size:st.size,mtime:st.mtime.toISOString()}:null}catch(_){return null}}).filter(Boolean).sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)));
   return {directory_exists:true,count:files.length,latest:files[0]||null,total_bytes:files.reduce((s,f)=>s+f.size,0)};
 }
+function pxlSysCloudinaryBackup() {
+  const root='/home/deploy/pixelapps-backups/cloudinary';
+  const manifestDir=path.join(root,'manifests');
+  if(!fs.existsSync(manifestDir)) return {configured:false,directory_exists:false,latest:null,manifest_count:0,object_count:0,object_bytes:0};
+  let manifests=[];
+  try{manifests=fs.readdirSync(manifestDir).filter(x=>x.endsWith('.json')).map(name=>{const full=path.join(manifestDir,name);const st=fs.statSync(full);let data={};try{data=JSON.parse(fs.readFileSync(full,'utf8'))}catch(_){}return{name,mtime:st.mtime.toISOString(),period_mode:data.period_mode||null,files:Array.isArray(data.files)?data.files.length:0,errors:Array.isArray(data.errors)?data.errors.length:0,work_orders:Number(data.work_orders||0),services:Number(data.services||0)}}).sort((a,b)=>String(b.mtime).localeCompare(String(a.mtime)))}catch(_){}
+  let objects=[],objectBytes=0;const objectDir=path.join(root,'objects');
+  try{objects=fs.readdirSync(objectDir).filter(name=>{try{return fs.statSync(path.join(objectDir,name)).isFile()}catch(_){return false}});objectBytes=objects.reduce((sum,name)=>{try{return sum+fs.statSync(path.join(objectDir,name)).size}catch(_){return sum}},0)}catch(_){}
+  return {configured:true,directory_exists:true,latest:manifests[0]||null,manifest_count:manifests.length,object_count:objects.length,object_bytes:objectBytes};
+}
 function pxlSysErrors() {
   const out=pxlSysExec('/usr/bin/tail',['-n','300','/var/log/pixelapps-node.log']);
   if(!out) return [];
@@ -1628,7 +1638,7 @@ app.get('/api/system-tools',requireRole('superadmin'),async(req,res)=>{
       server:{hostname:os.hostname(),uptime_seconds:Math.round(os.uptime()),cpu_count:os.cpus().length,cpu_percent:cpuPercent,load_average:os.loadavg().map(v=>Math.round(v*100)/100),memory:{total_bytes:memTotal,used_bytes:Math.max(0,memTotal-memFree),free_bytes:memFree,used_percent:memTotal?Math.round((memTotal-memFree)/memTotal*1000)/10:0},disk:pxlSysDisk()},
       services:{pixelapps_node:{running:true,pid:process.pid},nginx:{running:pxlSysProc('nginx: master process')},postgresql17:{running:pxlSysProc('/usr/lib/postgresql/17/bin/postgres')},postgrest:{running:pxlSysProc('/usr/local/bin/postgrest /etc/pixelapps/postgrest.conf')}},
       application:{node:{ok:true,status:200,response_ms:0},local_rest:restProbe},
-      storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
+      storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,cloudinary_backup:pxlSysCloudinaryBackup(),database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
       deployment:pxlSysGit(),dependencies:pxlSysDependencies(),recent_errors:pxlSysErrors()
     });
   }catch(e){console.error('[PXL-URG-0076] system tools error:',e);res.status(500).json({error:'System Tools gagal membaca status server.'});}
