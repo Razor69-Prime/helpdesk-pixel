@@ -1,5 +1,3 @@
-[Reading 154 lines from start (total: 154 lines, 0 remaining)]
-
 'use strict';
 
 const fs=require('fs');
@@ -154,5 +152,3 @@ module.exports={
   listPeriods,readReceipts,markDownloaded,archivePath,monthlyStatus,purgeWeekly,purgeMonthly,
   gcObjects,archiveCommand,prepareArchive,prepareReminderArchives,cleanupDownloadedArchives,reminder
 };
-
-[executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
