@@ -880,6 +880,7 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
       </div>
     </div>
     <div id="tab-system_tools" class="tab-content"><div id="system-tools-root"><div style="padding:24px;color:var(--muted)">Memuat System Tools...</div></div></div>
+    <div id="tab-banner_promo" class="tab-content"><iframe id="tracking-banner-cms-frame" title="CMS Banner Tracking" style="width:100%;height:calc(100vh - 118px);min-height:720px;border:0;border-radius:14px;background:#fff"></iframe></div>
     <div id="tab-service_center" class="tab-content"><div id="service-center-root"><div style="padding:24px;color:var(--muted)">Memuat Service Center...</div></div></div>
     <div id="tab-actlog" class="tab-content">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -2846,9 +2847,10 @@ function buildNav(){
     {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
     {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
-    {id:'users',     label:'👥 Akun',           show: role==='admin'||isSuperAdmin},
+    {id:'users',     label:'👥 Manajemen Akun', show: isSuperAdmin},
     {id:'actlog',    label:'📋 Activity Log',    show: isSuperAdmin},
     {id:'system_tools',label:'🛠️ System Tools',     show: isSuperAdmin},
+    {id:'banner_promo',label:'🖼️ Banner Promo Tracking', show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
     {id:'leave',     label:'🗓️ Form Cuti / Izin', show: true},
     {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
@@ -2869,7 +2871,7 @@ function buildNav(){
       : [...new Set([...getDefaultMenus(role),...customMenus])];
     // Permission Service Center selalu menyinkronkan menu induknya.
     if(customMenus.some(x=>String(x||'').startsWith('service_'))&&!effective.includes('service_center')) effective.push('service_center');
-    tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id));
+    tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id) && t.id!=='users' && t.id!=='banner_promo');
   }
 
   // PXL-URG-0078: seluruh role Teknisi selalu mendapat Service Center read-only,
@@ -2891,7 +2893,7 @@ function buildNav(){
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory']},
-    {label:'Administrasi', ids:['leave','archive','users','actlog','system_tools']},
+    {label:'Administrasi', ids:['leave','archive','users','banner_promo','actlog','system_tools']},
   ];
 
   const visibleById=new Map(tabs.map(t=>[t.id,t]));
@@ -3059,6 +3061,7 @@ function switchTab(tab,btn){
   if(tab==='archive')   loadArchive();
   if(tab==='invoice')   { if(currentUser.role!=='manager') loadSalesPics(); loadStandaloneInvoices().then(renderInvoiceList); renderInvoiceTab(); }
   if(tab==='users')     loadUsers();
+  if(tab==='banner_promo'){ const frame=document.getElementById('tracking-banner-cms-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/tracking-banner-cms.html?v=PXL-TRACK-0002';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='actlog')    loadActivityLog();
   if(tab==='system_tools' && typeof window.loadSystemTools==='function') window.loadSystemTools();
   if(tab==='service_center' && window.pxlServiceCenter) window.pxlServiceCenter.refresh();
@@ -4124,7 +4127,7 @@ function getDefaultMenus(role){
     case 'accounting': return ['tickets','invoice','archive','materials','pr','supplier'];
     case 'manager':    return ['dashboard','report','tickets','service_center','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
     case 'sales':      return ['report','tickets','kpi','kunjungan','projects','crm','sales_order','materials'];
-    case 'admin':      return ALL_MENUS.filter(m=>!['actlog','system_tools'].includes(m.id)).map(m=>m.id);
+    case 'admin':      return ALL_MENUS.filter(m=>!['users','actlog','system_tools'].includes(m.id)).map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id);
     default:           return [];
   }
@@ -4137,7 +4140,7 @@ function getForbiddenMenus(role){
   if(role==='sales') return ['users','actlog','system_tools','service_center'];
   if(role==='accounting') return ['users','actlog','system_tools','service_center'];
   if(role==='operator') return ['invoice','sales','crm','sales_order','users','actlog','system_tools','supplier'];
-  if(role==='manager'||role==='admin') return ['system_tools'];
+  if(role==='manager'||role==='admin') return ['users','system_tools'];
   return [];
 }
 
