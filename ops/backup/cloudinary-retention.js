@@ -6,7 +6,7 @@ const path=require('path');
 const {
   WEEKLY_KEEP,MONTHLY_RETENTION_MONTHS,REMINDER_DAYS,
   monthlyStatus,purgeWeekly,purgeMonthly,gcObjects,
-  prepareReminderArchives,cleanupDownloadedArchives,reminder
+  prepareReminderArchives,reminder
 }=require('./cloudinary-retention-lib');
 
 const BACKUP_ROOT=process.env.BACKUP_ROOT||'/home/deploy/pixelapps-backups';
@@ -36,12 +36,10 @@ function main(){
   }
   log('Mulai retention Cloudinary weekly='+WEEKLY_KEEP+' monthly='+MONTHLY_RETENTION_MONTHS+' bulan reminder=H-'+REMINDER_DAYS);
   const prepared=prepareReminderArchives(CLOUD_ROOT,today);
-  const removedArchives=cleanupDownloadedArchives(CLOUD_ROOT,new Date(today+'T23:59:59Z'));
   const weeklyRemoved=purgeWeekly(CLOUD_ROOT,WEEKLY_KEEP);
   const monthlyRemoved=purgeMonthly(CLOUD_ROOT,today);
   const gc=gcObjects(CLOUD_ROOT);
   log('Archive reminder disiapkan: '+(prepared.join(',')||'-'));
-  log('Archive download lama dibersihkan: '+(removedArchives.join(',')||'-'));
   log('Weekly dihapus: '+(weeklyRemoved.join(',')||'-'));
   log('Monthly dihapus: '+(monthlyRemoved.join(',')||'-'));
   log('Object GC: '+gc.removed+' file / '+gc.bytes+' bytes');
