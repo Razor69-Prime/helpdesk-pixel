@@ -1,4 +1,5 @@
-# PXL-SYS-0001 Cloudinary Backup
+# PXL-SYS-0001A/0001B Cloudinary Backup + Retention
 CRON_TZ=Asia/Makassar
 15 3 * * 0 /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-backup.js --period weekly >> /home/deploy/pixelapps-backups/logs/cloudinary-cron.log 2>&1
-45 3 1 * * /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-backup.js --period monthly >> /home/deploy/pixelapps-backups/logs/cloudinary-cron.log 2>&1
+45 3 1 * * /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-backup.js --period monthly --completed >> /home/deploy/pixelapps-backups/logs/cloudinary-cron.log 2>&1
+30 4 * * * /usr/bin/nice -n 19 /usr/bin/ionice -c3 /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-retention.js >> /home/deploy/pixelapps-backups/logs/cloudinary-retention-cron.log 2>&1
