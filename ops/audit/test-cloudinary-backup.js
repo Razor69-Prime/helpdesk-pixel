@@ -16,6 +16,7 @@ assert(script.includes("'report'"), 'backup belum membuat folder report');
 assert(script.includes('REPORT.pdf'), 'backup belum membuat PDF report');
 assert(script.includes('objects'), 'backup belum punya object cache');
 assert(script.includes('--backfill'), 'backup belum mendukung historical backfill');
+assert(/dry_run\s*:\s*dryRun/.test(script), 'dry-run manifest flag tidak aman');
 assert(server.includes('pxlSysCloudinaryBackup'), 'System Tools backend belum membaca Cloudinary backup');
 assert(ui.includes('Cloudinary terakhir'), 'System Tools UI belum menampilkan Cloudinary backup');
 assert(cron.includes('--period weekly')&&cron.includes('--period monthly'), 'cron weekly/monthly belum lengkap');
