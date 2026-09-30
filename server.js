@@ -303,7 +303,7 @@ app.get('/api/me', async (req, res) => {
 //  USER MANAGEMENT
 // ══════════════════════════════════════════
 
-app.get('/api/users', requireRole('admin','superadmin'), async (req, res) => {
+app.get('/api/users', requireRole('superadmin'), async (req, res) => {
   try {
     if (db.USE_POSTGREST) {
       const users = await db.getUsers();
@@ -323,7 +323,7 @@ app.get('/api/users/:id/signature', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
+app.post('/api/users', requireRole('superadmin'), async (req, res) => {
   try {
     const { username, password, name, role, custom_menus } = req.body;
     if (!username || !password || !name || !role)
@@ -347,7 +347,7 @@ app.post('/api/users', requireRole('admin','superadmin'), async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) => {
+app.patch('/api/users/:id', requireRole('superadmin'), async (req, res) => {
   try {
     const callerRole = req.session.user.role;
     let targetUser;
@@ -404,7 +404,7 @@ app.patch('/api/users/:id', requireRole('admin','superadmin'), async (req, res) 
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/users/:id', requireRole('admin','superadmin'), async (req, res) => {
+app.delete('/api/users/:id', requireRole('superadmin'), async (req, res) => {
   try {
     if (req.session.user.id === req.params.id)
       return res.status(400).json({ error: 'Tidak bisa menghapus akun Anda sendiri.' });
@@ -2577,6 +2577,103 @@ app.get('/api/track/:token', async (req, res) => {
   }
 });
 
+
+// ══════════════════════════════════════════
+//  CUSTOMER TRACKING BANNER CMS — PXL-TRACK-0002
+//  Isolated from Work Order / Service Center business logic.
+// ══════════════════════════════════════════
+const TRACKING_BANNERS_FILE = path.join(__dirname,'data','tracking_banners.json');
+const TRACKING_BANNER_UPLOAD_DIR = path.join(__dirname,'public','uploads','tracking-banners');
+fs.mkdirSync(path.dirname(TRACKING_BANNERS_FILE),{recursive:true});
+fs.mkdirSync(TRACKING_BANNER_UPLOAD_DIR,{recursive:true});
+
+const TRACKING_BANNER_DEFAULTS = [
+  {id:'tb-cctv',title:'Sistem CCTV lebih lengkap untuk keamanan maksimal',subtitle:'Tambahkan titik kamera, UPS, atau maintenance sesuai kebutuhan lokasi Anda.',image_url:'',cta_text:'Konsultasi Sekarang',cta_url:'https://wa.me/6281234567890',placement:'header',audience:'work_order',start_date:'2026-09-01',end_date:'2027-12-31',sort_order:1,active:true},
+  {id:'tb-upgrade',title:'Upgrade SSD & RAM agar perangkat lebih cepat',subtitle:'Upgrade performa untuk laptop kerja dan komputer operasional Anda.',image_url:'',cta_text:'Lihat Paket Upgrade',cta_url:'https://wa.me/6281234567890',placement:'header',audience:'service_center',start_date:'2026-09-01',end_date:'2027-12-31',sort_order:2,active:true},
+  {id:'tb-maintenance',title:'Maintenance berkala untuk sistem yang tetap optimal',subtitle:'Pengecekan kamera, storage, konektor, dan kualitas rekaman secara rutin.',image_url:'',cta_text:'Jadwalkan Maintenance',cta_url:'https://wa.me/6281234567890',placement:'header',audience:'all',start_date:'2026-09-01',end_date:'2027-12-31',sort_order:3,active:true}
+];
+function readTrackingBanners(){
+  try{
+    if(!fs.existsSync(TRACKING_BANNERS_FILE)) fs.writeFileSync(TRACKING_BANNERS_FILE,JSON.stringify(TRACKING_BANNER_DEFAULTS,null,2));
+    const data=JSON.parse(fs.readFileSync(TRACKING_BANNERS_FILE,'utf8'));
+    return Array.isArray(data)?data:[];
+  }catch(_){ return TRACKING_BANNER_DEFAULTS.map(x=>({...x})); }
+}
+function writeTrackingBanners(rows){
+  fs.writeFileSync(TRACKING_BANNERS_FILE,JSON.stringify(rows,null,2));
+}
+function cleanTrackingBanner(input={},existing={}){
+  const val=(k,max=500)=>String(input[k]??existing[k]??'').trim().slice(0,max);
+  const bool=input.active===undefined?existing.active!==false:input.active===true||String(input.active)==='true';
+  const placement=['header','footer'].includes(val('placement',20))?val('placement',20):'header';
+  const audience=['all','work_order','service_center'].includes(val('audience',30))?val('audience',30):'work_order';
+  return {
+    ...existing,
+    title:val('title',160),
+    subtitle:val('subtitle',280),
+    image_url:val('image_url',600),
+    cta_text:val('cta_text',80),
+    cta_url:val('cta_url',700),
+    placement,
+    audience,
+    start_date:val('start_date',10),
+    end_date:val('end_date',10),
+    sort_order:Number.isFinite(Number(input.sort_order))?Number(input.sort_order):(Number(existing.sort_order)||1),
+    active:bool
+  };
+}
+const trackingBannerUpload=multer({
+  storage:multer.diskStorage({
+    destination:(_req,_file,cb)=>cb(null,TRACKING_BANNER_UPLOAD_DIR),
+    filename:(_req,file,cb)=>{
+      const ext=String(path.extname(file.originalname)||'.jpg').toLowerCase().replace(/[^.a-z0-9]/g,'');
+      cb(null,'tracking-banner-'+Date.now()+'-'+crypto.randomBytes(4).toString('hex')+ext);
+    }
+  }),
+  limits:{fileSize:2*1024*1024},
+  fileFilter:(_req,file,cb)=>cb(null,/^image\/(jpeg|png|webp)$/i.test(String(file.mimetype||'')))
+});
+
+app.get('/api/tracking-banners', (req,res)=>{
+  const audience=String(req.query.audience||'work_order').toLowerCase();
+  const placement=String(req.query.placement||'header').toLowerCase();
+  const today=new Date().toISOString().slice(0,10);
+  const rows=readTrackingBanners().filter(x=>{
+    if(x.active===false) return false;
+    if(String(x.placement||'header')!==placement) return false;
+    const a=String(x.audience||'all');
+    if(a!=='all'&&a!==audience) return false;
+    if(x.start_date&&String(x.start_date)>today) return false;
+    if(x.end_date&&String(x.end_date)<today) return false;
+    return true;
+  }).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+  res.json(rows);
+});
+app.get('/api/admin/tracking-banners', requireRole('superadmin'), (_req,res)=>res.json(readTrackingBanners().sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0))));
+app.post('/api/admin/tracking-banners', requireRole('superadmin'), (req,res)=>{
+  const rows=readTrackingBanners();
+  const row=cleanTrackingBanner(req.body||{});
+  if(!row.title) return res.status(400).json({error:'Judul banner wajib diisi.'});
+  row.id='tb-'+Date.now().toString(36)+'-'+crypto.randomBytes(3).toString('hex');
+  rows.push(row); writeTrackingBanners(rows); res.json(row);
+});
+app.patch('/api/admin/tracking-banners/:id', requireRole('superadmin'), (req,res)=>{
+  const rows=readTrackingBanners(),idx=rows.findIndex(x=>String(x.id)===String(req.params.id));
+  if(idx<0) return res.status(404).json({error:'Banner tidak ditemukan.'});
+  rows[idx]=cleanTrackingBanner(req.body||{},rows[idx]);
+  if(!rows[idx].title) return res.status(400).json({error:'Judul banner wajib diisi.'});
+  writeTrackingBanners(rows); res.json(rows[idx]);
+});
+app.delete('/api/admin/tracking-banners/:id', requireRole('superadmin'), (req,res)=>{
+  const rows=readTrackingBanners(),next=rows.filter(x=>String(x.id)!==String(req.params.id));
+  if(next.length===rows.length) return res.status(404).json({error:'Banner tidak ditemukan.'});
+  writeTrackingBanners(next); res.json({ok:true});
+});
+app.post('/api/admin/tracking-banners/upload', requireRole('superadmin'), trackingBannerUpload.single('file'), (req,res)=>{
+  if(!req.file) return res.status(400).json({error:'File gambar JPG, PNG, atau WEBP maksimal 2 MB wajib dipilih.'});
+  res.json({url:'/uploads/tracking-banners/'+req.file.filename});
+});
+
 app.get('/track/:token', (req, res) => {
   const trackFile = path.join(__dirname, 'public', 'track.html');
   if (fs.existsSync(trackFile)) {
@@ -2991,8 +3088,8 @@ app.get('/api/crm/whatsapp-templates',requireRole(...CRM_READ_ROLES),async(req,r
 app.post('/api/crm/communications',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{if(!req.body.customer_id||!req.body.channel)return res.status(400).json({error:'Customer dan channel wajib'});const x=await db.insertCommunicationHistory({...req.body,created_by:req.session.user.name,communication_at:new Date().toISOString()});await db.updateCrmCustomer(req.body.customer_id,{last_communication_at:x.communication_at,last_communication_channel:req.body.channel,next_follow_up_at:req.body.next_follow_up_at||null});res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
 app.get('/api/crm/communications/all',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCommunicationHistory())}catch(e){res.status(500).json({error:e.message})}});
 app.get('/api/crm/communications/:customerId',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{const rows=await db.getCommunicationHistory();res.json(rows.filter(x=>x.customer_id===req.params.customerId))}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/customer-import/staging',requireRole('admin','superadmin'),async(req,res)=>{try{const rows=Array.isArray(req.body)?req.body:[req.body];const out=[];for(const r of rows){out.push(await db.insertCustomerImportStaging({...r,normalized_phone:normalizeWaNumber(r.phone),import_status:'pending'}))}res.status(201).json(out)}catch(e){res.status(500).json({error:e.message})}});
-app.post('/api/crm/customer-import/:id/commit',requireRole('admin','superadmin'),async(req,res)=>{try{const rows=await db.getCustomerImportStaging();const r=rows.find(x=>x.id===req.params.id);if(!r)return res.status(404).json({error:'Data staging tidak ditemukan'});const customers=await db.getCrmCustomers();let c=customers.find(x=>(r.legacy_customer_id&&x.legacy_customer_id===r.legacy_customer_id&&x.source_name===r.source_name)||(r.normalized_phone&&x.normalized_phone===r.normalized_phone));if(c)c=await db.updateCrmCustomer(c.id,{name:r.name,type:r.type,sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address});else c=await db.insertCrmCustomer({name:r.name,type:r.type||'B2B',sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address,legacy_customer_id:r.legacy_customer_id,source_name:r.source_name||'existing_customer',status:'active',created_by:req.session.user.name});await db.updateCustomerImportStaging(r.id,{import_status:'imported',matched_customer_id:c.id});res.json(c)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/customer-import/staging',requireRole('superadmin'),async(req,res)=>{try{const rows=Array.isArray(req.body)?req.body:[req.body];const out=[];for(const r of rows){out.push(await db.insertCustomerImportStaging({...r,normalized_phone:normalizeWaNumber(r.phone),import_status:'pending'}))}res.status(201).json(out)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/crm/customer-import/:id/commit',requireRole('superadmin'),async(req,res)=>{try{const rows=await db.getCustomerImportStaging();const r=rows.find(x=>x.id===req.params.id);if(!r)return res.status(404).json({error:'Data staging tidak ditemukan'});const customers=await db.getCrmCustomers();let c=customers.find(x=>(r.legacy_customer_id&&x.legacy_customer_id===r.legacy_customer_id&&x.source_name===r.source_name)||(r.normalized_phone&&x.normalized_phone===r.normalized_phone));if(c)c=await db.updateCrmCustomer(c.id,{name:r.name,type:r.type,sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address});else c=await db.insertCrmCustomer({name:r.name,type:r.type||'B2B',sales_pic:r.sales_pic,phone:r.phone,normalized_phone:r.normalized_phone,email:r.email,address:r.address,legacy_customer_id:r.legacy_customer_id,source_name:r.source_name||'existing_customer',status:'active',created_by:req.session.user.name});await db.updateCustomerImportStaging(r.id,{import_status:'imported',matched_customer_id:c.id});res.json(c)}catch(e){res.status(500).json({error:e.message})}});
 
 app.get('/api/crm/invoices',requireRole(...INVOICE_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmInvoices())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/invoices/from-so/:soId',requireRole('accounting','manager','admin','superadmin'),async(req,res)=>{try{const so=(await db.getSalesOrders()).find(x=>x.id===req.params.soId);if(!so)return res.status(404).json({error:'SO tidak ditemukan'});const amrs=(await db.getAdditionalMaterialRequests()).filter(x=>x.sales_order_id===so.id&&x.status==='approved');const additional=amrs.flatMap(x=>(x.items||[]).map(i=>({...i,amr_number:x.amr_number})));const base=Number(so.total_amount||0),extra=additional.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);const grand=base+extra,downPayment=Number(req.body.down_payment||0),redemption=Number(req.body.redemption||0);const x=await db.insertCrmInvoice({sales_order_id:so.id,so_number:so.so_number,customer_id:so.customer_id||null,customer_name:so.customer_name,work_order_ids:req.body.work_order_ids||[],items:so.items||[],additional_items:additional,base_total:base,additional_total:extra,grand_total:grand,invoice_date:req.body.invoice_date||new Date().toISOString().slice(0,10),due_date:req.body.due_date||null,down_payment:downPayment,redemption,balance_due:Math.max(0,grand-downPayment-redemption),payment_method:req.body.payment_method||'CASH & TRANSFER BANK',remark:req.body.remark||null,billing_address:req.body.billing_address||null,created_by:req.session.user.name});for(const a of amrs)await db.updateAdditionalMaterialRequest(a.id,{status:'invoiced',invoice_id:x.id});logActivity(req,'invoice','BUAT INVOICE DARI SO',x.invoice_number);res.status(201).json(x)}catch(e){res.status(500).json({error:e.message})}});
