@@ -20,8 +20,13 @@ const arg=(name,def=null)=>{const i=args.indexOf(name);return i>=0&&args[i+1]?ar
 const mode=arg('--period','weekly');
 const backfill=args.includes('--backfill');
 const dryRun=args.includes('--dry-run');
+const completed=args.includes('--completed');
 const anchorRaw=arg('--anchor',null);
-const anchor=anchorRaw?new Date(anchorRaw+'T12:00:00Z'):new Date();
+function completedMonthlyAnchor(now=new Date()){
+  const wita=new Date(now.getTime()+8*3600000);
+  return new Date(Date.UTC(wita.getUTCFullYear(),wita.getUTCMonth(),0,12,0,0));
+}
+const anchor=anchorRaw?new Date(anchorRaw+'T12:00:00Z'):(mode==='monthly'&&completed?completedMonthlyAnchor():new Date());
 if(!['weekly','monthly'].includes(mode))throw new Error('--period harus weekly atau monthly');
 if(Number.isNaN(anchor.getTime()))throw new Error('--anchor tidak valid');
 
@@ -130,7 +135,7 @@ async function main(){
   const [tickets,salesOrders,services]=await Promise.all([db.getTickets(null,true),db.getSalesOrders(),db.getServiceOrders()]);
   const soById=new Map(salesOrders.map(x=>[String(x.id),x]));
   const soByNo=new Map(salesOrders.map(x=>[String(x.so_number||''),x]));
-  const manifest={revision:'PXL-SYS-0001',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,dry_run:dryRun,work_orders:0,services:0,files:[],errors:[]};
+  const manifest={revision:'PXL-SYS-0001A',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,completed,dry_run:dryRun,work_orders:0,services:0,files:[],errors:[]};
   log('Mulai Cloudinary backup mode='+mode+' backfill='+backfill+' dry_run='+dryRun);
   for(const t0 of tickets){
     if(!selected(t0))continue;
