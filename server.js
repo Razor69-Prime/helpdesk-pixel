@@ -8,6 +8,7 @@ const JSZip    = require('jszip');
 const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
+const cloudBackupCenter = require('./ops/backup/cloudinary-retention-lib');
 const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
 const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
 const os       = require('os');
@@ -1638,10 +1639,53 @@ app.get('/api/system-tools',requireRole('superadmin'),async(req,res)=>{
       server:{hostname:os.hostname(),uptime_seconds:Math.round(os.uptime()),cpu_count:os.cpus().length,cpu_percent:cpuPercent,load_average:os.loadavg().map(v=>Math.round(v*100)/100),memory:{total_bytes:memTotal,used_bytes:Math.max(0,memTotal-memFree),free_bytes:memFree,used_percent:memTotal?Math.round((memTotal-memFree)/memTotal*1000)/10:0},disk:pxlSysDisk()},
       services:{pixelapps_node:{running:true,pid:process.pid},nginx:{running:pxlSysProc('nginx: master process')},postgresql17:{running:pxlSysProc('/usr/lib/postgresql/17/bin/postgres')},postgrest:{running:pxlSysProc('/usr/local/bin/postgrest /etc/pixelapps/postgrest.conf')}},
       application:{node:{ok:true,status:200,response_ms:0},local_rest:restProbe},
-      storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,cloudinary_backup:pxlSysCloudinaryBackup(),database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
+      storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,cloudinary_backup:pxlSysCloudinaryBackup(),cloudinary_monthly:cloudBackupCenter.monthlyStatus('/home/deploy/pixelapps-backups/cloudinary'),database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
       deployment:pxlSysGit(),dependencies:pxlSysDependencies(),recent_errors:pxlSysErrors()
     });
   }catch(e){console.error('[PXL-URG-0076] system tools error:',e);res.status(500).json({error:'System Tools gagal membaca status server.'});}
+});
+
+// PXL-SYS-0001B — monthly Cloudinary backup reminder + low-resource download center
+const CLOUDINARY_BACKUP_ROOT='/home/deploy/pixelapps-backups/cloudinary';
+app.get('/api/cloudinary-backup/reminder',requireRole('superadmin'),(req,res)=>{
+  try{
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.json(cloudBackupCenter.reminder(CLOUDINARY_BACKUP_ROOT));
+  }catch(e){res.status(500).json({error:'Gagal membaca reminder backup Cloudinary.'});}
+});
+app.get('/api/cloudinary-backup/monthly-status',requireRole('superadmin'),(req,res)=>{
+  try{
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.json({retention_months:cloudBackupCenter.MONTHLY_RETENTION_MONTHS,reminder_days:cloudBackupCenter.REMINDER_DAYS,rows:cloudBackupCenter.monthlyStatus(CLOUDINARY_BACKUP_ROOT)});
+  }catch(e){res.status(500).json({error:'Gagal membaca status monthly backup.'});}
+});
+app.post('/api/cloudinary-backup/monthly/:period/download-token',requireRole('superadmin'),(req,res)=>{
+  try{
+    const period=String(req.params.period||'');
+    if(!cloudBackupCenter.validPeriod('monthly',period))return res.status(400).json({error:'Period monthly tidak valid.'});
+    const file=cloudBackupCenter.archivePath(CLOUDINARY_BACKUP_ROOT,period);
+    if(!fs.existsSync(file))return res.status(409).json({error:'Archive monthly belum siap. Tunggu proses H-14 selesai.'});
+    const token=jwt.sign({kind:'cloudinary-backup-download',period,by:req.session.user.name||'superadmin'},JWT_SECRET,{expiresIn:'10m'});
+    res.json({token,expires_in_seconds:600,period});
+  }catch(e){res.status(500).json({error:'Gagal membuat token download backup.'});}
+});
+app.get('/api/cloudinary-backup/monthly/:period/download',(req,res)=>{
+  try{
+    const period=String(req.params.period||''),token=String(req.query.token||'');
+    if(!cloudBackupCenter.validPeriod('monthly',period)||!token)return res.status(401).json({error:'Download token tidak valid.'});
+    let decoded;try{decoded=jwt.verify(token,JWT_SECRET)}catch(_){return res.status(401).json({error:'Download token sudah tidak valid/expired.'})}
+    if(decoded?.kind!=='cloudinary-backup-download'||decoded?.period!==period)return res.status(403).json({error:'Download token tidak sesuai.'});
+    const file=cloudBackupCenter.archivePath(CLOUDINARY_BACKUP_ROOT,period);
+    if(!fs.existsSync(file))return res.status(404).json({error:'Archive monthly tidak ditemukan.'});
+    const st=fs.statSync(file);res.setHeader('Cache-Control','private, no-store, max-age=0');
+    res.download(file,path.basename(file),err=>{
+      if(err){console.error('[PXL-SYS-0001B] monthly download error:',err.message||err);return;}
+      try{
+        cloudBackupCenter.markDownloaded(CLOUDINARY_BACKUP_ROOT,period,{downloaded_by:decoded.by||'superadmin',bytes:st.size,archive_name:path.basename(file)});
+        db.insertLog({category:'system',action:'DOWNLOAD CLOUDINARY MONTHLY BACKUP',user:decoded.by||'superadmin',detail:period+' · '+st.size+' bytes',ip:req.headers['x-forwarded-for']?.split(',')[0]?.trim()||req.socket?.remoteAddress||''}).catch(()=>{});
+      }catch(e){console.error('[PXL-SYS-0001B] gagal mencatat receipt download:',e.message||e);}
+    });
+  }catch(e){res.status(500).json({error:'Gagal download monthly backup.'});}
 });
 
 // ══════════════════════════════════════════
