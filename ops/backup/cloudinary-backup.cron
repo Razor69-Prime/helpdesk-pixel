@@ -1,0 +1,4 @@
+# PXL-SYS-0001 Cloudinary Backup
+CRON_TZ=Asia/Makassar
+15 3 * * 0 /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-backup.js --period weekly >> /home/deploy/pixelapps-backups/logs/cloudinary-cron.log 2>&1
+45 3 1 * * /usr/bin/node /var/www/internal.pixelsolusindo.com/ops/backup/cloudinary-backup.js --period monthly >> /home/deploy/pixelapps-backups/logs/cloudinary-cron.log 2>&1
