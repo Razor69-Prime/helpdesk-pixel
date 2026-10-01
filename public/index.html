@@ -169,6 +169,14 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .ticket-project{font-size:12px;color:var(--muted);margin-bottom:1px}
 .ticket-meta{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
 .ticket-desc{font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5}
+.wo-desc-wrap{min-width:0}.wo-desc-content{display:grid;gap:8px}.wo-desc-note{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.wo-desc-group{border:1px solid var(--border);border-radius:9px;background:var(--surface2);overflow:hidden}
+.wo-desc-label{padding:6px 9px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.wo-desc-list{display:grid}.wo-desc-line{display:flex;align-items:flex-start;gap:7px;padding:6px 9px;border-bottom:1px solid var(--border);color:var(--text);font-size:11px;line-height:1.4}
+.wo-desc-line:last-child{border-bottom:0}.wo-desc-bullet{color:var(--accent);font-weight:700;flex:0 0 auto}.wo-desc-text{min-width:0;overflow-wrap:anywhere}
+.ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content{max-height:128px;overflow:hidden;position:relative}
+.ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content:after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,var(--surface))}
+.wo-desc-toggle{margin-top:7px;border:0;background:transparent;color:var(--blue);font-size:11px;font-weight:700;padding:0;cursor:pointer}
 .ticket-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .status-select{font-size:12px;padding:4px 8px;border-radius:99px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500}
 
@@ -3414,6 +3422,36 @@ function waLink(phone,label){
 }
 
 /* ══ RENDER TICKETS ══════════════════════ */
+
+function pxlWoDescEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function pxlFormatWoDescription(value,compact=true){
+  const raw=String(value??'').trim(); if(!raw)return '';
+  const itemRx=/\bItem\s*:\s*/i, serviceRx=/DAFTAR\s+PEKERJAAN\s*\/\s*JASA\s*/i;
+  const im=itemRx.exec(raw), sm=serviceRx.exec(raw);
+  let intro=raw,items='',services='';
+  if(im){
+    intro=raw.slice(0,im.index).trim();
+    const itemStart=im.index+im[0].length;
+    if(sm&&sm.index>itemStart){items=raw.slice(itemStart,sm.index).trim();services=raw.slice(sm.index+sm[0].length).trim();}
+    else items=raw.slice(itemStart).trim();
+  }else if(sm){
+    intro=raw.slice(0,sm.index).trim(); services=raw.slice(sm.index+sm[0].length).trim();
+  }
+  const itemRows=items?items.split(/\s*,\s*/).map(x=>x.trim()).filter(Boolean):[];
+  const serviceRows=services?services.split(/(?=\d+\.\s*)/).map(x=>x.replace(/^\d+\.\s*/, '').trim()).filter(Boolean):[];
+  const group=(label,rows)=>rows.length?'<div class="wo-desc-group"><div class="wo-desc-label">'+label+'</div><div class="wo-desc-list">'+rows.map((x,i)=>'<div class="wo-desc-line"><span class="wo-desc-bullet">'+(i+1)+'.</span><span class="wo-desc-text">'+pxlWoDescEsc(x)+'</span></div>').join('')+'</div>':'';
+  const long=raw.length>220||itemRows.length>4||serviceRows.length>3;
+  return '<div class="wo-desc-wrap '+(compact&&long?'is-collapsed':'')+'"><div class="wo-desc-content">'+
+    (intro?'<div class="wo-desc-note">'+pxlWoDescEsc(intro)+'</div>':'')+
+    group('Item / Material',itemRows)+group('Pekerjaan / Jasa',serviceRows)+
+    '</div>'+(compact&&long?'<button type="button" class="wo-desc-toggle" onclick="event.stopPropagation();pxlToggleWoDescription(this)">Lihat Selengkapnya</button>':'')+'</div>';
+}
+function pxlToggleWoDescription(btn){
+  const wrap=btn?.closest?.('.wo-desc-wrap'); if(!wrap)return;
+  const collapsed=wrap.classList.toggle('is-collapsed');
+  btn.textContent=collapsed?'Lihat Selengkapnya':'Tutup';
+}
+
 function renderTickets(){
   const search=document.getElementById('t-search').value.toLowerCase();
   const status=document.getElementById('t-status').value;
@@ -3575,7 +3613,7 @@ function renderTickets(){
         ${(showInvoice&&invCount)?`<span style="color:var(--green)">📄 ${invCount} invoice</span>`:''}
         <span style="font-size:11px;color:${daysLeft<=3?'var(--amber)':'var(--muted)'}">⏳ ${expired?'Expired':`${daysLeft}h`}</span>
       </div>
-      ${t.description?`<div class="ticket-desc">${t.description}</div>`:''}
+      ${t.description?`<div class="ticket-desc">${pxlFormatWoDescription(t.description,true)}</div>`:''}
       ${stageStrip}
       ${(showInvoice&&invCount)?`<div class="invoice-section"><div class="invoice-section-title">📄 Invoice</div>${invoiceChips}${invSummaryHtml}</div>`:''}
     </div>`;
@@ -6078,7 +6116,7 @@ function renderArchive(){
         ${invs.length?`<span style="color:var(--green)">📄 ${invs.length} invoice</span>`:''}
         ${t.archived_by?`<span style="color:var(--muted)">oleh ${t.archived_by}</span>`:''}
       </div>
-      ${t.description?`<div class="ticket-desc">${t.description}</div>`:''}
+      ${t.description?`<div class="ticket-desc">${pxlFormatWoDescription(t.description,true)}</div>`:''}
       ${invs.length?`<div class="invoice-section"><div class="invoice-section-title">📄 Invoice</div>${invoiceChips}</div>`:''}
     </div>`;
   }).join('');
