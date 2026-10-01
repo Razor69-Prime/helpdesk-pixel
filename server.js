@@ -1701,7 +1701,29 @@ function logActivity(req, category, action, detail='') {
 
 // GET logs — superadmin only
 app.get('/api/activity-logs', requireRole('superadmin'), async (req, res) => {
-  try { res.json(await db.getLogs(1000)); }
+  try {
+    const page=Math.max(1,Number(req.query.page)||1);
+    const pageSize=Math.min(100,Math.max(10,Number(req.query.page_size)||50));
+    const category=String(req.query.category||'').trim();
+    const user=String(req.query.user||'').trim();
+    const search=String(req.query.search||'').trim();
+    const dateFilter=String(req.query.date||'').trim();
+    const now=Date.now();
+    let since='';
+    if(dateFilter==='today')since=new Date(now-864e5).toISOString();
+    else if(dateFilter==='yesterday')since=new Date(now-2*864e5).toISOString();
+    else if(dateFilter==='week')since=new Date(now-7*864e5).toISOString();
+    else if(dateFilter==='month')since=new Date(now-30*864e5).toISOString();
+    const offset=(page-1)*pageSize;
+    let rows=await db.getLogs(pageSize+1,offset,{category,user,search,since});
+    if(dateFilter==='yesterday'){
+      const upper=new Date(now-864e5).getTime();
+      rows=rows.filter(x=>new Date(x.timestamp).getTime()<upper);
+    }
+    const hasMore=rows.length>pageSize;
+    if(hasMore)rows=rows.slice(0,pageSize);
+    res.json({items:rows,page,page_size:pageSize,has_more:hasMore});
+  }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
