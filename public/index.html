@@ -174,7 +174,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .wo-desc-label{padding:6px 9px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
 .wo-desc-list{display:grid}.wo-desc-line{display:flex;align-items:flex-start;gap:7px;padding:6px 9px;border-bottom:1px solid var(--border);color:var(--text);font-size:11px;line-height:1.4}
 .wo-desc-line:last-child{border-bottom:0}.wo-desc-bullet{color:var(--accent);font-weight:700;flex:0 0 auto}.wo-desc-text{min-width:0;overflow-wrap:anywhere}
-.ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content{max-height:128px;overflow:hidden;position:relative}
+.ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content{max-height:4.65em;overflow:hidden;position:relative}
 .ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content:after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,var(--surface))}
 .wo-desc-toggle{margin-top:7px;border:0;background:transparent;color:var(--blue);font-size:11px;font-weight:700;padding:0;cursor:pointer}
 .ticket-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
@@ -3440,10 +3440,22 @@ function pxlFormatWoDescription(value,compact=true){
   const itemRows=items?items.split(/\s*,\s*/).map(x=>x.trim()).filter(Boolean):[];
   const serviceRows=services?services.split(/(?=\d+\.\s*)/).map(x=>x.replace(/^\d+\.\s*/, '').trim()).filter(Boolean):[];
   const group=(label,rows)=>rows.length?'<div class="wo-desc-group"><div class="wo-desc-label">'+label+'</div><div class="wo-desc-list">'+rows.map((x,i)=>'<div class="wo-desc-line"><span class="wo-desc-bullet">'+(i+1)+'.</span><span class="wo-desc-text">'+pxlWoDescEsc(x)+'</span></div>').join('')+'</div>':'';
-  const long=raw.length>220||itemRows.length>4||serviceRows.length>3;
-  return '<div class="wo-desc-wrap '+(compact&&long?'is-collapsed':'')+'"><div class="wo-desc-content">'+
+  return '<div class="wo-desc-wrap '+(compact?'is-collapsed':'')+'"><div class="wo-desc-content">'+
     (intro?'<div class="wo-desc-note">'+pxlWoDescEsc(intro)+'</div>':'')+
-    '</div>'+(compact&&long?'<button type="button" class="wo-desc-toggle" onclick="event.stopPropagation();pxlToggleWoDescription(this)">Lihat Selengkapnya</button>':'')+'</div>';
+    '</div>'+(compact?'<button type="button" class="wo-desc-toggle" style="display:none" onclick="event.stopPropagation();pxlToggleWoDescription(this)">Lihat Selengkapnya</button>':'')+'</div>';
+}
+function pxlRefreshWoDescriptionToggles(root=document){
+  requestAnimationFrame(()=>{
+    root.querySelectorAll?.('.ticket-desc .wo-desc-wrap').forEach(wrap=>{
+      const content=wrap.querySelector('.wo-desc-content'),btn=wrap.querySelector('.wo-desc-toggle');
+      if(!content||!btn)return;
+      wrap.classList.add('is-collapsed');
+      const overflow=content.scrollHeight>content.clientHeight+2;
+      btn.style.display=overflow?'inline-block':'none';
+      if(!overflow)wrap.classList.remove('is-collapsed');
+      btn.textContent='Lihat Selengkapnya';
+    });
+  });
 }
 function pxlToggleWoDescription(btn){
   const wrap=btn?.closest?.('.wo-desc-wrap'); if(!wrap)return;
@@ -3617,6 +3629,7 @@ function renderTickets(){
       ${(showInvoice&&invCount)?`<div class="invoice-section"><div class="invoice-section-title">📄 Invoice</div>${invoiceChips}${invSummaryHtml}</div>`:''}
     </div>`;
   }).join('');
+  pxlRefreshWoDescriptionToggles(el);
 }
 
 
