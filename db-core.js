@@ -591,11 +591,30 @@ async function insertLog(entry) {
   return log;
 }
 
-async function getLogs(limit=500) {
+async function getLogs(limit=500, offset=0, filters={}) {
+  const safeLimit=Math.min(200,Math.max(1,Number(limit)||50));
+  const safeOffset=Math.max(0,Number(offset)||0);
+  const category=String(filters.category||'').trim();
+  const user=String(filters.user||'').trim();
+  const search=String(filters.search||'').trim();
+  const since=String(filters.since||'').trim();
   if (!USE_POSTGREST) {
-    return readLogLocal().slice(0, limit);
+    let logs=readLogLocal();
+    if(category)logs=logs.filter(x=>String(x.category||'')===category);
+    if(user)logs=logs.filter(x=>String(x.user||x.actor||'')===user);
+    if(search){const q=search.toLowerCase();logs=logs.filter(x=>JSON.stringify(x).toLowerCase().includes(q));}
+    if(since){const t=new Date(since).getTime();if(Number.isFinite(t))logs=logs.filter(x=>new Date(x.timestamp).getTime()>=t);}
+    return logs.slice(safeOffset,safeOffset+safeLimit);
   }
-  return await restFetch('GET', `/activity_logs?order=timestamp.desc&limit=${limit}`) || [];
+  const params=[`order=timestamp.desc`,`limit=${safeLimit}`,`offset=${safeOffset}`];
+  if(category)params.push('category=eq.'+encodeURIComponent(category));
+  if(user)params.push('user=eq.'+encodeURIComponent(user));
+  if(since)params.push('timestamp=gte.'+encodeURIComponent(since));
+  if(search){
+    const q=encodeURIComponent('*'+search.replace(/[(),]/g,' ')+'*');
+    params.push('or=(action.ilike.'+q+',detail.ilike.'+q+',user.ilike.'+q+',category.ilike.'+q+',ip.ilike.'+q+')');
+  }
+  return await restFetch('GET','/activity_logs?'+params.join('&')) || [];
 }
 
 async function clearLogs() {
