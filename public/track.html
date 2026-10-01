@@ -1,69 +1,203 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tracking Tiket — Pixel Solusindo</title>
 <style>
-:root{--bg:#f7f5f0;--card:#fff;--text:#282725;--muted:#7e7a74;--line:#e5e0d7;--orange:#e47b36;--green:#23845b;--blue:#246a9b;--radius:22px}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);overflow-x:hidden}header{height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:5}.brand{display:flex;align-items:center}.brand img{display:block;width:128px;height:auto;max-height:54px;object-fit:contain}.brand:before{content:none}.pill{border:1px solid var(--line);border-radius:99px;padding:8px 15px;color:var(--muted);font-weight:700;font-size:12px;letter-spacing:.06em}.wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:20px;box-shadow:0 8px 24px rgba(50,40,25,.04);min-width:0;overflow:hidden}.hero{text-align:center;padding:20px 26px}.hero-icon{font-size:24px;line-height:1;margin-bottom:4px}.status{display:inline-block;background:#e8f3fb;color:var(--blue);padding:6px 14px;border-radius:99px;font-weight:800;margin:0 0 9px;font-size:14px}.hero h1{font-size:28px;line-height:1.18;margin:0 0 6px}.hero .project{color:var(--muted);font-size:14px;line-height:1.35}.wo{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-family:ui-monospace,monospace;font-size:13px}.expiry{display:inline-block;margin-top:9px;background:#fff2df;color:#8b5b23;padding:6px 11px;border-radius:99px;font-size:12px;line-height:1.35}.section-title{font-size:16px;color:#706d68;letter-spacing:.05em;font-weight:800;margin:0 0 18px}.row{display:grid;grid-template-columns:160px minmax(0,1fr);gap:14px;padding:13px 0;border-bottom:1px solid var(--line);min-width:0}.row:last-child{border-bottom:0}.row span:first-child{color:var(--muted)}.row span:last-child{text-align:right;font-weight:600;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal}.timeline{display:grid;gap:12px}.stage{display:flex;gap:12px;align-items:flex-start}.stage-dot{width:12px;height:12px;border-radius:50%;background:var(--orange);margin-top:5px}.stage b{display:block}.stage small{color:var(--muted)}.file{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:14px;margin-top:10px;min-width:0}.file>div{min-width:0;overflow-wrap:anywhere}.file a{color:var(--blue);font-weight:700;text-decoration:none}.signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.signature{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;min-height:130px}.signature img{max-width:100%;max-height:80px}.signature small{display:block;color:var(--muted);margin-top:8px}.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.photo{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:#fff}.photo img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}.photo-info{padding:10px;font-size:12px}.photo-info b{display:block;margin-bottom:4px}.photo-info small{color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:22px;border:1px dashed var(--line);border-radius:14px}.error{color:#b33;background:#fff0f0;border:1px solid #ffcaca;padding:14px;border-radius:12px}.promo-wrap{max-width:760px;margin:0 auto;padding:28px 18px 0}.promo{position:relative;overflow:hidden;border-radius:22px;box-shadow:0 8px 24px rgba(50,40,25,.05);background:#0c4d90}.promo-slides{display:flex;transition:transform .35s ease}.promo-slide{min-width:100%;min-height:210px;padding:28px 62px 34px 34px;color:#fff;display:grid;grid-template-columns:1.2fr .8fr;align-items:center;position:relative}.promo-slide.p1{background:linear-gradient(120deg,#062758,#0d69c7)}.promo-slide.p2{background:linear-gradient(120deg,#2b145c,#7241cf)}.promo-slide.p3{background:linear-gradient(120deg,#184528,#2b9258)}.promo-slide h2{font-size:27px;line-height:1.08;margin:0 0 9px;max-width:430px}.promo-slide p{margin:0 0 16px;color:rgba(255,255,255,.84);font-size:14px;line-height:1.45}.promo-cta{display:inline-flex;align-items:center;border:0;background:#ffd33e;color:#111;text-decoration:none;padding:10px 14px;border-radius:11px;font-weight:800;font-size:13px}.promo-art{display:flex;align-items:center;justify-content:center}.promo-art svg{width:100%;max-width:210px;filter:drop-shadow(0 14px 18px rgba(0,0,0,.18))}.promo-arrow{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:23px;z-index:2}.promo-prev{left:12px}.promo-next{right:12px}.promo-dots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:7px}.promo-dot{border:0;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.5);padding:0}.promo-dot.active{width:22px;border-radius:99px;background:#fff}.promo-slide.cms-image-only{padding:0;display:block;background:#111}.promo-slide.cms-image-only>a,.promo-slide.cms-image-only>.promo-image-shell{position:absolute;inset:0;display:block}.promo-full-image{width:100%;height:100%;object-fit:cover;object-position:center;display:block}.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}.lightbox.show{display:flex}.lightbox img{max-width:95vw;max-height:90vh;border-radius:12px}.lightbox button{position:absolute;right:18px;top:18px;width:42px;height:42px;border:0;border-radius:50%;font-size:22px}@media(max-width:620px){header{height:68px;padding:0 16px;gap:10px}.brand img{width:108px;max-height:46px}.pill{font-size:11px;padding:7px 12px}.promo-wrap{padding:16px 10px 0}.promo{border-radius:18px}.promo-slide{min-height:165px;grid-template-columns:1fr;padding:22px 50px 31px 20px}.promo-slide h2{font-size:21px;max-width:73%;margin-bottom:10px}.promo-slide p{display:none}.promo-cta{padding:9px 11px;font-size:12px}.promo-art{position:absolute;right:16px;bottom:27px;width:34%}.promo-art svg{max-width:125px}.promo-arrow{width:32px;height:32px;font-size:20px}.wrap{padding:14px 10px 42px}.card{padding:18px 16px;border-radius:18px;margin-bottom:14px}.hero{padding:18px 14px}.hero-icon{font-size:22px}.status{font-size:13px;padding:5px 12px;margin-bottom:8px}.hero h1{font-size:23px;line-height:1.18}.hero .project{font-size:13px}.wo{font-size:12px;margin-top:12px;padding-top:12px}.expiry{font-size:11.5px;padding:5px 10px}.section-title{font-size:15px;margin-bottom:12px}.row{grid-template-columns:105px minmax(0,1fr);gap:10px;padding:11px 0;font-size:13px;line-height:1.45}.row span:last-child{font-size:13px}.row:last-child{display:block}.row:last-child span{display:block;text-align:left}.row:last-child span:first-child{font-size:12px;font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.03em}.row:last-child span:last-child{font-size:13px;line-height:1.55}.signature-grid{grid-template-columns:1fr}.photos{grid-template-columns:1fr 1fr}.file{align-items:flex-start;font-size:13px}}
+:root{--bg:#f4f5f7;--card:#fff;--text:#17191d;--muted:#727982;--line:#e2e6eb;--orange:#e47b36;--green:#16b66a;--blue:#1673e7;--blue-soft:#eaf3ff;--radius:20px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);overflow-x:hidden}
+header{height:70px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center}.brand img{display:block;width:118px;height:auto;max-height:46px;object-fit:contain}
+.pill{border:1px solid var(--line);border-radius:99px;padding:8px 14px;color:var(--muted);font-weight:750;font-size:11px;letter-spacing:.05em}
+.wrap,.promo-wrap{max-width:820px;margin:0 auto;padding-left:14px;padding-right:14px}.promo-wrap{padding-top:18px}.wrap{padding-top:14px;padding-bottom:46px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:0 8px 26px rgba(20,28,40,.055);min-width:0;overflow:hidden}
+.section-title{font-size:14px;color:#5c636c;letter-spacing:.04em;font-weight:850;margin:0 0 14px;text-transform:uppercase}
+.empty{text-align:center;color:var(--muted);padding:20px;border:1px dashed #d7dce2;border-radius:13px;background:#fcfcfd;font-size:13px}
+.error{color:#b33;background:#fff0f0;border:1px solid #ffcaca;padding:14px;border-radius:12px}
+
+/* Banner: only header/footer */
+.promo{position:relative;overflow:hidden;border-radius:18px;box-shadow:0 8px 26px rgba(20,28,40,.06);background:#0c4d90;aspect-ratio:8/3}
+.promo[hidden]{display:none}.promo-slides{display:flex;height:100%;transition:transform .35s ease}
+.promo-slide{min-width:100%;height:100%;position:relative;display:grid;grid-template-columns:1.2fr .8fr;align-items:center;padding:24px 58px 30px 30px;color:#fff}
+.promo-slide.p1{background:linear-gradient(120deg,#062758,#0d69c7)}.promo-slide.p2{background:linear-gradient(120deg,#2b145c,#7241cf)}.promo-slide.p3{background:linear-gradient(120deg,#184528,#2b9258)}
+.promo-slide h2{font-size:24px;line-height:1.08;margin:0 0 8px;max-width:420px}.promo-slide p{margin:0 0 14px;color:rgba(255,255,255,.85);font-size:13px;line-height:1.45}
+.promo-cta{display:inline-flex;align-items:center;border:0;background:#ffd33e;color:#111;text-decoration:none;padding:9px 13px;border-radius:10px;font-weight:850;font-size:12px}
+.promo-art{display:flex;align-items:center;justify-content:center}.promo-art svg{width:100%;max-width:190px;filter:drop-shadow(0 12px 16px rgba(0,0,0,.18))}
+.promo-slide.cms-image-only{padding:0;display:block;background:#111}.promo-slide.cms-image-only>a,.promo-slide.cms-image-only>.promo-image-shell{position:absolute;inset:0;display:block}
+.promo-full-image{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.promo-arrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.28);color:#fff;font-size:21px;z-index:2}.promo-prev{left:10px}.promo-next{right:10px}
+.promo-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px}.promo-dot{border:0;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);padding:0}.promo-dot.active{width:20px;border-radius:99px;background:#fff}
+.footer-promo-wrap{padding-top:0;margin-top:14px}
+
+/* Work order summary */
+.wo-card{padding:18px 20px}.wo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+.wo-type{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:850}.wo-icon{width:32px;height:32px;border-radius:9px;background:#eaf3ff;color:var(--blue);display:grid;place-items:center;font-size:16px}
+.wo-status{background:var(--blue-soft);color:#116bd6;font-weight:800;padding:7px 11px;border-radius:10px;font-size:12px;white-space:nowrap}
+.wo-number{font-size:25px;line-height:1.12;font-weight:850;margin:0 0 4px}.wo-project{font-size:13px;color:#69717a;line-height:1.4}.expiry{display:inline-flex;margin-top:8px;background:#fff2df;color:#8b5b23;padding:5px 10px;border-radius:99px;font-size:11.5px;line-height:1.35}
+.stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:18px 0 16px;position:relative}.stepper:before{content:"";position:absolute;top:15px;left:12.5%;right:12.5%;height:3px;background:#d9dee4}
+.step-progress{position:absolute;top:15px;left:12.5%;height:3px;background:var(--green);z-index:0}
+.step{position:relative;z-index:1;text-align:center;font-size:10.5px;color:#7b828a;line-height:1.15}.step .circle{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;margin:0 auto 6px;background:#dfe4e9;color:#8d949b;font-weight:900;font-size:13px}.step.done .circle{background:var(--green);color:#fff}.step.active .circle{background:var(--blue);color:#fff}.step.done,.step.active{color:#20242a;font-weight:800}
+.info-box{border:1px solid var(--line);border-radius:13px;overflow:hidden}.info-row{display:grid;grid-template-columns:130px minmax(0,1fr);gap:14px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.4}.info-row:last-child{border-bottom:0}.info-row span:first-child{color:#737b84}.info-row span:last-child{font-weight:700;overflow-wrap:anywhere}
+
+/* Latest docs + WhatsApp */
+.latest-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}.latest-head h2{font-size:15px;margin:0}.latest-count{color:var(--blue);font-size:12px;font-weight:800}
+.latest-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.latest-photo{border-radius:11px;overflow:hidden;background:#eef1f5;aspect-ratio:4/3;cursor:pointer}.latest-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.wa-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}.wa-left{display:flex;align-items:center;gap:10px}.wa-icon{width:38px;height:38px;border-radius:50%;background:#e9f9f0;color:#0aa15c;display:grid;place-items:center;font-size:18px}.wa-copy b{display:block;font-size:13px}.wa-copy small{color:#7c838b;font-size:11.5px}.wa-btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border:0;background:#1fc774;color:#fff;font-weight:850;padding:10px 15px;border-radius:10px;font-size:12.5px;white-space:nowrap}
+
+/* Existing detail sections retained */
+.timeline{display:grid;gap:11px}.stage{display:flex;gap:10px;align-items:flex-start}.stage-dot{width:10px;height:10px;border-radius:50%;background:var(--orange);margin-top:5px;flex:0 0 auto}.stage b{display:block;font-size:13px}.stage small{color:var(--muted);font-size:11.5px}
+.file{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin-top:9px;min-width:0;font-size:12.5px}.file>div{min-width:0;overflow-wrap:anywhere}.file a{color:var(--blue);font-weight:700;text-decoration:none}
+.signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.signature{border:1px solid var(--line);border-radius:13px;padding:11px;text-align:center;min-height:118px}.signature img{max-width:100%;max-height:75px}.signature small{display:block;color:var(--muted);margin-top:7px;font-size:11.5px}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.photo{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff}.photo img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:pointer}.photo-info{padding:9px;font-size:11.5px}.photo-info b{display:block;margin-bottom:3px;font-size:12.5px}.photo-info small{color:var(--muted)}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}.lightbox.show{display:flex}.lightbox img{max-width:95vw;max-height:90vh;border-radius:12px}.lightbox button{position:absolute;right:18px;top:18px;width:42px;height:42px;border:0;border-radius:50%;font-size:22px}
+
+@media(max-width:620px){
+header{height:62px;padding:0 13px;gap:10px}.brand img{width:96px;max-height:38px}.pill{font-size:10px;padding:6px 10px}
+.wrap,.promo-wrap{padding-left:8px;padding-right:8px}.promo-wrap{padding-top:10px}.wrap{padding-top:10px;padding-bottom:30px}
+.card{padding:14px;border-radius:16px;margin-bottom:10px}.promo{border-radius:15px}.promo-slide{padding:18px 46px 28px 18px;grid-template-columns:1fr}.promo-slide h2{font-size:19px;max-width:72%}.promo-slide p{display:none}.promo-cta{font-size:11px;padding:8px 10px}.promo-art{position:absolute;right:14px;bottom:24px;width:34%}.promo-art svg{max-width:115px}.promo-arrow{width:28px;height:28px;font-size:18px}.promo-dots{bottom:7px}
+.wo-card{padding:14px}.wo-type{font-size:13.5px}.wo-icon{width:29px;height:29px;font-size:14px}.wo-status{font-size:10.5px;padding:6px 9px}.wo-number{font-size:21px}.wo-project{font-size:11.5px}.expiry{font-size:10px}
+.stepper{margin:15px 0 13px}.stepper:before,.step-progress{top:14px}.step .circle{width:29px;height:29px;font-size:12px}.step{font-size:9.5px}
+.info-row{grid-template-columns:94px minmax(0,1fr);gap:9px;padding:9px 10px;font-size:11.5px}
+.latest-head h2{font-size:14px}.latest-count{font-size:11px}.latest-photos{gap:6px}
+.wa-card{padding:12px;flex-direction:column;align-items:stretch}.wa-btn{width:100%}.wa-copy b{font-size:12.5px}.wa-copy small{font-size:11px}
+.section-title{font-size:12.5px;margin-bottom:11px}.empty{padding:17px;font-size:12px}.signature-grid{grid-template-columns:1fr}.photos{grid-template-columns:1fr 1fr}.file{align-items:flex-start;font-size:12px}
+}
 </style></head><body>
-<header><div class="brand"><img src="/pixel-solusindo-logo.png" alt="Pixel Solusindo"></div><div class="pill">TRACKING TIKET</div></header><div class="promo-wrap"><section class="promo" aria-label="Informasi dan promo Pixel Solusindo"><div class="promo-slides"><article class="promo-slide p1"><div><h2>Sistem CCTV lebih lengkap untuk keamanan maksimal</h2><p>Tambahkan titik kamera, UPS, atau maintenance sesuai kebutuhan lokasi Anda.</p><a class="promo-cta" href="https://wa.me/6281234567890" target="_blank" rel="noopener">Konsultasi Sekarang →</a></div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><rect x="25" y="76" width="135" height="64" rx="18" fill="#fff"/><circle cx="118" cy="108" r="21" fill="#1b2734"/><circle cx="118" cy="108" r="8" fill="#69b0f6"/><rect x="130" y="45" width="125" height="62" rx="18" fill="#f7f8fa"/><circle cx="218" cy="76" r="20" fill="#1b2734"/><circle cx="218" cy="76" r="7" fill="#69b0f6"/></svg></div></article><article class="promo-slide p2"><div><h2>Upgrade SSD & RAM agar perangkat lebih cepat</h2><p>Upgrade performa untuk laptop kerja dan komputer operasional Anda.</p><a class="promo-cta" href="https://wa.me/6281234567890" target="_blank" rel="noopener">Lihat Paket Upgrade →</a></div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><rect x="40" y="36" width="160" height="100" rx="12" fill="#e9edf6"/><rect x="56" y="51" width="128" height="68" rx="6" fill="#202942"/><rect x="20" y="139" width="200" height="17" rx="8" fill="#cfd6e5"/><rect x="192" y="70" width="62" height="86" rx="8" fill="#202630"/></svg></div></article><article class="promo-slide p3"><div><h2>Maintenance berkala untuk sistem yang tetap optimal</h2><p>Pengecekan kamera, storage, konektor, dan kualitas rekaman secara rutin.</p><a class="promo-cta" href="https://wa.me/6281234567890" target="_blank" rel="noopener">Jadwalkan Maintenance →</a></div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><circle cx="94" cy="69" r="31" fill="#ecc09d"/><rect x="64" y="96" width="62" height="66" rx="16" fill="#f58b36"/><rect x="150" y="51" width="108" height="62" rx="16" fill="#fff"/><circle cx="216" cy="82" r="20" fill="#1b2734"/><circle cx="216" cy="82" r="7" fill="#67aff6"/></svg></div></article></div><button class="promo-arrow promo-prev" type="button" aria-label="Banner sebelumnya">‹</button><button class="promo-arrow promo-next" type="button" aria-label="Banner berikutnya">›</button><div class="promo-dots"></div></section></div><main class="wrap" id="app"><div class="card"><div class="empty">Memuat data pekerjaan...</div></div></main>
+<header><div class="brand"><img src="/pixel-solusindo-logo.png" alt="Pixel Solusindo"></div><div class="pill">TRACKING TIKET</div></header>
+
+<div class="promo-wrap" id="header-promo-wrap">
+  <section class="promo" id="header-promo" aria-label="Promo header Pixel Solusindo">
+    <div class="promo-slides">
+      <article class="promo-slide p1"><div><h2>Sistem CCTV lebih lengkap untuk keamanan maksimal</h2><p>Tambahkan titik kamera, UPS, atau maintenance sesuai kebutuhan lokasi Anda.</p><a class="promo-cta" href="https://wa.me/6281139618857" target="_blank" rel="noopener">Konsultasi Sekarang →</a></div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><rect x="25" y="76" width="135" height="64" rx="18" fill="#fff"/><circle cx="118" cy="108" r="21" fill="#1b2734"/><circle cx="118" cy="108" r="8" fill="#69b0f6"/><rect x="130" y="45" width="125" height="62" rx="18" fill="#f7f8fa"/><circle cx="218" cy="76" r="20" fill="#1b2734"/><circle cx="218" cy="76" r="7" fill="#69b0f6"/></svg></div></article>
+    </div>
+    <button class="promo-arrow promo-prev" type="button" aria-label="Banner sebelumnya">‹</button><button class="promo-arrow promo-next" type="button" aria-label="Banner berikutnya">›</button><div class="promo-dots"></div>
+  </section>
+</div>
+
+<main class="wrap" id="app"><div class="card"><div class="empty">Memuat data pekerjaan...</div></div></main>
+
+<div class="promo-wrap footer-promo-wrap" id="footer-promo-wrap" hidden>
+  <section class="promo" id="footer-promo" aria-label="Promo footer Pixel Solusindo">
+    <div class="promo-slides"></div>
+    <button class="promo-arrow promo-prev" type="button" aria-label="Banner sebelumnya">‹</button><button class="promo-arrow promo-next" type="button" aria-label="Banner berikutnya">›</button><div class="promo-dots"></div>
+  </section>
+</div>
+
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><button>×</button><img id="lightbox-img" alt="Dokumentasi pekerjaan"></div>
+
 <script>
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const token=location.pathname.split('/').filter(Boolean).pop();
 const statusMap={assigned:['Assigned','Pekerjaan Assigned','👷'],travelling:['Dalam Perjalanan','Teknisi Dalam Perjalanan','🚗'],ongoing:['Sedang Dikerjakan','Pekerjaan Sedang Dikerjakan','🛠️'],done:['Selesai','Pekerjaan Selesai','✅'],pending:['Menunggu','Pekerjaan Menunggu','⏳']};
 const dt=v=>v?new Date(v).toLocaleString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
-function openLightbox(url){document.getElementById('lightbox-img').src=url;document.getElementById('lightbox').classList.add('show')}function closeLightbox(){document.getElementById('lightbox').classList.remove('show')}
-async function load(){try{const r=await fetch('/api/track/'+encodeURIComponent(token));const d=await r.json();if(!r.ok)throw new Error(d.error||'Data tidak dapat dimuat');render(d)}catch(e){document.getElementById('app').innerHTML=`<div class="card"><div class="error">${esc(e.message)}</div></div>`}}
-function render(d){const st=statusMap[d.status]||[d.status||'-','Status Pekerjaan','📋'];const inv=(d.invoices||[]);const photos=d.photos||[];const expiry=d.expires_at?new Date(d.expires_at):null;const days=expiry?Math.max(0,Math.ceil((expiry-new Date())/864e5)):0;
-document.getElementById('app').innerHTML=`
-<section class="card hero"><div class="hero-icon">${st[2]}</div><div class="status">${esc(st[0])}</div><h1>${esc(st[1])}</h1><div class="project">📁 ${esc(d.project_name||'-')}</div><div class="wo">Nomor WO: ${esc(d.wo_number||'-')}</div>${expiry?`<div class="expiry">⌛ Link aktif ${days} hari lagi · s/d ${expiry.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}</div>`:''}</section>
-<section class="card"><h2 class="section-title">INFORMASI PEKERJAAN</h2><div class="row"><span>Customer</span><span>${esc(d.customer_name||'-')}</span></div><div class="row"><span>Project</span><span>${esc(d.project_name||'-')}</span></div><div class="row"><span>Tim Teknisi</span><span>${esc((d.technicians||[]).join(' & ')||d.technician||'-')}</span></div><div class="row"><span>Waktu Pekerjaan</span><span>${dt(d.worked_at)}</span></div><div class="row"><span>Keterangan</span><span>${esc(d.description||'-')}</span></div></section>
-<section class="card"><h2 class="section-title">PROGRESS PEKERJAAN</h2><div class="timeline">${(d.job_stages||[]).length?(d.job_stages||[]).map(x=>`<div class="stage"><div class="stage-dot"></div><div><b>${esc(x.stage||'-')}</b><small>${esc(x.technician||'-')} · ${dt(x.timestamp)}</small></div></div>`).join(''):'<div class="empty">Belum ada progress pekerjaan.</div>'}</div></section>
-<section class="card">
-<h2 class="section-title">INVOICE (${inv.length})</h2>
-${inv.length ? inv.map(x=>{
-  const number=x.invoice_number||x.temporary_number||x.original_name||'Invoice';
-  const invoiceStatus=String(x.invoice_status||x.status||'draft').toLowerCase();
-  const paymentStatus=String(x.payment_status||'unpaid').toLowerCase();
-  const statusLabel={draft:'Draft',pending_approval:'Menunggu Persetujuan',approved:'Disetujui',issued:'Terbit',partially_paid:'Terbayar Sebagian',paid:'Lunas',rejected:'Ditolak'}[invoiceStatus]||invoiceStatus;
-  const paymentLabel={unpaid:'Belum Dibayar',partially_paid:'Terbayar Sebagian',paid:'Lunas'}[paymentStatus]||paymentStatus;
-  const total=Number(x.total_amount||x.grand_total||0);
-  return `<div class="file"><div><b>${esc(number)}</b><br><small>${esc(statusLabel)} · ${esc(paymentLabel)}</small><br><small>Rp ${total.toLocaleString('id-ID')}</small></div><span style="color:var(--muted)">${esc(statusLabel)}</span></div>`;
-}).join('') : '<div class="empty">Invoice belum tersedia.</div>'}
-</section>
-<section class="card"><h2 class="section-title">BAST</h2><div class="signature-grid"><div class="signature">${d.tech_signature?`<img src="${d.tech_signature}" alt="Tanda tangan teknisi">`:'<div class="empty">Belum ditandatangani</div>'}<small>Teknisi</small></div><div class="signature">${d.customer_signature?`<img src="${d.customer_signature}" alt="Tanda tangan customer">`:'<div class="empty">Belum ditandatangani</div>'}<small>Customer</small></div></div></section>
-<section class="card"><h2 class="section-title">📷 DOKUMENTASI PEKERJAAN</h2>${photos.length?`<div class="photos">${photos.map(x=>`<div class="photo"><img src="${x.secure_url||x.image_url}" alt="Foto pekerjaan" onclick="openLightbox('${x.secure_url||x.image_url}')"><div class="photo-info"><b>${esc(x.caption||'Dokumentasi pekerjaan')}</b><small>${esc(x.uploaded_by||'Teknisi')} · ${dt(x.uploaded_at||x.created_at)}</small></div></div>`).join('')}</div>`:'<div class="empty">Belum ada dokumentasi pekerjaan.</div>'}</section>`}
+function openLightbox(url){document.getElementById('lightbox-img').src=url;document.getElementById('lightbox').classList.add('show')}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('show')}
+function stepState(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='done')return 3;
+  if(s==='ongoing'||s==='travelling')return 2;
+  if(s==='assigned')return 1;
+  return 0;
+}
+function renderStepper(status){
+  const active=stepState(status),labels=['Diterima','Dijadwalkan','Sedang Dikerjakan','Selesai'];
+  const progress=[0,33.333,66.666,100][active];
+  return '<div class="stepper"><div class="step-progress" style="width:'+progress+'%"></div>'+labels.map((label,i)=>{
+    const cls=i<active?'step done':i===active?'step active':'step';
+    const symbol=i<active?'✓':i===active?(i===3?'✓':'↗'):'✓';
+    return '<div class="'+cls+'"><div class="circle">'+symbol+'</div><span>'+label+'</span></div>';
+  }).join('')+'</div>';
+}
+async function load(){
+  try{const r=await fetch('/api/track/'+encodeURIComponent(token));const d=await r.json();if(!r.ok)throw new Error(d.error||'Data tidak dapat dimuat');render(d)}
+  catch(e){document.getElementById('app').innerHTML='<div class="card"><div class="error">'+esc(e.message)+'</div></div>'}
+}
+function render(d){
+  const st=statusMap[d.status]||[d.status||'-','Status Pekerjaan','📋'];
+  const inv=d.invoices||[],photos=d.photos||[];
+  const expiry=d.expires_at?new Date(d.expires_at):null;
+  const days=expiry?Math.max(0,Math.ceil((expiry-new Date())/864e5)):0;
+  const technicians=esc((d.technicians||[]).join(' & ')||d.technician||'-');
+  const latest=photos.slice(0,3);
+  const latestHtml=latest.length
+    ? '<div class="latest-photos">'+latest.map(x=>'<div class="latest-photo"><img src="'+esc(x.secure_url||x.image_url)+'" alt="Dokumentasi terbaru" onclick="openLightbox(\''+esc(x.secure_url||x.image_url)+'\')"></div>').join('')+'</div>'
+    : '<div class="empty">Belum ada dokumentasi pekerjaan.</div>';
+
+  document.getElementById('app').innerHTML=
+  '<section class="card wo-card">'+
+    '<div class="wo-head"><div class="wo-type"><div class="wo-icon">🧰</div><span>Work Order</span></div><div class="wo-status">'+esc(st[0])+'</div></div>'+
+    '<div class="wo-number">'+esc(d.wo_number||'-')+'</div>'+
+    '<div class="wo-project">'+esc(d.project_name||'-')+(d.customer_name?' · '+esc(d.customer_name):'')+'</div>'+
+    renderStepper(d.status)+
+    '<div class="info-box">'+
+      '<div class="info-row"><span>Customer</span><span>'+esc(d.customer_name||'-')+'</span></div>'+
+      '<div class="info-row"><span>Project</span><span>'+esc(d.project_name||'-')+'</span></div>'+
+      '<div class="info-row"><span>Tim Teknisi</span><span>'+technicians+'</span></div>'+
+      '<div class="info-row"><span>Waktu Pekerjaan</span><span>'+dt(d.worked_at)+'</span></div>'+
+      '<div class="info-row"><span>Keterangan</span><span>'+esc(d.description||'-')+'</span></div>'+
+    '</div>'+
+    (expiry?'<div class="expiry">⌛ Link aktif '+days+' hari lagi · s/d '+expiry.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})+'</div>':'')+
+  '</section>'+
+
+  '<section class="card"><div class="latest-head"><h2>Dokumentasi Terbaru</h2><span class="latest-count">'+photos.length+' foto</span></div>'+latestHtml+'</section>'+
+
+  '<section class="card"><h2 class="section-title">Progress Pekerjaan</h2><div class="timeline">'+
+    ((d.job_stages||[]).length?(d.job_stages||[]).map(x=>'<div class="stage"><div class="stage-dot"></div><div><b>'+esc(x.stage||'-')+'</b><small>'+esc(x.technician||'-')+' · '+dt(x.timestamp)+'</small></div></div>').join(''):'<div class="empty">Belum ada progress pekerjaan.</div>')+
+  '</div></section>'+
+
+  '<section class="card"><h2 class="section-title">Invoice ('+inv.length+')</h2>'+
+    (inv.length?inv.map(x=>{
+      const number=x.invoice_number||x.temporary_number||x.original_name||'Invoice';
+      const invoiceStatus=String(x.invoice_status||x.status||'draft').toLowerCase();
+      const paymentStatus=String(x.payment_status||'unpaid').toLowerCase();
+      const statusLabel={draft:'Draft',pending_approval:'Menunggu Persetujuan',approved:'Disetujui',issued:'Terbit',partially_paid:'Terbayar Sebagian',paid:'Lunas',rejected:'Ditolak'}[invoiceStatus]||invoiceStatus;
+      const paymentLabel={unpaid:'Belum Dibayar',partially_paid:'Terbayar Sebagian',paid:'Lunas'}[paymentStatus]||paymentStatus;
+      const total=Number(x.total_amount||x.grand_total||0);
+      return '<div class="file"><div><b>'+esc(number)+'</b><br><small>'+esc(statusLabel)+' · '+esc(paymentLabel)+'</small><br><small>Rp '+total.toLocaleString('id-ID')+'</small></div><span style="color:var(--muted)">'+esc(statusLabel)+'</span></div>';
+    }).join(''):'<div class="empty">Invoice belum tersedia.</div>')+
+  '</section>'+
+
+  '<section class="card"><h2 class="section-title">BAST</h2><div class="signature-grid">'+
+    '<div class="signature">'+(d.tech_signature?'<img src="'+esc(d.tech_signature)+'" alt="Tanda tangan teknisi">':'<div class="empty">Belum ditandatangani</div>')+'<small>Teknisi</small></div>'+
+    '<div class="signature">'+(d.customer_signature?'<img src="'+esc(d.customer_signature)+'" alt="Tanda tangan customer">':'<div class="empty">Belum ditandatangani</div>')+'<small>Customer</small></div>'+
+  '</div></section>'+
+
+  '<section class="card"><h2 class="section-title">📷 Dokumentasi Pekerjaan</h2>'+
+    (photos.length?'<div class="photos">'+photos.map(x=>'<div class="photo"><img src="'+esc(x.secure_url||x.image_url)+'" alt="Foto pekerjaan" onclick="openLightbox(\''+esc(x.secure_url||x.image_url)+'\')"><div class="photo-info"><b>'+esc(x.caption||'Dokumentasi pekerjaan')+'</b><small>'+esc(x.uploaded_by||'Teknisi')+' · '+dt(x.uploaded_at||x.created_at)+'</small></div></div>').join('')+'</div>':'<div class="empty">Belum ada dokumentasi pekerjaan.</div>')+
+  '</section>'+
+
+  '<section class="card wa-card"><div class="wa-left"><div class="wa-icon">☎</div><div class="wa-copy"><b>Butuh bantuan?</b><small>Hubungi tim kami melalui WhatsApp</small></div></div><a class="wa-btn" href="https://wa.me/6281139618857" target="_blank" rel="noopener">Chat WhatsApp</a></section>';
+}
 load();
-</script><script>
+</script>
+
+<script>
 (function(){
-  const slides=document.querySelector('.promo-slides'),dots=document.querySelector('.promo-dots');
   const escPromo=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  async function loadCmsBanners(){
-    try{
-      const r=await fetch('/api/tracking-banners?audience=work_order&placement=header',{cache:'no-store'});
-      if(!r.ok)return;
-      const rows=await r.json();
-      if(!Array.isArray(rows)||!rows.length)return;
-      slides.innerHTML=rows.map((x,i)=>{
-        if(x.image_url){
-          const image='<img class="promo-full-image" src="'+escPromo(x.image_url)+'" alt="'+escPromo(x.title||'Banner promo Pixel Solusindo')+'">';
-          const media=x.cta_url
-            ? '<a href="'+escPromo(x.cta_url)+'" target="_blank" rel="noopener" aria-label="'+escPromo(x.title||'Buka promo')+'">'+image+'</a>'
-            : '<div class="promo-image-shell">'+image+'</div>';
-          return '<article class="promo-slide cms-image-only">'+media+'</article>';
-        }
-        const cls='p'+((i%3)+1);
-        return '<article class="promo-slide '+cls+'"><div><h2>'+escPromo(x.title||'Promo Pixel Solusindo')+'</h2><p>'+escPromo(x.subtitle||'')+'</p></div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><rect x="42" y="52" width="190" height="92" rx="20" fill="rgba(255,255,255,.94)"/><circle cx="190" cy="98" r="25" fill="#1b2734"/><circle cx="190" cy="98" r="9" fill="#69b0f6"/></svg></div></article>';
-      }).join('');
-    }catch(_){}
+  function renderRows(slides,rows){
+    slides.innerHTML=rows.map((x,i)=>{
+      if(x.image_url){
+        const image='<img class="promo-full-image" src="'+escPromo(x.image_url)+'" alt="'+escPromo(x.title||'Banner promo Pixel Solusindo')+'">';
+        const media=x.cta_url?'<a href="'+escPromo(x.cta_url)+'" target="_blank" rel="noopener" aria-label="'+escPromo(x.title||'Buka promo')+'">'+image+'</a>':'<div class="promo-image-shell">'+image+'</div>';
+        return '<article class="promo-slide cms-image-only">'+media+'</article>';
+      }
+      const cls='p'+((i%3)+1);
+      return '<article class="promo-slide '+cls+'"><div><h2>'+escPromo(x.title||'Promo Pixel Solusindo')+'</h2><p>'+escPromo(x.subtitle||'')+'</p>'+(x.cta_url?'<a class="promo-cta" href="'+escPromo(x.cta_url)+'" target="_blank" rel="noopener">'+escPromo(x.cta_text||'Lihat Promo')+' →</a>':'')+'</div><div class="promo-art"><svg viewBox="0 0 300 190" aria-hidden="true"><rect x="42" y="52" width="190" height="92" rx="20" fill="rgba(255,255,255,.94)"/><circle cx="190" cy="98" r="25" fill="#1b2734"/><circle cx="190" cy="98" r="9" fill="#69b0f6"/></svg></div></article>';
+    }).join('');
   }
-  if(!slides||!dots)return;
-  let idx=0,startX=null,total=slides.children.length;
-  const go=i=>{idx=(i+total)%total;slides.style.transform='translateX(-'+(idx*100)+'%)';[...dots.children].forEach((d,n)=>d.classList.toggle('active',n===idx));};
-  function rebuildDots(){dots.innerHTML='';total=slides.children.length;idx=0;slides.style.transform='translateX(0)';for(let i=0;i<total;i++){const d=document.createElement('button');d.type='button';d.className='promo-dot'+(i===0?' active':'');d.setAttribute('aria-label','Buka banner '+(i+1));d.addEventListener('click',()=>go(i));dots.appendChild(d);}}
-  rebuildDots();
-  loadCmsBanners().then(()=>rebuildDots());
-  document.querySelector('.promo-next')?.addEventListener('click',()=>go(idx+1));
-  document.querySelector('.promo-prev')?.addEventListener('click',()=>go(idx-1));
-  slides.addEventListener('touchstart',e=>{startX=e.touches[0].clientX},{passive:true});
-  slides.addEventListener('touchend',e=>{if(startX===null)return;const diff=e.changedTouches[0].clientX-startX;if(Math.abs(diff)>45)go(idx+(diff<0?1:-1));startX=null},{passive:true});
-  setInterval(()=>go(idx+1),7000);
+  function init(root,placement,hideWhenEmpty){
+    if(!root)return;
+    const slides=root.querySelector('.promo-slides'),dots=root.querySelector('.promo-dots');
+    let idx=0,startX=null,total=slides.children.length,timer=null;
+    const go=i=>{if(!total)return;idx=(i+total)%total;slides.style.transform='translateX(-'+(idx*100)+'%)';[...dots.children].forEach((d,n)=>d.classList.toggle('active',n===idx));};
+    const rebuild=()=>{dots.innerHTML='';total=slides.children.length;idx=0;slides.style.transform='translateX(0)';for(let i=0;i<total;i++){const d=document.createElement('button');d.type='button';d.className='promo-dot'+(i===0?' active':'');d.setAttribute('aria-label','Buka banner '+(i+1));d.addEventListener('click',()=>go(i));dots.appendChild(d)}root.querySelectorAll('.promo-arrow').forEach(b=>b.style.display=total>1?'grid':'none');dots.style.display=total>1?'flex':'none';};
+    root.querySelector('.promo-next')?.addEventListener('click',()=>go(idx+1));root.querySelector('.promo-prev')?.addEventListener('click',()=>go(idx-1));
+    slides.addEventListener('touchstart',e=>{startX=e.touches[0].clientX},{passive:true});slides.addEventListener('touchend',e=>{if(startX===null)return;const diff=e.changedTouches[0].clientX-startX;if(Math.abs(diff)>45)go(idx+(diff<0?1:-1));startX=null},{passive:true});
+    rebuild();
+    fetch('/api/tracking-banners?audience=work_order&placement='+placement,{cache:'no-store'}).then(r=>r.ok?r.json():[]).then(rows=>{
+      if(Array.isArray(rows)&&rows.length){renderRows(slides,rows);root.closest('.promo-wrap')?.removeAttribute('hidden');rebuild()}
+      else if(hideWhenEmpty){root.closest('.promo-wrap')?.setAttribute('hidden','')}
+    }).catch(()=>{if(hideWhenEmpty)root.closest('.promo-wrap')?.setAttribute('hidden','')});
+    timer=setInterval(()=>{if(total>1)go(idx+1)},7000);
+  }
+  init(document.getElementById('header-promo'),'header',false);
+  init(document.getElementById('footer-promo'),'footer',true);
 })();
-</script></body></html>
+</script>
+</body></html>
