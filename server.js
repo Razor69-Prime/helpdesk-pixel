@@ -3708,6 +3708,36 @@ app.post('/api/inventory/items', requireInventoryPermission('inventory_manage'),
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.patch('/api/inventory/items/:id/name', requireAuth, async (req, res) => {
+  try {
+    const role = String(req.session?.user?.role || '').toLowerCase().replace(/[ _-]/g, '');
+    if (role !== 'superadmin') return res.status(403).json({ error: 'Edit nama Inventory hanya untuk Super Admin.' });
+    const item = await db.getInventoryItem(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Barang tidak ditemukan.' });
+    const name = String(req.body?.name || '').trim().replace(/\s+/g, ' ');
+    if (!name) return res.status(400).json({ error: 'Nama barang wajib diisi.' });
+    if (name.length > 180) return res.status(400).json({ error: 'Nama barang terlalu panjang.' });
+    const all = await db.getInventoryItems();
+    const duplicate = (Array.isArray(all) ? all : []).find(x => String(x.id) !== String(item.id) && String(x.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (duplicate) return res.status(409).json({ error: 'Nama barang sudah digunakan oleh '+duplicate.name+' ('+(duplicate.sku||'-')+').' });
+    const updated = await db.updateInventoryItem(item.id, { name });
+    try {
+      const base = String(cfg.POSTGREST_URL || '').replace(/\/$/, '');
+      if (base) {
+        await fetch(base + '/rest/v1/master_pricelist_inventory_map?inventory_item_id=eq.' + encodeURIComponent(item.id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ inventory_name: name, updated_at: new Date().toISOString() })
+        });
+      }
+    } catch (mapError) {
+      console.warn('[Inventory Rename] Master Pricelist snapshot sync skipped:', mapError.message);
+    }
+    logActivity(req, 'inventory', 'EDIT NAMA BARANG', (item.name || '-') + ' → ' + name);
+    res.json({ ok: true, item: updated, master_pricelist_link_preserved: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.patch('/api/inventory/items/:id/manufacturer-barcode', requireInventoryPermission('inventory_manage'), async (req, res) => {
   try {
     const item = await db.getInventoryItem(req.params.id);
