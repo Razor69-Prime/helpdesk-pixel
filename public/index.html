@@ -3443,7 +3443,6 @@ function pxlFormatWoDescription(value,compact=true){
   const long=raw.length>220||itemRows.length>4||serviceRows.length>3;
   return '<div class="wo-desc-wrap '+(compact&&long?'is-collapsed':'')+'"><div class="wo-desc-content">'+
     (intro?'<div class="wo-desc-note">'+pxlWoDescEsc(intro)+'</div>':'')+
-    group('Pekerjaan / Jasa',serviceRows)+
     '</div>'+(compact&&long?'<button type="button" class="wo-desc-toggle" onclick="event.stopPropagation();pxlToggleWoDescription(this)">Lihat Selengkapnya</button>':'')+'</div>';
 }
 function pxlToggleWoDescription(btn){
