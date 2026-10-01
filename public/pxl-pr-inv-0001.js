@@ -180,10 +180,7 @@
       const native=window.showPRForm;
       window.showPRForm=function(){
         const out=native.apply(this,arguments);
-        loadCatalog().then(()=>document.querySelectorAll('#pr-items-body tr').forEach((row,idx)=>{
-          const id=arguments[0],p=id&&Array.isArray(window.prData)?window.prData.find(x=>String(x.id)===String(id)):null;
-          refreshExisting(row,p?.items?.[idx]||null);
-        }));
+        loadCatalog().then(()=>decorateAll());
         decorateAll();
         return out;
       };
