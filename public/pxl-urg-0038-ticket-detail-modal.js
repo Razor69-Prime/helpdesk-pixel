@@ -35,6 +35,29 @@
 
   function sourceOf(t){return archiveTickets().some(x=>String(x?.id)===String(t?.id))?'archive':'active';}
   function row(label,value,wide=false){const v=text(value)||'-';return `<div style="${wide?'grid-column:1/-1;':''}min-width:0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#777);margin-bottom:3px">${esc(label)}</div><div style="font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere">${esc(v)}</div></div>`;}
+  function splitDescription(value){
+    const raw=text(value); if(!raw)return {intro:'',items:[],services:[]};
+    const itemRx=/\bItem\s*:\s*/i, serviceRx=/DAFTAR\s+PEKERJAAN\s*\/\s*JASA\s*/i;
+    const im=itemRx.exec(raw), sm=serviceRx.exec(raw);
+    let intro=raw,items='',services='';
+    if(im){
+      intro=raw.slice(0,im.index).trim();
+      const start=im.index+im[0].length;
+      if(sm&&sm.index>start){items=raw.slice(start,sm.index).trim();services=raw.slice(sm.index+sm[0].length).trim();}
+      else items=raw.slice(start).trim();
+    }else if(sm){intro=raw.slice(0,sm.index).trim();services=raw.slice(sm.index+sm[0].length).trim();}
+    return {
+      intro,
+      items:items?items.split(/\s*,\s*/).map(x=>x.trim()).filter(Boolean):[],
+      services:services?services.split(/(?=\d+\.\s*)/).map(x=>x.replace(/^\d+\.\s*/,'').trim()).filter(Boolean):[]
+    };
+  }
+  function descriptionBlock(label,value){
+    const p=splitDescription(value),raw=text(value)||'-';
+    if(raw==='-')return row(label,raw,true);
+    const list=(title,rows)=>rows.length?`<div style="border:1px solid var(--border,#ddd);border-radius:9px;overflow:hidden;background:var(--surface2,#fafafa)"><div style="padding:6px 9px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#777);border-bottom:1px solid var(--border,#ddd)">${title}</div><div>${rows.map((x,i)=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-bottom:${i===rows.length-1?'0':'1px solid var(--border,#ddd)'};font-size:12px;line-height:1.4"><span style="color:var(--accent,#d97706);font-weight:700;flex:0 0 auto">${i+1}.</span><span style="min-width:0;overflow-wrap:anywhere">${esc(x)}</span></div>`).join('')}</div></div>`:'';
+    return `<div style="grid-column:1/-1;min-width:0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#777);margin-bottom:5px">${esc(label)}</div><div style="display:grid;gap:8px">${p.intro?`<div style="font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.intro)}</div>`:''}${list('Item / Material',p.items)}${list('Pekerjaan / Jasa',p.services)}</div></div>`;
+  }
 
   function ticketFields(t){
     return {
@@ -58,7 +81,7 @@
 
   function detailHtml(t){
     const f=ticketFields(t);
-    return `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px">${row('No. WO / Tiket',f.wo)}${row('Status',f.status)}${f.so?row('No. Sales Order',f.so,true):''}${row('Project / Pekerjaan',f.project,true)}${row('Customer',f.customer)}${row('Nomor Telepon',f.phone)}${row('Lokasi',f.location,true)}${row('Tanggal Pekerjaan',prettyDate(f.date))}${row('Dibuat',prettyDate(f.created))}${row('Teknisi 1',f.tech1)}${row('Teknisi 2',f.tech2)}${row('Dibuat / Dilaporkan Oleh',f.requester,true)}${row('Deskripsi / Informasi Pekerjaan',f.desc,true)}${row('Remarks Teknisi',f.remarks,true)}${f.maps?`<div style="grid-column:1/-1"><a href="${esc(f.maps)}" target="_blank" rel="noopener" class="btn sm">📍 Buka Google Maps</a></div>`:''}</div>`;
+    return `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px">${row('No. WO / Tiket',f.wo)}${row('Status',f.status)}${f.so?row('No. Sales Order',f.so,true):''}${row('Project / Pekerjaan',f.project,true)}${row('Customer',f.customer)}${row('Nomor Telepon',f.phone)}${row('Lokasi',f.location,true)}${row('Tanggal Pekerjaan',prettyDate(f.date))}${row('Dibuat',prettyDate(f.created))}${row('Teknisi 1',f.tech1)}${row('Teknisi 2',f.tech2)}${row('Dibuat / Dilaporkan Oleh',f.requester,true)}${descriptionBlock('Deskripsi / Informasi Pekerjaan',f.desc)}${row('Remarks Teknisi',f.remarks,true)}${f.maps?`<div style="grid-column:1/-1"><a href="${esc(f.maps)}" target="_blank" rel="noopener" class="btn sm">📍 Buka Google Maps</a></div>`:''}</div>`;
   }
 
   function whatsappText(t){
