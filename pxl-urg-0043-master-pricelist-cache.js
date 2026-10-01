@@ -471,7 +471,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       const newMap=new Map(items.map(x=>[String(x.source_key),x]));
 
       const added=items.filter(x=>!oldMap.has(x.source_key));
-      const removed=existing.filter(x=>x.is_active!==false&&!newMap.has(String(x.source_key)));
+      const removed=existing.filter(x=>x.is_active!==false&&!newMap.has(String(x.source_key))&&!String(x.source_key||'').startsWith('MANUAL:'));
       const priceChanged=items.filter(x=>{
         const old=oldMap.get(x.source_key);
         return old&&Number(old.price)!==Number(x.price);
