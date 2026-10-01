@@ -3,7 +3,7 @@
  */
 (function(){
   'use strict';
-  const REV='PXL-PR-INV-0001';
+  const REV='PXL-PR-INV-0001A';
   let catalog=[],loading=null,loadedAt=0;
   const MAX_AGE=5*60*1000;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +15,7 @@
     const st=document.createElement('style');st.id='pxl-pr-inv-0001-style';
     st.textContent=`
       #pr-items-body td.pr-inv-cell{position:relative;overflow:visible}
-      .pr-inv-results{display:none;position:absolute;left:3px;right:3px;top:calc(100% - 2px);z-index:120;max-height:270px;overflow:auto;background:#fff;border:1px solid var(--border,#ddd);border-radius:9px;box-shadow:0 12px 28px rgba(0,0,0,.15);text-align:left}
+      .pr-inv-results{display:none;position:fixed;z-index:10000;max-height:270px;overflow:auto;background:#fff;border:1px solid var(--border,#ddd);border-radius:9px;box-shadow:0 12px 28px rgba(0,0,0,.18);text-align:left}
       .pr-inv-results.open{display:block}
       .pr-inv-opt{padding:8px 9px;border-bottom:1px solid #eee;cursor:pointer;line-height:1.3}
       .pr-inv-opt:last-child{border-bottom:0}.pr-inv-opt:hover{filter:brightness(.985)}
@@ -28,7 +28,7 @@
       .pr-inv-meta.linked{color:#3b6d11}.pr-inv-meta.missing{color:#8a5a00}.pr-inv-meta.manual{color:#8a5a00}
       .pr-desc.pr-inv-linked{background:#f5faef!important}.pr-desc.pr-inv-missing{background:#fffaf0!important}.pr-desc.pr-inv-manual{background:#fff!important}
       .pr-inv-reminder{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 7px;border-radius:99px;background:#fff1d6;color:#8a5a00;font-size:10px;font-weight:700}
-      @media(max-width:760px){.pr-inv-results{position:fixed;left:10px;right:10px;top:auto;bottom:12px;max-height:44vh;border-radius:12px}.pr-inv-opt{padding:11px}.pr-inv-opt b{font-size:13px}.pr-inv-opt small{font-size:11px}}
+      @media(max-width:760px){.pr-inv-results{left:10px!important;right:10px!important;width:auto!important;top:auto!important;bottom:12px!important;max-height:44vh;border-radius:12px}.pr-inv-opt{padding:11px}.pr-inv-opt b{font-size:13px}.pr-inv-opt small{font-size:11px}}
     `;
     document.head.appendChild(st);
   }
@@ -107,10 +107,22 @@
     const input=row.querySelector('.pr-desc');if(input)input.value=q||input.value;
     clearSelection(row,true);row.querySelector('.pr-inv-results')?.classList.remove('open');
   }
+  function placeResults(row){
+    const input=row?.querySelector('.pr-desc'),box=row?.querySelector('.pr-inv-results');
+    if(!input||!box)return;
+    if(window.matchMedia('(max-width:760px)').matches)return;
+    const r=input.getBoundingClientRect();
+    box.style.left=Math.max(8,r.left)+'px';
+    box.style.top=(r.bottom+4)+'px';
+    box.style.width=Math.max(320,r.width)+'px';
+    box.style.right='auto';
+    box.style.bottom='auto';
+  }
   function renderResults(row,q){
     const box=row.querySelector('.pr-inv-results');if(!box)return;
     const value=String(q||'').trim();
     if(!value){box.classList.remove('open');box.innerHTML='';return}
+    placeResults(row);
     const found=matches(value);
     box.innerHTML=found.map(x=>{
       const cls=x.hpp_mapped?'hpp-ready':'hpp-missing';
@@ -146,7 +158,12 @@
     rowMeta(row);
     input.setAttribute('autocomplete','off');
     input.placeholder='Cari Inventory / SKU / product number, atau ketik manual...';
-    input.addEventListener('focus',()=>renderResults(row,input.value));
+    input.addEventListener('focus',()=>{
+      const q=input.value;
+      const box=row.querySelector('.pr-inv-results');
+      if(box&&q.trim()){box.innerHTML='<div class="pr-inv-opt"><small>Memuat Inventory...</small></div>';placeResults(row);box.classList.add('open');}
+      loadCatalog().then(()=>renderResults(row,input.value));
+    });
     input.addEventListener('input',()=>{
       const selected=row.dataset.inventoryItemId;
       if(selected){
@@ -154,7 +171,10 @@
         if(!current||norm(current.name)!==norm(input.value))clearSelection(row,true);
       }else if(input.value.trim())setVisual(row,'manual','⚠ Item manual · akan menjadi reminder registrasi Inventory');
       else setVisual(row,'','');
-      renderResults(row,input.value);
+      const q=input.value;
+      const box=row.querySelector('.pr-inv-results');
+      if(box&&q.trim()&&!catalog.length){box.innerHTML='<div class="pr-inv-opt"><small>Memuat Inventory...</small></div>';placeResults(row);box.classList.add('open');}
+      loadCatalog().then(()=>renderResults(row,input.value));
     });
     input.addEventListener('blur',()=>setTimeout(()=>box.classList.remove('open'),180));
     refreshExisting(row,item);
@@ -207,6 +227,7 @@
       window.getPRItems.__pxlPrInv=true;
     }
     decorateAll();
+    loadCatalog();
   }
 
   document.addEventListener('click',e=>{if(!e.target.closest('.pr-inv-cell'))document.querySelectorAll('.pr-inv-results.open').forEach(x=>x.classList.remove('open'))},true);
