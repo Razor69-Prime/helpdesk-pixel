@@ -62,7 +62,7 @@
     }
 
     el.style.cssText='display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;position:static;float:none;clear:both;';
-    el.textContent='Remarks: '+remarks;
+    const nextText='Remarks: '+remarks;if(el.textContent!==nextText)el.textContent=nextText;
 
     // Output remarks must live immediately above the status/date/duration row
     // for PWA, mobile browser and desktop. This only changes placement/styling.
@@ -143,8 +143,8 @@
       if(!actions)return;
       let btn=actions.querySelector('.pxl-native-remarks-btn');
       if(btn){
-        btn.dataset.ticketId=String(ticket.id);
-        btn.textContent=String(ticket.technician_remarks||'').trim()?'📝 Edit Remarks':'📝 Add Remarks';
+        const nextId=String(ticket.id);if(btn.dataset.ticketId!==nextId)btn.dataset.ticketId=nextId;
+        const nextLabel=String(ticket.technician_remarks||'').trim()?'📝 Edit Remarks':'📝 Add Remarks';if(btn.textContent!==nextLabel)btn.textContent=nextLabel;
         return;
       }
       btn=document.createElement('button');
@@ -172,6 +172,6 @@
   const observer=new MutationObserver(scheduleInstall);
   observer.observe(document.documentElement,{childList:true,subtree:true});
   document.addEventListener('DOMContentLoaded',install);
-  setTimeout(install,0);setTimeout(install,300);setTimeout(install,1000);setInterval(install,5000);
+  setTimeout(install,0);setTimeout(install,300);setTimeout(install,1000);
   window.PXL_URG_0032A={revision:REV,refresh:install};
 })();
