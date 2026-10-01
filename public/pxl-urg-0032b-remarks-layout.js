@@ -215,7 +215,7 @@
   window.addEventListener('resize',schedule,{passive:true});
   window.addEventListener('orientationchange',schedule,{passive:true});
   document.addEventListener('DOMContentLoaded',apply);
-  setTimeout(apply,0);setTimeout(apply,250);setTimeout(apply,1000);setInterval(apply,5000);
+  setTimeout(apply,0);setTimeout(apply,250);setTimeout(apply,1000);
   window.PXL_URG_0032B={revision:REV,refresh:apply};
 })();
 
