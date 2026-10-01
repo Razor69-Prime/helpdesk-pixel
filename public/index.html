@@ -7564,6 +7564,8 @@ let activityLogPage=1;
 let activityLogPageSize=50;
 let activityLogHasMore=false;
 let activityLogSearchTimer=null;
+function activityLogEsc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
+
 
 function activityLogQuery(page=activityLogPage,pageSize=activityLogPageSize){
   const p=new URLSearchParams();
@@ -7589,7 +7591,7 @@ function populateActivityLogUsers(){
     ...activityLogs.map(l=>l.user||l.actor).filter(Boolean)
   ];
   const users=[...new Set(known)].sort((a,b)=>String(a).localeCompare(String(b),'id'));
-  sel.innerHTML='<option value="">Semua User</option>'+users.map(u=>`<option value="${esc(u)}">${esc(u)}</option>`).join('');
+  sel.innerHTML='<option value="">Semua User</option>'+users.map(u=>`<option value="${activityLogEsc(u)}">${activityLogEsc(u)}</option>`).join('');
   if(current&&users.includes(current))sel.value=current;
 }
 
@@ -7609,7 +7611,7 @@ async function loadActivityLog(resetPage=false){
     renderActivityLog();
   }catch(e){
     console.error('Activity log error:',e);
-    if(el)el.innerHTML='<div class="empty">⚠️ '+esc(e.message||e)+'</div>';
+    if(el)el.innerHTML='<div class="empty">⚠️ '+activityLogEsc(e.message||e)+'</div>';
   }
 }
 
@@ -7650,17 +7652,17 @@ function renderActivityLog(){
       const icon=catIcon[l.category]||'📌';
       const color=catColor[l.category]||'var(--muted)';
       const actor=l.user||l.actor||'System';
-      const ipInfo=l.ip?`<span style="font-size:10px;color:var(--muted);margin-left:8px">IP: ${esc(l.ip)}</span>`:'';
-      const detailStr=l.detail?`<div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace">${esc(l.detail)}</div>`:'';
+      const ipInfo=l.ip?`<span style="font-size:10px;color:var(--muted);margin-left:8px">IP: ${activityLogEsc(l.ip)}</span>`:'';
+      const detailStr=l.detail?`<div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace">${activityLogEsc(l.detail)}</div>`:'';
       return`<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start">
         <div style="font-size:18px;flex-shrink:0;margin-top:2px">${icon}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:11px;background:${color}20;color:${color};border-radius:99px;padding:1px 8px;font-weight:600">${esc(l.category||'system')}</span>
-            <span style="font-size:13px;font-weight:600">${esc(l.action||'-')}</span>
+            <span style="font-size:11px;background:${color}20;color:${color};border-radius:99px;padding:1px 8px;font-weight:600">${activityLogEsc(l.category||'system')}</span>
+            <span style="font-size:13px;font-weight:600">${activityLogEsc(l.action||'-')}</span>
             ${ipInfo}
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:3px">👤 ${esc(actor)} · 🕐 ${dt}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">👤 ${activityLogEsc(actor)} · 🕐 ${dt}</div>
           ${detailStr}
         </div>
       </div>`;
