@@ -827,65 +827,74 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   .sidebar .nav-icon{width:20px;height:20px}
 }
 
-/* PXL-DASH-UI-0008 — restore classic horizontal PWA/mobile navigation */
+/* PXL-DASH-UI-0009 — PWA/mobile full expanded navigation */
 @media(max-width:600px){
-  #app-body{flex-direction:column;min-height:0}
+  #app-body{
+    flex-direction:column!important;
+    min-height:0;
+  }
   .sidebar{
     width:100%!important;
     height:auto!important;
-    max-height:60px!important;
+    max-height:none!important;
     position:static!important;
-    display:flex!important;
-    flex-direction:row!important;
-    overflow-x:auto!important;
-    overflow-y:hidden!important;
-    padding:4px 6px!important;
+    display:block!important;
+    overflow:visible!important;
+    padding:10px 8px 12px!important;
     border-right:none!important;
     border-bottom:1px solid var(--border)!important;
-    gap:2px!important;
-    flex-shrink:0;
-    scrollbar-width:none;
     background:#fff!important;
   }
-  .sidebar::-webkit-scrollbar{display:none}
   .sidebar #main-nav{
     display:flex!important;
-    flex-direction:row!important;
-    gap:2px!important;
-    width:max-content!important;
+    flex-direction:column!important;
+    gap:4px!important;
+    width:100%!important;
   }
   .sidebar-group{
-    display:flex!important;
-    flex-direction:row!important;
-    width:auto!important;
-    margin:0!important;
+    display:block!important;
+    width:100%!important;
+    margin:0 0 4px!important;
   }
-  .sidebar-group-toggle{display:none!important}
+  .sidebar-group-toggle{
+    display:flex!important;
+    width:100%!important;
+    min-height:32px!important;
+    padding:7px 10px 5px!important;
+    font-size:9.5px!important;
+  }
+  .sidebar-group .sidebar-group-arrow{display:none!important}
   .sidebar-group-content,
   .sidebar-group.collapsed .sidebar-group-content{
     display:flex!important;
-    flex-direction:row!important;
-    gap:2px!important;
-    width:auto!important;
+    flex-direction:column!important;
+    gap:3px!important;
+    width:100%!important;
   }
   .sidebar .nav-btn{
-    flex-shrink:0!important;
-    width:auto!important;
-    min-width:48px!important;
-    min-height:0!important;
-    padding:6px 10px!important;
-    flex-direction:column!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:40px!important;
+    padding:9px 12px!important;
+    flex-direction:row!important;
     align-items:center!important;
-    justify-content:center!important;
-    gap:3px!important;
-    font-size:10px!important;
-    white-space:nowrap!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+    font-size:12px!important;
+    white-space:normal!important;
   }
   .sidebar .nav-btn span.nav-label{
     display:block!important;
-    font-size:9px!important;
+    font-size:12px!important;
+    text-align:left!important;
   }
-  .app-content{padding:10px 8px 16px!important}
+  .sidebar .nav-icon{width:18px!important;height:18px!important;flex:0 0 18px!important}
+  .sidebar .nav-icon svg{width:18px!important;height:18px!important}
+  .app-content{
+    padding:10px 8px 16px!important;
+    width:100%!important;
+    max-width:100%!important;
+  }
 }
 </style>
 </head>
@@ -3259,6 +3268,31 @@ function pxlNavIcon(id){
   return '<span class="nav-icon">'+(icons[id]||'<svg '+common+'><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>')+'</span>';
 }
 
+function repairInjectedSidebarMenus(){
+  const nav=document.getElementById('main-nav');
+  if(!nav)return;
+  const findGroup=(re)=>[...nav.querySelectorAll('.sidebar-group')].find(g=>re.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
+  const op=findGroup(/operasional teknisi/i);
+  const opHost=op?.querySelector('.sidebar-group-content');
+  nav.querySelectorAll('[data-k7-nav]').forEach(btn=>{
+    if(opHost&&btn.parentElement!==opHost)opHost.appendChild(btn);
+  });
+  const report=findGroup(/^\s*report\s*$/i);
+  const reportHost=report?.querySelector('.sidebar-group-content');
+  nav.querySelectorAll('[data-pxl-ai-report]').forEach(btn=>{
+    if(reportHost&&btn.parentElement!==reportHost)reportHost.appendChild(btn);
+  });
+}
+function installInjectedSidebarRepair(){
+  const nav=document.getElementById('main-nav');
+  if(!nav||nav.dataset.pxlInjectedRepair==='1')return;
+  nav.dataset.pxlInjectedRepair='1';
+  const obs=new MutationObserver(()=>repairInjectedSidebarMenus());
+  obs.observe(nav,{childList:true,subtree:true});
+  repairInjectedSidebarMenus();
+  [100,300,700,1500,3000].forEach(ms=>setTimeout(repairInjectedSidebarMenus,ms));
+}
+
 function buildNav(){
   const role=String(currentUser.role||'').toLowerCase().replace(/[ _-]/g,'');
   currentUser.role=role;
@@ -3360,6 +3394,8 @@ function buildNav(){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   if(tabs.length) document.getElementById('tab-'+tabs[0].id).classList.add('active');
   ensureCrmMenuVisible();
+  installInjectedSidebarRepair();
+  repairInjectedSidebarMenus();
 }
 
 /* PXL-REV-0054: teknisi tidak boleh dipaksa melihat CRM */
