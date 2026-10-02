@@ -620,6 +620,60 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
   #tab-dashboard .dash-chart-title{font-size:10.5px}
   #tab-dashboard .dash-chart-sub{font-size:9px}
 }
+
+/* PXL-DASH-UI-0002 — dashboard overview layout only */
+#dash-sec-overview.pxl-dash-v2{font-size:11px}
+.pxl-dash-v2-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(330px,.95fr);gap:12px;align-items:start}
+.pxl-dash-v2-left,.pxl-dash-v2-right{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pxl-dash-business,.pxl-dash-panel,.pxl-dash-mini-card,.pxl-dash-bottom-card{background:#fff;border:1px solid #e7e9ee;border-radius:12px;box-shadow:0 5px 18px rgba(15,23,42,.035)}
+.pxl-dash-business{display:grid;grid-template-columns:minmax(210px,.8fr) minmax(0,1.2fr);gap:16px;padding:16px}
+.pxl-dash-business-copy{padding:2px 2px 0}
+.pxl-dash-eyebrow{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.pxl-dash-business-label{font-size:10px;color:var(--muted)}
+.pxl-dash-business-value{font-size:25px;line-height:1.12;font-weight:800;letter-spacing:-.025em;margin:7px 0 9px}
+.pxl-dash-business-meta{display:flex;flex-direction:column;gap:5px;font-size:10px;color:var(--muted)}
+.pxl-dash-business-meta b{color:var(--text)}
+.pxl-dash-achievement b{font-size:14px;color:var(--green)}
+.pxl-dash-achievement small{font-size:9px;color:var(--muted);margin-left:3px}
+.pxl-dash-business-chart{min-width:0;border-left:1px solid #eef1f5;padding-left:16px}
+.pxl-dash-panel{padding:13px 14px;min-width:0}
+.pxl-dash-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px}
+.pxl-dash-panel-head b{font-size:11.5px;font-weight:700}
+.pxl-dash-panel-head small{display:block;font-size:9px;color:var(--muted);margin-top:2px;font-weight:400}
+.pxl-dash-primary-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.pxl-dash-mini-card{padding:11px;display:flex;align-items:center;gap:9px;min-width:0}
+.pxl-dash-mini-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;font-size:16px}
+.pxl-dash-mini-icon.blue{background:#eaf3ff}.pxl-dash-mini-icon.green{background:#eaf8ef}.pxl-dash-mini-icon.orange{background:#fff1e7}.pxl-dash-mini-icon.purple{background:#f2ecff}
+.pxl-dash-mini-card span,.pxl-dash-bottom-card span{display:block;font-size:9.5px;color:#56616f}
+.pxl-dash-mini-card b{display:block;font-size:18px;line-height:1.1;margin:2px 0}
+.pxl-dash-mini-card small,.pxl-dash-bottom-card small{display:block;font-size:8.8px;color:var(--muted);white-space:normal}
+.pxl-dash-bottom-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.pxl-dash-bottom-card{padding:11px 12px;display:flex;align-items:center;gap:10px;min-width:0}
+.pxl-dash-bottom-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:#f8fafc}
+.pxl-dash-bottom-card.green .pxl-dash-bottom-icon{background:#eaf8ef}.pxl-dash-bottom-card.blue .pxl-dash-bottom-icon{background:#eaf3ff}.pxl-dash-bottom-card.orange .pxl-dash-bottom-icon{background:#fff1e7}
+.pxl-dash-bottom-card b{display:block;font-size:15px;line-height:1.15;margin:2px 0;overflow-wrap:anywhere}
+.pxl-dash-table-wrap{width:100%;overflow-x:auto}
+.pxl-dash-table{width:100%;border-collapse:collapse;font-size:9.5px}
+.pxl-dash-table th{font-size:8.5px;color:#667085;text-transform:uppercase;letter-spacing:.025em;background:#f8fafc;padding:6px 5px;text-align:left;white-space:nowrap}
+.pxl-dash-table td{padding:7px 5px;border-bottom:1px solid #eef1f5;vertical-align:middle;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pxl-dash-status{display:inline-flex;padding:3px 7px;border-radius:99px;font-size:8.5px;font-weight:700;white-space:nowrap}
+.pxl-dash-status.done,.pxl-dash-status.approved,.pxl-dash-status.issued,.pxl-dash-status.paid{background:#eaf8ef;color:#168954}
+.pxl-dash-status.assigned,.pxl-dash-status.ongoing{background:#eaf3ff;color:#1d64b5}
+.pxl-dash-status.pending,.pxl-dash-status.pending_approval,.pxl-dash-status.draft{background:#fff2df;color:#a95f16}
+.pxl-dash-status.travelling{background:#f2ecff;color:#6d28d9}
+.pxl-dash-empty{text-align:center;color:var(--muted);padding:18px!important;font-size:9.5px}
+.pxl-dash-activity{display:flex;flex-direction:column}
+.pxl-dash-act{display:grid;grid-template-columns:29px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #eef1f5}
+.pxl-dash-act:last-child{border-bottom:0}
+.pxl-dash-act-icon{width:29px;height:29px;border-radius:8px;background:#f4f7fb;display:grid;place-items:center;font-size:13px}
+.pxl-dash-act b{display:block;font-size:9.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-dash-act small{display:block;font-size:8.5px;color:var(--muted);margin-top:1px}
+.pxl-dash-act-time{font-size:8.5px;color:var(--muted);white-space:nowrap}
+.pxl-dash-hidden-metrics{display:none!important}
+#dash-sec-overview #dash-line-chart{min-height:135px}
+#dash-sec-overview #dash-donut-chart{min-height:150px}
+@media(max-width:1100px){.pxl-dash-v2-grid{grid-template-columns:1fr}.pxl-dash-v2-right{display:grid;grid-template-columns:1fr 1fr}.pxl-dash-v2-right .pxl-dash-panel:last-child{grid-column:1/-1}}
+@media(max-width:760px){.pxl-dash-business{grid-template-columns:1fr}.pxl-dash-business-chart{border-left:0;border-top:1px solid #eef1f5;padding-left:0;padding-top:12px}.pxl-dash-primary-kpis{grid-template-columns:1fr 1fr}.pxl-dash-bottom-kpis{grid-template-columns:1fr}.pxl-dash-v2-right{display:flex}.pxl-dash-business-value{font-size:21px}.pxl-dash-mini-card b{font-size:16px}}
 </style>
 </head>
 <body>
@@ -1935,32 +1989,63 @@ body.pxl-staging .sidebar{top:83px;height:calc(100vh - 83px)}
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
 
       <!-- ══ OVERVIEW ══ -->
-      <div id="dash-sec-overview">
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr)">
-          <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dm-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Tiket Selesai</div><div class="dash-metric-value" id="dm-done">—</div><div class="dash-metric-sub" id="dm-done-pct">—</div></div>
-          <div class="dash-metric teal"><div class="dash-metric-icon">🧾</div><div class="dash-metric-label">Total Invoice</div><div class="dash-metric-value" id="dm-invoice-total">—</div><div class="dash-metric-sub" id="dm-invoice-count">—</div></div>
-        </div>
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
-          <div class="dash-metric blue"><div class="dash-metric-icon">🗺️</div><div class="dash-metric-label">Total Kunjungan</div><div class="dash-metric-value" id="dm-visit-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">🏆</div><div class="dash-metric-label">Closed Won</div><div class="dash-metric-value" id="dm-visit-won">—</div><div class="dash-metric-sub" id="dm-visit-won-pct">—</div></div>
-          <div class="dash-metric amber"><div class="dash-metric-icon">⏰</div><div class="dash-metric-label">Follow Up Overdue</div><div class="dash-metric-value" id="dm-visit-overdue">—</div><div class="dash-metric-sub">perlu tindak lanjut</div></div>
-        </div>
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
-          <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target Sales</div><div class="dash-metric-value" id="dm-target-total">—</div><div class="dash-metric-sub" id="dm-target-sub">periode dipilih</div></div>
-          <div class="dash-metric teal"><div class="dash-metric-icon">💵</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="dm-realisasi-total">—</div><div class="dash-metric-sub">dari invoice</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">📊</div><div class="dash-metric-label">Pencapaian Target</div><div class="dash-metric-value" id="dm-achievement">—</div><div class="dash-metric-sub" id="dm-achievement-sub">realisasi / target</div></div>
-        </div>
-        <div class="dash-grid-2" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">📈 Tren Tiket Harian</div>
-            <div class="dash-chart-sub">Jumlah tiket masuk per hari + % selesai</div>
-            <div id="dash-line-chart"></div>
+      <div id="dash-sec-overview" class="pxl-dash-v2">
+        <div class="pxl-dash-v2-grid">
+          <div class="pxl-dash-v2-left">
+            <section class="pxl-dash-business">
+              <div class="pxl-dash-business-copy">
+                <div class="pxl-dash-eyebrow">RINGKASAN BISNIS</div>
+                <div class="pxl-dash-business-label">Total realisasi pada periode dipilih</div>
+                <div class="pxl-dash-business-value" id="dm-realisasi-total">—</div>
+                <div class="pxl-dash-business-meta">
+                  <span>Target <b id="dm-target-total">—</b></span>
+                  <span class="pxl-dash-achievement"><b id="dm-achievement">—</b> <small id="dm-achievement-sub">realisasi / target</small></span>
+                </div>
+              </div>
+              <div class="pxl-dash-business-chart">
+                <div class="pxl-dash-panel-head"><div><b>Tren Work Order</b><small>Aktivitas pekerjaan pada periode dipilih</small></div></div>
+                <div id="dash-line-chart"></div>
+              </div>
+            </section>
+
+            <section class="pxl-dash-primary-kpis">
+              <div class="pxl-dash-mini-card"><div class="pxl-dash-mini-icon blue">📋</div><div><span>Work Order</span><b id="dm-total">—</b><small>periode dipilih</small></div></div>
+              <div class="pxl-dash-mini-card"><div class="pxl-dash-mini-icon green">🛒</div><div><span>Sales Order</span><b id="dm-sales-order-total">—</b><small id="dm-sales-order-sub">—</small></div></div>
+              <div class="pxl-dash-mini-card"><div class="pxl-dash-mini-icon orange">🔧</div><div><span>Service Center</span><b id="dm-service-total">—</b><small id="dm-service-sub">—</small></div></div>
+              <div class="pxl-dash-mini-card"><div class="pxl-dash-mini-icon purple">🗺️</div><div><span>Total Kunjungan</span><b id="dm-visit-total">—</b><small>periode dipilih</small></div></div>
+            </section>
+
+            <section class="pxl-dash-panel">
+              <div class="pxl-dash-panel-head"><div><b>Distribusi Status Work Order</b><small>Komposisi status tiket / work order</small></div></div>
+              <div id="dash-donut-chart"></div>
+            </section>
+
+            <section class="pxl-dash-bottom-kpis">
+              <div class="pxl-dash-bottom-card green"><div class="pxl-dash-bottom-icon">🧾</div><div><span>Total Invoice</span><b id="dm-invoice-total">—</b><small id="dm-invoice-count">—</small></div></div>
+              <div class="pxl-dash-bottom-card blue"><div class="pxl-dash-bottom-icon">☑️</div><div><span>WO Selesai</span><b id="dm-done">—</b><small id="dm-done-pct">—</small></div></div>
+              <div class="pxl-dash-bottom-card orange"><div class="pxl-dash-bottom-icon">🛠️</div><div><span>Service Selesai</span><b id="dm-service-done">—</b><small id="dm-service-done-sub">—</small></div></div>
+            </section>
+
+            <div class="pxl-dash-hidden-metrics" aria-hidden="true">
+              <span id="dm-visit-won">—</span><span id="dm-visit-won-pct">—</span><span id="dm-visit-overdue">—</span><span id="dm-visit-estimasi">—</span>
+            </div>
           </div>
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🍩 Distribusi Status Tiket</div>
-            <div class="dash-chart-sub">Komposisi status tiket aktif</div>
-            <div id="dash-donut-chart"></div>
+
+          <div class="pxl-dash-v2-right">
+            <section class="pxl-dash-panel">
+              <div class="pxl-dash-panel-head"><div><b>Work Order Terbaru</b><small>5 pekerjaan terbaru</small></div></div>
+              <div class="pxl-dash-table-wrap"><table class="pxl-dash-table"><thead><tr><th>Nomor WO</th><th>Customer</th><th>Status</th><th>Tanggal</th></tr></thead><tbody id="dash-recent-wo"><tr><td colspan="4" class="pxl-dash-empty">Memuat...</td></tr></tbody></table></div>
+            </section>
+
+            <section class="pxl-dash-panel">
+              <div class="pxl-dash-panel-head"><div><b>Sales Order Terbaru</b><small>5 sales order terbaru</small></div></div>
+              <div class="pxl-dash-table-wrap"><table class="pxl-dash-table"><thead><tr><th>Nomor SO</th><th>Customer</th><th>Status</th><th>Tanggal</th></tr></thead><tbody id="dash-recent-so"><tr><td colspan="4" class="pxl-dash-empty">Memuat...</td></tr></tbody></table></div>
+            </section>
+
+            <section class="pxl-dash-panel">
+              <div class="pxl-dash-panel-head"><div><b>Aktivitas Terbaru</b><small>Ringkasan aktivitas operasional</small></div></div>
+              <div id="dash-recent-activity" class="pxl-dash-activity"><div class="pxl-dash-empty">Memuat...</div></div>
+            </section>
           </div>
         </div>
       </div>
@@ -4503,7 +4588,7 @@ async function deleteUser(id,name){
 }
 
 /* ══ DASHBOARD ═══════════════════════════ */
-let dashData=[], dashPeriod='all';
+let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[];
 
 async function loadDashboard(){
   const el=document.getElementById('dash-loading');
@@ -4530,6 +4615,8 @@ async function loadDashboard(){
     if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}));
     if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
+    if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
+    if(!dashServiceData.length) jobs.push(api('GET','/service-orders').then(d=>{dashServiceData=Array.isArray(d)?d:[];}).catch(()=>{}));
 
     if(jobs.length){
       await Promise.allSettled(jobs);
@@ -5388,6 +5475,54 @@ function renderTrendChart(data,elId,unit){
   renderBarChart(byDay,elId,unit,'accent');
 }
 
+
+function dashOverviewDate(v){
+  if(!v)return '-';
+  const d=new Date(v);
+  return isNaN(d)?'-':d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+}
+function dashOverviewTime(v){
+  if(!v)return '';
+  const d=new Date(v);
+  return isNaN(d)?'':d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+}
+function dashOverviewStatus(v){
+  const raw=String(v||'-').toLowerCase();
+  const label={done:'Selesai',assigned:'Assigned',ongoing:'Dikerjakan',travelling:'Perjalanan',pending:'Pending',draft:'Draft',pending_approval:'Menunggu Approval',approved:'Disetujui',issued:'Terbit',paid:'Lunas',completed:'Selesai',selesai:'Selesai',closed:'Selesai',handed_over:'Selesai'}[raw]||String(v||'-');
+  return '<span class="pxl-dash-status '+activityLogEsc(raw)+'">'+activityLogEsc(label)+'</span>';
+}
+function renderDashboardOverviewV2(data){
+  const so=Array.isArray(dashSalesOrderData)?dashSalesOrderData:[];
+  const service=Array.isArray(dashServiceData)?dashServiceData:[];
+  const serviceDone=service.filter(x=>['done','completed','selesai','closed','handed_over','finished'].includes(String(x.status||'').toLowerCase()));
+  const serviceOpen=Math.max(0,service.length-serviceDone.length);
+  const soPending=so.filter(x=>['pending_approval','pending','submitted'].includes(String(x.status||'').toLowerCase())).length;
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  set('dm-sales-order-total',so.length||'0');
+  set('dm-sales-order-sub',soPending?soPending+' menunggu approval':'tidak ada approval pending');
+  set('dm-service-total',service.length||'0');
+  set('dm-service-sub',serviceOpen?serviceOpen+' dalam proses':'tidak ada proses aktif');
+  set('dm-service-done',serviceDone.length||'0');
+  set('dm-service-done-sub',service.length?'dari '+service.length+' service':'belum ada data');
+
+  const byRecent=(a,b)=>new Date(b.updated_at||b.worked_at||b.created_at||0)-new Date(a.updated_at||a.worked_at||a.created_at||0);
+  const woRows=[...(data||[])].sort(byRecent).slice(0,5);
+  const woEl=document.getElementById('dash-recent-wo');
+  if(woEl)woEl.innerHTML=woRows.length?woRows.map(x=>'<tr><td><b>'+activityLogEsc(x.wo_number||x.ticket_id||'-')+'</b></td><td>'+activityLogEsc(x.customer_name||'-')+'</td><td>'+dashOverviewStatus(x.status)+'</td><td>'+dashOverviewDate(x.updated_at||x.worked_at||x.created_at)+'</td></tr>').join(''):'<tr><td colspan="4" class="pxl-dash-empty">Belum ada Work Order.</td></tr>';
+
+  const soRows=[...so].sort(byRecent).slice(0,5);
+  const soEl=document.getElementById('dash-recent-so');
+  if(soEl)soEl.innerHTML=soRows.length?soRows.map(x=>'<tr><td><b>'+activityLogEsc(x.so_number||x.number||'-')+'</b></td><td>'+activityLogEsc(x.customer_name||x.customer||'-')+'</td><td>'+dashOverviewStatus(x.status)+'</td><td>'+dashOverviewDate(x.updated_at||x.approved_at||x.created_at)+'</td></tr>').join(''):'<tr><td colspan="4" class="pxl-dash-empty">Belum ada Sales Order.</td></tr>';
+
+  const invoiceRows=getDashInvoices().map(x=>({kind:'invoice',icon:'🧾',title:'Invoice '+(x.invoice_number||x.original_name||'') ,sub:x.sales_pic||'Invoice',at:x.uploaded_at||x.ticket_date}));
+  const woActivity=(data||[]).map(x=>({kind:'wo',icon:'📋',title:(x.wo_number||x.ticket_id||'Work Order')+' · '+(x.project_name||x.customer_name||''),sub:({done:'Selesai',ongoing:'Sedang dikerjakan',assigned:'Assigned',travelling:'Dalam perjalanan',pending:'Pending'}[String(x.status||'').toLowerCase()]||x.status||'Work Order'),at:x.updated_at||x.worked_at||x.created_at}));
+  const soActivity=so.map(x=>({kind:'so',icon:'🛒',title:(x.so_number||'Sales Order')+' · '+(x.customer_name||x.customer||''),sub:String(x.status||'Sales Order'),at:x.updated_at||x.approved_at||x.created_at}));
+  const svcActivity=service.map(x=>({kind:'service',icon:'🔧',title:(x.service_number||x.service_order_number||x.ticket_number||'Service Center')+' · '+(x.customer_name||x.customer||''),sub:String(x.status||'Service'),at:x.updated_at||x.created_at}));
+  const activity=[...invoiceRows,...woActivity,...soActivity,...svcActivity].filter(x=>x.at).sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,5);
+  const actEl=document.getElementById('dash-recent-activity');
+  if(actEl)actEl.innerHTML=activity.length?activity.map(x=>'<div class="pxl-dash-act"><div class="pxl-dash-act-icon">'+x.icon+'</div><div><b>'+activityLogEsc(x.title||'-')+'</b><small>'+activityLogEsc(x.sub||'')+'</small></div><div class="pxl-dash-act-time">'+dashOverviewTime(x.at)+'</div></div>').join(''):'<div class="pxl-dash-empty">Belum ada aktivitas.</div>';
+}
+
 function renderDashboard(){
   const data=filterDash(dashData);
   if(!data.length){
@@ -5401,6 +5536,7 @@ function renderDashboard(){
       const el=document.getElementById(id);
       if(el) el.textContent='—';
     });
+    renderDashboardOverviewV2([]);
     // Submenu yang tidak bergantung pada data tiket tetap harus dirender
     if(currentDashSub==='kunjungan') renderDashSubKunjungan();
     else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
@@ -5472,6 +5608,8 @@ function renderDashboard(){
 
   // ── Total Target & Pencapaian (menggunakan periode dashboard yang sama) ──
   renderDashTargetMetrics(data, salesMap);
+
+  renderDashboardOverviewV2(data);
 
   // ── Dispatch sub-section renders ──
   if(currentDashSub==='teknisi') renderDashSubTeknisi(data);
