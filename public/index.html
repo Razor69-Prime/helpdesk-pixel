@@ -749,13 +749,36 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   border-right:1px solid #e7ebf0;
   gap:0;
 }
-.sidebar-group{margin:0}
-.sidebar-group-toggle{display:none!important}
-.sidebar-group-content,.sidebar-group.collapsed .sidebar-group-content{
+.sidebar-group{margin:0 0 4px}
+.sidebar-group-toggle{
   display:flex!important;
+  width:100%;
+  min-height:34px;
+  padding:8px 12px 6px;
+  border:0;
+  background:transparent;
+  color:#7b879d;
+  font-family:'Inter','DM Sans',sans-serif;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  cursor:pointer;
+  border-radius:8px;
+}
+.sidebar-group-toggle:hover{background:#f8fafc;color:#53627d}
+.sidebar-group-arrow{font-size:11px;transition:transform .18s ease;color:#98a2b3}
+.sidebar-group.collapsed .sidebar-group-arrow{transform:rotate(-90deg)}
+.sidebar-group-content{
+  display:flex;
   flex-direction:column;
   gap:4px;
 }
+.sidebar-group.collapsed .sidebar-group-content{display:none!important}
+.sidebar-group.has-active>.sidebar-group-toggle{color:#f05a18}
 .nav-btn{
   position:relative;
   width:100%;
