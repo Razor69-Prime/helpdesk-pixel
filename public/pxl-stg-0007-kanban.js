@@ -55,7 +55,10 @@
     const sidebar=qs('.sidebar');if(!sidebar)return;
     qsa('[data-k7-nav]').forEach((b,i)=>{if(i>0)b.remove();});
     let b=qs('[data-k7-nav]');
-    if(!b){b=document.createElement('button');b.type='button';b.className='nav-btn';b.dataset.k7Nav='1';b.innerHTML='<span>🗓️</span><span class="nav-label">Kanban Teknisi</span>';sidebar.appendChild(b);}
+    if(!b){b=document.createElement('button');b.type='button';b.className='nav-btn';b.dataset.k7Nav='1';b.innerHTML='<span>🗓️</span><span class="nav-label">Kanban Teknisi</span>';}
+    const opGroup=[...sidebar.querySelectorAll('.sidebar-group')].find(g=>/operasional teknisi/i.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
+    const host=opGroup?.querySelector('.sidebar-group-content')||sidebar;
+    if(b.parentElement!==host)host.appendChild(b);
     b.onclick=openKanban;
   }
 
