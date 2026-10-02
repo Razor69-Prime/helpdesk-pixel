@@ -74,10 +74,10 @@
       button.className = 'nav-btn';
       button.dataset.k7Nav = '1';
       button.innerHTML = '<span>🗓️</span><span class="nav-label">Kanban Teknisi</span>';
-      const opGroup=[...sidebar.querySelectorAll('.sidebar-group')].find(g=>/operasional teknisi/i.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
-      const group = opGroup?.querySelector('.sidebar-group-content') || sidebar.querySelector('.sidebar-group-content') || sidebar;
-      group.appendChild(button);
     }
+    const opGroup=[...sidebar.querySelectorAll('.sidebar-group')].find(g=>/operasional teknisi/i.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
+    const group = opGroup?.querySelector('.sidebar-group-content') || sidebar.querySelector('.sidebar-group-content') || sidebar;
+    if(button.parentElement!==group) group.appendChild(button);
     button.dataset.k7Original = '1';
     button.onclick = openKanban;
   }
