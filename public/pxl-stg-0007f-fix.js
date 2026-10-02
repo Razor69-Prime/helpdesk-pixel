@@ -74,7 +74,8 @@
       button.className = 'nav-btn';
       button.dataset.k7Nav = '1';
       button.innerHTML = '<span>🗓️</span><span class="nav-label">Kanban Teknisi</span>';
-      const group = sidebar.querySelector('.sidebar-group-content') || sidebar;
+      const opGroup=[...sidebar.querySelectorAll('.sidebar-group')].find(g=>/operasional teknisi/i.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
+      const group = opGroup?.querySelector('.sidebar-group-content') || sidebar.querySelector('.sidebar-group-content') || sidebar;
       group.appendChild(button);
     }
     button.dataset.k7Original = '1';
