@@ -329,10 +329,11 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .proj-summary-val.plan{color:#86EFAC}
 .proj-summary-val.progress{color:#93C5FD}
 .proj-summary-val.hold{color:#D1D5DB}
-.proj-table-wrap{width:100%;max-width:100%;overflow-x:hidden}
+.proj-table-wrap{width:100%;max-width:100%;overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 330px);min-height:320px;overscroll-behavior:contain}
 .proj-table{width:100%;max-width:100%;border-collapse:collapse;font-size:11.5px;table-layout:fixed;min-width:0}
+.proj-table thead{position:sticky;top:0;z-index:3}
 .proj-table thead th{background:var(--surface2);color:var(--muted);font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:9px 7px;text-align:left;border-bottom:2px solid var(--border);white-space:normal;overflow-wrap:anywhere}
-.proj-table tbody td{padding:10px 7px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.proj-table tbody td{padding:9px 7px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text);min-width:0;overflow-wrap:anywhere}
 .proj-table th:nth-child(1){width:3%}.proj-table th:nth-child(2){width:4.5%}.proj-table th:nth-child(3){width:15%}.proj-table th:nth-child(4){width:6.5%}.proj-table th:nth-child(5){width:9.5%}.proj-table th:nth-child(6){width:9.5%}.proj-table th:nth-child(7){width:13%}.proj-table th:nth-child(8){width:13%}.proj-table th:nth-child(9){width:7.5%}.proj-table th:nth-child(10){width:9%}.proj-table th:nth-child(11){width:5.5%}.proj-table th:nth-child(12){width:4%}
 .proj-table tbody tr:hover{background:var(--surface2)}
 .proj-no-col{color:var(--muted);font-weight:600}
