@@ -85,7 +85,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 /* ── SIDEBAR ── */
 #app-body{display:flex;flex:1;min-height:0;overflow-x:hidden}
-.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;overflow-x:hidden}
 .sidebar-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:8px 8px 4px;margin-top:4px}
 .sidebar-section:first-child{margin-top:0}
 .sidebar-section-line{height:1px;background:var(--border);margin:5px 8px 2px}
@@ -309,7 +309,11 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .kj-table td.dot.r{color:var(--muted)}
 
 /* ══ PROJECT TRACKER ══ */
-.proj-card{background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+#tab-projects,#proj-list-section{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+.proj-card{width:100%;max-width:100%;min-width:0;background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+.proj-filter-bar,.proj-summary-bar,.proj-table-wrap{width:100%;max-width:100%;min-width:0}
+.proj-filter-bar>*{min-width:0}
+.proj-filter-bar .proj-filter-select{max-width:100%}
 .proj-header{background:linear-gradient(135deg,#0F1E3D,#16244A);padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start;color:#fff}
 .proj-header-label{font-size:10px;letter-spacing:.12em;color:#8FA3C7;font-weight:600;margin-bottom:4px}
 .proj-header-title{font-size:20px;font-weight:800}
