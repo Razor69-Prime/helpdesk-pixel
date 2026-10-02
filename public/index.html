@@ -740,6 +740,69 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   .pxl-dash-v3-right{display:flex}
 }
 @media(max-width:480px){.pxl3-kpi-grid{grid-template-columns:1fr}}
+
+/* PXL-SIDEBAR-UI-0001 — compact flat primary navigation */
+.sidebar{
+  width:252px;
+  padding:16px 10px 18px;
+  background:#fff;
+  border-right:1px solid #e7ebf0;
+  gap:0;
+}
+.sidebar-group{margin:0}
+.sidebar-group-toggle{display:none!important}
+.sidebar-group-content,.sidebar-group.collapsed .sidebar-group-content{
+  display:flex!important;
+  flex-direction:column;
+  gap:4px;
+}
+.nav-btn{
+  position:relative;
+  width:100%;
+  min-height:42px;
+  padding:10px 14px;
+  border-radius:10px;
+  color:#53627d;
+  font-family:'Inter','DM Sans',sans-serif;
+  font-size:13px;
+  font-weight:500;
+  gap:12px;
+  background:transparent;
+}
+.nav-btn:hover{background:#f8fafc;color:#344054}
+.nav-btn.active{
+  background:linear-gradient(90deg,#fff2eb 0%,#fde8dd 100%);
+  color:#f05a18;
+  font-weight:600;
+  box-shadow:none;
+}
+.nav-btn.active::before{
+  content:'';
+  position:absolute;
+  left:0;
+  top:8px;
+  bottom:8px;
+  width:2px;
+  border-radius:999px;
+  background:#f05a18;
+}
+.nav-icon{
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#52627f;
+}
+.nav-icon svg{width:20px;height:20px;display:block;stroke:currentColor}
+.nav-btn.active .nav-icon{color:#f05a18}
+.nav-label{line-height:1.1}
+@media(max-width:700px) and (min-width:601px){
+  .sidebar{width:56px;padding:12px 5px}
+  .sidebar .nav-btn{padding:10px;justify-content:center}
+  .sidebar .nav-icon{width:20px;height:20px}
+}
 </style>
 </head>
 <body>
@@ -2106,6 +2169,13 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
               <div class="pxl3-kpi"><div class="pxl3-kpi-icon amber">Ⅱ</div><div><span>Project Hold</span><b id="pxl3-project-hold">—</b><small>perlu perhatian</small></div></div>
             </section>
 
+            <section class="pxl3-kpi-grid">
+              <div class="pxl3-kpi"><div class="pxl3-kpi-icon purple">👥</div><div><span>Total Customer</span><b id="pxl3-crm-total">—</b><small>seluruh customer CRM</small></div></div>
+              <div class="pxl3-kpi"><div class="pxl3-kpi-icon green">✓</div><div><span>Customer Aktif</span><b id="pxl3-crm-active">—</b><small>status aktif</small></div></div>
+              <div class="pxl3-kpi"><div class="pxl3-kpi-icon blue">＋</div><div><span>Customer Baru</span><b id="pxl3-crm-new">—</b><small>periode dipilih</small></div></div>
+              <div class="pxl3-kpi"><div class="pxl3-kpi-icon red">○</div><div><span>Customer Tidak Aktif</span><b id="pxl3-crm-inactive">—</b><small class="danger">status tidak aktif</small></div></div>
+            </section>
+
             <div class="pxl3-hidden" aria-hidden="true">
               <span id="dm-invoice-total">—</span><span id="dm-invoice-count">—</span>
               <span id="dm-visit-won">—</span><span id="dm-visit-won-pct">—</span><span id="dm-visit-estimasi">—</span>
@@ -3088,6 +3158,23 @@ function showApp(){
   }
 }
 
+function pxlNavIcon(id){
+  const common='viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  const icons={
+    dashboard:'<svg '+common+'><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>',
+    tickets:'<svg '+common+'><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+    service_center:'<svg '+common+'><path d="m14.7 6.3 3-3a4 4 0 0 1-5.1 5.1l-6.8 6.8a2 2 0 1 0 2.8 2.8l6.8-6.8a4 4 0 0 1 5.1-5.1l-3 3"/></svg>',
+    sales_order:'<svg '+common+'><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg>',
+    inventory:'<svg '+common+'><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8M12 12v8"/></svg>',
+    projects:'<svg '+common+'><path d="M4 7h6l2 3h8v9H4z"/><path d="M8 4v6M16 4v6"/></svg>',
+    crm:'<svg '+common+'><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20c.4-4 2.5-6 5.5-6s5.1 2 5.5 6M14.5 14.8c2.8-.8 5.3.9 6 4.2"/></svg>',
+    report:'<svg '+common+'><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 12h6M9 16h6"/></svg>',
+    users:'<svg '+common+'><circle cx="12" cy="7" r="3"/><path d="M5 21c.5-4.5 3-7 7-7s6.5 2.5 7 7"/></svg>',
+    system_tools:'<svg '+common+'><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>'
+  };
+  return '<span class="nav-icon">'+(icons[id]||'<svg '+common+'><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>')+'</span>';
+}
+
 function buildNav(){
   const role=String(currentUser.role||'').toLowerCase().replace(/[ _-]/g,'');
   currentUser.role=role;
@@ -3101,7 +3188,7 @@ function buildNav(){
   const ALL_TAB_DEFS=[
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
     {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
-    {id:'tickets',   label:'📄 Daftar Tiket',  show: true},
+    {id:'tickets',   label:'📄 Work Order',  show: true},
     {id:'service_center',label:'🔧 Service Center',show: role==='technician'||role==='operator'||role==='admin'||isManager||isSuperAdmin},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'piutang',   label:'💳 Daftar Piutang', show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
@@ -3115,7 +3202,7 @@ function buildNav(){
     {id:'banner_promo',label:'🖼️ Banner Promo Tracking', show: isSuperAdmin},
     {id:'materials', label:'📦 Form Material Request', show: true},
     {id:'leave',     label:'🗓️ Form Cuti / Izin', show: true},
-    {id:'inventory', label:'📦 Inventory Asset', show: role==='admin'||isManager||isSuperAdmin},
+    {id:'inventory', label:'📦 Inventory', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
@@ -3175,7 +3262,7 @@ function buildNav(){
       const match=t.label.match(/^(\S+)\s(.+)$/);
       const icon=match?match[1]:t.label;
       const text=match?match[2]:t.label;
-      navHtml.push(`<button class="nav-btn${firstButton?' active':''}" data-tab-id="${t.id}" onclick="switchTab('${t.id}',this)">${icon} <span class="nav-label">${text}</span></button>`);
+      navHtml.push(`<button class="nav-btn${firstButton?' active':''}" data-tab-id="${t.id}" onclick="switchTab('${t.id}',this)">${pxlNavIcon(t.id)}<span class="nav-label">${text}</span></button>`);
       firstButton=false;
     });
     navHtml.push('</div></div>');
@@ -4670,7 +4757,7 @@ async function deleteUser(id,name){
 }
 
 /* ══ DASHBOARD ═══════════════════════════ */
-let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[];
+let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[], dashCrmCustomerData=[];
 
 async function loadDashboard(){
   const el=document.getElementById('dash-loading');
@@ -4699,6 +4786,7 @@ async function loadDashboard(){
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
     if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashServiceData.length) jobs.push(api('GET','/service-orders').then(d=>{dashServiceData=Array.isArray(d)?d:[];}).catch(()=>{}));
+    if(!dashCrmCustomerData.length) jobs.push(api('GET','/api/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}));
 
     if(jobs.length){
       await Promise.allSettled(jobs);
@@ -5601,6 +5689,23 @@ function renderDashboardOverviewV2(data){
   set('pxl3-project-active',projectActive||'0');
   set('pxl3-project-done',projectDone||'0');
   set('pxl3-project-hold',projectHold||'0');
+
+  const crmRows=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  const inactiveStates=new Set(['inactive','nonaktif','non-active','disabled','archived','closed']);
+  const crmInactive=crmRows.filter(x=>inactiveStates.has(String(x.status||'').trim().toLowerCase())).length;
+  const crmActive=Math.max(0,crmRows.length-crmInactive);
+  const {from:crmFrom,to:crmTo}=getDashRange();
+  const crmNew=crmRows.filter(x=>{
+    const raw=x.created_at||x.updated_at;
+    if(!raw) return !crmFrom&&!crmTo;
+    const d=new Date(raw);
+    if(isNaN(d)) return false;
+    return !(crmFrom&&d<crmFrom)&&!(crmTo&&d>crmTo);
+  }).length;
+  set('pxl3-crm-total',crmRows.length||'0');
+  set('pxl3-crm-active',crmActive||'0');
+  set('pxl3-crm-new',crmNew||'0');
+  set('pxl3-crm-inactive',crmInactive||'0');
 
   const {totalTarget}=getDashTargetSummary();
   const totalRevenue=getDashInvoices().reduce((sum,x)=>sum+(Number(x.total_amount)||0),0);
