@@ -3274,13 +3274,17 @@ function pxlNavIcon(id){
 
 function repairInjectedSidebarMenus(){
   const nav=document.getElementById('main-nav');
-  if(!nav)return;
+  const sidebar=document.querySelector('.sidebar');
+  if(!nav||!sidebar)return;
   const findGroup=(re)=>[...nav.querySelectorAll('.sidebar-group')].find(g=>re.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
   const op=findGroup(/operasional teknisi/i);
   const opHost=op?.querySelector('.sidebar-group-content');
-  nav.querySelectorAll('[data-k7-nav]').forEach(btn=>{
-    if(opHost&&btn.parentElement!==opHost)opHost.appendChild(btn);
-  });
+  const kanbanButtons=[...sidebar.querySelectorAll('[data-k7-nav]')];
+  if(kanbanButtons.length){
+    const keep=kanbanButtons.find(btn=>opHost&&btn.parentElement===opHost)||kanbanButtons[0];
+    kanbanButtons.forEach(btn=>{if(btn!==keep)btn.remove();});
+    if(opHost&&keep.parentElement!==opHost)opHost.appendChild(keep);
+  }
   const report=findGroup(/^\s*report\s*$/i);
   const reportHost=report?.querySelector('.sidebar-group-content');
   nav.querySelectorAll('[data-pxl-ai-report]').forEach(btn=>{
