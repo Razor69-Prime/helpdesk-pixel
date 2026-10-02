@@ -826,6 +826,65 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   .sidebar .nav-btn{padding:10px;justify-content:center}
   .sidebar .nav-icon{width:20px;height:20px}
 }
+
+/* PXL-DASH-UI-0007 — PWA/mobile full expanded sidebar */
+@media(max-width:600px){
+  #app-body{flex-direction:column;min-height:0}
+  .sidebar{
+    width:100%!important;
+    height:auto!important;
+    max-height:none!important;
+    position:static!important;
+    display:block!important;
+    overflow:visible!important;
+    padding:10px 8px 12px!important;
+    border-right:none!important;
+    border-bottom:1px solid #e5eaf0!important;
+    background:#fff!important;
+  }
+  .sidebar #main-nav{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:4px!important;
+    width:100%!important;
+  }
+  .sidebar-group{
+    display:block!important;
+    width:100%!important;
+    margin:0 0 4px!important;
+  }
+  .sidebar-group-toggle{
+    display:flex!important;
+    min-height:32px!important;
+    padding:7px 10px!important;
+    font-size:9px!important;
+  }
+  .sidebar-group-content,
+  .sidebar-group.collapsed .sidebar-group-content{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:3px!important;
+    width:100%!important;
+  }
+  .sidebar-group .sidebar-group-arrow{display:none!important}
+  .sidebar .nav-btn{
+    width:100%!important;
+    min-width:0!important;
+    min-height:40px!important;
+    padding:9px 12px!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:10px!important;
+    font-size:12px!important;
+    white-space:nowrap!important;
+  }
+  .sidebar .nav-btn span.nav-label{
+    display:block!important;
+    font-size:12px!important;
+  }
+  .app-content{padding:10px 8px!important}
+}
 </style>
 </head>
 <body>
