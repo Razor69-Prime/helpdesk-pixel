@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-DASH-UI-0022 — add previous-month Dashboard period */
 /* PXL-DASH-UI-0021 — CRM endpoint + Project/CRM dashboard cache synchronization */
 /* PXL-DASH-UI-0020 — Customer / CRM dashboard submenu */
 #dash-sec-crm{background:transparent;color:#14213d}
@@ -2618,6 +2619,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <button class="dash-period-btn active" onclick="setDashPeriod('all',this)">Semua</button>
         <button class="dash-period-btn" onclick="setDashPeriod('today',this)">Hari ini</button>
         <button class="dash-period-btn" onclick="setDashPeriod('week',this)">7 hari</button>
+        <button class="dash-period-btn" onclick="setDashPeriod('last_month',this)">Bulan lalu</button>
         <button class="dash-period-btn" onclick="setDashPeriod('month',this)">Bulan ini</button>
         <span style="display:flex;align-items:center;gap:6px;margin-left:4px">
           <input type="date" class="dash-date-input" id="dash-from" onchange="renderDashboard()"/>
@@ -5574,6 +5576,8 @@ function getDashRange(){
   const now=new Date();
   if(dashPeriod==='today'){const s=new Date(now);s.setHours(0,0,0,0);return{from:s,to:new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59)};}
   if(dashPeriod==='week') return{from:new Date(now-7*864e5),to:now};
+  // PXL-DASH-UI-0022: Bulan Lalu = satu bulan kalender penuh sebelumnya.
+  if(dashPeriod==='last_month') return{from:new Date(now.getFullYear(),now.getMonth()-1,1),to:new Date(now.getFullYear(),now.getMonth(),0,23,59,59)};
   // PXL-REV-0060B: Bulan Ini memakai satu bulan kalender penuh, sama dengan menu Sales.
   if(dashPeriod==='month') return{from:new Date(now.getFullYear(),now.getMonth(),1),to:new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59)};
   return{from:null,to:null};
