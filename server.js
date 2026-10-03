@@ -491,6 +491,20 @@ app.get('/api/sales-targets', requireRole('admin','manager','superadmin'), async
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// PXL-SALES-UI-0009 — bootstrap Sales Performance
+app.get('/api/sales-performance/bootstrap', requireRole('manager','superadmin','admin'), async (req, res) => {
+  try {
+    const [targets, users] = await Promise.all([db.getSalesTargets(), db.getUsers()]);
+    const sales_pics = (users || []).filter(u =>
+      u.is_active !== false &&
+      String(u.role || '').toLowerCase() !== 'superadmin' &&
+      (u.role === 'sales' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('sales')))
+    ).map(u => ({ id:u.id, name:u.name, role:u.role }));
+    res.setHeader('Cache-Control','no-store, no-cache,must-revalidate,private');
+    res.json({ targets:Array.isArray(targets)?targets:[], sales_pics });
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
 // POST tambah/update target — { sales_pic, year_month (YYYY-MM), target_amount }
 app.post('/api/sales-targets', requireRole('admin','superadmin','manager'), async (req, res) => {
   try {
