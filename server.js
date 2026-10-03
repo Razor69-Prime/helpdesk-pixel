@@ -237,12 +237,14 @@ function trackExpiry(t) { return new Date(new Date(t.created_at).getTime() + cfg
 function isExpired(t)   { return new Date() > trackExpiry(t); }
 
 function buildSessionUser(u){
+  const role=String(u.role||'').toLowerCase();
   return {
     id:u.id, username:u.username, name:u.name, role:u.role,
     custom_menus:Array.isArray(u.custom_menus)?u.custom_menus:[],
     custom_menus_override:u.custom_menus_override===true,
     pr_roles:Array.isArray(u.pr_roles)?u.pr_roles:[],
-    extra_roles:Array.isArray(u.extra_roles)?u.extra_roles:[],
+    // PXL-URG-0080: Superadmin bypass seluruh akses dan tidak diklasifikasikan sebagai Sales/Teknisi.
+    extra_roles:role==='superadmin'?[]:(Array.isArray(u.extra_roles)?u.extra_roles:[]),
     allow_invoice_no_wo:u.allow_invoice_no_wo===true
   };
 }
@@ -435,7 +437,8 @@ app.get('/api/sales-pics', requireAuth, async (req, res) => {
     if (db.USE_POSTGREST) users = await db.getUsersWithPassword();
     else users = readUsers();
     const sales = users.filter(u =>
-      (u.role === 'sales' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('sales')))
+      String(u.role||'').toLowerCase()!=='superadmin'
+      && (u.role === 'sales' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('sales')))
       && u.is_active !== false
     ).map(({ password: _, ...u }) => u);
     res.json(sales);
@@ -450,7 +453,8 @@ app.get('/api/technician-pics', requireAuth, async (req, res) => {
     if (db.USE_POSTGREST) users = await db.getUsersWithPassword();
     else users = readUsers();
     const techs = users.filter(u =>
-      (u.role === 'technician' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('technician')))
+      String(u.role||'').toLowerCase()!=='superadmin'
+      && (u.role === 'technician' || (Array.isArray(u.extra_roles) && u.extra_roles.includes('technician')))
       && u.is_active !== false
     ).map(({ password: _, ...u }) => u);
     res.json(techs);
@@ -2889,7 +2893,7 @@ app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{t
 app.get('/api/sales-orders/options',requireRole(...SO_READ_ROLES),async(req,res)=>{
   try{
     const [users,inventory]=await Promise.all([db.getUsers(),db.getInventoryItems()]);
-    const salesUsers=(users||[]).filter(u=>u.is_active!==false&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
+    const salesUsers=(users||[]).filter(u=>u.is_active!==false&&String(u.role||'').toLowerCase()!=='superadmin'&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
       .map(u=>({id:u.id,name:u.name,email:u.email||null,role:u.role}));
     const items=(inventory||[]).filter(i=>i.is_active!==false).map(i=>({id:i.id,name:i.name,sku:i.sku||null,unit:i.unit||'pcs',stock:Number(i.stock||0),tracking_mode:i.tracking_mode||'quantity'}));
     res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
