@@ -1294,6 +1294,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
 /* PXL-URG-0080 — superadmin access bypass; exclude from Sales/Technician classification */
+/* PXL-SALES-UI-0007 — merge I Komang Budha Astawa alias */
 /* PXL-SALES-UI-0006 — canonical Sales PIC alias + annual PIC target fix */
 /* PXL-SALES-UI-0005 — annual target breakdown per Sales PIC */
 /* PXL-SALES-UI-0004 — annual sales target summary */
@@ -8266,6 +8267,7 @@ function canonicalSalesPic(name){
   const raw=String(name||'').trim();
   const key=raw.toLowerCase().replace(/\s+/g,' ');
   if(key==='eka hendrayana'||key==='i putu eka hendrayana') return 'I Putu Eka Hendrayana';
+  if(key==='i komang budha astawa'||key==='komang budha astawa') return 'Komang Budha Astawa';
   return raw||'(Tanpa PIC)';
 }
 
