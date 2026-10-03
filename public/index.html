@@ -1292,6 +1292,40 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:1150px){#dash-sec-project .pxl-proj-top,#dash-sec-project .pxl-proj-body{grid-template-columns:1fr}#dash-sec-project .pxl-proj-aside{display:grid;grid-template-columns:1fr 1fr}}
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
+
+/* PXL-DASH-UI-0020 — Customer / CRM dashboard submenu */
+#dash-sec-crm{background:transparent;color:#14213d}
+#dash-sec-crm .pxl-crm-head-card{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+#dash-sec-crm .pxl-crm-title{font-size:18px;font-weight:850;color:#14213d}
+#dash-sec-crm .pxl-crm-sub{font-size:9px;color:#7B8798;margin-top:2px}
+#dash-sec-crm .pxl-crm-card,#dash-sec-crm .pxl-crm-kpi{background:#fff;border:1px solid #E3E9F1;border-radius:13px;box-shadow:0 5px 18px rgba(15,23,42,.035)}
+#dash-sec-crm .pxl-crm-kpi-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+#dash-sec-crm .pxl-crm-kpi{padding:10px;display:flex;gap:8px;align-items:center;min-width:0;min-height:72px}
+#dash-sec-crm .pxl-crm-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:0 0 32px;font-size:15px}
+#dash-sec-crm .pxl-crm-icon.blue{background:#EAF3FF;color:#2F80ED}.pxl-crm-icon.teal{background:#E8FAF7;color:#14B8A6}.pxl-crm-icon.gray{background:#F0F2F5;color:#667085}.pxl-crm-icon.purple{background:#F2EAFE;color:#7C3AED}.pxl-crm-icon.orange{background:#FFF2E7;color:#F97316}.pxl-crm-icon.green{background:#E9F8EF;color:#10B981}.pxl-crm-icon.red{background:#FFF0F1;color:#EF4444}
+#dash-sec-crm .pxl-crm-kpi span{display:block;font-size:8.4px;font-weight:700;color:#56616f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-crm .pxl-crm-kpi b{display:block;font-size:18px;line-height:1.05;margin:3px 0;color:#14213d}
+#dash-sec-crm .pxl-crm-kpi small{display:block;font-size:7.4px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-crm .pxl-crm-donut-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+#dash-sec-crm .pxl-crm-panel{padding:11px;min-width:0}
+#dash-sec-crm .pxl-crm-panel-title{font-size:11px;font-weight:800;color:#14213d}
+#dash-sec-crm .pxl-crm-panel-sub{font-size:8.3px;color:#7B8798;margin-top:2px}
+#dash-sec-crm .pxl-crm-donut{min-height:205px;display:flex;align-items:center;justify-content:center}
+#dash-sec-crm .pxl-crm-main-grid{display:grid;grid-template-columns:1.15fr .9fr;gap:10px;margin-top:10px}
+#dash-sec-crm .pxl-crm-table-wrap{overflow:auto;margin-top:8px}
+#dash-sec-crm .pxl-crm-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px}
+#dash-sec-crm .pxl-crm-table th{background:#F7F9FC;color:#516075;font-size:7.8px;font-weight:800;text-align:left;padding:7px;border-bottom:1px solid #E8EDF3;white-space:nowrap}
+#dash-sec-crm .pxl-crm-table td{padding:7px;border-bottom:1px solid #EEF2F6;color:#26334d;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dash-sec-crm .pxl-crm-table tr:last-child td{border-bottom:0}
+#dash-sec-crm .pxl-crm-badge{display:inline-flex;border-radius:6px;padding:3px 6px;font-size:7px;font-weight:700}
+#dash-sec-crm .pxl-crm-progress{display:flex;align-items:center;gap:5px}
+#dash-sec-crm .pxl-crm-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
+#dash-sec-crm .pxl-crm-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
+#dash-sec-crm .pxl-crm-pct{font-size:7.8px;min-width:28px;text-align:right;color:#52627a}
+#dash-sec-crm .pxl-crm-empty{text-align:center;color:#7B8798;padding:18px!important}
+@media(max-width:1300px){#dash-sec-crm .pxl-crm-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1050px){#dash-sec-crm .pxl-crm-main-grid{grid-template-columns:1fr}#dash-sec-crm .pxl-crm-donut-grid{grid-template-columns:1fr}}
+@media(max-width:650px){#dash-sec-crm .pxl-crm-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dash-sec-crm .pxl-crm-table{min-width:560px}}
 </style>
 </head>
 <body>
@@ -2602,6 +2636,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <button class="dash-sub-btn" id="dsub-mr" onclick="switchDashSub('mr',this)">📦 Material Request</button>
         <button class="dash-sub-btn" id="dsub-pr" onclick="switchDashSub('pr',this)">📝 Purchase Request</button>
         <button class="dash-sub-btn" id="dsub-project" onclick="switchDashSub('project',this)">📁 Project</button>
+        <button class="dash-sub-btn" id="dsub-crm" onclick="switchDashSub('crm',this)">👥 Customer / CRM</button>
       </div>
 
       <div id="dash-loading" class="dash-loading" style="display:none">⏳ Memuat data...</div>
@@ -3121,6 +3156,59 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           </aside>
         </div>
       </div>
+      <!-- ══ CUSTOMER / CRM ══ -->
+      <div id="dash-sec-crm" style="display:none">
+        <div class="pxl-crm-head-card">
+          <div>
+            <div class="pxl-crm-title">Customer / CRM</div>
+            <div class="pxl-crm-sub">Ringkasan data customer, status, follow-up, dan transaksi</div>
+          </div>
+        </div>
+
+        <section class="pxl-crm-kpi-grid">
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon blue">👥</div><div><span>Total Customer</span><b id="dcrm-total">—</b><small>seluruh customer CRM</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon teal">🏢</div><div><span>Customer Aktif</span><b id="dcrm-active">—</b><small>status aktif</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon gray">●</div><div><span>Customer Tidak Aktif</span><b id="dcrm-inactive">—</b><small>status tidak aktif</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon purple">▥</div><div><span>Prospect</span><b id="dcrm-prospect">—</b><small>status customer</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon orange">🤝</div><div><span>Negotiation</span><b id="dcrm-negotiation">—</b><small>dalam negosiasi</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon green">✓</div><div><span>Deal / Closed Won</span><b id="dcrm-deal">—</b><small>customer deal</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon red">×</div><div><span>Closed Lost</span><b id="dcrm-lost">—</b><small>tidak berhasil</small></div></div>
+          <div class="pxl-crm-kpi"><div class="pxl-crm-icon orange">◷</div><div><span>Perlu Follow Up</span><b id="dcrm-followup">—</b><small>jadwal follow-up aktif</small></div></div>
+        </section>
+
+        <div class="pxl-crm-donut-grid">
+          <section class="pxl-crm-card pxl-crm-panel"><div class="pxl-crm-panel-title">🏢 Customer Type</div><div class="pxl-crm-panel-sub">Distribusi tipe customer</div><div id="dcrm-type-chart" class="pxl-crm-donut"></div></section>
+          <section class="pxl-crm-card pxl-crm-panel"><div class="pxl-crm-panel-title">🏷️ Sub-Segmentasi</div><div class="pxl-crm-panel-sub">Distribusi sub-segmentasi customer</div><div id="dcrm-subseg-chart" class="pxl-crm-donut"></div></section>
+          <section class="pxl-crm-card pxl-crm-panel"><div class="pxl-crm-panel-title">🚶 Status Customer</div><div class="pxl-crm-panel-sub">Distribusi status customer CRM</div><div id="dcrm-status-chart" class="pxl-crm-donut"></div></section>
+        </div>
+
+        <div class="pxl-crm-main-grid">
+          <section class="pxl-crm-card pxl-crm-panel">
+            <div class="pxl-crm-panel-title">🏆 Top 5 Customer Berdasarkan Potensi Omzet</div>
+            <div class="pxl-crm-panel-sub">Customer dengan estimasi potensi omzet tertinggi</div>
+            <div class="pxl-crm-table-wrap"><table class="pxl-crm-table"><thead><tr><th style="width:30px">#</th><th>Customer</th><th>Type</th><th>Status</th><th>Estimasi Omzet</th></tr></thead><tbody id="dcrm-potential-body"></tbody></table></div>
+          </section>
+
+          <section class="pxl-crm-card pxl-crm-panel">
+            <div class="pxl-crm-panel-title">🛒 Top Customer (Transaksi)</div>
+            <div class="pxl-crm-panel-sub">Customer dengan nilai transaksi invoice tertinggi pada periode dipilih</div>
+            <div class="pxl-crm-table-wrap"><table class="pxl-crm-table"><thead><tr><th style="width:30px">#</th><th>Customer</th><th>Jumlah Transaksi</th><th>Total Transaksi</th><th style="width:25%">Kontribusi</th></tr></thead><tbody id="dcrm-transaction-body"></tbody></table></div>
+          </section>
+
+          <section class="pxl-crm-card pxl-crm-panel">
+            <div class="pxl-crm-panel-title">◷ Customer Perlu Tindak Lanjut</div>
+            <div class="pxl-crm-panel-sub">Customer yang perlu segera di-follow up</div>
+            <div class="pxl-crm-table-wrap"><table class="pxl-crm-table"><thead><tr><th style="width:30px">#</th><th>Customer</th><th>Next Follow Up</th><th>Status</th><th>PIC</th></tr></thead><tbody id="dcrm-followup-body"></tbody></table></div>
+          </section>
+
+          <section class="pxl-crm-card pxl-crm-panel">
+            <div class="pxl-crm-panel-title">▣ Aktivitas Terbaru</div>
+            <div class="pxl-crm-panel-sub">Riwayat customer dan transaksi terbaru</div>
+            <div class="pxl-crm-table-wrap"><table class="pxl-crm-table"><thead><tr><th>Waktu</th><th>Customer</th><th>Aktivitas</th><th>PIC</th></tr></thead><tbody id="dcrm-recent-body"></tbody></table></div>
+          </section>
+        </div>
+      </div>
+
 
     </div>
 
@@ -5540,7 +5628,7 @@ function switchDashSub(sub, btn){
   currentDashSub=sub;
   document.querySelectorAll('.dash-sub-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['overview','teknisi','invoice','kunjungan','mr','pr','project'].forEach(s=>{
+  ['overview','teknisi','invoice','kunjungan','mr','pr','project','crm'].forEach(s=>{
     const el=document.getElementById('dash-sec-'+s);
     if(el) el.style.display=s===sub?'':'none';
   });
@@ -5567,6 +5655,17 @@ function switchDashSub(sub, btn){
     ]).then(()=>renderDashboard()).catch(()=>{
       dashProjectData=dashProjectData||[];
       dashProjectReportData=dashProjectReportData||[];
+      renderDashboard();
+    });
+    return;
+  }
+  if(sub==='crm'){
+    api('GET','/api/crm/customers').then(data=>{
+      dashCrmCustomerData=Array.isArray(data)?data:[];
+      renderDashboard();
+    }).catch(err=>{
+      console.error('Gagal memuat Customer CRM dashboard',err);
+      dashCrmCustomerData=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
       renderDashboard();
     });
     return;
@@ -6401,6 +6500,103 @@ function renderDashSubPR(prList){
   if(recent){const rs=[...rows].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,6);recent.innerHTML=rs.length?rs.map(p=>{const d=new Date(p.created_at||0);const ds=isNaN(d)?'-':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');const st=statusOf(p);const badge=st==='approved'?['#E9F8EF','#10B981','Approved']:st==='approved1'?['#EAF3FF','#2F80ED','Approved 1']:st==='rejected'?['#FFF0F1','#EF4444','Rejected']:['#FFF2E7','#F97316','Pending'];return `<div class="pxl-req-recent-row"><div class="pxl-req-date">${ds}<small>${esc(p.pr_number||'')}</small></div><div class="pxl-req-recent-copy"><b>${esc(p.requester||'Tanpa Requester')}</b><small>${esc(p.outlet||'Tanpa Outlet')} · ${(p.items||[]).length} item</small></div><span class="pxl-req-badge" style="background:${badge[0]};color:${badge[1]}">${badge[2]}</span></div>`}).join(''):'<div class="pxl-req-empty">Belum ada PR</div>'}
 }
 
+function renderDashSubCRM(){
+  const customers=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  const visits=filterVisitsDash(kunjunganData||[]);
+  const invoices=getDashInvoices();
+  const el=id=>document.getElementById(id);
+  const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const norm=v=>String(v||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const shortMoney=v=>{const n=Number(v)||0;if(n>=1e9)return 'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:1})+' M';if(n>=1e6)return 'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt';if(n>=1e3)return 'Rp '+(n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' rb';return 'Rp '+n.toLocaleString('id-ID')};
+  const inactiveStates=new Set(['inactive','nonaktif','non-active','disabled','archived','closed']);
+  const active=customers.filter(c=>!inactiveStates.has(String(c.status||'active').toLowerCase()));
+  const inactive=customers.length-active.length;
+
+  const latestVisit={};
+  (kunjunganData||[]).forEach(v=>{
+    const key=norm(v.customer_name);if(!key)return;
+    const d=new Date(v.prospect_date||v.created_at||0);
+    if(!latestVisit[key]||d>latestVisit[key]._date)latestVisit[key]={...v,_date:d};
+  });
+  const statusOf=c=>{
+    const v=latestVisit[norm(c.name)];
+    if(v?.cust_status)return v.cust_status;
+    return inactiveStates.has(String(c.status||'').toLowerCase())?'Tidak Aktif':'Active';
+  };
+  const statusCount={};customers.forEach(c=>{const s=statusOf(c);statusCount[s]=(statusCount[s]||0)+1});
+  const prospect=statusCount['Prospect']||0,negotiation=statusCount['Negotiation']||0,deal=statusCount['Closed Won']||0,lost=statusCount['Closed Lost']||0;
+  const followup=customers.filter(c=>c.next_follow_up_at&&!['Closed Won','Closed Lost'].includes(statusOf(c))).length;
+
+  set('dcrm-total',customers.length);set('dcrm-active',active.length);set('dcrm-inactive',inactive);
+  set('dcrm-prospect',prospect);set('dcrm-negotiation',negotiation);set('dcrm-deal',deal);set('dcrm-lost',lost);set('dcrm-followup',followup);
+
+  const typeMap={};customers.forEach(c=>{const t=c.type||latestVisit[norm(c.name)]?.customer_type||'Lainnya';typeMap[t]=(typeMap[t]||0)+1});
+  const subsegMap={};customers.forEach(c=>{const t=c.sub_segmentasi||c.sub_segment||latestVisit[norm(c.name)]?.sub_segmentasi||'Lainnya';subsegMap[t]=(subsegMap[t]||0)+1});
+  renderKjLowerDonut(typeMap,'dcrm-type-chart');
+  renderKjLowerDonut(subsegMap,'dcrm-subseg-chart');
+  renderKjLowerDonut(statusCount,'dcrm-status-chart');
+
+  const potentialMap={};
+  visits.forEach(v=>{
+    const key=norm(v.customer_name);if(!key)return;
+    if(!potentialMap[key])potentialMap[key]={name:v.customer_name,total:0,type:v.customer_type||'',status:v.cust_status||''};
+    potentialMap[key].total+=Number(v.estimasi_omzet)||0;
+    potentialMap[key].type=v.customer_type||potentialMap[key].type;
+    potentialMap[key].status=v.cust_status||potentialMap[key].status;
+  });
+  const potentials=Object.values(potentialMap).sort((a,b)=>b.total-a.total).slice(0,5);
+  const pbody=el('dcrm-potential-body');
+  if(pbody)pbody.innerHTML=potentials.length?potentials.map((r,i)=>{
+    const badge=r.status==='Closed Won'?['#E9F8EF','#10B981']:r.status==='Negotiation'?['#FFF2E7','#F97316']:['#EAF3FF','#2F80ED'];
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.type||'—')+'</td><td><span class="pxl-crm-badge" style="background:'+badge[0]+';color:'+badge[1]+'">'+esc(r.status||'—')+'</span></td><td>'+esc(shortMoney(r.total))+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="pxl-crm-empty">Belum ada data potensi omzet</td></tr>';
+
+  // Top customer transaksi: gabungkan invoice tiket + standalone dan cocokkan nama customer.
+  const transMap={};
+  const {from,to}=getDashRange();
+  const includeDate=raw=>{if(!from&&!to)return true;const d=raw?new Date(raw):null;return d&&!isNaN(d)&&!(from&&d<from)&&!(to&&d>to)};
+  allTicketsForReport().forEach(t=>{
+    (t.invoices||[]).forEach(inv=>{
+      if(!includeDate(inv.uploaded_at||t.worked_at||t.created_at))return;
+      const name=t.customer_name||inv.customer_name||'Tanpa Nama',key=norm(name);if(!key)return;
+      if(!transMap[key])transMap[key]={name,count:0,total:0};
+      transMap[key].count++;transMap[key].total+=Number(inv.total_amount)||0;
+    });
+  });
+  (standaloneInvoices||[]).forEach(inv=>{
+    if(!includeDate(inv.uploaded_at||inv.created_at))return;
+    const name=inv.customer_name||inv.customer||'Tanpa Nama',key=norm(name);if(!key)return;
+    if(!transMap[key])transMap[key]={name,count:0,total:0};
+    transMap[key].count++;transMap[key].total+=Number(inv.total_amount)||0;
+  });
+  const trans=Object.values(transMap).sort((a,b)=>b.total-a.total).slice(0,5);
+  const totalTrans=Object.values(transMap).reduce((s,r)=>s+r.total,0)||1,maxTrans=Math.max(1,...trans.map(r=>r.total));
+  const tbody=el('dcrm-transaction-body');
+  if(tbody)tbody.innerHTML=trans.length?trans.map((r,i)=>{
+    const pct=Math.round(r.total/totalTrans*100),bar=Math.round(r.total/maxTrans*100);
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.count+'</td><td>'+esc(shortMoney(r.total))+'</td><td><div class="pxl-crm-progress"><div class="pxl-crm-track"><div class="pxl-crm-fill" style="width:'+bar+'%"></div></div><span class="pxl-crm-pct">'+pct+'%</span></div></td></tr>';
+  }).join(''):'<tr><td colspan="5" class="pxl-crm-empty">Belum ada transaksi invoice pada periode ini</td></tr>';
+
+  const fbody=el('dcrm-followup-body');
+  const followRows=customers.filter(c=>c.next_follow_up_at&&!['Closed Won','Closed Lost'].includes(statusOf(c))).sort((a,b)=>String(a.next_follow_up_at).localeCompare(String(b.next_follow_up_at))).slice(0,5);
+  if(fbody)fbody.innerHTML=followRows.length?followRows.map((c,i)=>{
+    const d=new Date(c.next_follow_up_at),ds=isNaN(d)?'—':d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(c.name||'—')+'</td><td>'+esc(ds)+'</td><td>'+esc(statusOf(c))+'</td><td>'+esc(c.sales_pic||'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="pxl-crm-empty">Tidak ada customer yang perlu follow-up</td></tr>';
+
+  const recent=[];
+  customers.forEach(c=>{if(c.last_communication_at)recent.push({at:c.last_communication_at,name:c.name,activity:(c.last_communication_channel||'Komunikasi customer'),pic:c.sales_pic||'—'})});
+  visits.forEach(v=>{recent.push({at:v.prospect_date||v.created_at,name:v.customer_name,activity:v.cust_status||v.visit_status||'Kunjungan',pic:v.sales_pic||'—'})});
+  trans.forEach(()=>{});
+  const rbody=el('dcrm-recent-body');
+  const recentRows=recent.filter(x=>x.at).sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,6);
+  if(rbody)rbody.innerHTML=recentRows.length?recentRows.map(r=>{
+    const d=new Date(r.at),dt=isNaN(d)?'—':d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    return '<tr><td>'+esc(dt)+'</td><td>'+esc(r.name||'—')+'</td><td>'+esc(r.activity||'—')+'</td><td>'+esc(r.pic||'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="4" class="pxl-crm-empty">Belum ada aktivitas customer</td></tr>';
+}
+
 function renderDashSubProject(projList){
   const rows=Array.isArray(projList)?projList:[];
   const el=id=>document.getElementById(id);
@@ -6832,6 +7028,7 @@ function renderDashboard(){
     else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
     else if(currentDashSub==='pr') renderDashSubPR(dashPRData||[]);
     else if(currentDashSub==='project') renderDashSubProject(dashProjectData||[]);
+    else if(currentDashSub==='crm') renderDashSubCRM();
     return;
   }
 
@@ -6909,6 +7106,7 @@ function renderDashboard(){
   else if(currentDashSub==='mr') renderDashSubMR(dashMRData||[]);
   else if(currentDashSub==='pr') renderDashSubPR(dashPRData||[]);
   else if(currentDashSub==='project') renderDashSubProject(dashProjectData||[]);
+  else if(currentDashSub==='crm') renderDashSubCRM();
 }
 
 // ── Target & Pencapaian metrics + chart ──
