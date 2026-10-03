@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0005 — annual target breakdown per Sales PIC */
 /* PXL-SALES-UI-0004 — annual sales target summary */
 /* PXL-SALES-UI-0003 — fix period selector and auto-select latest data month */
 /* PXL-SALES-UI-0002 — production data source fix (CRM Invoice + actual pipeline statuses) */
@@ -1379,6 +1380,16 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 .pxl-sales-annual-progress-meta b{font-size:9px;color:#344054}
 .pxl-sales-annual-track{height:11px;border-radius:99px;background:#EAF0F6;overflow:hidden}
 .pxl-sales-annual-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#24C78E);transition:width .25s ease}
+.pxl-sales-annual-pic-wrap{margin-top:12px;padding-top:11px;border-top:1px solid #EDF0F4}
+.pxl-sales-annual-pic-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+.pxl-sales-annual-pic-head b{display:block;font-size:9.5px;color:#14213d}
+.pxl-sales-annual-pic-head small{display:block;font-size:7.6px;color:#7B8798;margin-top:2px}
+.pxl-sales-annual-pic-table td{vertical-align:middle}
+.pxl-sales-annual-pic-name{display:flex;align-items:center;gap:6px;min-width:0}
+.pxl-sales-annual-pic-avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#EEF2FF;color:#5B5CE2;font-size:7px;font-weight:800;flex:0 0 22px}
+.pxl-sales-annual-pic-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pxl-sales-annual-pic-achievement{display:flex;align-items:center;gap:6px}
+.pxl-sales-annual-pic-achievement .pxl-sales-track{min-width:80px}
 .pxl-sales-mid-grid{display:grid;grid-template-columns:.9fr 1.6fr;gap:10px;margin-bottom:10px}
 .pxl-sales-potential-grid{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:8px}
 .pxl-sales-potential-main,.pxl-sales-mini{border-radius:10px;padding:12px;border:1px solid #E8EDF3}
@@ -2710,6 +2721,21 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
             <b id="sd-annual-progress-label">—</b>
           </div>
           <div class="pxl-sales-annual-track"><div class="pxl-sales-annual-fill" id="sd-annual-progress-bar"></div></div>
+        </div>
+
+        <div class="pxl-sales-annual-pic-wrap">
+          <div class="pxl-sales-annual-pic-head">
+            <div>
+              <b>Target Tahunan per Sales PIC</b>
+              <small>Akumulasi target bulanan per Sales PIC dibandingkan realisasi omzet tahun berjalan</small>
+            </div>
+          </div>
+          <div class="pxl-sales-table-wrap">
+            <table class="pxl-sales-table pxl-sales-annual-pic-table">
+              <thead><tr><th>#</th><th>Sales PIC</th><th>Target Tahunan</th><th>Realisasi</th><th>Sisa Target</th><th style="width:24%">Pencapaian</th></tr></thead>
+              <tbody id="sd-annual-pic-body"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -8299,6 +8325,43 @@ function renderSalesDashboard(){
   set('sd-annual-progress-label',annualTarget?annualPct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—');
   const annualBar=document.getElementById('sd-annual-progress-bar');
   if(annualBar) annualBar.style.width=annualProgress+'%';
+
+  // Breakdown target tahunan per Sales PIC.
+  const annualTargetByPic={};
+  annualTargets.forEach(t=>{
+    const pic=String(t.sales_pic||'(Tanpa PIC)').trim()||'(Tanpa PIC)';
+    annualTargetByPic[pic]=(annualTargetByPic[pic]||0)+(Number(t.target_amount)||0);
+  });
+  const annualRealByPic={};
+  allSalesInvoices.forEach(inv=>{
+    const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
+    if(isNaN(d)||d<annualFrom||d>annualTo)return;
+    const pic=String(inv.sales_pic||'(Tanpa PIC)').trim()||'(Tanpa PIC)';
+    annualRealByPic[pic]=(annualRealByPic[pic]||0)+(Number(inv.total_amount)||0);
+  });
+  const annualPics=[...new Set([...Object.keys(annualTargetByPic),...Object.keys(annualRealByPic)])]
+    .filter(p=>p!=='(Tanpa PIC)')
+    .sort((a,b)=>(annualTargetByPic[b]||0)-(annualTargetByPic[a]||0));
+  const annualPicBody=document.getElementById('sd-annual-pic-body');
+  if(annualPicBody){
+    annualPicBody.innerHTML=annualPics.length?annualPics.map((pic,i)=>{
+      const target=annualTargetByPic[pic]||0;
+      const real=annualRealByPic[pic]||0;
+      const gap=Math.max(0,target-real);
+      const pct=target?real/target*100:0;
+      const progress=Math.max(0,Math.min(100,pct));
+      const initials=pic.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
+      const color=pct>=100?['#E9F8EF','#10B981']:pct>=70?['#FFF8E7','#B77900']:['#FFF0F1','#EF4444'];
+      return '<tr>'+
+        '<td>'+(i+1)+'</td>'+
+        '<td><div class="pxl-sales-annual-pic-name"><i class="pxl-sales-annual-pic-avatar">'+esc(initials)+'</i><span title="'+esc(pic)+'">'+esc(pic)+'</span></div></td>'+
+        '<td>'+esc(shortMoney(target))+'</td>'+
+        '<td>'+esc(shortMoney(real))+'</td>'+
+        '<td>'+(target?(gap?esc(shortMoney(gap)):'Target tercapai'):'—')+'</td>'+
+        '<td><div class="pxl-sales-annual-pic-achievement"><div class="pxl-sales-track"><div class="pxl-sales-fill" style="width:'+progress+'%"></div></div><span class="pxl-sales-badge" style="background:'+color[0]+';color:'+color[1]+'">'+(target?pct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—')+'</span></div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="6" class="pxl-sales-empty">Belum ada target tahunan per Sales PIC</td></tr>';
+  }
 
   const targetMap={};
   (salesTargets||[]).forEach(t=>{
