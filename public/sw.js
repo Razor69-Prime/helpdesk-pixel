@@ -1,4 +1,6 @@
-const CACHE='pixelapps-inv1-v99';
+[Reading 18 lines from start (total: 18 lines, 0 remaining)]
+
+const CACHE='pixelapps-inv1-v100';
 const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js','/pxl-urg-0027-sales-visit-duplicate-alert.js'];
 
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));self.skipWaiting();});
@@ -16,3 +18,5 @@ async function kanbanHtml(request){try{const response=await fetch(request,{cache
 async function aiReportHtml(request){try{const response=await fetch(request,{cache:'no-store'});if(!response.ok)return response;return htmlResponse(response,fixBackNavigation(await response.text()));}catch(_){return navigationNetworkFirst(request);}}
 
 self.addEventListener('fetch',event=>{const request=event.request;if(request.method!=='GET')return;const url=new URL(request.url);if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith('/uploads/'))return;if(url.pathname==='/invoice-v1-a16.html'){event.respondWith(invoiceHtml(request));return;}if(url.pathname==='/sales-order.html'){event.respondWith(salesOrderHtml(request));return;}if(url.pathname==='/kanban.html'){event.respondWith(kanbanHtml(request));return;}if(url.pathname==='/ai-report.html'){event.respondWith(aiReportHtml(request));return;}if(url.pathname==='/'||url.pathname==='/index.html'){event.respondWith(indexHtml(request));return;}if(request.mode==='navigate'||url.pathname.endsWith('.html')){event.respondWith(navigationNetworkFirst(request));return;}event.respondWith(staleWhileRevalidate(request));});
+
+[executed on device: exabytes-80945507 (f4368bfd-fa87-4db6-aa56-09df91141c11)]
