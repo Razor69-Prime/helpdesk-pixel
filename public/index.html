@@ -6169,7 +6169,8 @@ function renderDashboard(){
   });
   const techNames=Object.keys(techs).sort((a,b)=>techs[b].done-techs[a].done);
   const maxDone=Math.max(1,...techNames.map(n=>techs[n].done));
-  document.getElementById('dash-tech-chart').innerHTML=techNames.length
+  const legacyTechChart=document.getElementById('dash-tech-chart');
+  if(legacyTechChart) legacyTechChart.innerHTML=techNames.length
     ?`<div class="dash-bar-list">${techNames.map(n=>{
         return`<div class="dash-bar-row">
           <div class="dash-bar-label" title="${n}">${n}</div>
