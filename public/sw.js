@@ -1,4 +1,4 @@
-const CACHE='pixelapps-inv1-v77';
+const CACHE='pixelapps-inv1-v78';
 const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js','/pxl-urg-0027-sales-visit-duplicate-alert.js'];
 
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));self.skipWaiting();});
