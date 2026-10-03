@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0001 — Sales Performance redesign */
 /* PXL-DASH-UI-0023 — make Overview Project data independent from opening Project Tracker */
 /* PXL-DASH-UI-0022 — add previous-month Dashboard period */
 /* PXL-DASH-UI-0021 — CRM endpoint + Project/CRM dashboard cache synchronization */
@@ -1329,6 +1330,69 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:1300px){#dash-sec-crm .pxl-crm-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:1050px){#dash-sec-crm .pxl-crm-main-grid{grid-template-columns:1fr}#dash-sec-crm .pxl-crm-donut-grid{grid-template-columns:1fr}}
 @media(max-width:650px){#dash-sec-crm .pxl-crm-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dash-sec-crm .pxl-crm-table{min-width:560px}}
+
+/* PXL-SALES-UI-0001 — Sales Performance */
+#tab-sales.pxl-sales-performance{font-size:11px;color:#14213d}
+.pxl-sales-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.pxl-sales-title{font-size:20px;font-weight:850;letter-spacing:-.02em}
+.pxl-sales-subtitle{font-size:9px;color:#7B8798;margin-top:3px}
+.pxl-sales-period-wrap{display:flex;align-items:center;gap:7px}
+.pxl-sales-period-label{font-size:9px;font-weight:700;color:#667085}
+#sales-period-select{font-size:10px;padding:6px 10px;border:1px solid #E3E9F1;border-radius:9px;background:#fff;color:#344054}
+.pxl-sales-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
+.pxl-sales-kpi{min-height:82px;border:1px solid #E3E9F1;border-radius:13px;padding:11px;display:flex;gap:9px;align-items:center;box-shadow:0 5px 18px rgba(15,23,42,.035);min-width:0}
+.pxl-sales-kpi.blue{background:#F3F8FF}.pxl-sales-kpi.green{background:#F1FBF5}.pxl-sales-kpi.amber{background:#FFF9EB}.pxl-sales-kpi.purple{background:#F7F2FF}.pxl-sales-kpi.teal{background:#EFFBF8}.pxl-sales-kpi.red{background:#FFF3F4}
+.pxl-sales-kpi-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.75);display:grid;place-items:center;font-size:17px;font-weight:800;flex:0 0 36px}
+.pxl-sales-kpi span{display:block;font-size:8.4px;font-weight:750;color:#475467;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-kpi b{display:block;font-size:17px;line-height:1.08;margin:3px 0;color:#14213d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-kpi small{display:block;font-size:7.5px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-analysis-grid{display:grid;grid-template-columns:1.25fr 1.05fr .85fr .85fr;gap:10px;margin-bottom:10px}
+.pxl-sales-card{background:#fff;border:1px solid #E3E9F1;border-radius:13px;box-shadow:0 5px 18px rgba(15,23,42,.035);padding:11px;min-width:0}
+.pxl-sales-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.pxl-sales-card-head b{display:block;font-size:10.5px}
+.pxl-sales-card-head small{display:block;font-size:8px;color:#7B8798;margin-top:2px}
+.pxl-sales-chart-area{min-height:210px;display:flex;align-items:center;justify-content:center}
+.pxl-sales-table-wrap{overflow:auto}
+.pxl-sales-table{width:100%;border-collapse:collapse;table-layout:auto;font-size:8.2px}
+.pxl-sales-table th{background:#F7F9FC;color:#516075;font-size:7.5px;font-weight:800;text-align:left;padding:6px;border-bottom:1px solid #E8EDF3;white-space:nowrap}
+.pxl-sales-table td{padding:6px;border-bottom:1px solid #EEF2F6;color:#26334d;white-space:nowrap}
+.pxl-sales-table tr:last-child td{border-bottom:0}
+.pxl-sales-badge{display:inline-flex;padding:3px 6px;border-radius:6px;font-size:7px;font-weight:750}
+.pxl-sales-progress{display:flex;align-items:center;gap:5px}
+.pxl-sales-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
+.pxl-sales-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
+.pxl-sales-pct{font-size:7.5px;min-width:28px;text-align:right;color:#52627a}
+.pxl-sales-mid-grid{display:grid;grid-template-columns:.9fr 1.6fr;gap:10px;margin-bottom:10px}
+.pxl-sales-potential-grid{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:8px}
+.pxl-sales-potential-main,.pxl-sales-mini{border-radius:10px;padding:12px;border:1px solid #E8EDF3}
+.pxl-sales-potential-main{background:#F5F8FE}
+.pxl-sales-potential-main span,.pxl-sales-mini span{display:block;font-size:8px;color:#667085;font-weight:700}
+.pxl-sales-potential-main b{display:block;font-size:19px;margin:6px 0}
+.pxl-sales-potential-main small,.pxl-sales-mini small{display:block;font-size:7.5px;color:#7B8798;margin-top:3px}
+.pxl-sales-mini b{display:block;font-size:18px;margin-top:7px}
+.pxl-sales-mini.green{background:#F1FBF5}.pxl-sales-mini.amber{background:#FFF9EB}.pxl-sales-mini.purple{background:#F7F2FF}
+.pxl-sales-pipeline{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr));gap:7px;overflow-x:auto}
+.pxl-sales-stage{border:1px solid #E4EAF1;border-radius:10px;background:#FAFBFD;min-height:205px;padding:8px}
+.pxl-sales-stage-head{display:flex;justify-content:space-between;gap:6px;margin-bottom:7px;font-size:8px;font-weight:800}
+.pxl-sales-stage-count{font-size:11px}
+.pxl-sales-lead{padding:7px;border-radius:8px;background:#fff;border:1px solid #E8EDF3;margin-bottom:6px}
+.pxl-sales-lead b{display:block;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-lead small{display:block;font-size:7px;color:#7B8798;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.pxl-sales-target-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:10px}
+.pxl-sales-target-form{display:grid;grid-template-columns:1fr 1fr 1.2fr auto;gap:8px;align-items:end}
+.pxl-sales-target-form .form-group{margin:0}
+.pxl-sales-target-form label{font-size:8px}
+.pxl-sales-target-form input,.pxl-sales-target-form select{font-size:9px;padding:7px}
+.pxl-sales-target-action{padding-bottom:1px}
+.pxl-sales-form-preview{font-size:7.5px;color:#7B8798;margin-top:3px}
+.pxl-sales-target-list{max-height:230px;overflow:auto}
+.pxl-sales-empty{padding:18px;text-align:center;color:#7B8798;font-size:8px}
+.pxl-sales-contrib-row{display:grid;grid-template-columns:75px 1fr auto;gap:6px;align-items:center;padding:6px 0}
+.pxl-sales-contrib-row span{font-size:7.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-contrib-row b{font-size:7.8px}
+@media(max-width:1300px){.pxl-sales-kpi-grid{grid-template-columns:repeat(3,1fr)}.pxl-sales-analysis-grid{grid-template-columns:1fr 1fr}.pxl-sales-mid-grid{grid-template-columns:1fr}.pxl-sales-bottom-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.pxl-sales-kpi-grid{grid-template-columns:repeat(2,1fr)}.pxl-sales-analysis-grid,.pxl-sales-bottom-grid,.pxl-sales-target-grid{grid-template-columns:1fr}.pxl-sales-potential-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr}.pxl-sales-pipeline{grid-template-columns:repeat(5,150px)}}
 </style>
 </head>
 <body>
@@ -2544,71 +2608,104 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
       </div>
     </div>
 
-    <!-- TAB: SALES DASHBOARD (admin only) -->
-    <div id="tab-sales" class="tab-content">
-
-      <!-- Period selector -->
-      <div class="dash-period-bar" style="flex-wrap:wrap;gap:8px">
-        <span class="dash-period-label">Lihat:</span>
-        <button class="dash-period-btn active" onclick="setSalesPeriod('this_month',this)">Bulan Ini</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('last_month',this)">Bulan Lalu</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('this_week',this)">Minggu Ini</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('last_week',this)">Minggu Lalu</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('today',this)">Hari Ini</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('yesterday',this)">Kemarin</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('this_year',this)">Tahun Ini</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('next_week',this)">Minggu Depan</button>
-        <button class="dash-period-btn" onclick="setSalesPeriod('next_month',this)">Bulan Depan</button>
-      </div>
-
-      <!-- Summary cards -->
-      <div class="dash-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-        <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Total Realisasi</div><div class="dash-metric-value" id="sd-total-real">—</div><div class="dash-metric-sub" id="sd-period-label">periode dipilih</div></div>
-        <div class="dash-metric accent"><div class="dash-metric-icon">🎯</div><div class="dash-metric-label">Total Target</div><div class="dash-metric-value" id="sd-total-target">—</div><div class="dash-metric-sub">target periode</div></div>
-        <div class="dash-metric green"><div class="dash-metric-icon">📈</div><div class="dash-metric-label">Achievement</div><div class="dash-metric-value" id="sd-achievement">—</div><div class="dash-metric-sub">realisasi / target</div></div>
-      </div>
-
-      <!-- Charts row -->
-      <div class="dash-grid-2" style="margin-bottom:16px">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">🏆 Target vs Realisasi per Sales PIC</div>
-          <div class="dash-chart-sub">Perbandingan pencapaian periode dipilih</div>
-          <div id="sd-bar-chart"></div>
+    <!-- TAB: SALES PERFORMANCE -->
+    <div id="tab-sales" class="tab-content pxl-sales-performance">
+      <div class="pxl-sales-head">
+        <div>
+          <div class="pxl-sales-title">Sales Performance</div>
+          <div class="pxl-sales-subtitle">Ringkasan penjualan aktual, performa tim sales, dan pipeline bisnis Pixel Solusindo.</div>
         </div>
-        <div class="dash-chart-card">
-          <div class="dash-chart-title">📈 Tren Omzet Harian</div>
-          <div class="dash-chart-sub">Total invoice per hari (realisasi)</div>
-          <div id="sd-line-chart"></div>
+        <div class="pxl-sales-period-wrap">
+          <span class="pxl-sales-period-label">Periode</span>
+          <select id="sales-period-select" onchange="setSalesPeriod(this.value,null)">
+            <option value="this_month">Bulan Ini</option>
+            <option value="last_month">Bulan Lalu</option>
+            <option value="this_week">Minggu Ini</option>
+            <option value="last_week">Minggu Lalu</option>
+            <option value="today">Hari Ini</option>
+            <option value="yesterday">Kemarin</option>
+            <option value="this_year">Tahun Ini</option>
+          </select>
         </div>
       </div>
 
-      <!-- Input target + table -->
-      <div class="dash-grid-2">
-        <div class="dash-chart-card">
-          <div class="dash-chart-title" style="margin-bottom:12px">🎯 Input Target Bulanan</div>
-          <div class="form-group">
-            <label>Sales PIC</label>
-            <select id="st-pic"><option value="">Pilih Sales PIC...</option></select>
-          </div>
-          <div class="form-group">
-            <label>Bulan & Tahun</label>
-            <input type="month" id="st-month" style="width:100%"/>
-          </div>
-          <div class="form-group">
-            <label>Target Omzet (Rp)</label>
-            <input type="text" id="st-amount" placeholder="mis. 50000000" oninput="formatAmountInput(this)" inputmode="numeric"/>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px" id="st-amount-preview"></div>
-          </div>
-          <div style="display:flex;justify-content:flex-end">
-            <button class="btn primary" onclick="saveTarget()">💾 Simpan Target</button>
+      <section class="pxl-sales-kpi-grid">
+        <div class="pxl-sales-kpi blue"><div class="pxl-sales-kpi-icon">▥</div><div><span>Realisasi Penjualan / Omzet</span><b id="sd-total-real">—</b><small id="sd-period-label">periode dipilih</small></div></div>
+        <div class="pxl-sales-kpi green"><div class="pxl-sales-kpi-icon">◎</div><div><span>Target Penjualan</span><b id="sd-total-target">—</b><small>target periode dipilih</small></div></div>
+        <div class="pxl-sales-kpi amber"><div class="pxl-sales-kpi-icon">%</div><div><span>Pencapaian Target</span><b id="sd-achievement">—</b><small id="sd-gap-target">—</small></div></div>
+        <div class="pxl-sales-kpi purple"><div class="pxl-sales-kpi-icon">▣</div><div><span>Total Sales Order</span><b id="sd-so-count">—</b><small id="sd-so-value">—</small></div></div>
+        <div class="pxl-sales-kpi teal"><div class="pxl-sales-kpi-icon">▤</div><div><span>Total Invoice</span><b id="sd-invoice-count">—</b><small>transaksi periode dipilih</small></div></div>
+        <div class="pxl-sales-kpi red"><div class="pxl-sales-kpi-icon">◉</div><div><span>Average Transaksi</span><b id="sd-avg-transaction">—</b><small>rata-rata nilai invoice</small></div></div>
+      </section>
+
+      <section class="pxl-sales-analysis-grid">
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Tren Penjualan</b><small>Realisasi penjualan 6 bulan terakhir</small></div></div>
+          <div id="sd-line-chart" class="pxl-sales-chart-area"></div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Performa per Sales PIC</b><small>Ranking berdasarkan realisasi penjualan</small></div></div>
+          <div class="pxl-sales-table-wrap"><table class="pxl-sales-table"><thead><tr><th>#</th><th>Sales PIC</th><th>Realisasi</th><th>Target</th><th>Pencapaian</th></tr></thead><tbody id="sd-sales-performance"></tbody></table></div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Komposisi Penjualan</b><small>Sumber transaksi invoice</small></div></div>
+          <div id="sd-composition-chart" class="pxl-sales-chart-area"></div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Kontribusi Sales PIC</b><small>Kontribusi omzet per Sales PIC</small></div></div>
+          <div id="sd-contribution-list"></div>
+        </div>
+      </section>
+
+      <section class="pxl-sales-mid-grid">
+        <div class="pxl-sales-card pxl-sales-potential">
+          <div class="pxl-sales-card-head"><div><b>Potensi Penjualan</b><small>Nilai peluang dari aktivitas sales yang masih aktif</small></div></div>
+          <div class="pxl-sales-potential-grid">
+            <div class="pxl-sales-potential-main"><span>Total Potensi Omzet</span><b id="sd-potential-total">—</b><small>estimasi omzet dari kunjungan</small></div>
+            <div class="pxl-sales-mini green"><span>Prospect</span><b id="sd-pipeline-prospect">—</b><small id="sd-pipeline-prospect-value">—</small></div>
+            <div class="pxl-sales-mini amber"><span>Negotiation</span><b id="sd-pipeline-negotiation">—</b><small id="sd-pipeline-negotiation-value">—</small></div>
+            <div class="pxl-sales-mini purple"><span>Follow Up</span><b id="sd-pipeline-followup">—</b><small id="sd-pipeline-followup-value">—</small></div>
           </div>
         </div>
 
-        <div class="dash-chart-card">
-          <div class="dash-chart-title" style="margin-bottom:12px">📋 Daftar Target</div>
-          <div id="sd-target-list" style="max-height:320px;overflow-y:auto"></div>
+        <div class="pxl-sales-card pxl-sales-pipeline-card">
+          <div class="pxl-sales-card-head"><div><b>Pipeline Penjualan</b><small>Status customer dari aktivitas sales</small></div></div>
+          <div class="pxl-sales-pipeline" id="sd-pipeline-board"></div>
         </div>
-      </div>
+      </section>
+
+      <section class="pxl-sales-bottom-grid">
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Aktivitas Follow Up Hari Ini</b><small>Customer yang perlu ditindaklanjuti hari ini</small></div></div>
+          <div class="pxl-sales-table-wrap"><table class="pxl-sales-table"><thead><tr><th>Customer</th><th>Sales PIC</th><th>Status</th><th>Next Follow Up</th></tr></thead><tbody id="sd-followup-body"></tbody></table></div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Sales Order Terbaru</b><small>Sales Order terbaru pada sistem</small></div></div>
+          <div class="pxl-sales-table-wrap"><table class="pxl-sales-table"><thead><tr><th>No. SO</th><th>Customer</th><th>Sales PIC</th><th>Status</th><th>Nilai</th></tr></thead><tbody id="sd-so-recent-body"></tbody></table></div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Customer 360</b><small>Top customer berdasarkan transaksi invoice</small></div></div>
+          <div class="pxl-sales-table-wrap"><table class="pxl-sales-table"><thead><tr><th>#</th><th>Customer</th><th>Transaksi</th><th>Total Omzet</th></tr></thead><tbody id="sd-customer360-body"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="pxl-sales-target-grid">
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Target Management</b><small>Input target bulanan per Sales PIC</small></div></div>
+          <div class="pxl-sales-target-form">
+            <div class="form-group"><label>Sales PIC</label><select id="st-pic"><option value="">Pilih Sales PIC...</option></select></div>
+            <div class="form-group"><label>Bulan & Tahun</label><input type="month" id="st-month"/></div>
+            <div class="form-group"><label>Target Omzet (Rp)</label><input type="text" id="st-amount" placeholder="mis. 50000000" oninput="formatAmountInput(this)" inputmode="numeric"/><div id="st-amount-preview" class="pxl-sales-form-preview"></div></div>
+            <div class="pxl-sales-target-action"><button class="btn primary" onclick="saveTarget()">💾 Simpan Target</button></div>
+          </div>
+        </div>
+        <div class="pxl-sales-card">
+          <div class="pxl-sales-card-head"><div><b>Daftar Target</b><small>Target Sales PIC yang sudah ditetapkan</small></div></div>
+          <div id="sd-target-list" class="pxl-sales-target-list"></div>
+        </div>
+      </section>
+
+      <div id="sd-bar-chart" style="display:none"></div>
     </div>
 
     <!-- TAB: DASHBOARD (manager) -->
@@ -3943,7 +4040,7 @@ function buildNav(){
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'piutang',   label:'💳 Daftar Piutang', show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'kpi',       label:'📊 KPI',            show: role==='admin'||isManager||isSuperAdmin||role==='sales'},
-    {id:'sales',     label:'💰 Sales',          show: isManager||isSuperAdmin},
+    {id:'sales',     label:'📊 Sales Performance', show: isManager||isSuperAdmin},
     {id:'kunjungan', label:'🗺️ Kunjungan',      show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='operator'},
     {id:'archive',   label:'📦 Arsip',          show: role==='admin'||role==='accounting'||isManager||isSuperAdmin},
     {id:'users',     label:'👥 Manajemen Akun', show: isSuperAdmin},
@@ -5216,7 +5313,7 @@ const ALL_MENUS=[
   {id:'service_center',label:'🔧 Service Center'},
   {id:'invoice', label:'🧾 Invoice'},
   {id:'kpi',     label:'📊 KPI'},
-  {id:'sales',   label:'💰 Sales Dashboard'},
+  {id:'sales',   label:'📊 Sales Performance'},
   {id:'kunjungan',label:'🗺️ Kunjungan Sales'},
   {id:'archive', label:'📦 Arsip'},
   {id:'dashboard',label:'📊 Dashboard Manager'},
@@ -7974,26 +8071,32 @@ function setSalesPeriod(val,btn){
 
 async function loadSalesDashboard(){
   try{
-    // load targets
-    salesTargets=await api('GET','/sales-targets');
-    // load sales PICs for dropdown
-    const users=await api('GET','/users');
-    const pics=users.filter(u=>(u.role==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales'))) && u.is_active!==false);
-    const sel=document.getElementById('st-pic');
-    if(sel) sel.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
-    // set default month to current
+    const jobs=[
+      api('GET','/sales-targets').then(d=>{salesTargets=Array.isArray(d)?d:[];}),
+      api('GET','/users').then(users=>{
+        const pics=(Array.isArray(users)?users:[]).filter(u=>(u.role==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales'))) && u.is_active!==false);
+        const sel=document.getElementById('st-pic');
+        if(sel) sel.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+      }),
+      api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}),
+      api('GET','/sales-visits').then(d=>{kunjunganData=Array.isArray(d)?d:[];}).catch(()=>{}),
+      api('GET','/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}),
+      api('GET','/invoices/standalone').then(d=>{standaloneInvoices=Array.isArray(d)?d:[];}).catch(()=>{})
+    ];
+    if(!allTickets.length) jobs.push(api('GET','/tickets').then(d=>{allTickets=Array.isArray(d)?d:[];}).catch(()=>{}));
+    await Promise.allSettled(jobs);
+
     const now=new Date();
     const monthEl=document.getElementById('st-month');
-    if(monthEl) monthEl.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    if(monthEl&&!monthEl.value) monthEl.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
-    // Sembunyikan form input target jika bukan manager/superadmin
     const canSetTarget=['manager','superadmin'].includes(currentUser.role);
-    const inputCard=document.querySelector('#tab-sales .dash-grid-2 .dash-chart-card:first-child');
-    if(inputCard) inputCard.style.display=canSetTarget?'':'none';
+    const targetGrid=document.querySelector('#tab-sales .pxl-sales-target-grid');
+    if(targetGrid) targetGrid.style.display=canSetTarget?'grid':'none';
 
     renderSalesDashboard();
     renderTargetList();
-  }catch(e){console.error('Sales dashboard error:',e);}
+  }catch(e){console.error('Sales Performance error:',e);}
 }
 
 // Semua tiket (aktif + arsip) untuk keperluan report
@@ -8024,103 +8127,148 @@ function buildInvoiceFlat(){
 
 function renderSalesDashboard(){
   const {from,to,label}=getSalesPeriodRange(salesPeriod);
-  document.getElementById('sd-period-label').textContent=label;
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const shortMoney=v=>{const n=Number(v)||0;if(n>=1e9)return 'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:1})+' M';if(n>=1e6)return 'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt';if(n>=1e3)return 'Rp '+(n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' rb';return 'Rp '+n.toLocaleString('id-ID')};
+  const inRange=raw=>{const d=raw?new Date(raw):null;return d&&!isNaN(d)&&d>=from&&d<=to};
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val};
 
-  const invFlat=buildInvoiceFlat().filter(inv=>{
-    const d=new Date(inv.uploaded_at||inv.ticket_date);
-    return d>=from&&d<=to;
-  });
+  const invFlat=buildInvoiceFlat().filter(inv=>inRange(inv.uploaded_at||inv.ticket_date));
+  const totalReal=invFlat.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const avgTransaction=invFlat.length?Math.round(totalReal/invFlat.length):0;
 
-  // Group realisasi per Sales PIC
-  const realMap={};
-  invFlat.forEach(inv=>{
-    const pic=inv.sales_pic||'(Tanpa PIC)';
-    if(!realMap[pic]) realMap[pic]=0;
-    realMap[pic]+=Number(inv.total_amount)||0;
-  });
-
-  // Get targets for this period
-  // For target: use year_month overlap with period
   const targetMap={};
-  salesTargets.forEach(t=>{
-    const [ty,tm]=t.year_month.split('-').map(Number);
-    const tFrom=new Date(ty,tm-1,1);
-    const tTo=new Date(ty,tm,0,23,59,59);
-    // check overlap with selected period
-    if(tFrom<=to&&tTo>=from){
-      if(!targetMap[t.sales_pic]) targetMap[t.sales_pic]=0;
-      // pro-rate if period is shorter than full month
-      const overlapDays=Math.max(0,(Math.min(to,tTo)-Math.max(from,tFrom))/(864e5)+1);
-      const totalDays=(tTo-tFrom)/(864e5)+1;
-      const ratio=overlapDays/totalDays;
-      targetMap[t.sales_pic]+=t.target_amount*ratio;
-    }
+  (salesTargets||[]).forEach(t=>{
+    const [ty,tm]=String(t.year_month||'').split('-').map(Number);
+    if(!ty||!tm)return;
+    const tFrom=new Date(ty,tm-1,1),tTo=new Date(ty,tm,0,23,59,59);
+    if(tFrom>to||tTo<from)return;
+    const overlapFrom=from>tFrom?from:tFrom,overlapTo=to<tTo?to:tTo;
+    const overlapDays=Math.max(0,(overlapTo-overlapFrom)/864e5+1);
+    const totalDays=(tTo-tFrom)/864e5+1;
+    const pic=t.sales_pic||'(Tanpa PIC)';
+    targetMap[pic]=(targetMap[pic]||0)+(Number(t.target_amount)||0)*Math.min(1,overlapDays/totalDays);
   });
-
-  // All PICs (union of real and target)
-  const allPics=[...new Set([...Object.keys(realMap),...Object.keys(targetMap)])].filter(p=>p!=='(Tanpa PIC)');
-
-  // Summary cards
-  const totalReal=Object.values(realMap).reduce((a,b)=>a+b,0);
   const totalTarget=Object.values(targetMap).reduce((a,b)=>a+b,0);
-  const achv=totalTarget>0?Math.round(totalReal/totalTarget*100):0;
-  document.getElementById('sd-total-real').textContent=fmtFull(totalReal);
-  document.getElementById('sd-total-target').textContent=fmtFull(totalTarget);
-  document.getElementById('sd-achievement').textContent=achv+'%';
+  const achv=totalTarget?Math.round(totalReal/totalTarget*100):0;
 
-  // Bar chart: Target vs Realisasi per PIC
-  const maxBar=Math.max(1,...allPics.map(p=>Math.max(realMap[p]||0,targetMap[p]||0)));
-  document.getElementById('sd-bar-chart').innerHTML=allPics.length
-    ?`<div class="dash-bar-list" style="gap:14px">${allPics.sort((a,b)=>(realMap[b]||0)-(realMap[a]||0)).map(p=>{
-        const real=realMap[p]||0, target=targetMap[p]||0;
-        const realPct=Math.round(real/maxBar*100);
-        const targetPct=Math.round(target/maxBar*100);
-        const achvPct=target>0?Math.round(real/target*100):0;
-        const achvColor=achvPct>=100?'var(--green)':achvPct>=70?'var(--amber)':'var(--red)';
-        return`<div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-            <span style="font-weight:600">👤 ${p}</span>
-            <span style="color:${achvColor};font-weight:600">${achvPct}%</span>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
-            <span style="font-size:10px;color:var(--teal);width:56px">Realisasi</span>
-            <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${realPct}%;background:var(--teal)"></div></div>
-            <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${fmtFull(real)}</span>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center">
-            <span style="font-size:10px;color:var(--accent);width:56px">Target</span>
-            <div class="bar-bg" style="height:7px"><div class="bar-fill" style="width:${targetPct}%;background:var(--accent)"></div></div>
-            <span style="font-size:10px;font-weight:600;min-width:90px;text-align:right;font-size:9px">${fmtFull(target)}</span>
-          </div>
-        </div>`;
-      }).join('')}</div>`
-    :'<div class="no-data">📭 Belum ada data realisasi</div>';
+  const so=(dashSalesOrderData||[]).filter(x=>inRange(x.created_at||x.approved_at||x.updated_at));
+  const soValue=so.reduce((sum,x)=>sum+(Number(x.total_amount||x.total||x.grand_total)||0),0);
 
-  // Line chart: tren harian realisasi
-  const dayMap={};
-  invFlat.filter(inv=>inv.total_amount>0).forEach(inv=>{
-    const d=new Date(inv.uploaded_at||inv.ticket_date);
-    const key=d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'});
-    dayMap[key]=(dayMap[key]||0)+Number(inv.total_amount||0);
+  set('sd-total-real',shortMoney(totalReal));
+  set('sd-total-target',shortMoney(totalTarget));
+  set('sd-achievement',totalTarget?achv+'%':'—');
+  set('sd-gap-target',totalTarget?(achv>=100?'Target tercapai':shortMoney(Math.max(0,totalTarget-totalReal))+' lagi'):'target belum diset');
+  set('sd-period-label',label);
+  set('sd-so-count',so.length);
+  set('sd-so-value',shortMoney(soValue));
+  set('sd-invoice-count',invFlat.length);
+  set('sd-avg-transaction',shortMoney(avgTransaction));
+  const periodSelect=document.getElementById('sales-period-select');if(periodSelect)periodSelect.value=salesPeriod;
+
+  // Realisasi per PIC
+  const realMap={};
+  invFlat.forEach(inv=>{const pic=inv.sales_pic||'(Tanpa PIC)';realMap[pic]=(realMap[pic]||0)+(Number(inv.total_amount)||0);});
+  const pics=[...new Set([...Object.keys(realMap),...Object.keys(targetMap)])].filter(x=>x!=='(Tanpa PIC)').sort((a,b)=>(realMap[b]||0)-(realMap[a]||0));
+
+  const perf=document.getElementById('sd-sales-performance');
+  if(perf)perf.innerHTML=pics.length?pics.slice(0,7).map((p,i)=>{
+    const real=realMap[p]||0,target=targetMap[p]||0,pct=target?Math.round(real/target*100):0;
+    const color=pct>=100?['#E9F8EF','#10B981']:pct>=70?['#FFF8E7','#B77900']:['#FFF0F1','#EF4444'];
+    return `<tr><td>${i+1}</td><td>${esc(p)}</td><td>${esc(shortMoney(real))}</td><td>${esc(shortMoney(target))}</td><td><span class="pxl-sales-badge" style="background:${color[0]};color:${color[1]}">${target?pct+'%':'—'}</span></td></tr>`;
+  }).join(''):'<tr><td colspan="5" class="pxl-sales-empty">Belum ada data sales</td></tr>';
+
+  // 6 month trend
+  const now=new Date(),months=[];
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString('id-ID',{month:'short'})});}
+  const monthly=months.map(x=>{
+    const start=new Date(x.y,x.m,1),end=new Date(x.y,x.m+1,0,23,59,59);
+    const real=buildInvoiceFlat().filter(inv=>{const d=new Date(inv.uploaded_at||inv.ticket_date);return !isNaN(d)&&d>=start&&d<=end}).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+    const target=(salesTargets||[]).filter(t=>String(t.year_month||'')===x.y+'-'+String(x.m+1).padStart(2,'0')).reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+    return{...x,real,target};
   });
-  const dayKeys=Object.keys(dayMap).slice(-14);
-  const dayVals=dayKeys.map(k=>dayMap[k]);
-  const maxDay=Math.max(1,...dayVals);
-  const W=380,H=110,PAD=28,BW=Math.max(6,Math.floor((W-PAD*2)/Math.max(dayKeys.length,1))-3);
-  const bars=dayKeys.map((k,i)=>{
-    const h=Math.round((dayVals[i]/maxDay)*(H-PAD));
-    const x=PAD+i*(BW+3);
-    const y=H-PAD-h;
-    return`<rect x="${x}" y="${y}" width="${BW}" height="${h}" rx="2" fill="var(--teal)" opacity=".85"/>
-           <text x="${x+BW/2}" y="${H-PAD+11}" font-size="8" fill="var(--muted)" text-anchor="middle">${k}</text>
-           ${dayVals[i]?`<text x="${x+BW/2}" y="${y-3}" font-size="8" fill="var(--text)" text-anchor="middle">${fmtFull(dayVals[i]).replace('Rp ','')}</text>`:''}`;
+  const trend=document.getElementById('sd-line-chart');
+  if(trend){
+    const max=Math.max(1,...monthly.flatMap(x=>[x.real,x.target]));
+    trend.innerHTML='<div style="width:100%;height:205px;display:flex;align-items:flex-end;gap:14px;padding:12px 8px 18px">'+monthly.map(x=>{
+      const rh=Math.max(x.real?4:0,Math.round(x.real/max*145)),th=Math.max(x.target?4:0,Math.round(x.target/max*145));
+      return '<div style="flex:1;text-align:center;min-width:0"><div style="height:155px;display:flex;align-items:flex-end;justify-content:center;gap:5px"><div title="Realisasi '+esc(shortMoney(x.real))+'" style="width:15px;height:'+rh+'px;background:#4F8DF7;border-radius:4px 4px 1px 1px"></div><div title="Target '+esc(shortMoney(x.target))+'" style="width:15px;height:'+th+'px;background:#B8C6E8;border-radius:4px 4px 1px 1px"></div></div><div style="font-size:7.5px;color:#7B8798;margin-top:5px">'+esc(x.label)+'</div></div>';
+    }).join('')+'</div>';
+  }
+
+  // composition invoice WO vs standalone
+  const withWO=invFlat.filter(x=>x.wo_number).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const standalone=invFlat.filter(x=>!x.wo_number).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const comp=document.getElementById('sd-composition-chart');
+  if(comp){
+    const total=Math.max(1,withWO+standalone),p1=Math.round(withWO/total*100),p2=100-p1;
+    comp.innerHTML='<div style="display:flex;align-items:center;gap:18px;width:100%;justify-content:center"><div style="width:115px;height:115px;border-radius:50%;background:conic-gradient(#4F8DF7 0 '+p1+'%,#24C78E '+p1+'% 100%);position:relative"><div style="position:absolute;inset:24px;background:#fff;border-radius:50%;display:grid;place-items:center;text-align:center"><b style="font-size:12px">'+esc(shortMoney(totalReal))+'</b></div></div><div style="font-size:8px;line-height:2.1"><div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4F8DF7;margin-right:6px"></i>Invoice WO <b>'+p1+'%</b></div><div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#24C78E;margin-right:6px"></i>Standalone <b>'+p2+'%</b></div></div></div>';
+  }
+
+  const contrib=document.getElementById('sd-contribution-list');
+  if(contrib){
+    const max=Math.max(1,...pics.map(p=>realMap[p]||0));
+    contrib.innerHTML=pics.length?pics.slice(0,6).map(p=>{
+      const val=realMap[p]||0,pct=totalReal?Math.round(val/totalReal*100):0,w=Math.round(val/max*100);
+      return '<div class="pxl-sales-contrib-row"><span title="'+esc(p)+'">'+esc(p)+'</span><div class="pxl-sales-track"><div class="pxl-sales-fill" style="width:'+w+'%"></div></div><b>'+pct+'%</b></div>';
+    }).join(''):'<div class="pxl-sales-empty">Belum ada kontribusi sales</div>';
+  }
+
+  // Potential + pipeline from visits
+  const visits=(kunjunganData||[]).filter(v=>inRange(v.prospect_date||v.created_at));
+  const potentialTotal=visits.filter(v=>!['Closed Won','Closed Lost'].includes(v.cust_status)).reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
+  const pipelineDefs=[
+    {key:'Prospect',label:'Prospect Baru',color:'#4F8DF7'},
+    {key:'Follow Up 1',label:'Follow Up',color:'#60A5FA'},
+    {key:'Negotiation',label:'Negotiation',color:'#F59E0B'},
+    {key:'Closed Won',label:'Deal / Closed Won',color:'#10B981'},
+    {key:'Closed Lost',label:'Closed Lost',color:'#EF4444'}
+  ];
+  set('sd-potential-total',shortMoney(potentialTotal));
+  const pipeMap={};
+  pipelineDefs.forEach(d=>pipeMap[d.key]=visits.filter(v=>v.cust_status===d.key));
+  // include Follow Up 2 in followup bucket
+  pipeMap['Follow Up 1']=[...(pipeMap['Follow Up 1']||[]),...visits.filter(v=>v.cust_status==='Follow Up 2')];
+  set('sd-pipeline-prospect',pipeMap['Prospect'].length);
+  set('sd-pipeline-prospect-value',shortMoney(pipeMap['Prospect'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
+  set('sd-pipeline-negotiation',pipeMap['Negotiation'].length);
+  set('sd-pipeline-negotiation-value',shortMoney(pipeMap['Negotiation'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
+  set('sd-pipeline-followup',pipeMap['Follow Up 1'].length);
+  set('sd-pipeline-followup-value',shortMoney(pipeMap['Follow Up 1'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
+
+  const board=document.getElementById('sd-pipeline-board');
+  if(board)board.innerHTML=pipelineDefs.map(d=>{
+    const rows=pipeMap[d.key]||[];
+    return '<div class="pxl-sales-stage" style="border-top:3px solid '+d.color+'"><div class="pxl-sales-stage-head"><span>'+esc(d.label)+'</span><span class="pxl-sales-stage-count">'+rows.length+'</span></div>'+rows.slice(0,3).map(v=>'<div class="pxl-sales-lead"><b>'+esc(v.customer_name||'Customer')+'</b><small>'+esc(v.sales_pic||'Tanpa PIC')+'</small><small>'+esc(shortMoney(Number(v.estimasi_omzet)||0))+'</small></div>').join('')+(rows.length>3?'<div style="font-size:7px;color:#7B8798;text-align:center">+'+(rows.length-3)+' lainnya</div>':'')+'</div>';
   }).join('');
-  document.getElementById('sd-line-chart').innerHTML=dayKeys.length
-    ?`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H+10}" style="width:100%;min-width:260px">
-        <line x1="${PAD}" y1="${H-PAD}" x2="${W-8}" y2="${H-PAD}" stroke="var(--border)" stroke-width="1"/>
-        ${bars}
-      </svg></div>`
-    :'<div class="no-data">📭 Belum ada data</div>';
+
+  // Follow up today from CRM
+  const today=new Date();today.setHours(0,0,0,0);const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
+  const follow=(dashCrmCustomerData||[]).filter(c=>{const d=c.next_follow_up_at?new Date(c.next_follow_up_at):null;return d&&!isNaN(d)&&d>=today&&d<tomorrow;}).slice(0,6);
+  const fb=document.getElementById('sd-followup-body');
+  if(fb)fb.innerHTML=follow.length?follow.map(c=>'<tr><td>'+esc(c.name||'—')+'</td><td>'+esc(c.sales_pic||'—')+'</td><td>'+esc(c.status||'Active')+'</td><td>'+esc(new Date(c.next_follow_up_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}))+'</td></tr>').join(''):'<tr><td colspan="4" class="pxl-sales-empty">Tidak ada follow up hari ini</td></tr>';
+
+  // Sales order recent
+  const recentSO=[...(dashSalesOrderData||[])].sort((a,b)=>new Date(b.created_at||b.updated_at||0)-new Date(a.created_at||a.updated_at||0)).slice(0,6);
+  const sob=document.getElementById('sd-so-recent-body');
+  if(sob)sob.innerHTML=recentSO.length?recentSO.map(x=>'<tr><td>'+esc(x.so_number||x.number||'—')+'</td><td>'+esc(x.customer_name||x.customer||'—')+'</td><td>'+esc(x.sales_pic||'—')+'</td><td>'+esc(x.status||'—')+'</td><td>'+esc(shortMoney(Number(x.total_amount||x.total||x.grand_total)||0))+'</td></tr>').join(''):'<tr><td colspan="5" class="pxl-sales-empty">Belum ada Sales Order</td></tr>';
+
+  // Customer 360 from ticket invoices, with best customer-name fallback
+  const customerMap={};
+  allTicketsForReport().forEach(t=>(t.invoices||[]).forEach(inv=>{
+    if(!inRange(inv.uploaded_at||t.worked_at||t.created_at))return;
+    const name=t.customer_name||t.customer||t.project_name||inv.customer_name||'Tanpa Nama';
+    const key=String(name).trim().toLowerCase();if(!customerMap[key])customerMap[key]={name,count:0,total:0};
+    customerMap[key].count++;customerMap[key].total+=Number(inv.total_amount)||0;
+  }));
+  (standaloneInvoices||[]).forEach(inv=>{
+    if(!inRange(inv.uploaded_at||inv.created_at))return;
+    const name=inv.customer_name||inv.customer||'Tanpa Nama',key=String(name).trim().toLowerCase();
+    if(!customerMap[key])customerMap[key]={name,count:0,total:0};
+    customerMap[key].count++;customerMap[key].total+=Number(inv.total_amount)||0;
+  });
+  const topCustomers=Object.values(customerMap).sort((a,b)=>b.total-a.total).slice(0,6);
+  const cb=document.getElementById('sd-customer360-body');
+  if(cb)cb.innerHTML=topCustomers.length?topCustomers.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.count+'</td><td>'+esc(shortMoney(r.total))+'</td></tr>').join(''):'<tr><td colspan="4" class="pxl-sales-empty">Belum ada transaksi customer</td></tr>';
 }
 
 function renderTargetList(){
