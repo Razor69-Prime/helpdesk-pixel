@@ -1224,6 +1224,74 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 #dash-sec-kunjungan .pxl-kj-empty{padding:20px 8px;text-align:center;color:#7B8798;font-size:8.5px}
 @media(max-width:1100px){#dash-sec-kunjungan .pxl-kj-lower-grid{grid-template-columns:1fr}#dash-sec-kunjungan .pxl-kj-bottom{grid-template-columns:1fr}}
 @media(max-width:650px){#dash-sec-kunjungan .pxl-kj-insights{grid-template-columns:repeat(2,minmax(0,1fr))}#dash-sec-kunjungan .pxl-kj-table{min-width:560px}}
+
+/* PXL-DASH-UI-0019 — Project dashboard aligned to approved dashboard visual language */
+#dash-sec-project{background:transparent;color:#14213d}
+#dash-sec-project .pxl-proj-card{background:#fff;border:1px solid #E3E9F1;border-radius:13px;box-shadow:0 5px 18px rgba(15,23,42,.035);min-width:0}
+#dash-sec-project .pxl-proj-top{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px}
+#dash-sec-project .pxl-proj-summary,#dash-sec-project .pxl-proj-side{padding:11px}
+#dash-sec-project .pxl-proj-title{font-size:11px;font-weight:800;color:#14213d;letter-spacing:.015em;margin:0 0 8px}
+#dash-sec-project .pxl-proj-sub{font-size:8.6px;color:#7B8798;margin-top:2px;font-weight:400}
+#dash-sec-project .pxl-proj-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+#dash-sec-project .pxl-proj-head .pxl-proj-title{margin:0}
+#dash-sec-project .pxl-proj-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#dash-sec-project .pxl-proj-kpi{min-height:66px;background:#fff;border:1px solid #E6EBF2;border-radius:10px;display:flex;align-items:center;gap:9px;padding:9px 10px;min-width:0}
+#dash-sec-project .pxl-proj-icon{width:37px;height:37px;border-radius:11px;display:grid;place-items:center;flex:0 0 37px}
+#dash-sec-project .pxl-proj-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#dash-sec-project .pxl-proj-icon.purple{background:#F2EAFE;color:#7C3AED}
+#dash-sec-project .pxl-proj-icon.green{background:#E9F8EF;color:#10B981}
+#dash-sec-project .pxl-proj-icon.blue{background:#EAF3FF;color:#2F80ED}
+#dash-sec-project .pxl-proj-icon.orange{background:#FFF2E7;color:#F97316}
+#dash-sec-project .pxl-proj-icon.red{background:#FFF0F1;color:#EF4444}
+#dash-sec-project .pxl-proj-kpi-copy{min-width:0}
+#dash-sec-project .pxl-proj-kpi-label{font-size:9px;font-weight:700;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-kpi-value{font-size:18px;line-height:1.05;font-weight:850;color:#14213d;margin:3px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-kpi-sub{font-size:8.2px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-donut-body{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center}
+#dash-sec-project .pxl-proj-donut{width:98px;height:98px;border-radius:50%;margin:auto;display:grid;place-items:center;position:relative}
+#dash-sec-project .pxl-proj-donut:after{content:"";position:absolute;inset:14px;border-radius:50%;background:#fff}
+#dash-sec-project .pxl-proj-donut strong{position:relative;z-index:1;font-size:16px}
+#dash-sec-project .pxl-proj-stat-list{display:flex;flex-direction:column}
+#dash-sec-project .pxl-proj-stat-row{display:grid;grid-template-columns:9px 1fr auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #EEF2F6;font-size:8.5px}
+#dash-sec-project .pxl-proj-stat-row:last-child{border-bottom:0}
+#dash-sec-project .pxl-proj-dot{width:7px;height:7px;border-radius:50%}
+#dash-sec-project .pxl-proj-body{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px;margin-top:10px}
+#dash-sec-project .pxl-proj-main{display:flex;flex-direction:column;gap:10px;min-width:0}
+#dash-sec-project .pxl-proj-main-row{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr);gap:10px}
+#dash-sec-project .pxl-proj-panel{padding:10px;min-width:0}
+#dash-sec-project .pxl-proj-table-wrap{overflow:auto}
+#dash-sec-project .pxl-proj-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px}
+#dash-sec-project .pxl-proj-table th{background:#F7F9FC;color:#516075;font-size:7.9px;font-weight:800;text-align:left;padding:6px 7px;border-bottom:1px solid #E8EDF3;white-space:nowrap}
+#dash-sec-project .pxl-proj-table td{padding:6px 7px;border-bottom:1px solid #EEF2F6;color:#26334d;vertical-align:middle}
+#dash-sec-project .pxl-proj-table tr:last-child td{border-bottom:0}
+#dash-sec-project .pxl-proj-person{display:flex;align-items:center;gap:6px;min-width:0}
+#dash-sec-project .pxl-proj-avatar{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:#EEF2FF;color:#5B5CE2;font-size:7px;font-weight:800;flex:0 0 21px}
+#dash-sec-project .pxl-proj-person span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-progress{display:flex;align-items:center;gap:5px}
+#dash-sec-project .pxl-proj-progress-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
+#dash-sec-project .pxl-proj-progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
+#dash-sec-project .pxl-proj-progress-fill.green{background:linear-gradient(90deg,#24C78E,#42D5A4)}
+#dash-sec-project .pxl-proj-progress-fill.orange{background:linear-gradient(90deg,#FF9C52,#FF7A3D)}
+#dash-sec-project .pxl-proj-progress-pct{min-width:31px;text-align:right;font-size:8px;font-weight:700;color:#52627a}
+#dash-sec-project .pxl-proj-aside{display:flex;flex-direction:column;gap:10px;min-width:0}
+#dash-sec-project .pxl-proj-action-list{display:flex;flex-direction:column;gap:7px}
+#dash-sec-project .pxl-proj-action{display:grid;grid-template-columns:32px 1fr auto;gap:8px;align-items:center;padding:7px;border:1px solid #EEF2F6;border-radius:9px}
+#dash-sec-project .pxl-proj-action-ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px}
+#dash-sec-project .pxl-proj-action b{display:block;font-size:8.8px}
+#dash-sec-project .pxl-proj-action small{display:block;font-size:7.7px;color:#7B8798;margin-top:2px}
+#dash-sec-project .pxl-proj-action strong{min-width:32px;border-radius:7px;padding:5px 7px;text-align:center;font-size:9px}
+#dash-sec-project .pxl-proj-recent{display:flex;flex-direction:column}
+#dash-sec-project .pxl-proj-recent-row{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:start;padding:7px 0;border-bottom:1px solid #EEF2F6}
+#dash-sec-project .pxl-proj-recent-row:last-child{border-bottom:0}
+#dash-sec-project .pxl-proj-date{font-size:7.7px;font-weight:800;color:#344054;line-height:1.35}
+#dash-sec-project .pxl-proj-date small{display:block;color:#7B8798;font-weight:500}
+#dash-sec-project .pxl-proj-recent-copy b{display:block;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-recent-copy small{display:block;font-size:7.5px;color:#7B8798;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-project .pxl-proj-badge{font-size:7px;font-weight:700;border-radius:6px;padding:4px 6px;white-space:nowrap}
+#dash-sec-project .pxl-proj-empty{padding:18px 8px;text-align:center;color:#7B8798;font-size:8.5px}
+@media(max-width:1150px){#dash-sec-project .pxl-proj-top,#dash-sec-project .pxl-proj-body{grid-template-columns:1fr}#dash-sec-project .pxl-proj-aside{display:grid;grid-template-columns:1fr 1fr}}
+@media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 </style>
 </head>
 <body>
@@ -2993,62 +3061,64 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 
       <!-- ══ PROJECT ══ -->
       <div id="dash-sec-project" style="display:none">
-        <div class="proj-card">
-          <div class="proj-header">
-            <div>
-              <div class="proj-header-label">PROJECT TRACKER</div>
-              <div class="proj-header-title" id="dproj-header-title">Project Priority</div>
+        <div class="pxl-proj-top">
+          <section class="pxl-proj-card pxl-proj-summary">
+            <div class="pxl-proj-title">RINGKASAN PROJECT</div>
+            <div class="pxl-proj-kpi-grid">
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon purple"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Total Project</div><div class="pxl-proj-kpi-value" id="dproj-total">—</div><div class="pxl-proj-kpi-sub">seluruh project</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon blue"><svg viewBox="0 0 24 24"><path d="M4 18V8M9 18V4M14 18v-6M19 18V6"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Estimasi Omzet</div><div class="pxl-proj-kpi-value" id="dproj-omset">—</div><div class="pxl-proj-kpi-sub">total nilai project</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Harga Pokok</div><div class="pxl-proj-kpi-value" id="dproj-harga-pokok">—</div><div class="pxl-proj-kpi-sub">estimasi HPP project</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon green"><svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 3 7-8"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Potensi Margin</div><div class="pxl-proj-kpi-value" id="dproj-margin">—</div><div class="pxl-proj-kpi-sub">omzet - harga pokok</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">On Plan</div><div class="pxl-proj-kpi-value" id="dproj-plan">—</div><div class="pxl-proj-kpi-sub">belum mulai</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon purple"><svg viewBox="0 0 24 24"><path d="M3 12h15M13 6l6 6-6 6"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">On Progress</div><div class="pxl-proj-kpi-value" id="dproj-progress">—</div><div class="pxl-proj-kpi-sub">sedang berjalan</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon orange"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 5v14M6 12h12"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Hold</div><div class="pxl-proj-kpi-value" id="dproj-hold">—</div><div class="pxl-proj-kpi-sub">perlu perhatian</div></div></div>
+              <div class="pxl-proj-kpi"><div class="pxl-proj-icon red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 17h.01"/></svg></div><div class="pxl-proj-kpi-copy"><div class="pxl-proj-kpi-label">Mendekati Deadline</div><div class="pxl-proj-kpi-value" id="dproj-overdue-count">—</div><div class="pxl-proj-kpi-sub">≤ 14 hari</div></div></div>
             </div>
-            <div style="text-align:right">
-              <div class="proj-header-label">GENERATED</div>
-              <div class="proj-header-date" id="dproj-gen-date">—</div>
+          </section>
+
+          <section class="pxl-proj-card pxl-proj-side">
+            <div class="pxl-proj-title">Status Project</div>
+            <div class="pxl-proj-donut-body">
+              <div><div class="pxl-proj-donut" id="dproj-status-donut"><strong id="dproj-status-pct">—</strong></div><div style="font-size:8.5px;font-weight:700;text-align:center;margin-top:4px">Project Berjalan</div></div>
+              <div class="pxl-proj-stat-list">
+                <div class="pxl-proj-stat-row"><i class="pxl-proj-dot" style="background:#2F80ED"></i><span>On Plan</span><b id="dproj-stat-plan">—</b></div>
+                <div class="pxl-proj-stat-row"><i class="pxl-proj-dot" style="background:#7C3AED"></i><span>On Progress</span><b id="dproj-stat-progress">—</b></div>
+                <div class="pxl-proj-stat-row"><i class="pxl-proj-dot" style="background:#F97316"></i><span>Hold</span><b id="dproj-stat-hold">—</b></div>
+                <div class="pxl-proj-stat-row"><i class="pxl-proj-dot" style="background:#10B981"></i><span>Rata-rata Progress</span><b id="dproj-stat-avg">—</b></div>
+              </div>
             </div>
-          </div>
-          <div class="proj-summary-bar">
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">TOTAL PROJECT</div>
-              <div class="proj-summary-val" id="dproj-total">0</div>
-            </div>
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">EST. HARGA POKOK</div>
-              <div class="proj-summary-val" id="dproj-harga-pokok">Rp 0</div>
-            </div>
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">EST. OMSET</div>
-              <div class="proj-summary-val green" id="dproj-omset">Rp 0</div>
-            </div>
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">ON PLAN</div>
-              <div class="proj-summary-val plan" id="dproj-plan">0</div>
-            </div>
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">ON PROGRESS</div>
-              <div class="proj-summary-val progress" id="dproj-progress">0</div>
-            </div>
-            <div class="proj-summary-item">
-              <div class="proj-summary-label">HOLD</div>
-              <div class="proj-summary-val hold" id="dproj-hold">0</div>
-            </div>
-          </div>
+          </section>
         </div>
-        <div class="dash-grid-2" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🍩 Distribusi Status Project</div>
-            <div class="dash-chart-sub">Komposisi status semua project</div>
-            <div id="dproj-status-chart"></div>
+
+        <div class="pxl-proj-body">
+          <div class="pxl-proj-main">
+            <div class="pxl-proj-main-row">
+              <section class="pxl-proj-card pxl-proj-panel">
+                <div class="pxl-proj-head"><div><div class="pxl-proj-title">Progress Project</div><div class="pxl-proj-sub">Progress Material/Jasa berdasarkan Project Report</div></div></div>
+                <div class="pxl-proj-table-wrap"><table class="pxl-proj-table"><thead><tr><th style="width:28%">Project</th><th style="width:25%">Progress</th><th>Material</th><th>Jasa</th><th>Status</th></tr></thead><tbody id="dproj-progress-body"></tbody></table></div>
+              </section>
+              <section class="pxl-proj-card pxl-proj-panel">
+                <div class="pxl-proj-head"><div><div class="pxl-proj-title">Nilai Project</div><div class="pxl-proj-sub">Top project berdasarkan estimasi omzet</div></div></div>
+                <div class="pxl-proj-table-wrap"><table class="pxl-proj-table"><thead><tr><th>Project</th><th>Omzet</th><th>HPP</th><th>Margin</th></tr></thead><tbody id="dproj-value-body"></tbody></table></div>
+              </section>
+            </div>
+
+            <section class="pxl-proj-card pxl-proj-panel">
+              <div class="pxl-proj-head"><div><div class="pxl-proj-title">Project Priority</div><div class="pxl-proj-sub">Urutan prioritas dan target penyelesaian project</div></div></div>
+              <div class="pxl-proj-table-wrap"><table class="pxl-proj-table"><thead><tr><th style="width:34px">#</th><th>Project</th><th>PIC</th><th>Prioritas</th><th>Status</th><th>Target Week</th></tr></thead><tbody id="dproj-priority-body"></tbody></table></div>
+            </section>
           </div>
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">💰 Estimasi Omset per Project</div>
-            <div class="dash-chart-sub">Top project berdasarkan nilai omset</div>
-            <div id="dproj-omset-chart"></div>
-          </div>
-        </div>
-        <div class="dash-grid-1" style="margin-top:12px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">⏰ Update Terbaru — Project Mendekati Overdue</div>
-            <div class="dash-chart-sub">Project On Plan / On Progress dengan target ≤ 14 hari lagi, diurutkan dari paling mendesak</div>
-            <div id="dproj-overdue-list"></div>
-          </div>
+
+          <aside class="pxl-proj-aside">
+            <section class="pxl-proj-card pxl-proj-panel">
+              <div class="pxl-proj-head"><div><div class="pxl-proj-title">Perlu Tindakan</div></div></div>
+              <div id="dproj-action-list" class="pxl-proj-action-list"></div>
+            </section>
+            <section class="pxl-proj-card pxl-proj-panel">
+              <div class="pxl-proj-head"><div><div class="pxl-proj-title">Update Terbaru</div></div></div>
+              <div id="dproj-recent-list" class="pxl-proj-recent"></div>
+            </section>
+          </aside>
         </div>
       </div>
 
@@ -5384,6 +5454,7 @@ async function loadDashboard(){
       dashPRData=Array.isArray(prData)?prData:[];
     }));
     if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
+    if(!dashProjectReportData.length) jobs.push(api('GET','/project-report-summaries').then(d=>{dashProjectReportData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
     if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashServiceData.length) jobs.push(api('GET','/service-orders').then(d=>{dashServiceData=Array.isArray(d)?d:[];}).catch(()=>{}));
@@ -5490,11 +5561,12 @@ function switchDashSub(sub, btn){
   }
   // Pastikan data project selalu fresh saat submenu dibuka
   if(sub==='project'){
-    api('GET','/projects').then(data=>{
-      dashProjectData=data;
-      renderDashboard();
-    }).catch(err=>{
+    Promise.allSettled([
+      api('GET','/projects').then(data=>{dashProjectData=Array.isArray(data)?data:[];}),
+      api('GET','/project-report-summaries').then(data=>{dashProjectReportData=Array.isArray(data)?data:[];})
+    ]).then(()=>renderDashboard()).catch(()=>{
       dashProjectData=dashProjectData||[];
+      dashProjectReportData=dashProjectReportData||[];
       renderDashboard();
     });
     return;
@@ -6330,36 +6402,97 @@ function renderDashSubPR(prList){
 }
 
 function renderDashSubProject(projList){
+  const rows=Array.isArray(projList)?projList:[];
   const el=id=>document.getElementById(id);
-  const now=new Date();
-  const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  if(el('dproj-header-title')) el('dproj-header-title').textContent=`Project Priority — ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-  if(el('dproj-gen-date')) el('dproj-gen-date').textContent=now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
+  const shortMoney=v=>{const n=Number(v)||0;if(n>=1e9)return 'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:1})+' M';if(n>=1e6)return 'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt';if(n>=1e3)return 'Rp '+(n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' rb';return 'Rp '+n.toLocaleString('id-ID')};
 
-  const totalHargaPokok=projList.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
-  const totalOmset=projList.reduce((s,p)=>s+(Number(p.omset)||0),0);
-  const onPlan=projList.filter(p=>p.status==='On Plan').length;
-  const onProgress=projList.filter(p=>p.status==='On Progress').length;
-  const onHold=projList.filter(p=>p.status==='Hold').length;
+  const reportMap={};
+  (dashProjectReportData||[]).forEach(r=>{
+    reportMap[String(r.id)]={material:r.material_summary||{},jasa:r.jasa_summary||{},progress:Number(r.progress)||0};
+  });
+  Object.entries(window.pxlProjectReportSummaries||{}).forEach(([id,v])=>{if(!reportMap[id])reportMap[id]=v});
 
-  if(el('dproj-total')) el('dproj-total').textContent=projList.length;
-  if(el('dproj-harga-pokok')) el('dproj-harga-pokok').textContent=fmtFull(totalHargaPokok);
-  if(el('dproj-omset')) el('dproj-omset').textContent=fmtFull(totalOmset);
-  if(el('dproj-plan')) el('dproj-plan').textContent=onPlan;
-  if(el('dproj-progress')) el('dproj-progress').textContent=onProgress;
-  if(el('dproj-hold')) el('dproj-hold').textContent=onHold;
+  const totalHpp=rows.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
+  const totalOmset=rows.reduce((s,p)=>s+(Number(p.omset)||0),0);
+  const margin=totalOmset-totalHpp;
+  const onPlan=rows.filter(p=>p.status==='On Plan').length;
+  const onProgress=rows.filter(p=>p.status==='On Progress').length;
+  const onHold=rows.filter(p=>p.status==='Hold').length;
 
-  // Status donut
-  const statusMap={'On Plan':onPlan,'On Progress':onProgress,'Hold':onHold};
-  renderDonutCustom(statusMap,'dproj-status-chart');
+  const today=new Date();today.setHours(0,0,0,0);
+  const cutoff=new Date(today);cutoff.setDate(today.getDate()+14);
+  const nearDeadline=rows.filter(p=>{
+    if(!['On Plan','On Progress'].includes(p.status))return false;
+    const d=targetWeekToDate(p.target_week);
+    return d&&d<=cutoff;
+  });
 
-  // Top project by omset (horizontal bar, full number)
-  const omsetMap={};
-  projList.forEach(p=>{ if(p.omset) omsetMap[p.nama_project]=Number(p.omset); });
-  renderHBarChartFull(omsetMap,'dproj-omset-chart','green');
+  const progresses=rows.map(p=>Number(reportMap[String(p.id)]?.progress)||0);
+  const avgProgress=progresses.length?Math.round(progresses.reduce((a,b)=>a+b,0)/progresses.length):0;
+  const runningPct=rows.length?Math.round((onProgress+onPlan)/rows.length*100):0;
 
-  // Update terbaru — project mendekati overdue
-  renderProjectOverdueList(projList);
+  set('dproj-total',rows.length);set('dproj-omset',shortMoney(totalOmset));set('dproj-harga-pokok',shortMoney(totalHpp));set('dproj-margin',shortMoney(margin));
+  set('dproj-plan',onPlan);set('dproj-progress',onProgress);set('dproj-hold',onHold);set('dproj-overdue-count',nearDeadline.length);
+  set('dproj-status-pct',rows.length?runningPct+'%':'—');set('dproj-stat-plan',onPlan);set('dproj-stat-progress',onProgress);set('dproj-stat-hold',onHold);set('dproj-stat-avg',avgProgress+'%');
+  const donut=el('dproj-status-donut');if(donut)donut.style.background='conic-gradient(#7C3AED '+(rows.length?Math.round(onProgress/rows.length*100):0)+'%,#EAF3FF 0 100%)';
+
+  const progressRows=rows.map(p=>{
+    const s=reportMap[String(p.id)]||{};
+    const mat=Number(s.material?.progress)||0,jasa=Number(s.jasa?.progress)||0,prog=Number(s.progress)||0;
+    return{...p,mat,jasa,prog};
+  }).sort((a,b)=>b.prog-a.prog);
+
+  const progressBody=el('dproj-progress-body');
+  if(progressBody)progressBody.innerHTML=progressRows.slice(0,7).map(p=>{
+    const statusColor=p.status==='Hold'?'#F97316':p.status==='On Progress'?'#7C3AED':'#2F80ED';
+    return `<tr><td>${esc(p.nama_project||'—')}</td><td><div class="pxl-proj-progress"><div class="pxl-proj-progress-track"><div class="pxl-proj-progress-fill green" style="width:${Math.min(100,p.prog)}%"></div></div><span class="pxl-proj-progress-pct">${p.prog.toFixed(1)}%</span></div></td><td>${p.mat.toFixed(1)}%</td><td>${p.jasa.toFixed(1)}%</td><td><span class="pxl-proj-badge" style="background:${statusColor}14;color:${statusColor}">${esc(p.status||'On Plan')}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="5" class="pxl-proj-empty">Belum ada data project</td></tr>';
+
+  const valueRows=[...rows].sort((a,b)=>(Number(b.omset)||0)-(Number(a.omset)||0)).slice(0,7);
+  const valueBody=el('dproj-value-body');
+  if(valueBody)valueBody.innerHTML=valueRows.map(p=>{
+    const om=Number(p.omset)||0,hpp=Number(p.harga_pokok)||0,m=om-hpp;
+    return `<tr><td>${esc(p.nama_project||'—')}</td><td>${esc(shortMoney(om))}</td><td>${esc(shortMoney(hpp))}</td><td style="color:${m>=0?'#10B981':'#EF4444'};font-weight:700">${esc(shortMoney(m))}</td></tr>`;
+  }).join('')||'<tr><td colspan="4" class="pxl-proj-empty">Belum ada nilai project</td></tr>';
+
+  const priorityWeight={P1:1,P2:2,P3:3};
+  const priorityRows=[...rows].sort((a,b)=>(priorityWeight[a.prioritas]||9)-(priorityWeight[b.prioritas]||9)||String(a.target_week||'').localeCompare(String(b.target_week||'')));
+  const priorityBody=el('dproj-priority-body');
+  if(priorityBody)priorityBody.innerHTML=priorityRows.slice(0,8).map((p,i)=>{
+    const pc=p.prioritas==='P1'?['#FFF0F1','#EF4444']:p.prioritas==='P2'?['#FFF2E7','#F97316']:['#EAF3FF','#2F80ED'];
+    const sc=p.status==='Hold'?['#FFF2E7','#F97316']:p.status==='On Progress'?['#F2EAFE','#7C3AED']:['#EAF3FF','#2F80ED'];
+    return `<tr><td>${i+1}</td><td>${esc(p.nama_project||'—')}</td><td><div class="pxl-proj-person"><i class="pxl-proj-avatar">${esc(initials(p.pic||'?'))}</i><span>${esc(p.pic||'—')}</span></div></td><td><span class="pxl-proj-badge" style="background:${pc[0]};color:${pc[1]}">${esc(p.prioritas||'P2')}</span></td><td><span class="pxl-proj-badge" style="background:${sc[0]};color:${sc[1]}">${esc(p.status||'On Plan')}</span></td><td>${esc(p.target_week||'—')}</td></tr>`;
+  }).join('')||'<tr><td colspan="6" class="pxl-proj-empty">Belum ada project</td></tr>';
+
+  const noPic=rows.filter(p=>!String(p.pic||'').trim()).length;
+  const noTarget=rows.filter(p=>!String(p.target_week||'').trim()).length;
+  const noReport=rows.filter(p=>!reportMap[String(p.id)]).length;
+  const p1Hold=rows.filter(p=>p.prioritas==='P1'&&p.status==='Hold').length;
+  const actions=el('dproj-action-list');
+  if(actions){const a=[
+    ['#FFF0F1','#EF4444','!','Mendekati Deadline','Target ≤ 14 hari',nearDeadline.length],
+    ['#FFF2E7','#F97316','◆','Project Tanpa Target','Target Week belum diisi',noTarget],
+    ['#FFF8E7','#B77900','●','P1 Dalam Hold','Prioritas tinggi tertahan',p1Hold],
+    ['#F2EAFE','#7C3AED','↗','Belum Ada Project Report','Progress belum terdata',noReport],
+    ['#EAF3FF','#2F80ED','👤','Project Tanpa PIC','PIC belum ditentukan',noPic]
+  ];actions.innerHTML=a.map(x=>`<div class="pxl-proj-action"><div class="pxl-proj-action-ico" style="background:${x[0]};color:${x[1]}">${x[2]}</div><div><b>${x[3]}</b><small>${x[4]}</small></div><strong style="background:${x[0]};color:${x[1]}">${x[5]}</strong></div>`).join('')}
+
+  const recent=el('dproj-recent-list');
+  if(recent){
+    const rs=[...rows].sort((a,b)=>{
+      const da=a.updated_at||a.created_at||0,db=b.updated_at||b.created_at||0;
+      return new Date(db)-new Date(da);
+    }).slice(0,6);
+    recent.innerHTML=rs.length?rs.map(p=>{
+      const d=new Date(p.updated_at||p.created_at||0);
+      const ds=isNaN(d)?'-':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+      const sc=p.status==='Hold'?['#FFF2E7','#F97316']:p.status==='On Progress'?['#F2EAFE','#7C3AED']:['#EAF3FF','#2F80ED'];
+      return `<div class="pxl-proj-recent-row"><div class="pxl-proj-date">${ds}<small>${esc(p.target_week||'')}</small></div><div class="pxl-proj-recent-copy"><b title="${esc(p.nama_project||'')}">${esc(p.nama_project||'Project')}</b><small>${esc(p.pic||'Tanpa PIC')} · ${esc(p.prioritas||'P2')}</small></div><span class="pxl-proj-badge" style="background:${sc[0]};color:${sc[1]}">${esc(p.status||'On Plan')}</span></div>`;
+    }).join(''):'<div class="pxl-proj-empty">Belum ada project</div>';
+  }
 }
 
 // Konversi target_week (mis. "Week-27") ke perkiraan tanggal akhir minggu tersebut di tahun berjalan
@@ -9181,6 +9314,7 @@ let prData=[];
 let dashMRData=null;
 let dashPRData=null;
 let dashProjectData=null;
+let dashProjectReportData=[];
 let prItemCount=0;
 let prEditId=null;
 
