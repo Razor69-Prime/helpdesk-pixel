@@ -1294,6 +1294,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
 /* PXL-URG-0080 — superadmin access bypass; exclude from Sales/Technician classification */
+/* PXL-SALES-UI-0008 — annual target period starts Sep-Dec for 2026 */
 /* PXL-SALES-UI-0007 — merge I Komang Budha Astawa alias */
 /* PXL-SALES-UI-0006 — canonical Sales PIC alias + annual PIC target fix */
 /* PXL-SALES-UI-0005 — annual target breakdown per Sales PIC */
@@ -2692,7 +2693,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <div class="pxl-sales-card-head pxl-sales-annual-head">
           <div>
             <b id="sd-annual-title">Target Tahunan</b>
-            <small>Akumulasi target Sales PIC dan realisasi omzet tahun berjalan</small>
+            <small>Akumulasi target Sales PIC dan realisasi omzet pada periode target aktif</small>
           </div>
           <span class="pxl-sales-annual-year" id="sd-annual-year">—</span>
         </div>
@@ -2730,7 +2731,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           <div class="pxl-sales-annual-pic-head">
             <div>
               <b>Target Tahunan per Sales PIC</b>
-              <small>Akumulasi target bulanan per Sales PIC dibandingkan realisasi omzet tahun berjalan</small>
+              <small>Akumulasi target bulanan per Sales PIC dibandingkan realisasi omzet pada periode target aktif</small>
             </div>
           </div>
           <div class="pxl-sales-table-wrap">
@@ -8330,12 +8331,20 @@ function renderSalesDashboard(){
   const totalReal=invFlat.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avgTransaction=invFlat.length?Math.round(totalReal/invFlat.length):0;
 
-  // Target tahunan selalu memakai tahun kalender berjalan dan tidak terpengaruh filter periode di atas.
+  // PXL-SALES-UI-0008:
+  // 2026 memakai periode khusus Sep–Des karena data transaksi PixelApps baru representatif mulai September.
+  // 2027+ kembali memakai tahun kalender penuh Jan–Des.
   const annualYear=new Date().getFullYear();
-  const annualFrom=new Date(annualYear,0,1);
+  const annualStartMonth=annualYear===2026?8:0; // 0=Jan, 8=Sep
+  const annualFrom=new Date(annualYear,annualStartMonth,1);
   const annualTo=new Date(annualYear,11,31,23,59,59);
   const canonicalTargets=getCanonicalSalesTargets();
-  const annualTargets=canonicalTargets.filter(t=>String(t.year_month||'').startsWith(String(annualYear)+'-'));
+  const annualTargets=canonicalTargets.filter(t=>{
+    const ym=String(t.year_month||'');
+    if(!ym.startsWith(String(annualYear)+'-')) return false;
+    const m=Number(ym.slice(5,7));
+    return m>=annualStartMonth+1 && m<=12;
+  });
   const annualTarget=annualTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
   const annualReal=allSalesInvoices.filter(inv=>{
     const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
@@ -8345,14 +8354,15 @@ function renderSalesDashboard(){
   const annualPct=annualTarget?annualReal/annualTarget*100:0;
   const annualProgress=Math.max(0,Math.min(100,annualPct));
 
-  set('sd-annual-year',String(annualYear));
+  const annualPeriodLabel=annualYear===2026?'Sep–Des 2026':('Jan–Des '+annualYear);
+  set('sd-annual-year',annualPeriodLabel);
   set('sd-annual-title','Target Tahunan '+annualYear);
   set('sd-annual-target',shortMoney(annualTarget));
   set('sd-annual-real',shortMoney(annualReal));
   set('sd-annual-gap',annualTarget?(annualGap?shortMoney(annualGap):'Target tercapai'):'—');
   set('sd-annual-pct',annualTarget?annualPct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—');
-  set('sd-annual-target-sub',annualTargets.length+' target Sales PIC tersimpan');
-  set('sd-annual-real-sub','omzet '+annualYear+' dari invoice');
+  set('sd-annual-target-sub',annualTargets.length+' target Sales PIC · '+annualPeriodLabel);
+  set('sd-annual-real-sub','omzet '+annualPeriodLabel+' dari invoice');
   set('sd-annual-gap-sub',annualTarget?(annualGap?'sisa menuju target tahunan':'realisasi sudah mencapai target'):'target tahunan belum tersedia');
   set('sd-annual-pct-sub',annualTarget?'realisasi ÷ target tahunan':'target tahunan belum tersedia');
   set('sd-annual-progress-label',annualTarget?annualPct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—');
