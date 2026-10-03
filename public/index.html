@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0002 — production data source fix (CRM Invoice + actual pipeline statuses) */
 /* PXL-SALES-UI-0001 — Sales Performance redesign */
 /* PXL-DASH-UI-0023 — make Overview Project data independent from opening Project Tracker */
 /* PXL-DASH-UI-0022 — add previous-month Dashboard period */
@@ -2662,7 +2663,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           <div class="pxl-sales-card-head"><div><b>Potensi Penjualan</b><small>Nilai peluang dari aktivitas sales yang masih aktif</small></div></div>
           <div class="pxl-sales-potential-grid">
             <div class="pxl-sales-potential-main"><span>Total Potensi Omzet</span><b id="sd-potential-total">—</b><small>estimasi omzet dari kunjungan</small></div>
-            <div class="pxl-sales-mini green"><span>Prospect</span><b id="sd-pipeline-prospect">—</b><small id="sd-pipeline-prospect-value">—</small></div>
+            <div class="pxl-sales-mini green"><span>Canvasing / Prospect</span><b id="sd-pipeline-prospect">—</b><small id="sd-pipeline-prospect-value">—</small></div>
             <div class="pxl-sales-mini amber"><span>Negotiation</span><b id="sd-pipeline-negotiation">—</b><small id="sd-pipeline-negotiation-value">—</small></div>
             <div class="pxl-sales-mini purple"><span>Follow Up</span><b id="sd-pipeline-followup">—</b><small id="sd-pipeline-followup-value">—</small></div>
           </div>
@@ -8023,6 +8024,7 @@ async function unarsipkanTiket(ticketId){
 let salesTargets=[], salesPeriod='this_month';
 let allInvoicesFlat=[]; // built from allTickets
 let standaloneInvoices=[]; // invoice tanpa WO terkait
+let salesCrmInvoices=[]; // Invoice CRM/V1 — sumber omzet utama Sales Performance
 
 function getSalesPeriodRange(period){
   const now=new Date();
@@ -8081,6 +8083,7 @@ async function loadSalesDashboard(){
       api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}),
       api('GET','/sales-visits').then(d=>{kunjunganData=Array.isArray(d)?d:[];}).catch(()=>{}),
       api('GET','/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}),
+      api('GET','/crm/invoices').then(d=>{salesCrmInvoices=Array.isArray(d)?d:[];}).catch(err=>{console.error('Gagal memuat CRM Invoice Sales Performance',err);salesCrmInvoices=[];}),
       api('GET','/invoices/standalone').then(d=>{standaloneInvoices=Array.isArray(d)?d:[];}).catch(()=>{})
     ];
     if(!allTickets.length) jobs.push(api('GET','/tickets').then(d=>{allTickets=Array.isArray(d)?d:[];}).catch(()=>{}));
@@ -8125,6 +8128,37 @@ function buildInvoiceFlat(){
   return [...ticketInv, ...standaloneInv];
 }
 
+function buildSalesPerformanceInvoices(){
+  // CRM Invoice adalah source of truth terbaru. Gunakan invoice_date untuk periode,
+  // bukan created_at karena data migrasi dapat dibuat ulang pada tanggal berbeda.
+  if(Array.isArray(salesCrmInvoices)&&salesCrmInvoices.length){
+    const soById=new Map((dashSalesOrderData||[]).map(x=>[String(x.id||''),x]));
+    const soByNo=new Map((dashSalesOrderData||[]).map(x=>[String(x.so_number||'').trim().toLowerCase(),x]));
+    const customerById=new Map((dashCrmCustomerData||[]).map(x=>[String(x.id||''),x]));
+    const customerByName=new Map((dashCrmCustomerData||[]).map(x=>[String(x.name||'').trim().toLowerCase(),x]));
+    const visitPicByName=new Map();
+    (kunjunganData||[]).forEach(v=>{
+      const key=String(v.customer_name||'').trim().toLowerCase();
+      if(key&&v.sales_pic&&!visitPicByName.has(key))visitPicByName.set(key,v.sales_pic);
+    });
+    return salesCrmInvoices.map(inv=>{
+      const so=soById.get(String(inv.sales_order_id||''))||soByNo.get(String(inv.so_number||'').trim().toLowerCase())||null;
+      const cust=customerById.get(String(inv.customer_id||''))||customerByName.get(String(inv.customer_name||'').trim().toLowerCase())||null;
+      const visitPic=visitPicByName.get(String(inv.customer_name||'').trim().toLowerCase())||null;
+      return {
+        ...inv,
+        sales_pic: inv.sales_pic||so?.sales_pic||cust?.sales_pic||visitPic||null,
+        total_amount:Number(inv.grand_total??inv.total_amount??inv.total??0)||0,
+        sales_date:inv.invoice_date||inv.issued_at||inv.uploaded_at||inv.created_at,
+        customer_name:inv.customer_name||cust?.name||so?.customer_name||null,
+        wo_number:Array.isArray(inv.work_order_ids)&&inv.work_order_ids.length?inv.work_order_ids[0]:(inv.wo_number||null),
+        source:'crm_invoice'
+      };
+    });
+  }
+  return buildInvoiceFlat().map(inv=>({...inv,sales_date:inv.uploaded_at||inv.ticket_date,source:inv.wo_number?'invoice_wo':'standalone'}));
+}
+
 function renderSalesDashboard(){
   const {from,to,label}=getSalesPeriodRange(salesPeriod);
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -8132,7 +8166,8 @@ function renderSalesDashboard(){
   const inRange=raw=>{const d=raw?new Date(raw):null;return d&&!isNaN(d)&&d>=from&&d<=to};
   const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val};
 
-  const invFlat=buildInvoiceFlat().filter(inv=>inRange(inv.uploaded_at||inv.ticket_date));
+  const allSalesInvoices=buildSalesPerformanceInvoices();
+  const invFlat=allSalesInvoices.filter(inv=>inRange(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date));
   const totalReal=invFlat.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avgTransaction=invFlat.length?Math.round(totalReal/invFlat.length):0;
 
@@ -8182,7 +8217,7 @@ function renderSalesDashboard(){
   for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString('id-ID',{month:'short'})});}
   const monthly=months.map(x=>{
     const start=new Date(x.y,x.m,1),end=new Date(x.y,x.m+1,0,23,59,59);
-    const real=buildInvoiceFlat().filter(inv=>{const d=new Date(inv.uploaded_at||inv.ticket_date);return !isNaN(d)&&d>=start&&d<=end}).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+    const real=allSalesInvoices.filter(inv=>{const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date);return !isNaN(d)&&d>=start&&d<=end}).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
     const target=(salesTargets||[]).filter(t=>String(t.year_month||'')===x.y+'-'+String(x.m+1).padStart(2,'0')).reduce((s,t)=>s+(Number(t.target_amount)||0),0);
     return{...x,real,target};
   });
@@ -8196,8 +8231,8 @@ function renderSalesDashboard(){
   }
 
   // composition invoice WO vs standalone
-  const withWO=invFlat.filter(x=>x.wo_number).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
-  const standalone=invFlat.filter(x=>!x.wo_number).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const withWO=invFlat.filter(x=>x.sales_order_id||x.so_number||x.wo_number||(Array.isArray(x.work_order_ids)&&x.work_order_ids.length)).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const standalone=invFlat.filter(x=>!(x.sales_order_id||x.so_number||x.wo_number||(Array.isArray(x.work_order_ids)&&x.work_order_ids.length))).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const comp=document.getElementById('sd-composition-chart');
   if(comp){
     const total=Math.max(1,withWO+standalone),p1=Math.round(withWO/total*100),p2=100-p1;
@@ -8217,23 +8252,28 @@ function renderSalesDashboard(){
   const visits=(kunjunganData||[]).filter(v=>inRange(v.prospect_date||v.created_at));
   const potentialTotal=visits.filter(v=>!['Closed Won','Closed Lost'].includes(v.cust_status)).reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0);
   const pipelineDefs=[
-    {key:'Prospect',label:'Prospect Baru',color:'#4F8DF7'},
-    {key:'Follow Up 1',label:'Follow Up',color:'#60A5FA'},
+    {key:'Canvasing',label:'Canvasing',color:'#4F8DF7'},
+    {key:'Open Lead',label:'Prospect / Follow Up',color:'#60A5FA'},
     {key:'Negotiation',label:'Negotiation',color:'#F59E0B'},
     {key:'Closed Won',label:'Deal / Closed Won',color:'#10B981'},
     {key:'Closed Lost',label:'Closed Lost',color:'#EF4444'}
   ];
   set('sd-potential-total',shortMoney(potentialTotal));
-  const pipeMap={};
-  pipelineDefs.forEach(d=>pipeMap[d.key]=visits.filter(v=>v.cust_status===d.key));
-  // include Follow Up 2 in followup bucket
-  pipeMap['Follow Up 1']=[...(pipeMap['Follow Up 1']||[]),...visits.filter(v=>v.cust_status==='Follow Up 2')];
-  set('sd-pipeline-prospect',pipeMap['Prospect'].length);
-  set('sd-pipeline-prospect-value',shortMoney(pipeMap['Prospect'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
+  const pipeMap={
+    'Canvasing':visits.filter(v=>v.cust_status==='Canvasing'),
+    'Open Lead':visits.filter(v=>['Prospect','Follow Up 1','Follow Up 2'].includes(v.cust_status)),
+    'Negotiation':visits.filter(v=>v.cust_status==='Negotiation'),
+    'Closed Won':visits.filter(v=>v.cust_status==='Closed Won'),
+    'Closed Lost':visits.filter(v=>v.cust_status==='Closed Lost')
+  };
+  const prospectRows=visits.filter(v=>['Canvasing','Prospect'].includes(v.cust_status));
+  const followRows=visits.filter(v=>['Follow Up 1','Follow Up 2'].includes(v.cust_status));
+  set('sd-pipeline-prospect',prospectRows.length);
+  set('sd-pipeline-prospect-value',shortMoney(prospectRows.reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
   set('sd-pipeline-negotiation',pipeMap['Negotiation'].length);
   set('sd-pipeline-negotiation-value',shortMoney(pipeMap['Negotiation'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
-  set('sd-pipeline-followup',pipeMap['Follow Up 1'].length);
-  set('sd-pipeline-followup-value',shortMoney(pipeMap['Follow Up 1'].reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
+  set('sd-pipeline-followup',followRows.length);
+  set('sd-pipeline-followup-value',shortMoney(followRows.reduce((s,v)=>s+(Number(v.estimasi_omzet)||0),0)));
 
   const board=document.getElementById('sd-pipeline-board');
   if(board)board.innerHTML=pipelineDefs.map(d=>{
@@ -8252,23 +8292,19 @@ function renderSalesDashboard(){
   const sob=document.getElementById('sd-so-recent-body');
   if(sob)sob.innerHTML=recentSO.length?recentSO.map(x=>'<tr><td>'+esc(x.so_number||x.number||'—')+'</td><td>'+esc(x.customer_name||x.customer||'—')+'</td><td>'+esc(x.sales_pic||'—')+'</td><td>'+esc(x.status||'—')+'</td><td>'+esc(shortMoney(Number(x.total_amount||x.total||x.grand_total)||0))+'</td></tr>').join(''):'<tr><td colspan="5" class="pxl-sales-empty">Belum ada Sales Order</td></tr>';
 
-  // Customer 360 from ticket invoices, with best customer-name fallback
+  // Customer 360 dari source invoice Sales Performance yang sama.
   const customerMap={};
-  allTicketsForReport().forEach(t=>(t.invoices||[]).forEach(inv=>{
-    if(!inRange(inv.uploaded_at||t.worked_at||t.created_at))return;
-    const name=t.customer_name||t.customer||t.project_name||inv.customer_name||'Tanpa Nama';
-    const key=String(name).trim().toLowerCase();if(!customerMap[key])customerMap[key]={name,count:0,total:0};
-    customerMap[key].count++;customerMap[key].total+=Number(inv.total_amount)||0;
-  }));
-  (standaloneInvoices||[]).forEach(inv=>{
-    if(!inRange(inv.uploaded_at||inv.created_at))return;
-    const name=inv.customer_name||inv.customer||'Tanpa Nama',key=String(name).trim().toLowerCase();
+  invFlat.forEach(inv=>{
+    const name=inv.customer_name||inv.customer||'Tanpa Nama';
+    const key=String(name).trim().toLowerCase();if(!key)return;
     if(!customerMap[key])customerMap[key]={name,count:0,total:0};
-    customerMap[key].count++;customerMap[key].total+=Number(inv.total_amount)||0;
+    customerMap[key].count++;
+    customerMap[key].total+=Number(inv.total_amount)||0;
   });
   const topCustomers=Object.values(customerMap).sort((a,b)=>b.total-a.total).slice(0,6);
   const cb=document.getElementById('sd-customer360-body');
   if(cb)cb.innerHTML=topCustomers.length?topCustomers.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.count+'</td><td>'+esc(shortMoney(r.total))+'</td></tr>').join(''):'<tr><td colspan="4" class="pxl-sales-empty">Belum ada transaksi customer</td></tr>';
+
 }
 
 function renderTargetList(){
