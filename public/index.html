@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0006 — canonical Sales PIC alias + annual PIC target fix */
 /* PXL-SALES-UI-0005 — annual target breakdown per Sales PIC */
 /* PXL-SALES-UI-0004 — annual sales target summary */
 /* PXL-SALES-UI-0003 — fix period selector and auto-select latest data month */
@@ -5785,7 +5786,7 @@ function getDashInvoices(){
 function getDashTargetSummary(){
   const{from,to}=getDashRange();
   const targetMap={};
-  (salesTargets||[]).forEach(t=>{
+  canonicalTargets.forEach(t=>{
     const [ty,tm]=String(t.year_month||'').split('-').map(Number);
     if(!ty||!tm) return;
     const tFrom=new Date(ty,tm-1,1);
@@ -8159,7 +8160,7 @@ function salesPeriodHasData(period){
   const inRange=raw=>{const d=raw?new Date(raw):null;return d&&!isNaN(d)&&d>=from&&d<=to};
   const invoices=buildSalesPerformanceInvoices();
   const hasInvoice=invoices.some(inv=>inRange(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date));
-  const hasTarget=(salesTargets||[]).some(t=>{
+  const hasTarget=getCanonicalSalesTargets().some(t=>{
     const [y,m]=String(t.year_month||'').split('-').map(Number);
     if(!y||!m)return false;
     const a=new Date(y,m-1,1),b=new Date(y,m,0,23,59,59);
@@ -8179,7 +8180,7 @@ function resolveSalesInitialPeriod(){
       const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
       return !isNaN(d)&&d>=from&&d<=to;
     });
-    const currentTarget=(salesTargets||[]).some(t=>{
+    const currentTarget=getCanonicalSalesTargets().some(t=>{
       const now=new Date();
       return String(t.year_month||'')===now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
     });
@@ -8255,6 +8256,29 @@ function buildInvoiceFlat(){
   return [...ticketInv, ...standaloneInv];
 }
 
+function canonicalSalesPic(name){
+  const raw=String(name||'').trim();
+  const key=raw.toLowerCase().replace(/\s+/g,' ');
+  if(key==='eka hendrayana'||key==='i putu eka hendrayana') return 'I Putu Eka Hendrayana';
+  return raw||'(Tanpa PIC)';
+}
+
+function getCanonicalSalesTargets(){
+  // Satu target per Sales PIC canonical per bulan.
+  // Jika alias lama & nama baru kebetulan muncul pada bulan sama, pilih nominal terbesar agar tidak double count.
+  const grouped=new Map();
+  (salesTargets||[]).forEach(t=>{
+    const pic=canonicalSalesPic(t.sales_pic);
+    const ym=String(t.year_month||'').trim();
+    if(!ym)return;
+    const key=ym+'|'+pic;
+    const amount=Number(t.target_amount)||0;
+    const current=grouped.get(key);
+    if(!current||amount>Number(current.target_amount||0)) grouped.set(key,{...t,sales_pic:pic,target_amount:amount});
+  });
+  return [...grouped.values()];
+}
+
 function buildSalesPerformanceInvoices(){
   // CRM Invoice adalah source of truth terbaru. Gunakan invoice_date untuk periode,
   // bukan created_at karena data migrasi dapat dibuat ulang pada tanggal berbeda.
@@ -8274,7 +8298,7 @@ function buildSalesPerformanceInvoices(){
       const visitPic=visitPicByName.get(String(inv.customer_name||'').trim().toLowerCase())||null;
       return {
         ...inv,
-        sales_pic: inv.sales_pic||so?.sales_pic||cust?.sales_pic||visitPic||null,
+        sales_pic: canonicalSalesPic(inv.sales_pic||so?.sales_pic||cust?.sales_pic||visitPic||null),
         total_amount:Number(inv.grand_total??inv.total_amount??inv.total??0)||0,
         sales_date:inv.invoice_date||inv.issued_at||inv.uploaded_at||inv.created_at,
         customer_name:inv.customer_name||cust?.name||so?.customer_name||null,
@@ -8283,7 +8307,7 @@ function buildSalesPerformanceInvoices(){
       };
     });
   }
-  return buildInvoiceFlat().map(inv=>({...inv,sales_date:inv.uploaded_at||inv.ticket_date,source:inv.wo_number?'invoice_wo':'standalone'}));
+  return buildInvoiceFlat().map(inv=>({...inv,sales_pic:canonicalSalesPic(inv.sales_pic),sales_date:inv.uploaded_at||inv.ticket_date,source:inv.wo_number?'invoice_wo':'standalone'}));
 }
 
 function renderSalesDashboard(){
@@ -8302,7 +8326,8 @@ function renderSalesDashboard(){
   const annualYear=new Date().getFullYear();
   const annualFrom=new Date(annualYear,0,1);
   const annualTo=new Date(annualYear,11,31,23,59,59);
-  const annualTargets=(salesTargets||[]).filter(t=>String(t.year_month||'').startsWith(String(annualYear)+'-'));
+  const canonicalTargets=getCanonicalSalesTargets();
+  const annualTargets=canonicalTargets.filter(t=>String(t.year_month||'').startsWith(String(annualYear)+'-'));
   const annualTarget=annualTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
   const annualReal=allSalesInvoices.filter(inv=>{
     const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
@@ -8329,18 +8354,20 @@ function renderSalesDashboard(){
   // Breakdown target tahunan per Sales PIC.
   const annualTargetByPic={};
   annualTargets.forEach(t=>{
-    const pic=String(t.sales_pic||'(Tanpa PIC)').trim()||'(Tanpa PIC)';
+    const pic=canonicalSalesPic(t.sales_pic);
     annualTargetByPic[pic]=(annualTargetByPic[pic]||0)+(Number(t.target_amount)||0);
   });
   const annualRealByPic={};
   allSalesInvoices.forEach(inv=>{
     const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
     if(isNaN(d)||d<annualFrom||d>annualTo)return;
-    const pic=String(inv.sales_pic||'(Tanpa PIC)').trim()||'(Tanpa PIC)';
+    const pic=canonicalSalesPic(inv.sales_pic);
     annualRealByPic[pic]=(annualRealByPic[pic]||0)+(Number(inv.total_amount)||0);
   });
   const annualPics=[...new Set([...Object.keys(annualTargetByPic),...Object.keys(annualRealByPic)])]
-    .filter(p=>p!=='(Tanpa PIC)')
+    .map(canonicalSalesPic)
+    .filter(p=>p&&p!=='(Tanpa PIC)')
+    .filter((p,i,a)=>a.indexOf(p)===i)
     .sort((a,b)=>(annualTargetByPic[b]||0)-(annualTargetByPic[a]||0));
   const annualPicBody=document.getElementById('sd-annual-pic-body');
   if(annualPicBody){
@@ -8372,7 +8399,7 @@ function renderSalesDashboard(){
     const overlapFrom=from>tFrom?from:tFrom,overlapTo=to<tTo?to:tTo;
     const overlapDays=Math.max(0,(overlapTo-overlapFrom)/864e5+1);
     const totalDays=(tTo-tFrom)/864e5+1;
-    const pic=t.sales_pic||'(Tanpa PIC)';
+    const pic=canonicalSalesPic(t.sales_pic);
     targetMap[pic]=(targetMap[pic]||0)+(Number(t.target_amount)||0)*Math.min(1,overlapDays/totalDays);
   });
   const totalTarget=Object.values(targetMap).reduce((a,b)=>a+b,0);
@@ -8396,7 +8423,7 @@ function renderSalesDashboard(){
 
   // Realisasi per PIC
   const realMap={};
-  invFlat.forEach(inv=>{const pic=inv.sales_pic||'(Tanpa PIC)';realMap[pic]=(realMap[pic]||0)+(Number(inv.total_amount)||0);});
+  invFlat.forEach(inv=>{const pic=canonicalSalesPic(inv.sales_pic);realMap[pic]=(realMap[pic]||0)+(Number(inv.total_amount)||0);});
   const pics=[...new Set([...Object.keys(realMap),...Object.keys(targetMap)])].filter(x=>x!=='(Tanpa PIC)').sort((a,b)=>(realMap[b]||0)-(realMap[a]||0));
 
   const perf=document.getElementById('sd-sales-performance');
@@ -8412,7 +8439,7 @@ function renderSalesDashboard(){
   const monthly=months.map(x=>{
     const start=new Date(x.y,x.m,1),end=new Date(x.y,x.m+1,0,23,59,59);
     const real=allSalesInvoices.filter(inv=>{const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date);return !isNaN(d)&&d>=start&&d<=end}).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
-    const target=(salesTargets||[]).filter(t=>String(t.year_month||'')===x.y+'-'+String(x.m+1).padStart(2,'0')).reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+    const target=canonicalTargets.filter(t=>String(t.year_month||'')===x.y+'-'+String(x.m+1).padStart(2,'0')).reduce((s,t)=>s+(Number(t.target_amount)||0),0);
     return{...x,real,target};
   });
   const trend=document.getElementById('sd-line-chart');
@@ -8504,9 +8531,9 @@ function renderSalesDashboard(){
 function renderTargetList(){
   const el=document.getElementById('sd-target-list');
   if(!el) return;
-  if(!salesTargets.length){el.innerHTML='<div class="empty" style="padding:20px">📭 Belum ada target</div>';return;}
+  if(!getCanonicalSalesTargets().length){el.innerHTML='<div class="empty" style="padding:20px">📭 Belum ada target</div>';return;}
   // group by year_month, sort desc
-  const sorted=[...salesTargets].sort((a,b)=>b.year_month.localeCompare(a.year_month));
+  const sorted=[...getCanonicalSalesTargets()].sort((a,b)=>b.year_month.localeCompare(a.year_month));
   el.innerHTML=sorted.map(t=>`
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0">
