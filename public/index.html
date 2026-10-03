@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-DASH-UI-0021 — CRM endpoint + Project/CRM dashboard cache synchronization */
 /* PXL-DASH-UI-0020 — Customer / CRM dashboard submenu */
 #dash-sec-crm{background:transparent;color:#14213d}
 #dash-sec-crm .pxl-crm-head-card{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -5541,12 +5542,12 @@ async function loadDashboard(){
       console.error('Gagal memuat Purchase Request dashboard',err);
       dashPRData=Array.isArray(prData)?prData:[];
     }));
-    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
+    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{const rows=Array.isArray(d)?d:[];dashProjectData=rows;projectsData=rows;}).catch(()=>{dashProjectData=Array.isArray(projectsData)?projectsData:[];}));
     if(!dashProjectReportData.length) jobs.push(api('GET','/project-report-summaries').then(d=>{dashProjectReportData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
     if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashServiceData.length) jobs.push(api('GET','/service-orders').then(d=>{dashServiceData=Array.isArray(d)?d:[];}).catch(()=>{}));
-    if(!dashCrmCustomerData.length) jobs.push(api('GET','/api/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}));
+    if(!dashCrmCustomerData.length) jobs.push(api('GET','/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashTechnicianData.length) jobs.push(api('GET','/api/technician-kanban/active-technicians').then(d=>{dashTechnicianData=Array.isArray(d)?d:(Array.isArray(d?.technicians)?d.technicians:[]);}).catch(()=>{}));
 
     if(jobs.length){
@@ -5650,7 +5651,7 @@ function switchDashSub(sub, btn){
   // Pastikan data project selalu fresh saat submenu dibuka
   if(sub==='project'){
     Promise.allSettled([
-      api('GET','/projects').then(data=>{dashProjectData=Array.isArray(data)?data:[];}),
+      api('GET','/projects').then(data=>{const rows=Array.isArray(data)?data:[];dashProjectData=rows;projectsData=rows;}),
       api('GET','/project-report-summaries').then(data=>{dashProjectReportData=Array.isArray(data)?data:[];})
     ]).then(()=>renderDashboard()).catch(()=>{
       dashProjectData=dashProjectData||[];
@@ -5660,10 +5661,11 @@ function switchDashSub(sub, btn){
     return;
   }
   if(sub==='crm'){
-    api('GET','/api/crm/customers').then(data=>{
-      dashCrmCustomerData=Array.isArray(data)?data:[];
-      renderDashboard();
-    }).catch(err=>{
+    Promise.allSettled([
+      api('GET','/crm/customers').then(data=>{dashCrmCustomerData=Array.isArray(data)?data:[];}),
+      api('GET','/sales-visits').then(data=>{if(Array.isArray(data))kunjunganData=data;}),
+      api('GET','/invoices/standalone').then(data=>{if(Array.isArray(data))standaloneInvoices=data;})
+    ]).then(()=>renderDashboard()).catch(err=>{
       console.error('Gagal memuat Customer CRM dashboard',err);
       dashCrmCustomerData=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
       renderDashboard();
@@ -6501,7 +6503,27 @@ function renderDashSubPR(prList){
 }
 
 function renderDashSubCRM(){
-  const customers=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  let customers=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  if(!customers.length && Array.isArray(kunjunganData) && kunjunganData.length){
+    const seen=new Map();
+    kunjunganData.forEach(v=>{
+      const name=String(v.customer_name||'').trim();
+      if(!name)return;
+      const key=name.toLowerCase().replace(/\s+/g,' ');
+      const current=seen.get(key)||{};
+      seen.set(key,{
+        ...current,
+        id:current.id||('visit:'+key),
+        name,
+        type:v.customer_type||current.type||null,
+        sub_segmentasi:v.sub_segmentasi||current.sub_segmentasi||null,
+        sales_pic:v.sales_pic||current.sales_pic||null,
+        status:'active',
+        created_at:current.created_at||v.created_at||v.prospect_date||null
+      });
+    });
+    customers=[...seen.values()];
+  }
   const visits=filterVisitsDash(kunjunganData||[]);
   const invoices=getDashInvoices();
   const el=id=>document.getElementById(id);
@@ -6559,7 +6581,7 @@ function renderDashSubCRM(){
   allTicketsForReport().forEach(t=>{
     (t.invoices||[]).forEach(inv=>{
       if(!includeDate(inv.uploaded_at||t.worked_at||t.created_at))return;
-      const name=t.customer_name||inv.customer_name||'Tanpa Nama',key=norm(name);if(!key)return;
+      const name=t.customer_name||t.customer||t.project_name||inv.customer_name||inv.customer||'Tanpa Nama',key=norm(name);if(!key)return;
       if(!transMap[key])transMap[key]={name,count:0,total:0};
       transMap[key].count++;transMap[key].total+=Number(inv.total_amount)||0;
     });
@@ -6598,7 +6620,7 @@ function renderDashSubCRM(){
 }
 
 function renderDashSubProject(projList){
-  const rows=Array.isArray(projList)?projList:[];
+  const rows=(Array.isArray(projList)&&projList.length)?projList:(Array.isArray(projectsData)?projectsData:[]);
   const el=id=>document.getElementById(id);
   const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -6924,7 +6946,7 @@ function renderDashboardOverviewV2(data){
   set('dm-service-action',serviceOpen||'0');
   set('pxl3-wo-total',(data||[]).length||'0');
 
-  const projects=Array.isArray(dashProjectData)?dashProjectData:[];
+  const projects=(Array.isArray(dashProjectData)&&dashProjectData.length)?dashProjectData:(Array.isArray(projectsData)?projectsData:[]);
   const pstatus=x=>String(x.status||'').toLowerCase();
   const projectHold=projects.filter(x=>['hold','on hold'].includes(pstatus(x))).length;
   const projectDone=projects.filter(x=>['done','completed','selesai','closed','finished'].includes(pstatus(x))).length;
@@ -6934,7 +6956,16 @@ function renderDashboardOverviewV2(data){
   set('pxl3-project-done',projectDone||'0');
   set('pxl3-project-hold',projectHold||'0');
 
-  const crmRows=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  let crmRows=Array.isArray(dashCrmCustomerData)?dashCrmCustomerData:[];
+  if(!crmRows.length && Array.isArray(kunjunganData)){
+    const crmSeen=new Map();
+    kunjunganData.forEach(v=>{
+      const name=String(v.customer_name||'').trim(); if(!name)return;
+      const key=name.toLowerCase().replace(/\s+/g,' ');
+      if(!crmSeen.has(key))crmSeen.set(key,{name,status:'active',created_at:v.created_at||v.prospect_date||null});
+    });
+    crmRows=[...crmSeen.values()];
+  }
   const inactiveStates=new Set(['inactive','nonaktif','non-active','disabled','archived','closed']);
   const crmInactive=crmRows.filter(x=>inactiveStates.has(String(x.status||'').trim().toLowerCase())).length;
   const crmActive=Math.max(0,crmRows.length-crmInactive);
