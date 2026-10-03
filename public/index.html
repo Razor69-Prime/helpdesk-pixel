@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0004 — annual sales target summary */
 /* PXL-SALES-UI-0003 — fix period selector and auto-select latest data month */
 /* PXL-SALES-UI-0002 — production data source fix (CRM Invoice + actual pipeline statuses) */
 /* PXL-SALES-UI-0001 — Sales Performance redesign */
@@ -1364,6 +1365,20 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 .pxl-sales-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
 .pxl-sales-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
 .pxl-sales-pct{font-size:7.5px;min-width:28px;text-align:right;color:#52627a}
+.pxl-sales-annual-card{margin-bottom:10px;padding:12px 13px}
+.pxl-sales-annual-head{align-items:center}
+.pxl-sales-annual-year{font-size:9px;font-weight:800;color:#475467;background:#F2F4F7;border:1px solid #E4E7EC;border-radius:7px;padding:5px 8px}
+.pxl-sales-annual-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.pxl-sales-annual-kpi{border-radius:11px;padding:12px 13px;border:1px solid #E6EBF2;min-width:0}
+.pxl-sales-annual-kpi.blue{background:#F3F8FF}.pxl-sales-annual-kpi.green{background:#F1FBF5}.pxl-sales-annual-kpi.amber{background:#FFF9EB}.pxl-sales-annual-kpi.purple{background:#F7F2FF}
+.pxl-sales-annual-kpi span{display:block;font-size:8.2px;font-weight:750;color:#475467}
+.pxl-sales-annual-kpi b{display:block;font-size:20px;line-height:1.08;margin:5px 0 4px;color:#14213d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxl-sales-annual-kpi small{display:block;font-size:7.5px;color:#7B8798}
+.pxl-sales-annual-progress-wrap{margin-top:11px;padding:9px 10px;border-radius:10px;background:#FAFBFD;border:1px solid #EDF0F4}
+.pxl-sales-annual-progress-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:7px;font-size:8px;color:#667085}
+.pxl-sales-annual-progress-meta b{font-size:9px;color:#344054}
+.pxl-sales-annual-track{height:11px;border-radius:99px;background:#EAF0F6;overflow:hidden}
+.pxl-sales-annual-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#24C78E);transition:width .25s ease}
 .pxl-sales-mid-grid{display:grid;grid-template-columns:.9fr 1.6fr;gap:10px;margin-bottom:10px}
 .pxl-sales-potential-grid{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:8px}
 .pxl-sales-potential-main,.pxl-sales-mini{border-radius:10px;padding:12px;border:1px solid #E8EDF3}
@@ -1393,8 +1408,8 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 .pxl-sales-contrib-row{display:grid;grid-template-columns:75px 1fr auto;gap:6px;align-items:center;padding:6px 0}
 .pxl-sales-contrib-row span{font-size:7.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pxl-sales-contrib-row b{font-size:7.8px}
-@media(max-width:1300px){.pxl-sales-kpi-grid{grid-template-columns:repeat(3,1fr)}.pxl-sales-analysis-grid{grid-template-columns:1fr 1fr}.pxl-sales-mid-grid{grid-template-columns:1fr}.pxl-sales-bottom-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr 1fr}}
-@media(max-width:760px){.pxl-sales-kpi-grid{grid-template-columns:repeat(2,1fr)}.pxl-sales-analysis-grid,.pxl-sales-bottom-grid,.pxl-sales-target-grid{grid-template-columns:1fr}.pxl-sales-potential-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr}.pxl-sales-pipeline{grid-template-columns:repeat(5,150px)}}
+@media(max-width:1300px){.pxl-sales-annual-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pxl-sales-kpi-grid{grid-template-columns:repeat(3,1fr)}.pxl-sales-analysis-grid{grid-template-columns:1fr 1fr}.pxl-sales-mid-grid{grid-template-columns:1fr}.pxl-sales-bottom-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.pxl-sales-annual-grid{grid-template-columns:1fr}.pxl-sales-kpi-grid{grid-template-columns:repeat(2,1fr)}.pxl-sales-analysis-grid,.pxl-sales-bottom-grid,.pxl-sales-target-grid{grid-template-columns:1fr}.pxl-sales-potential-grid{grid-template-columns:1fr 1fr}.pxl-sales-target-form{grid-template-columns:1fr}.pxl-sales-pipeline{grid-template-columns:repeat(5,150px)}}
 </style>
 </head>
 <body>
@@ -2656,6 +2671,45 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <div class="pxl-sales-card">
           <div class="pxl-sales-card-head"><div><b>Kontribusi Sales PIC</b><small>Kontribusi omzet per Sales PIC</small></div></div>
           <div id="sd-contribution-list"></div>
+        </div>
+      </section>
+
+      <section class="pxl-sales-card pxl-sales-annual-card">
+        <div class="pxl-sales-card-head pxl-sales-annual-head">
+          <div>
+            <b id="sd-annual-title">Target Tahunan</b>
+            <small>Akumulasi target Sales PIC dan realisasi omzet tahun berjalan</small>
+          </div>
+          <span class="pxl-sales-annual-year" id="sd-annual-year">—</span>
+        </div>
+        <div class="pxl-sales-annual-grid">
+          <div class="pxl-sales-annual-kpi blue">
+            <span>Total Target Tahunan</span>
+            <b id="sd-annual-target">—</b>
+            <small id="sd-annual-target-sub">akumulasi target tahun berjalan</small>
+          </div>
+          <div class="pxl-sales-annual-kpi green">
+            <span>Realisasi Omzet</span>
+            <b id="sd-annual-real">—</b>
+            <small id="sd-annual-real-sub">omzet 1 Jan–31 Des</small>
+          </div>
+          <div class="pxl-sales-annual-kpi amber">
+            <span>Kekurangan Target</span>
+            <b id="sd-annual-gap">—</b>
+            <small id="sd-annual-gap-sub">sisa target yang perlu dicapai</small>
+          </div>
+          <div class="pxl-sales-annual-kpi purple">
+            <span>Pencapaian Tahunan</span>
+            <b id="sd-annual-pct">—</b>
+            <small id="sd-annual-pct-sub">realisasi ÷ target tahunan</small>
+          </div>
+        </div>
+        <div class="pxl-sales-annual-progress-wrap">
+          <div class="pxl-sales-annual-progress-meta">
+            <span>Progress terhadap target tahunan</span>
+            <b id="sd-annual-progress-label">—</b>
+          </div>
+          <div class="pxl-sales-annual-track"><div class="pxl-sales-annual-fill" id="sd-annual-progress-bar"></div></div>
         </div>
       </section>
 
@@ -8217,6 +8271,34 @@ function renderSalesDashboard(){
   const invFlat=allSalesInvoices.filter(inv=>inRange(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date));
   const totalReal=invFlat.reduce((s,i)=>s+(Number(i.total_amount)||0),0);
   const avgTransaction=invFlat.length?Math.round(totalReal/invFlat.length):0;
+
+  // Target tahunan selalu memakai tahun kalender berjalan dan tidak terpengaruh filter periode di atas.
+  const annualYear=new Date().getFullYear();
+  const annualFrom=new Date(annualYear,0,1);
+  const annualTo=new Date(annualYear,11,31,23,59,59);
+  const annualTargets=(salesTargets||[]).filter(t=>String(t.year_month||'').startsWith(String(annualYear)+'-'));
+  const annualTarget=annualTargets.reduce((s,t)=>s+(Number(t.target_amount)||0),0);
+  const annualReal=allSalesInvoices.filter(inv=>{
+    const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
+    return !isNaN(d)&&d>=annualFrom&&d<=annualTo;
+  }).reduce((s,i)=>s+(Number(i.total_amount)||0),0);
+  const annualGap=Math.max(0,annualTarget-annualReal);
+  const annualPct=annualTarget?annualReal/annualTarget*100:0;
+  const annualProgress=Math.max(0,Math.min(100,annualPct));
+
+  set('sd-annual-year',String(annualYear));
+  set('sd-annual-title','Target Tahunan '+annualYear);
+  set('sd-annual-target',shortMoney(annualTarget));
+  set('sd-annual-real',shortMoney(annualReal));
+  set('sd-annual-gap',annualTarget?(annualGap?shortMoney(annualGap):'Target tercapai'):'—');
+  set('sd-annual-pct',annualTarget?annualPct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—');
+  set('sd-annual-target-sub',annualTargets.length+' target Sales PIC tersimpan');
+  set('sd-annual-real-sub','omzet '+annualYear+' dari invoice');
+  set('sd-annual-gap-sub',annualTarget?(annualGap?'sisa menuju target tahunan':'realisasi sudah mencapai target'):'target tahunan belum tersedia');
+  set('sd-annual-pct-sub',annualTarget?'realisasi ÷ target tahunan':'target tahunan belum tersedia');
+  set('sd-annual-progress-label',annualTarget?annualPct.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—');
+  const annualBar=document.getElementById('sd-annual-progress-bar');
+  if(annualBar) annualBar.style.width=annualProgress+'%';
 
   const targetMap={};
   (salesTargets||[]).forEach(t=>{
