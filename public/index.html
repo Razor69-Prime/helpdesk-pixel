@@ -1294,6 +1294,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
 /* PXL-URG-0080 — superadmin access bypass; exclude from Sales/Technician classification */
+/* PXL-SALES-UI-0009 — reliable Sales Performance bootstrap loader */
 /* PXL-SALES-UI-0008 — annual target period starts Sep-Dec for 2026 */
 /* PXL-SALES-UI-0007 — merge I Komang Budha Astawa alias */
 /* PXL-SALES-UI-0006 — canonical Sales PIC alias + annual PIC target fix */
@@ -8201,13 +8202,22 @@ function resolveSalesInitialPeriod(){
 
 async function loadSalesDashboard(){
   try{
+    let bootstrap=null;
+    try{
+      bootstrap=await api('GET','/sales-performance/bootstrap');
+    }catch(err){
+      console.error('Bootstrap Sales Performance gagal, fallback target endpoint',err);
+      const targets=await api('GET','/sales-targets');
+      bootstrap={targets:Array.isArray(targets)?targets:[],sales_pics:[]};
+    }
+    salesTargets=Array.isArray(bootstrap?.targets)?bootstrap.targets:[];
+    const salesPicSelect=document.getElementById('st-pic');
+    if(salesPicSelect){
+      const pics=Array.isArray(bootstrap?.sales_pics)?bootstrap.sales_pics:[];
+      salesPicSelect.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
+    }
+
     const jobs=[
-      api('GET','/sales-targets').then(d=>{salesTargets=Array.isArray(d)?d:[];}),
-      api('GET','/users').then(users=>{
-        const pics=(Array.isArray(users)?users:[]).filter(u=>String(u.role||'').toLowerCase()!=='superadmin'&&(u.role==='sales'||(Array.isArray(u.extra_roles)&&u.extra_roles.includes('sales'))) && u.is_active!==false);
-        const sel=document.getElementById('st-pic');
-        if(sel) sel.innerHTML='<option value="">Pilih Sales PIC...</option>'+pics.map(u=>`<option value="${u.name}">${u.name}</option>`).join('');
-      }),
       api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}),
       api('GET','/sales-visits').then(d=>{kunjunganData=Array.isArray(d)?d:[];}).catch(()=>{}),
       api('GET','/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}),
