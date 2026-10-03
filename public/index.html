@@ -901,58 +901,120 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   }
 }
 
-/* PXL-DASH-UI-0012 — Technician dashboard visual aligned to approved mockup */
-#dash-sec-teknisi{background:transparent;color:#111827}
-#dash-sec-teknisi .pxl-tech-summary,
-#dash-sec-teknisi .pxl-tech-panel,
-#dash-sec-teknisi .pxl-tech-status-card{
-  background:#fff;border:1px solid #E5EAF0;border-radius:14px;
-  box-shadow:0 7px 22px rgba(15,23,42,.035)
+/* PXL-DASH-UI-0013 — full Technician dashboard layout aligned to approved mockup */
+#dash-sec-teknisi{background:transparent;color:#14213d}
+#dash-sec-teknisi .pxl-tech-card{
+  background:#fff;border:1px solid #E3E9F1;border-radius:13px;
+  box-shadow:0 5px 18px rgba(15,23,42,.035);min-width:0
 }
-#dash-sec-teknisi .pxl-tech-summary{padding:12px}
-#dash-sec-teknisi .pxl-tech-section-title{font-size:11px;font-weight:800;letter-spacing:.02em;color:#26334d;margin:0 0 9px}
-#dash-sec-teknisi .pxl-tech-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#dash-sec-teknisi .pxl-tech-top{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px}
+#dash-sec-teknisi .pxl-tech-summary{padding:11px}
+#dash-sec-teknisi .pxl-tech-title{font-size:11px;font-weight:800;color:#14213d;letter-spacing:.015em;margin:0 0 8px}
+#dash-sec-teknisi .pxl-tech-sub{font-size:8.6px;color:#7B8798;margin-top:2px;font-weight:400}
+#dash-sec-teknisi .pxl-tech-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+#dash-sec-teknisi .pxl-tech-head .pxl-tech-title{margin:0}
+#dash-sec-teknisi .pxl-tech-mini-btn{border:1px solid #CFE0F8;background:#F8FBFF;color:#2F6FBE;border-radius:7px;font-size:8px;font-weight:700;padding:5px 8px}
+#dash-sec-teknisi .pxl-tech-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 #dash-sec-teknisi .pxl-tech-kpi{
-  min-height:68px;background:#fff;border:1px solid #E8EDF3;border-radius:11px;
-  display:flex;align-items:center;gap:10px;padding:10px 11px;min-width:0
+  min-height:66px;background:#fff;border:1px solid #E6EBF2;border-radius:10px;
+  display:flex;align-items:center;gap:9px;padding:9px 10px;min-width:0
 }
-#dash-sec-teknisi .pxl-tech-icon{
-  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
-  flex:0 0 38px
-}
+#dash-sec-teknisi .pxl-tech-icon{width:37px;height:37px;border-radius:11px;display:grid;place-items:center;flex:0 0 37px}
 #dash-sec-teknisi .pxl-tech-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-#dash-sec-teknisi .pxl-tech-icon.purple{background:#F3ECFF;color:#7C3AED}
-#dash-sec-teknisi .pxl-tech-icon.green{background:#EAF8EF;color:#10B981}
+#dash-sec-teknisi .pxl-tech-icon.purple{background:#F2EAFE;color:#7C3AED}
+#dash-sec-teknisi .pxl-tech-icon.green{background:#E9F8EF;color:#10B981}
 #dash-sec-teknisi .pxl-tech-icon.blue{background:#EAF3FF;color:#2F80ED}
-#dash-sec-teknisi .pxl-tech-icon.orange{background:#FFF3E8;color:#F97316}
-#dash-sec-teknisi .pxl-tech-icon.red{background:#FFF0F0;color:#EF4444}
+#dash-sec-teknisi .pxl-tech-icon.orange{background:#FFF2E7;color:#F97316}
+#dash-sec-teknisi .pxl-tech-icon.red{background:#FFF0F1;color:#EF4444}
 #dash-sec-teknisi .pxl-tech-kpi-copy{min-width:0}
-#dash-sec-teknisi .pxl-tech-kpi-label{font-size:9.5px;font-weight:700;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#dash-sec-teknisi .pxl-tech-kpi-value{font-size:20px;line-height:1.05;font-weight:800;color:#14213d;margin:3px 0 2px}
-#dash-sec-teknisi .pxl-tech-kpi-sub{font-size:8.7px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#dash-sec-teknisi .pxl-tech-main-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr);gap:12px;margin-top:12px}
-#dash-sec-teknisi .pxl-tech-panel{padding:12px;min-width:0}
-#dash-sec-teknisi .pxl-tech-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
-#dash-sec-teknisi .pxl-tech-panel-head b{font-size:11px}
-#dash-sec-teknisi .pxl-tech-panel-head small{display:block;font-size:8.8px;color:#7B8798;margin-top:2px;font-weight:400}
-#dash-sec-teknisi .pxl-tech-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
-#dash-sec-teknisi .pxl-tech-status-card{padding:10px 12px;display:flex;align-items:center;gap:9px}
-#dash-sec-teknisi .pxl-tech-status-card .pxl-tech-icon{width:34px;height:34px;flex-basis:34px;border-radius:10px}
-#dash-sec-teknisi .pxl-tech-status-card b{font-size:17px;line-height:1.05;display:block}
-#dash-sec-teknisi .pxl-tech-status-card span{font-size:9px;font-weight:700;color:#344054}
-#dash-sec-teknisi .pxl-tech-status-card small{font-size:8.5px;color:#7B8798}
-#dash-sec-teknisi .dash-bar-bg{background:#EDF1F6}
-#dash-sec-teknisi .dash-chart-card{border-color:#E5EAF0;border-radius:14px;box-shadow:0 7px 22px rgba(15,23,42,.035)}
-@media(max-width:1000px){
-  #dash-sec-teknisi .pxl-tech-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  #dash-sec-teknisi .pxl-tech-main-grid{grid-template-columns:1fr}
+#dash-sec-teknisi .pxl-tech-kpi-label{font-size:9px;font-weight:700;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-kpi-value{font-size:20px;line-height:1.05;font-weight:850;color:#14213d;margin:2px 0}
+#dash-sec-teknisi .pxl-tech-kpi-sub{font-size:8.2px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-capacity{padding:11px}
+#dash-sec-teknisi .pxl-tech-capacity-body{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center}
+#dash-sec-teknisi .pxl-tech-donut{width:104px;height:104px;border-radius:50%;margin:auto;display:grid;place-items:center;position:relative}
+#dash-sec-teknisi .pxl-tech-donut:after{content:"";position:absolute;inset:14px;border-radius:50%;background:#fff}
+#dash-sec-teknisi .pxl-tech-donut strong{position:relative;z-index:1;font-size:18px}
+#dash-sec-teknisi .pxl-tech-cap-list{display:flex;flex-direction:column;gap:0}
+#dash-sec-teknisi .pxl-tech-cap-row{display:grid;grid-template-columns:10px 1fr auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid #EEF2F6;font-size:8.7px}
+#dash-sec-teknisi .pxl-tech-cap-row:last-child{border-bottom:0}
+#dash-sec-teknisi .pxl-tech-dot{width:7px;height:7px;border-radius:50%}
+#dash-sec-teknisi .pxl-tech-cap-row b{font-size:9px}
+#dash-sec-teknisi .pxl-tech-body{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px;margin-top:10px}
+#dash-sec-teknisi .pxl-tech-main{min-width:0;display:flex;flex-direction:column;gap:10px}
+#dash-sec-teknisi .pxl-tech-main-row{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr);gap:10px}
+#dash-sec-teknisi .pxl-tech-panel{padding:10px;min-width:0}
+#dash-sec-teknisi .pxl-tech-table-wrap{overflow:auto}
+#dash-sec-teknisi .pxl-tech-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px}
+#dash-sec-teknisi .pxl-tech-table th{background:#F7F9FC;color:#516075;font-size:7.9px;font-weight:800;text-align:left;padding:6px 7px;border-bottom:1px solid #E8EDF3;white-space:nowrap}
+#dash-sec-teknisi .pxl-tech-table td{padding:6px 7px;border-bottom:1px solid #EEF2F6;color:#26334d;vertical-align:middle}
+#dash-sec-teknisi .pxl-tech-table tr:last-child td{border-bottom:0}
+#dash-sec-teknisi .pxl-tech-person{display:flex;align-items:center;gap:6px;min-width:0}
+#dash-sec-teknisi .pxl-tech-avatar{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:#EEF2FF;color:#5B5CE2;font-size:7px;font-weight:800;flex:0 0 21px}
+#dash-sec-teknisi .pxl-tech-person span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-load{display:flex;align-items:center;gap:5px}
+#dash-sec-teknisi .pxl-tech-load-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
+#dash-sec-teknisi .pxl-tech-load-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#FF9C52,#FF7A3D)}
+#dash-sec-teknisi .pxl-tech-load-fill.cool{background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
+#dash-sec-teknisi .pxl-tech-load-fill.low{background:linear-gradient(90deg,#24C78E,#42D5A4)}
+#dash-sec-teknisi .pxl-tech-load-pct{min-width:27px;text-align:right;font-size:8px;font-weight:700;color:#52627a}
+#dash-sec-teknisi .pxl-tech-trend{height:156px;display:flex;align-items:flex-end;gap:10px;padding:10px 5px 1px}
+#dash-sec-teknisi .pxl-tech-day{flex:1;text-align:center;min-width:0}
+#dash-sec-teknisi .pxl-tech-bars{height:112px;display:flex;align-items:flex-end;justify-content:center;gap:4px}
+#dash-sec-teknisi .pxl-tech-bar{width:12px;border-radius:4px 4px 1px 1px;min-height:3px}
+#dash-sec-teknisi .pxl-tech-bar.assigned{background:#4F8DF7}
+#dash-sec-teknisi .pxl-tech-bar.done{background:#24C78E}
+#dash-sec-teknisi .pxl-tech-bar-val{font-size:7px;font-weight:700;color:#344054;margin-bottom:2px}
+#dash-sec-teknisi .pxl-tech-day-label{font-size:7.5px;color:#7B8798;margin-top:5px}
+#dash-sec-teknisi .pxl-tech-legend{display:flex;gap:12px;font-size:8px;color:#667085;margin-bottom:2px}
+#dash-sec-teknisi .pxl-tech-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+#dash-sec-teknisi .pxl-tech-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#dash-sec-teknisi .pxl-tech-status-card{padding:9px 11px;display:flex;align-items:center;gap:8px}
+#dash-sec-teknisi .pxl-tech-status-card .pxl-tech-icon{width:34px;height:34px;flex-basis:34px;border-radius:9px}
+#dash-sec-teknisi .pxl-tech-status-card span{display:block;font-size:8.5px;font-weight:700;color:#344054}
+#dash-sec-teknisi .pxl-tech-status-card b{display:block;font-size:17px;line-height:1.05;margin:2px 0}
+#dash-sec-teknisi .pxl-tech-status-card small{font-size:7.8px;color:#7B8798}
+#dash-sec-teknisi .pxl-tech-aside{display:flex;flex-direction:column;gap:10px;min-width:0}
+#dash-sec-teknisi .pxl-tech-action-list{display:flex;flex-direction:column;gap:7px}
+#dash-sec-teknisi .pxl-tech-action{display:grid;grid-template-columns:32px 1fr auto;gap:8px;align-items:center;padding:7px;border:1px solid #EEF2F6;border-radius:9px}
+#dash-sec-teknisi .pxl-tech-action-ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px}
+#dash-sec-teknisi .pxl-tech-action b{display:block;font-size:8.8px}
+#dash-sec-teknisi .pxl-tech-action small{display:block;font-size:7.7px;color:#7B8798;margin-top:2px}
+#dash-sec-teknisi .pxl-tech-action strong{min-width:32px;border-radius:7px;padding:5px 7px;text-align:center;font-size:9px}
+#dash-sec-teknisi .pxl-tech-schedule{display:flex;flex-direction:column}
+#dash-sec-teknisi .pxl-tech-schedule-row{display:grid;grid-template-columns:40px 8px 1fr auto;gap:6px;align-items:start;padding:7px 0;border-bottom:1px solid #EEF2F6}
+#dash-sec-teknisi .pxl-tech-schedule-row:last-child{border-bottom:0}
+#dash-sec-teknisi .pxl-tech-time{font-size:8px;font-weight:800;color:#344054;line-height:1.35}
+#dash-sec-teknisi .pxl-tech-time small{display:block;color:#7B8798;font-weight:500}
+#dash-sec-teknisi .pxl-tech-line-dot{width:6px;height:6px;border-radius:50%;margin-top:3px;background:#4F8DF7}
+#dash-sec-teknisi .pxl-tech-job b{display:block;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-job small{display:block;font-size:7.5px;color:#7B8798;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-badge{font-size:7px;font-weight:700;border-radius:6px;padding:4px 6px;white-space:nowrap}
+#dash-sec-teknisi .pxl-tech-badge.assigned{background:#EAF3FF;color:#2F80ED}
+#dash-sec-teknisi .pxl-tech-badge.travelling{background:#F2EAFE;color:#7C3AED}
+#dash-sec-teknisi .pxl-tech-badge.ongoing{background:#FFF2E7;color:#F97316}
+#dash-sec-teknisi .pxl-tech-badge.done{background:#E9F8EF;color:#10B981}
+#dash-sec-teknisi .pxl-tech-empty{padding:18px 8px;text-align:center;color:#7B8798;font-size:8.5px}
+#dash-sec-teknisi .pxl-tech-rate{display:flex;align-items:center;gap:5px}
+#dash-sec-teknisi .pxl-tech-rate-track{width:76px;height:7px;background:#EAF0F6;border-radius:99px;overflow:hidden}
+#dash-sec-teknisi .pxl-tech-rate-fill{height:100%;background:#24C78E;border-radius:99px}
+#dash-sec-teknisi .pxl-tech-rate em{font-style:normal;font-size:7.8px;color:#52627a}
+@media(max-width:1150px){
+  #dash-sec-teknisi .pxl-tech-top,#dash-sec-teknisi .pxl-tech-body{grid-template-columns:1fr}
+  #dash-sec-teknisi .pxl-tech-aside{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:850px){
+  #dash-sec-teknisi .pxl-tech-main-row{grid-template-columns:1fr}
+  #dash-sec-teknisi .pxl-tech-kpi-grid,#dash-sec-teknisi .pxl-tech-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:600px){
-  #dash-sec-teknisi .pxl-tech-kpi-grid,
-  #dash-sec-teknisi .pxl-tech-status-grid{grid-template-columns:1fr 1fr}
-  #dash-sec-teknisi .pxl-tech-kpi{padding:9px;min-height:64px}
-  #dash-sec-teknisi .pxl-tech-icon{width:34px;height:34px;flex-basis:34px}
-  #dash-sec-teknisi .pxl-tech-kpi-value{font-size:18px}
+  #dash-sec-teknisi .pxl-tech-kpi-grid,#dash-sec-teknisi .pxl-tech-status-grid,#dash-sec-teknisi .pxl-tech-aside{grid-template-columns:1fr 1fr}
+  #dash-sec-teknisi .pxl-tech-kpi{padding:8px;min-height:62px}
+  #dash-sec-teknisi .pxl-tech-icon{width:33px;height:33px;flex-basis:33px}
+  #dash-sec-teknisi .pxl-tech-kpi-value{font-size:17px}
+  #dash-sec-teknisi .pxl-tech-capacity-body{grid-template-columns:100px 1fr}
+  #dash-sec-teknisi .pxl-tech-donut{width:88px;height:88px}
+  #dash-sec-teknisi .pxl-tech-table{min-width:580px}
 }
 </style>
 </head>
@@ -2355,45 +2417,75 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 
       <!-- ══ TEKNISI ══ -->
       <div id="dash-sec-teknisi" style="display:none">
-        <section class="pxl-tech-summary">
-          <div class="pxl-tech-section-title">RINGKASAN TEKNISI</div>
-          <div class="pxl-tech-kpi-grid">
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Total Teknisi</div><div class="pxl-tech-kpi-value" id="dt-tech-total">—</div><div class="pxl-tech-kpi-sub">teknisi terdata</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Aktif Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-tech-active">—</div><div class="pxl-tech-kpi-sub">sedang bertugas</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Tersedia</div><div class="pxl-tech-kpi-value" id="dt-tech-available">—</div><div class="pxl-tech-kpi-sub">siap menerima WO</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M4 14c2-2 4-2 6 0 2-2 4-2 6 0 2-2 3-2 4 0M12 14v6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Cuti / Izin</div><div class="pxl-tech-kpi-value" id="dt-tech-leave">—</div><div class="pxl-tech-kpi-sub">data cuti / izin</div></div></div>
-
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-wo-today">—</div><div class="pxl-tech-kpi-sub">penugasan hari ini</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Selesai Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-done-today">—</div><div class="pxl-tech-kpi-sub">selesai hari ini</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Dalam Proses</div><div class="pxl-tech-kpi-value" id="dt-process">—</div><div class="pxl-tech-kpi-sub">masih dikerjakan</div></div></div>
-            <div class="pxl-tech-kpi"><div class="pxl-tech-icon red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 17h.01"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Terlambat</div><div class="pxl-tech-kpi-value" id="dt-overdue">—</div><div class="pxl-tech-kpi-sub">melewati SLA</div></div></div>
-          </div>
-        </section>
-
-        <div class="pxl-tech-main-grid">
-          <section class="pxl-tech-panel">
-            <div class="pxl-tech-panel-head"><div><b>Beban Kerja Teknisi</b><small>Distribusi pekerjaan dan performa teknisi</small></div></div>
-            <div id="dash-tech-chart"></div>
+        <div class="pxl-tech-top">
+          <section class="pxl-tech-card pxl-tech-summary">
+            <div class="pxl-tech-title">RINGKASAN TEKNISI</div>
+            <div class="pxl-tech-kpi-grid">
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Total Teknisi</div><div class="pxl-tech-kpi-value" id="dt-tech-total">—</div><div class="pxl-tech-kpi-sub">seluruh teknisi</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Aktif Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-tech-active">—</div><div class="pxl-tech-kpi-sub">sedang bertugas</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Tersedia</div><div class="pxl-tech-kpi-value" id="dt-tech-available">—</div><div class="pxl-tech-kpi-sub">siap menerima WO</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M4 14c2-2 4-2 6 0 2-2 4-2 6 0 2-2 3-2 4 0M12 14v6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Cuti / Izin</div><div class="pxl-tech-kpi-value" id="dt-tech-leave">—</div><div class="pxl-tech-kpi-sub">data cuti / izin</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-wo-today">—</div><div class="pxl-tech-kpi-sub">penugasan hari ini</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Selesai Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-done-today">—</div><div class="pxl-tech-kpi-sub">selesai hari ini</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Dalam Proses</div><div class="pxl-tech-kpi-value" id="dt-process">—</div><div class="pxl-tech-kpi-sub">masih dikerjakan</div></div></div>
+              <div class="pxl-tech-kpi"><div class="pxl-tech-icon red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 17h.01"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Terlambat</div><div class="pxl-tech-kpi-value" id="dt-overdue">—</div><div class="pxl-tech-kpi-sub">melewati SLA</div></div></div>
+            </div>
           </section>
-          <section class="pxl-tech-panel">
-            <div class="pxl-tech-panel-head"><div><b>Tren WO Teknisi</b><small>Jumlah WO pada periode dipilih</small></div></div>
-            <div id="dt-trend-chart"></div>
+
+          <section class="pxl-tech-card pxl-tech-capacity">
+            <div class="pxl-tech-title">Kapasitas Teknisi</div>
+            <div class="pxl-tech-capacity-body">
+              <div>
+                <div class="pxl-tech-donut" id="dt-capacity-donut"><strong id="dt-capacity-pct">—</strong></div>
+                <div style="font-size:8.5px;font-weight:700;text-align:center;margin-top:4px">Kapasitas Terpakai</div>
+              </div>
+              <div class="pxl-tech-cap-list">
+                <div class="pxl-tech-cap-row"><i class="pxl-tech-dot" style="background:#FF7A3D"></i><span>Kapasitas Terpakai</span><b id="dt-cap-used">—</b></div>
+                <div class="pxl-tech-cap-row"><i class="pxl-tech-dot" style="background:#4F8DF7"></i><span>Teknisi Terjadwal</span><b id="dt-cap-scheduled">—</b></div>
+                <div class="pxl-tech-cap-row"><i class="pxl-tech-dot" style="background:#22C55E"></i><span>Teknisi Tersedia</span><b id="dt-cap-available">—</b></div>
+                <div class="pxl-tech-cap-row"><i class="pxl-tech-dot" style="background:#EF4444"></i><span>WO Belum Ada Teknisi</span><b id="dt-cap-unassigned">—</b></div>
+              </div>
+            </div>
           </section>
         </div>
 
-        <div class="pxl-tech-status-grid">
-          <div class="pxl-tech-status-card"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><span>Assigned</span><b id="dt-assigned">—</b><small>WO baru ditugaskan</small></div></div>
-          <div class="pxl-tech-status-card"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M3 12h15M13 6l6 6-6 6"/></svg></div><div><span>Travelling</span><b id="dt-travelling">—</b><small>dalam perjalanan</small></div></div>
-          <div class="pxl-tech-status-card"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg></div><div><span>On Progress</span><b id="dt-ongoing">—</b><small>sedang dikerjakan</small></div></div>
-          <div class="pxl-tech-status-card"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div><span>Done</span><b id="dt-done">—</b><small>selesai</small></div></div>
-        </div>
+        <div class="pxl-tech-body">
+          <div class="pxl-tech-main">
+            <div class="pxl-tech-main-row">
+              <section class="pxl-tech-card pxl-tech-panel">
+                <div class="pxl-tech-head"><div><div class="pxl-tech-title">Beban Kerja Teknisi</div><div class="pxl-tech-sub">Distribusi dan beban kerja teknisi saat ini</div></div></div>
+                <div class="pxl-tech-table-wrap"><table class="pxl-tech-table"><thead><tr><th style="width:24%">Teknisi</th><th style="width:28%">Beban Kerja</th><th>Total WO</th><th>Selesai</th><th>Proses</th><th>Overdue</th></tr></thead><tbody id="dt-workload-body"></tbody></table></div>
+              </section>
+              <section class="pxl-tech-card pxl-tech-panel">
+                <div class="pxl-tech-head"><div><div class="pxl-tech-title">Tren WO Teknisi</div><div class="pxl-tech-sub">7 hari terakhir pada data yang tersedia</div></div></div>
+                <div class="pxl-tech-legend"><span><i style="background:#4F8DF7"></i>WO Ditugaskan</span><span><i style="background:#24C78E"></i>WO Selesai</span></div>
+                <div id="dt-trend-chart"></div>
+              </section>
+            </div>
 
-        <div class="dash-grid-1" style="margin-top:12px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">Performa Teknisi</div>
-            <div class="dash-chart-sub">Komposisi status pekerjaan per teknisi</div>
-            <div id="dt-status-chart"></div>
+            <div class="pxl-tech-status-grid">
+              <div class="pxl-tech-card pxl-tech-status-card"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><span>Assigned</span><b id="dt-assigned">—</b><small>WO baru ditugaskan</small></div></div>
+              <div class="pxl-tech-card pxl-tech-status-card"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M3 12h15M13 6l6 6-6 6"/></svg></div><div><span>Travelling</span><b id="dt-travelling">—</b><small>dalam perjalanan</small></div></div>
+              <div class="pxl-tech-card pxl-tech-status-card"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg></div><div><span>On Progress</span><b id="dt-ongoing">—</b><small>sedang dikerjakan</small></div></div>
+              <div class="pxl-tech-card pxl-tech-status-card"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div><span>Done</span><b id="dt-done">—</b><small>selesai</small></div></div>
+            </div>
+
+            <section class="pxl-tech-card pxl-tech-panel">
+              <div class="pxl-tech-head"><div><div class="pxl-tech-title">Performa Teknisi</div><div class="pxl-tech-sub">Rekap performa teknisi pada periode yang dipilih</div></div></div>
+              <div class="pxl-tech-table-wrap"><table class="pxl-tech-table"><thead><tr><th style="width:34px">#</th><th>Teknisi</th><th>Total WO</th><th>Selesai</th><th>On Progress</th><th>Overdue</th><th style="width:28%">Completion Rate</th></tr></thead><tbody id="dt-performance-body"></tbody></table></div>
+            </section>
           </div>
+
+          <aside class="pxl-tech-aside">
+            <section class="pxl-tech-card pxl-tech-panel">
+              <div class="pxl-tech-head"><div><div class="pxl-tech-title">Perlu Tindakan</div></div></div>
+              <div id="dt-action-list" class="pxl-tech-action-list"></div>
+            </section>
+            <section class="pxl-tech-card pxl-tech-panel">
+              <div class="pxl-tech-head"><div><div class="pxl-tech-title">Jadwal Teknisi Hari Ini</div></div></div>
+              <div id="dt-schedule-list" class="pxl-tech-schedule"></div>
+            </section>
+          </aside>
         </div>
 
         <span id="dt-total" style="display:none"></span><span id="dt-pending" style="display:none"></span><span id="dt-done-pct" style="display:none"></span>
@@ -5089,90 +5181,105 @@ function switchDashSub(sub, btn){
 }
 
 function renderDashSubTeknisi(data){
-  const done=data.filter(t=>t.status==='done');
-  const travelling=data.filter(t=>t.status==='travelling');
-  const pending=data.filter(t=>t.status==='pending');
-  const assigned=data.filter(t=>t.status==='assigned');
-  const ongoing=data.filter(t=>t.status==='ongoing');
+  const statusOf=t=>String(t.status||'').toLowerCase();
+  const done=data.filter(t=>statusOf(t)==='done');
+  const travelling=data.filter(t=>statusOf(t)==='travelling');
+  const pending=data.filter(t=>statusOf(t)==='pending');
+  const assigned=data.filter(t=>statusOf(t)==='assigned');
+  const ongoing=data.filter(t=>statusOf(t)==='ongoing');
   const el=id=>document.getElementById(id);
-  const set=(id,val)=>{if(el(id))el(id).textContent=val};
-
-  const today=new Date(); today.setHours(0,0,0,0);
-  const tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
-  const ticketDate=t=>new Date(t.worked_at||t.created_at||t.updated_at||0);
-  const todayData=data.filter(t=>{const d=ticketDate(t);return d>=today&&d<tomorrow});
-  const doneToday=todayData.filter(t=>t.status==='done');
-  const process=data.filter(t=>['assigned','travelling','ongoing','pending'].includes(t.status));
-  const overdue=data.filter(t=>{
-    const s=String(t.status||'').toLowerCase();
-    if(s==='done'||s==='cancelled')return false;
+  const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
+  const techsOf=t=>{
+    const raw=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
+    return raw.map(x=>typeof x==='object'?(x.name||x.full_name||x.username||''):x).filter(Boolean).map(String);
+  };
+  const ticketDate=t=>new Date(t.worked_at||t.scheduled_at||t.created_at||t.updated_at||0);
+  const today=new Date();today.setHours(0,0,0,0);
+  const tomorrow=new Date(today);tomorrow.setDate(tomorrow.getDate()+1);
+  const todayData=data.filter(t=>{const d=ticketDate(t);return !isNaN(d)&&d>=today&&d<tomorrow});
+  const doneToday=todayData.filter(t=>statusOf(t)==='done');
+  const process=data.filter(t=>['assigned','travelling','ongoing','pending'].includes(statusOf(t)));
+  const isOverdue=t=>{
+    const s=statusOf(t);if(s==='done'||s==='cancelled')return false;
     const due=t.sla_due_at||t.due_at||t.deadline_at||t.scheduled_end_at;
     return due?new Date(due)<new Date():false;
-  });
+  };
+  const overdue=data.filter(isOverdue);
+  const unassigned=data.filter(t=>!techsOf(t).length&&!['done','cancelled'].includes(statusOf(t)));
 
   const namesFromTickets=new Set();
-  data.forEach(t=>{
-    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
-    techs.forEach(n=>{if(n)namesFromTickets.add(String(n))});
-  });
-  const activeToday=new Set();
-  todayData.forEach(t=>{
-    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
-    techs.forEach(n=>{if(n)activeToday.add(String(n))});
-  });
-  const totalTech=Math.max(dashTechnicianData.length,namesFromTickets.size);
+  data.forEach(t=>techsOf(t).forEach(n=>namesFromTickets.add(n)));
+  const rosterNames=(dashTechnicianData||[]).map(x=>typeof x==='object'?(x.name||x.full_name||x.username||''):x).filter(Boolean).map(String);
+  rosterNames.forEach(n=>namesFromTickets.add(n));
+  const activeToday=new Set();todayData.forEach(t=>techsOf(t).forEach(n=>activeToday.add(n)));
+  const totalTech=Math.max(rosterNames.length,namesFromTickets.size);
   const available=Math.max(0,totalTech-activeToday.size);
+  const capacityPct=totalTech?Math.min(100,Math.round(activeToday.size/totalTech*100)):0;
 
-  set('dt-tech-total',totalTech||0);
-  set('dt-tech-active',activeToday.size);
-  set('dt-tech-available',available);
-  set('dt-tech-leave','—');
-  set('dt-wo-today',todayData.length);
-  set('dt-done-today',doneToday.length);
-  set('dt-process',process.length);
-  set('dt-overdue',overdue.length);
-  set('dt-total',data.length);
-  set('dt-done',done.length);
-  set('dt-done-pct',data.length?Math.round(done.length/data.length*100)+'% dari total':'0%');
-  set('dt-travelling',travelling.length);
-  set('dt-pending',pending.length);
-  set('dt-assigned',assigned.length);
-  set('dt-ongoing',ongoing.length);
-
-  renderTechChart(data,'dash-tech-chart');
+  set('dt-tech-total',totalTech||0);set('dt-tech-active',activeToday.size);set('dt-tech-available',available);set('dt-tech-leave','—');
+  set('dt-wo-today',todayData.length);set('dt-done-today',doneToday.length);set('dt-process',process.length);set('dt-overdue',overdue.length);
+  set('dt-total',data.length);set('dt-done',done.length);set('dt-done-pct',data.length?Math.round(done.length/data.length*100)+'% dari total':'0%');
+  set('dt-travelling',travelling.length);set('dt-pending',pending.length);set('dt-assigned',assigned.length);set('dt-ongoing',ongoing.length);
+  set('dt-capacity-pct',capacityPct+'%');set('dt-cap-used',capacityPct+'%');set('dt-cap-scheduled',activeToday.size+' / '+(totalTech||0));set('dt-cap-available',available);set('dt-cap-unassigned',unassigned.length);
+  const donut=el('dt-capacity-donut');if(donut)donut.style.background='conic-gradient(#FF7A3D '+capacityPct+'%,#E9EEF5 '+capacityPct+'% 100%)';
 
   const techMap={};
+  namesFromTickets.forEach(n=>{techMap[n]={total:0,done:0,process:0,overdue:0,assigned:0,travelling:0,ongoing:0,pending:0}});
   data.forEach(t=>{
-    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
-    techs.forEach(n=>{
-      if(!techMap[n]) techMap[n]={done:0,travelling:0,ongoing:0,pending:0,assigned:0};
-      techMap[n][t.status]=(techMap[n][t.status]||0)+1;
+    const s=statusOf(t),ts=techsOf(t);
+    ts.forEach(n=>{
+      if(!techMap[n])techMap[n]={total:0,done:0,process:0,overdue:0,assigned:0,travelling:0,ongoing:0,pending:0};
+      const row=techMap[n];row.total++;if(s==='done')row.done++;if(['assigned','travelling','ongoing','pending'].includes(s))row.process++;if(isOverdue(t))row.overdue++;if(row[s]!=null)row[s]++;
     });
   });
-  const names=Object.keys(techMap).slice(0,8);
-  const W=500,H=Math.max(160,names.length*36+40),ML=90,MR=20,MT=20,MB=30,CW=W-ML-MR;
-  const BH=20,GAP=16,colors={done:'#22c55e',ongoing:'#3B82F6',travelling:'#8B5CF6',pending:'#F59E0B',assigned:'#60A5FA'};
-  let rows='';
-  names.forEach((n,i)=>{
-    const y=MT+i*(BH+GAP);
-    const total=Object.values(techMap[n]).reduce((a,b)=>a+b,0)||1;
-    let x=ML;
-    Object.entries(techMap[n]).forEach(([st,v])=>{
-      if(!v)return;
-      const w=Math.round((v/total)*CW);
-      rows+=`<rect x="${x}" y="${y}" width="${w}" height="${BH}" fill="${colors[st]||'#aaa'}" rx="4"><title>${st}: ${v}</title></rect>`;
-      if(w>20)rows+=`<text x="${x+w/2}" y="${y+13}" font-size="9" fill="#fff" text-anchor="middle">${v}</text>`;
-      x+=w;
-    });
-    rows+=`<text x="${ML-5}" y="${y+13}" font-size="10" fill="#344054" text-anchor="end">${String(n).split(' ')[0]}</text>`;
-  });
-  const legend=Object.entries(colors).map(([k,col],i)=>`<rect x="${8+i*92}" y="3" width="9" height="9" fill="${col}" rx="3"/><text x="${22+i*92}" y="12" font-size="8.5" fill="#667085">${k}</text>`).join('');
-  if(el('dt-status-chart'))el('dt-status-chart').innerHTML=names.length?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><g>${legend}</g><g transform="translate(0,18)">${rows}</g></svg>`:'<div class="no-data">Belum ada data teknisi</div>';
+  const techRows=Object.entries(techMap).map(([name,v])=>({name,...v,rate:v.total?Math.round(v.done/v.total*100):0})).sort((a,b)=>b.total-a.total||b.done-a.done);
+
+  const workload=el('dt-workload-body');
+  if(workload){
+    const maxTotal=Math.max(1,...techRows.map(r=>r.total));
+    workload.innerHTML=techRows.slice(0,5).map(r=>{
+      const load=Math.round(r.total/maxTotal*100),cls=load>70?'':load>40?'cool':'low';
+      return `<tr><td><div class="pxl-tech-person"><i class="pxl-tech-avatar">${esc(initials(r.name))}</i><span title="${esc(r.name)}">${esc(r.name)}</span></div></td><td><div class="pxl-tech-load"><div class="pxl-tech-load-track"><div class="pxl-tech-load-fill ${cls}" style="width:${load}%"></div></div><span class="pxl-tech-load-pct">${load}%</span></div></td><td>${r.total}</td><td>${r.done}</td><td>${r.process}</td><td style="color:${r.overdue?'#EF4444':'#52627a'}">${r.overdue}</td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="pxl-tech-empty">Belum ada data teknisi</td></tr>';
+  }
+
+  const performance=el('dt-performance-body');
+  if(performance)performance.innerHTML=techRows.slice(0,7).map((r,i)=>`<tr><td>${i+1}</td><td><div class="pxl-tech-person"><i class="pxl-tech-avatar">${esc(initials(r.name))}</i><span title="${esc(r.name)}">${esc(r.name)}</span></div></td><td>${r.total}</td><td>${r.done}</td><td>${r.process}</td><td style="color:${r.overdue?'#EF4444':'#52627a'}">${r.overdue}</td><td><div class="pxl-tech-rate"><div class="pxl-tech-rate-track"><div class="pxl-tech-rate-fill" style="width:${r.rate}%"></div></div><em>${r.rate}%</em></div></td></tr>`).join('')||'<tr><td colspan="7" class="pxl-tech-empty">Belum ada data teknisi</td></tr>';
 
   const byDay={};
-  data.forEach(t=>{const d=ticketDate(t);if(isNaN(d))return;const k=d.toISOString().slice(0,10);byDay[k]=(byDay[k]||0)+1});
-  const days=Object.keys(byDay).sort().slice(-7),max=Math.max(1,...days.map(k=>byDay[k]));
-  if(el('dt-trend-chart'))el('dt-trend-chart').innerHTML=days.length?`<div style="display:flex;align-items:flex-end;gap:8px;height:150px;padding:10px 4px 0">${days.map(k=>{const v=byDay[k],h=Math.max(8,Math.round(v/max*105));return `<div style="flex:1;text-align:center;min-width:0"><div style="font-size:9px;font-weight:700;color:#344054;margin-bottom:4px">${v}</div><div style="height:${h}px;background:#4F8DF7;border-radius:6px 6px 2px 2px;max-width:32px;margin:auto"></div><div style="font-size:8px;color:#7B8798;margin-top:5px">${k.slice(8,10)}/${k.slice(5,7)}</div></div>`}).join('')}</div>`:'<div class="no-data">Belum ada data tren</div>';
+  data.forEach(t=>{const d=ticketDate(t);if(isNaN(d))return;const k=d.toISOString().slice(0,10);if(!byDay[k])byDay[k]={total:0,done:0};byDay[k].total++;if(statusOf(t)==='done')byDay[k].done++});
+  const days=Object.keys(byDay).sort().slice(-7);
+  const maxDay=Math.max(1,...days.flatMap(k=>[byDay[k].total,byDay[k].done]));
+  const trend=el('dt-trend-chart');
+  if(trend)trend.innerHTML=days.length?`<div class="pxl-tech-trend">${days.map(k=>{const v=byDay[k];const h1=Math.max(3,Math.round(v.total/maxDay*100));const h2=Math.max(v.done?3:0,Math.round(v.done/maxDay*100));return `<div class="pxl-tech-day"><div class="pxl-tech-bars"><div><div class="pxl-tech-bar-val">${v.total}</div><div class="pxl-tech-bar assigned" style="height:${h1}px"></div></div><div><div class="pxl-tech-bar-val">${v.done}</div><div class="pxl-tech-bar done" style="height:${h2}px"></div></div></div><div class="pxl-tech-day-label">${k.slice(8,10)}/${k.slice(5,7)}</div></div>`}).join('')}</div>`:'<div class="pxl-tech-empty">Belum ada data tren</div>';
+
+  const overloaded=techRows.filter(r=>r.process>=5).length;
+  const pendingMr=Array.isArray(dashMRData)?dashMRData.filter(x=>['pending','waiting','requested'].includes(String(x.status||'').toLowerCase())).length:0;
+  const actions=el('dt-action-list');
+  if(actions){
+    const actionData=[
+      ['#FFF0F1','#EF4444','!','WO Terlambat','WO melewati target SLA',overdue.length,'#FFF0F1','#EF4444'],
+      ['#FFF2E7','#F97316','▣','WO Belum Ada Teknisi','Perlu penugasan teknisi',unassigned.length,'#FFF2E7','#F97316'],
+      ['#FFF8E7','#D99A00','●','Teknisi Overload','Beban kerja aktif ≥ 5 WO',overloaded,'#FFF8E7','#B77900'],
+      ['#F2EAFE','#7C3AED','◆','Material Request Pending','Menunggu persetujuan',pendingMr,'#F2EAFE','#7C3AED']
+    ];
+    actions.innerHTML=actionData.map(a=>`<div class="pxl-tech-action"><div class="pxl-tech-action-ico" style="background:${a[0]};color:${a[1]}">${a[2]}</div><div><b>${a[3]}</b><small>${a[4]}</small></div><strong style="background:${a[6]};color:${a[7]}">${a[5]}</strong></div>`).join('');
+  }
+
+  const schedule=el('dt-schedule-list');
+  if(schedule){
+    const rows=todayData.slice().sort((a,b)=>ticketDate(a)-ticketDate(b)).slice(0,5);
+    schedule.innerHTML=rows.length?rows.map(t=>{
+      const d=ticketDate(t),hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      const tech=techsOf(t)[0]||'Belum ditugaskan';
+      const job=t.project||t.project_name||t.customer||t.customer_name||t.wo_number||'Work Order';
+      const loc=t.location||t.address||t.customer_address||'';
+      const s=statusOf(t)||'assigned';
+      return `<div class="pxl-tech-schedule-row"><div class="pxl-tech-time">${hh}<small>${esc(t.wo_number||'')}</small></div><i class="pxl-tech-line-dot"></i><div class="pxl-tech-job"><b>${esc(tech)}</b><small>${esc(job)}${loc?' · '+esc(loc):''}</small></div><span class="pxl-tech-badge ${['assigned','travelling','ongoing','done'].includes(s)?s:'assigned'}">${esc(s==='ongoing'?'On Progress':s.charAt(0).toUpperCase()+s.slice(1))}</span></div>`;
+    }).join(''):'<div class="pxl-tech-empty">Belum ada jadwal teknisi hari ini</div>';
+  }
 }
 
 function renderDashSubInvoice(data){
