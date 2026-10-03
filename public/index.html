@@ -1104,6 +1104,91 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
   #dash-sec-invoice .pxl-inv-donut{width:86px;height:86px}
   #dash-sec-invoice .pxl-inv-table{min-width:620px}
 }
+
+/* PXL-DASH-UI-0016 — MR & PR dashboard visual aligned to approved dashboard language */
+#dash-sec-mr,#dash-sec-pr{background:transparent;color:#14213d}
+#dash-sec-mr .pxl-req-card,#dash-sec-pr .pxl-req-card{background:#fff;border:1px solid #E3E9F1;border-radius:13px;box-shadow:0 5px 18px rgba(15,23,42,.035);min-width:0}
+#dash-sec-mr .pxl-req-top,#dash-sec-pr .pxl-req-top{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px}
+#dash-sec-mr .pxl-req-summary,#dash-sec-mr .pxl-req-sidecard,#dash-sec-pr .pxl-req-summary,#dash-sec-pr .pxl-req-sidecard{padding:11px}
+#dash-sec-mr .pxl-req-title,#dash-sec-pr .pxl-req-title{font-size:11px;font-weight:800;color:#14213d;letter-spacing:.015em;margin:0 0 8px}
+#dash-sec-mr .pxl-req-sub,#dash-sec-pr .pxl-req-sub{font-size:8.6px;color:#7B8798;margin-top:2px;font-weight:400}
+#dash-sec-mr .pxl-req-head,#dash-sec-pr .pxl-req-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+#dash-sec-mr .pxl-req-head .pxl-req-title,#dash-sec-pr .pxl-req-head .pxl-req-title{margin:0}
+#dash-sec-mr .pxl-req-kpi-grid,#dash-sec-pr .pxl-req-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#dash-sec-mr .pxl-req-kpi,#dash-sec-pr .pxl-req-kpi{min-height:66px;background:#fff;border:1px solid #E6EBF2;border-radius:10px;display:flex;align-items:center;gap:9px;padding:9px 10px;min-width:0}
+#dash-sec-mr .pxl-req-icon,#dash-sec-pr .pxl-req-icon{width:37px;height:37px;border-radius:11px;display:grid;place-items:center;flex:0 0 37px}
+#dash-sec-mr .pxl-req-icon svg,#dash-sec-pr .pxl-req-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#dash-sec-mr .pxl-req-icon.purple,#dash-sec-pr .pxl-req-icon.purple{background:#F2EAFE;color:#7C3AED}
+#dash-sec-mr .pxl-req-icon.green,#dash-sec-pr .pxl-req-icon.green{background:#E9F8EF;color:#10B981}
+#dash-sec-mr .pxl-req-icon.blue,#dash-sec-pr .pxl-req-icon.blue{background:#EAF3FF;color:#2F80ED}
+#dash-sec-mr .pxl-req-icon.orange,#dash-sec-pr .pxl-req-icon.orange{background:#FFF2E7;color:#F97316}
+#dash-sec-mr .pxl-req-icon.red,#dash-sec-pr .pxl-req-icon.red{background:#FFF0F1;color:#EF4444}
+#dash-sec-mr .pxl-req-kpi-copy,#dash-sec-pr .pxl-req-kpi-copy{min-width:0}
+#dash-sec-mr .pxl-req-kpi-label,#dash-sec-pr .pxl-req-kpi-label{font-size:9px;font-weight:700;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-kpi-value,#dash-sec-pr .pxl-req-kpi-value{font-size:18px;line-height:1.05;font-weight:850;color:#14213d;margin:3px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-kpi-sub,#dash-sec-pr .pxl-req-kpi-sub{font-size:8.2px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-donut-body,#dash-sec-pr .pxl-req-donut-body{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center}
+#dash-sec-mr .pxl-req-donut,#dash-sec-pr .pxl-req-donut{width:98px;height:98px;border-radius:50%;margin:auto;display:grid;place-items:center;position:relative}
+#dash-sec-mr .pxl-req-donut:after,#dash-sec-pr .pxl-req-donut:after{content:"";position:absolute;inset:14px;border-radius:50%;background:#fff}
+#dash-sec-mr .pxl-req-donut strong,#dash-sec-pr .pxl-req-donut strong{position:relative;z-index:1;font-size:16px}
+#dash-sec-mr .pxl-req-stat-list,#dash-sec-pr .pxl-req-stat-list{display:flex;flex-direction:column}
+#dash-sec-mr .pxl-req-stat-row,#dash-sec-pr .pxl-req-stat-row{display:grid;grid-template-columns:9px 1fr auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #EEF2F6;font-size:8.5px}
+#dash-sec-mr .pxl-req-stat-row:last-child,#dash-sec-pr .pxl-req-stat-row:last-child{border-bottom:0}
+#dash-sec-mr .pxl-req-dot,#dash-sec-pr .pxl-req-dot{width:7px;height:7px;border-radius:50%}
+#dash-sec-mr .pxl-req-body,#dash-sec-pr .pxl-req-body{display:grid;grid-template-columns:minmax(0,2.55fr) minmax(260px,.9fr);gap:10px;margin-top:10px}
+#dash-sec-mr .pxl-req-main,#dash-sec-pr .pxl-req-main{display:flex;flex-direction:column;gap:10px;min-width:0}
+#dash-sec-mr .pxl-req-main-row,#dash-sec-pr .pxl-req-main-row{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr);gap:10px}
+#dash-sec-mr .pxl-req-panel,#dash-sec-pr .pxl-req-panel{padding:10px;min-width:0}
+#dash-sec-mr .pxl-req-table-wrap,#dash-sec-pr .pxl-req-table-wrap{overflow:auto}
+#dash-sec-mr .pxl-req-table,#dash-sec-pr .pxl-req-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px}
+#dash-sec-mr .pxl-req-table th,#dash-sec-pr .pxl-req-table th{background:#F7F9FC;color:#516075;font-size:7.9px;font-weight:800;text-align:left;padding:6px 7px;border-bottom:1px solid #E8EDF3;white-space:nowrap}
+#dash-sec-mr .pxl-req-table td,#dash-sec-pr .pxl-req-table td{padding:6px 7px;border-bottom:1px solid #EEF2F6;color:#26334d;vertical-align:middle}
+#dash-sec-mr .pxl-req-table tr:last-child td,#dash-sec-pr .pxl-req-table tr:last-child td{border-bottom:0}
+#dash-sec-mr .pxl-req-person,#dash-sec-pr .pxl-req-person{display:flex;align-items:center;gap:6px;min-width:0}
+#dash-sec-mr .pxl-req-avatar,#dash-sec-pr .pxl-req-avatar{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:#EEF2FF;color:#5B5CE2;font-size:7px;font-weight:800;flex:0 0 21px}
+#dash-sec-mr .pxl-req-person span,#dash-sec-pr .pxl-req-person span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-progress,#dash-sec-pr .pxl-req-progress{display:flex;align-items:center;gap:5px}
+#dash-sec-mr .pxl-req-progress-track,#dash-sec-pr .pxl-req-progress-track{height:7px;flex:1;background:#EAF0F6;border-radius:99px;overflow:hidden}
+#dash-sec-mr .pxl-req-progress-fill,#dash-sec-pr .pxl-req-progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4F8DF7,#65A5FF)}
+#dash-sec-mr .pxl-req-progress-fill.green,#dash-sec-pr .pxl-req-progress-fill.green{background:linear-gradient(90deg,#24C78E,#42D5A4)}
+#dash-sec-mr .pxl-req-progress-fill.orange,#dash-sec-pr .pxl-req-progress-fill.orange{background:linear-gradient(90deg,#FF9C52,#FF7A3D)}
+#dash-sec-mr .pxl-req-progress-pct,#dash-sec-pr .pxl-req-progress-pct{min-width:30px;text-align:right;font-size:8px;font-weight:700;color:#52627a}
+#dash-sec-mr .pxl-req-trend,#dash-sec-pr .pxl-req-trend{height:156px;display:flex;align-items:flex-end;gap:8px;padding:10px 5px 1px}
+#dash-sec-mr .pxl-req-day,#dash-sec-pr .pxl-req-day{flex:1;text-align:center;min-width:0}
+#dash-sec-mr .pxl-req-bar-wrap,#dash-sec-pr .pxl-req-bar-wrap{height:112px;display:flex;align-items:flex-end;justify-content:center}
+#dash-sec-mr .pxl-req-bar,#dash-sec-pr .pxl-req-bar{width:22px;border-radius:5px 5px 1px 1px;min-height:3px;background:linear-gradient(180deg,#4F8DF7,#386FD8)}
+#dash-sec-pr .pxl-req-bar{background:linear-gradient(180deg,#7C8CF8,#5368E8)}
+#dash-sec-mr .pxl-req-bar-val,#dash-sec-pr .pxl-req-bar-val{font-size:7px;font-weight:700;color:#344054;margin-bottom:2px}
+#dash-sec-mr .pxl-req-day-label,#dash-sec-pr .pxl-req-day-label{font-size:7.5px;color:#7B8798;margin-top:5px}
+#dash-sec-mr .pxl-req-aside,#dash-sec-pr .pxl-req-aside{display:flex;flex-direction:column;gap:10px;min-width:0}
+#dash-sec-mr .pxl-req-action-list,#dash-sec-pr .pxl-req-action-list{display:flex;flex-direction:column;gap:7px}
+#dash-sec-mr .pxl-req-action,#dash-sec-pr .pxl-req-action{display:grid;grid-template-columns:32px 1fr auto;gap:8px;align-items:center;padding:7px;border:1px solid #EEF2F6;border-radius:9px}
+#dash-sec-mr .pxl-req-action-ico,#dash-sec-pr .pxl-req-action-ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px}
+#dash-sec-mr .pxl-req-action b,#dash-sec-pr .pxl-req-action b{display:block;font-size:8.8px}
+#dash-sec-mr .pxl-req-action small,#dash-sec-pr .pxl-req-action small{display:block;font-size:7.7px;color:#7B8798;margin-top:2px}
+#dash-sec-mr .pxl-req-action strong,#dash-sec-pr .pxl-req-action strong{min-width:32px;border-radius:7px;padding:5px 7px;text-align:center;font-size:9px}
+#dash-sec-mr .pxl-req-recent,#dash-sec-pr .pxl-req-recent{display:flex;flex-direction:column}
+#dash-sec-mr .pxl-req-recent-row,#dash-sec-pr .pxl-req-recent-row{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:start;padding:7px 0;border-bottom:1px solid #EEF2F6}
+#dash-sec-mr .pxl-req-recent-row:last-child,#dash-sec-pr .pxl-req-recent-row:last-child{border-bottom:0}
+#dash-sec-mr .pxl-req-date,#dash-sec-pr .pxl-req-date{font-size:7.7px;font-weight:800;color:#344054;line-height:1.35}
+#dash-sec-mr .pxl-req-date small,#dash-sec-pr .pxl-req-date small{display:block;color:#7B8798;font-weight:500}
+#dash-sec-mr .pxl-req-recent-copy b,#dash-sec-pr .pxl-req-recent-copy b{display:block;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-recent-copy small,#dash-sec-pr .pxl-req-recent-copy small{display:block;font-size:7.5px;color:#7B8798;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-mr .pxl-req-badge,#dash-sec-pr .pxl-req-badge{font-size:7px;font-weight:700;border-radius:6px;padding:4px 6px;white-space:nowrap}
+#dash-sec-mr .pxl-req-empty,#dash-sec-pr .pxl-req-empty{padding:18px 8px;text-align:center;color:#7B8798;font-size:8.5px}
+@media(max-width:1150px){
+  #dash-sec-mr .pxl-req-top,#dash-sec-mr .pxl-req-body,#dash-sec-pr .pxl-req-top,#dash-sec-pr .pxl-req-body{grid-template-columns:1fr}
+  #dash-sec-mr .pxl-req-aside,#dash-sec-pr .pxl-req-aside{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:850px){
+  #dash-sec-mr .pxl-req-main-row,#dash-sec-pr .pxl-req-main-row{grid-template-columns:1fr}
+  #dash-sec-mr .pxl-req-kpi-grid,#dash-sec-pr .pxl-req-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+  #dash-sec-mr .pxl-req-aside,#dash-sec-pr .pxl-req-aside{grid-template-columns:1fr}
+  #dash-sec-mr .pxl-req-kpi,#dash-sec-pr .pxl-req-kpi{padding:8px;min-height:62px}
+  #dash-sec-mr .pxl-req-table,#dash-sec-pr .pxl-req-table{min-width:610px}
+}
 </style>
 </head>
 <body>
@@ -2765,59 +2850,89 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 
       <!-- ══ MATERIAL REQUEST ══ -->
       <div id="dash-sec-mr" style="display:none">
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="dash-metric accent"><div class="dash-metric-icon">📦</div><div class="dash-metric-label">Total MR</div><div class="dash-metric-value" id="dmr-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric blue"><div class="dash-metric-icon">🔧</div><div class="dash-metric-label">Total Item Material</div><div class="dash-metric-value" id="dmr-items">—</div><div class="dash-metric-sub">semua permintaan</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">⚙️</div><div class="dash-metric-label">Total Item Jasa</div><div class="dash-metric-value" id="dmr-jasa">—</div><div class="dash-metric-sub">semua permintaan</div></div>
-          <div class="dash-metric teal"><div class="dash-metric-icon">👷</div><div class="dash-metric-label">Teknisi Aktif</div><div class="dash-metric-value" id="dmr-techs">—</div><div class="dash-metric-sub">submit MR</div></div>
+        <div class="pxl-req-top">
+          <section class="pxl-req-card pxl-req-summary">
+            <div class="pxl-req-title">RINGKASAN MATERIAL REQUEST</div>
+            <div class="pxl-req-kpi-grid">
+              <div class="pxl-req-kpi"><div class="pxl-req-icon purple"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/><path d="M8 7V4h8v3M9 12h6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Total MR</div><div class="pxl-req-kpi-value" id="dmr-total">—</div><div class="pxl-req-kpi-sub">periode dipilih</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon blue"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">MR Hari Ini</div><div class="pxl-req-kpi-value" id="dmr-today">—</div><div class="pxl-req-kpi-sub">request hari ini</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon green"><svg viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8M12 12v8"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Item Material</div><div class="pxl-req-kpi-value" id="dmr-items">—</div><div class="pxl-req-kpi-sub">total qty material</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon orange"><svg viewBox="0 0 24 24"><path d="M5 7h14M7 4v6M17 4v6M6 12h12v8H6z"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Item Jasa</div><div class="pxl-req-kpi-value" id="dmr-jasa">—</div><div class="pxl-req-kpi-sub">total qty jasa</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon blue"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.4-4 2.5-6 5.5-6s5.1 2 5.5 6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Teknisi Aktif</div><div class="pxl-req-kpi-value" id="dmr-techs">—</div><div class="pxl-req-kpi-sub">submit MR</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon orange"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Draft</div><div class="pxl-req-kpi-value" id="dmr-draft">—</div><div class="pxl-req-kpi-sub">belum diambil</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon purple"><svg viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Sudah Diambil</div><div class="pxl-req-kpi-value" id="dmr-taken">—</div><div class="pxl-req-kpi-sub">material dibawa</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Dikembalikan</div><div class="pxl-req-kpi-value" id="dmr-returned">—</div><div class="pxl-req-kpi-sub">proses selesai</div></div></div>
+            </div>
+          </section>
+          <section class="pxl-req-card pxl-req-sidecard">
+            <div class="pxl-req-title">Status Material Request</div>
+            <div class="pxl-req-donut-body">
+              <div><div class="pxl-req-donut" id="dmr-status-donut"><strong id="dmr-status-pct">—</strong></div><div style="font-size:8.5px;font-weight:700;text-align:center;margin-top:4px">MR Selesai</div></div>
+              <div class="pxl-req-stat-list">
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#F97316"></i><span>Draft</span><b id="dmr-stat-draft">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#7C3AED"></i><span>Diambil</span><b id="dmr-stat-taken">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#10B981"></i><span>Dikembalikan</span><b id="dmr-stat-returned">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#2F80ED"></i><span>Legacy MR</span><b id="dmr-stat-legacy">—</b></div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="dash-grid-2" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">👷 MR per Teknisi</div>
-            <div class="dash-chart-sub">Jumlah material request yang diajukan per teknisi</div>
-            <div id="dmr-tech-chart"></div>
+        <div class="pxl-req-body">
+          <div class="pxl-req-main">
+            <div class="pxl-req-main-row">
+              <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">MR per Teknisi</div><div class="pxl-req-sub">Distribusi pengajuan Material Request</div></div></div><div class="pxl-req-table-wrap"><table class="pxl-req-table"><thead><tr><th style="width:30%">Teknisi</th><th style="width:30%">Kontribusi</th><th>MR</th><th>Material</th><th>Jasa</th></tr></thead><tbody id="dmr-tech-body"></tbody></table></div></section>
+              <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Tren Material Request</div><div class="pxl-req-sub">Jumlah MR per hari</div></div></div><div id="dmr-trend-chart"></div></section>
+            </div>
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Material Paling Banyak Diminta</div><div class="pxl-req-sub">Top material berdasarkan total quantity</div></div></div><div class="pxl-req-table-wrap"><table class="pxl-req-table"><thead><tr><th style="width:34px">#</th><th>Material</th><th>Total Qty</th><th>Jumlah MR</th><th style="width:30%">Distribusi</th></tr></thead><tbody id="dmr-material-body"></tbody></table></div></section>
           </div>
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🔧 Material Paling Banyak Diminta</div>
-            <div class="dash-chart-sub">Top 10 material berdasarkan frekuensi permintaan</div>
-            <div id="dmr-item-chart"></div>
-          </div>
-        </div>
-        <div class="dash-grid-1" style="margin-top:12px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">📅 Tren MR Harian</div>
-            <div class="dash-chart-sub">Jumlah MR yang diajukan per hari</div>
-            <div id="dmr-trend-chart"></div>
-          </div>
+          <aside class="pxl-req-aside">
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Perlu Tindakan</div></div></div><div id="dmr-action-list" class="pxl-req-action-list"></div></section>
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">MR Terbaru</div></div></div><div id="dmr-recent-list" class="pxl-req-recent"></div></section>
+          </aside>
         </div>
       </div>
 
       <!-- ══ PURCHASE REQUEST ══ -->
       <div id="dash-sec-pr" style="display:none">
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="dash-metric accent"><div class="dash-metric-icon">📝</div><div class="dash-metric-label">Total PR</div><div class="dash-metric-value" id="dpr-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Approved</div><div class="dash-metric-value" id="dpr-approved">—</div><div class="dash-metric-sub" id="dpr-approved-pct">—</div></div>
-          <div class="dash-metric amber"><div class="dash-metric-icon">⏳</div><div class="dash-metric-label">Pending</div><div class="dash-metric-value" id="dpr-pending">—</div><div class="dash-metric-sub">menunggu approval</div></div>
-          <div class="dash-metric teal"><div class="dash-metric-icon">💰</div><div class="dash-metric-label">Total Nilai PR</div><div class="dash-metric-value" id="dpr-nilai">—</div><div class="dash-metric-sub">semua PR</div></div>
+        <div class="pxl-req-top">
+          <section class="pxl-req-card pxl-req-summary">
+            <div class="pxl-req-title">RINGKASAN PURCHASE REQUEST</div>
+            <div class="pxl-req-kpi-grid">
+              <div class="pxl-req-kpi"><div class="pxl-req-icon purple"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Total PR</div><div class="pxl-req-kpi-value" id="dpr-total">—</div><div class="pxl-req-kpi-sub">periode dipilih</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Pending Approval</div><div class="pxl-req-kpi-value" id="dpr-pending">—</div><div class="pxl-req-kpi-sub">menunggu approval 1</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon blue"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Approved 1</div><div class="pxl-req-kpi-value" id="dpr-approved1">—</div><div class="pxl-req-kpi-sub">menunggu approval 2</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/><circle cx="12" cy="12" r="9"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Fully Approved</div><div class="pxl-req-kpi-value" id="dpr-approved">—</div><div class="pxl-req-kpi-sub" id="dpr-approved-pct">—</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon red"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/><circle cx="12" cy="12" r="9"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Ditolak</div><div class="pxl-req-kpi-value" id="dpr-rejected">—</div><div class="pxl-req-kpi-sub">rejected</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon green"><svg viewBox="0 0 24 24"><path d="M4 18V8M9 18V4M14 18v-6M19 18V6"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Total Nilai PR</div><div class="pxl-req-kpi-value" id="dpr-nilai">—</div><div class="pxl-req-kpi-sub">nilai pengadaan</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">Rata-rata PR</div><div class="pxl-req-kpi-value" id="dpr-average">—</div><div class="pxl-req-kpi-sub">nilai rata-rata</div></div></div>
+              <div class="pxl-req-kpi"><div class="pxl-req-icon purple"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></div><div class="pxl-req-kpi-copy"><div class="pxl-req-kpi-label">PR Hari Ini</div><div class="pxl-req-kpi-value" id="dpr-today">—</div><div class="pxl-req-kpi-sub">request hari ini</div></div></div>
+            </div>
+          </section>
+          <section class="pxl-req-card pxl-req-sidecard">
+            <div class="pxl-req-title">Status Purchase Request</div>
+            <div class="pxl-req-donut-body">
+              <div><div class="pxl-req-donut" id="dpr-status-donut"><strong id="dpr-status-pct">—</strong></div><div style="font-size:8.5px;font-weight:700;text-align:center;margin-top:4px">Fully Approved</div></div>
+              <div class="pxl-req-stat-list">
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#F97316"></i><span>Pending</span><b id="dpr-stat-pending">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#2F80ED"></i><span>Approved 1</span><b id="dpr-stat-approved1">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#10B981"></i><span>Approved</span><b id="dpr-stat-approved">—</b></div>
+                <div class="pxl-req-stat-row"><i class="pxl-req-dot" style="background:#EF4444"></i><span>Rejected</span><b id="dpr-stat-rejected">—</b></div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="dash-grid-2" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🍩 Status PR</div>
-            <div class="dash-chart-sub">Distribusi status Purchase Request</div>
-            <div id="dpr-status-chart"></div>
+        <div class="pxl-req-body">
+          <div class="pxl-req-main">
+            <div class="pxl-req-main-row">
+              <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">PR per Outlet</div><div class="pxl-req-sub">Distribusi jumlah dan nilai PR</div></div></div><div class="pxl-req-table-wrap"><table class="pxl-req-table"><thead><tr><th style="width:28%">Outlet</th><th style="width:26%">Kontribusi Nilai</th><th>Jumlah PR</th><th>Total Nilai</th></tr></thead><tbody id="dpr-outlet-body"></tbody></table></div></section>
+              <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Tren Purchase Request</div><div class="pxl-req-sub">Jumlah PR per hari</div></div></div><div id="dpr-trend-chart"></div></section>
+            </div>
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Performa Requester</div><div class="pxl-req-sub">Kontribusi Purchase Request berdasarkan requester</div></div></div><div class="pxl-req-table-wrap"><table class="pxl-req-table"><thead><tr><th style="width:34px">#</th><th>Requester</th><th>Jumlah PR</th><th>Approved</th><th>Pending</th><th>Total Nilai</th></tr></thead><tbody id="dpr-requester-body"></tbody></table></div></section>
           </div>
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">🏪 PR per Outlet</div>
-            <div class="dash-chart-sub">Jumlah dan nilai PR per outlet/cabang</div>
-            <div id="dpr-outlet-chart"></div>
-          </div>
-        </div>
-        <div class="dash-grid-1" style="margin-top:12px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">📅 Tren PR Harian</div>
-            <div class="dash-chart-sub">Jumlah PR yang diajukan per hari</div>
-            <div id="dpr-trend-chart"></div>
-          </div>
+          <aside class="pxl-req-aside">
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">Perlu Tindakan</div></div></div><div id="dpr-action-list" class="pxl-req-action-list"></div></section>
+            <section class="pxl-req-card pxl-req-panel"><div class="pxl-req-head"><div><div class="pxl-req-title">PR Terbaru</div></div></div><div id="dpr-recent-list" class="pxl-req-recent"></div></section>
+          </aside>
         </div>
       </div>
 
@@ -5180,7 +5295,7 @@ async function deleteUser(id,name){
 }
 
 /* ══ DASHBOARD ═══════════════════════════ */
-let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[], dashCrmCustomerData=[], dashTechnicianData=[];
+let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[], dashCrmCustomerData=[], dashTechnicianData=[], dashMRFormData=[];
 
 async function loadDashboard(){
   const el=document.getElementById('dash-loading');
@@ -5204,6 +5319,7 @@ async function loadDashboard(){
     if(!salesTargets.length) jobs.push(api('GET','/sales-targets').then(d=>{salesTargets=d||[];}));
     if(!kunjunganData||!kunjunganData.length) jobs.push(api('GET','/sales-visits').then(d=>{kunjunganData=d||[];}));
     if(!dashMRData) jobs.push(api('GET','/material-requests').then(d=>{dashMRData=d||[];}));
+    if(!dashMRFormData.length) jobs.push(api('GET','/material-requests-form').then(d=>{dashMRFormData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashPRData) jobs.push(api('GET','/purchase-requests').then(d=>{dashPRData=d||[];}));
     if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{dashProjectData=d||[];}));
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
@@ -5926,58 +6042,148 @@ function renderKjPerformanceTable(bySales, names){
 }
 
 function renderDashSubMR(mrList){
+  const legacy=Array.isArray(mrList)?mrList:[];
+  const forms=Array.isArray(dashMRFormData)?dashMRFormData:[];
+  const all=[...forms,...legacy];
+  const {from,to}=getDashRange();
+  const rows=all.filter(m=>{
+    if(!from&&!to)return true;
+    const d=new Date(m.created_at||m.date_out||0);
+    return !isNaN(d)&&!(from&&d<from)&&!(to&&d>to);
+  });
   const el=id=>document.getElementById(id);
-  if(el('dmr-total')) el('dmr-total').textContent=mrList.length;
-  const totalItems=mrList.reduce((s,m)=>s+(m.materials||[]).length,0);
-  const totalJasa=mrList.reduce((s,m)=>s+(m.jasa||[]).length,0);
-  const techs=new Set(mrList.map(m=>m.technician).filter(Boolean));
-  if(el('dmr-items')) el('dmr-items').textContent=totalItems;
-  if(el('dmr-jasa')) el('dmr-jasa').textContent=totalJasa;
-  if(el('dmr-techs')) el('dmr-techs').textContent=techs.size;
+  const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
+  const statusOf=m=>Array.isArray(m.items)?String(m.status||'draft').toLowerCase():'legacy';
+  const techOf=m=>String(m.technician||m.created_by||'Tanpa Teknisi');
+  const materialsOf=m=>Array.isArray(m.items)?m.items:(m.materials||[]);
+  const jasaOf=m=>Array.isArray(m.items)?[]:(m.jasa||[]);
+  const qtyOf=item=>Number(item.qty_out??item.qty??1)||0;
+  const totalMaterialQty=rows.reduce((s,m)=>s+materialsOf(m).reduce((a,i)=>a+qtyOf(i),0),0);
+  const totalJasaQty=rows.reduce((s,m)=>s+jasaOf(m).reduce((a,i)=>a+(Number(i.qty)||1),0),0);
+  const techs=new Set(rows.map(techOf).filter(Boolean));
+  const draft=rows.filter(m=>statusOf(m)==='draft').length;
+  const taken=rows.filter(m=>statusOf(m)==='taken').length;
+  const returned=rows.filter(m=>statusOf(m)==='returned').length;
+  const legacyCount=rows.filter(m=>statusOf(m)==='legacy').length;
+  const today=new Date();today.setHours(0,0,0,0);const tomorrow=new Date(today);tomorrow.setDate(tomorrow.getDate()+1);
+  const todayRows=rows.filter(m=>{const d=new Date(m.created_at||m.date_out||0);return !isNaN(d)&&d>=today&&d<tomorrow});
 
-  // MR per teknisi bar
-  const techCount={};
-  mrList.forEach(m=>{ if(m.technician) techCount[m.technician]=(techCount[m.technician]||0)+1; });
-  renderHBarChart(techCount,'dmr-tech-chart','MR','accent');
+  set('dmr-total',rows.length);set('dmr-today',todayRows.length);set('dmr-items',totalMaterialQty);set('dmr-jasa',totalJasaQty);set('dmr-techs',techs.size);
+  set('dmr-draft',draft);set('dmr-taken',taken);set('dmr-returned',returned);
+  set('dmr-stat-draft',draft);set('dmr-stat-taken',taken);set('dmr-stat-returned',returned);set('dmr-stat-legacy',legacyCount);
+  const formTotal=draft+taken+returned;const completePct=formTotal?Math.round(returned/formTotal*100):0;
+  set('dmr-status-pct',formTotal?completePct+'%':'—');
+  const donut=el('dmr-status-donut');if(donut)donut.style.background='conic-gradient(#10B981 '+completePct+'%,#E9EEF5 '+completePct+'% 100%)';
 
-  // Top material
-  const matCount={};
-  mrList.forEach(m=>(m.materials||[]).forEach(mt=>{ if(mt.name) matCount[mt.name]=(matCount[mt.name]||0)+(Number(mt.qty)||1); }));
-  const top10=Object.entries(matCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const top10Map=Object.fromEntries(top10);
-  renderHBarChart(top10Map,'dmr-item-chart','qty','blue');
+  const techMap={};
+  rows.forEach(m=>{
+    const tech=techOf(m);
+    if(!techMap[tech])techMap[tech]={count:0,material:0,jasa:0};
+    techMap[tech].count++;
+    techMap[tech].material+=materialsOf(m).reduce((a,i)=>a+qtyOf(i),0);
+    techMap[tech].jasa+=jasaOf(m).reduce((a,i)=>a+(Number(i.qty)||1),0);
+  });
+  const techRows=Object.entries(techMap).map(([name,v])=>({name,...v})).sort((a,b)=>b.count-a.count);
+  const techBody=el('dmr-tech-body');
+  if(techBody){
+    const max=Math.max(1,...techRows.map(r=>r.count));
+    techBody.innerHTML=techRows.slice(0,7).map(r=>{const pct=Math.round(r.count/max*100);return `<tr><td><div class="pxl-req-person"><i class="pxl-req-avatar">${esc(initials(r.name))}</i><span title="${esc(r.name)}">${esc(r.name)}</span></div></td><td><div class="pxl-req-progress"><div class="pxl-req-progress-track"><div class="pxl-req-progress-fill" style="width:${pct}%"></div></div><span class="pxl-req-progress-pct">${pct}%</span></div></td><td>${r.count}</td><td>${r.material}</td><td>${r.jasa}</td></tr>`}).join('')||'<tr><td colspan="5" class="pxl-req-empty">Belum ada data MR</td></tr>';
+  }
 
-  // Tren MR
-  const byDay={};
-  mrList.forEach(m=>{ const d=(m.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
-  renderBarChart(byDay,'dmr-trend-chart','MR','green');
+  const matMap={};
+  rows.forEach(m=>materialsOf(m).forEach(i=>{
+    const name=String(i.name||i.desc||i.item_name||'Item').trim();
+    if(!matMap[name])matMap[name]={qty:0,mr:0};
+    matMap[name].qty+=qtyOf(i);matMap[name].mr++;
+  }));
+  const mats=Object.entries(matMap).map(([name,v])=>({name,...v})).sort((a,b)=>b.qty-a.qty).slice(0,8);
+  const matBody=el('dmr-material-body');
+  if(matBody){
+    const max=Math.max(1,...mats.map(r=>r.qty));
+    matBody.innerHTML=mats.map((r,i)=>{const pct=Math.round(r.qty/max*100);return `<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.qty}</td><td>${r.mr}</td><td><div class="pxl-req-progress"><div class="pxl-req-progress-track"><div class="pxl-req-progress-fill green" style="width:${pct}%"></div></div><span class="pxl-req-progress-pct">${pct}%</span></div></td></tr>`}).join('')||'<tr><td colspan="5" class="pxl-req-empty">Belum ada material</td></tr>';
+  }
+
+  const byDay={};rows.forEach(m=>{const d=new Date(m.created_at||m.date_out||0);if(isNaN(d))return;const k=d.toISOString().slice(0,10);byDay[k]=(byDay[k]||0)+1});
+  const days=Object.keys(byDay).sort().slice(-7),maxDay=Math.max(1,...days.map(k=>byDay[k]));
+  const trend=el('dmr-trend-chart');
+  if(trend)trend.innerHTML=days.length?`<div class="pxl-req-trend">${days.map(k=>{const v=byDay[k],h=Math.max(3,Math.round(v/maxDay*100));return `<div class="pxl-req-day"><div class="pxl-req-bar-wrap"><div><div class="pxl-req-bar-val">${v}</div><div class="pxl-req-bar" style="height:${h}px"></div></div></div><div class="pxl-req-day-label">${k.slice(8,10)}/${k.slice(5,7)}</div></div>`}).join('')}</div>`:'<div class="pxl-req-empty">Belum ada tren MR</div>';
+
+  const noTech=rows.filter(m=>!String(m.technician||m.created_by||'').trim()).length;
+  const noWO=rows.filter(m=>!String(m.wo_number||'').trim()).length;
+  const draftOld=rows.filter(m=>statusOf(m)==='draft'&&((Date.now()-new Date(m.created_at||0))/(864e5)>1)).length;
+  const takenOld=rows.filter(m=>statusOf(m)==='taken'&&((Date.now()-new Date(m.created_at||0))/(864e5)>3)).length;
+  const actions=el('dmr-action-list');
+  if(actions){
+    const a=[
+      ['#FFF0F1','#EF4444','!','MR Tanpa Teknisi','Perlu lengkapi teknisi',noTech],
+      ['#FFF2E7','#F97316','◆','MR Tanpa WO','Perlu cek relasi Work Order',noWO],
+      ['#FFF8E7','#B77900','●','Draft > 1 Hari','Belum diproses pengambilan',draftOld],
+      ['#F2EAFE','#7C3AED','↗','Diambil > 3 Hari','Belum dikembalikan',takenOld]
+    ];
+    actions.innerHTML=a.map(x=>`<div class="pxl-req-action"><div class="pxl-req-action-ico" style="background:${x[0]};color:${x[1]}">${x[2]}</div><div><b>${x[3]}</b><small>${x[4]}</small></div><strong style="background:${x[0]};color:${x[1]}">${x[5]}</strong></div>`).join('');
+  }
+
+  const recent=el('dmr-recent-list');
+  if(recent){
+    const rs=[...rows].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,6);
+    recent.innerHTML=rs.length?rs.map(m=>{const d=new Date(m.created_at||0);const ds=isNaN(d)?'-':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');const st=statusOf(m);const badge=st==='returned'?['#E9F8EF','#10B981','Returned']:st==='taken'?['#F2EAFE','#7C3AED','Taken']:st==='draft'?['#FFF2E7','#F97316','Draft']:['#EAF3FF','#2F80ED','Legacy'];return `<div class="pxl-req-recent-row"><div class="pxl-req-date">${ds}<small>${esc(m.wo_number||'')}</small></div><div class="pxl-req-recent-copy"><b>${esc(techOf(m))}</b><small>${materialsOf(m).length+jasaOf(m).length} item · ${esc(m.project_name||'Material Request')}</small></div><span class="pxl-req-badge" style="background:${badge[0]};color:${badge[1]}">${badge[2]}</span></div>`}).join(''):'<div class="pxl-req-empty">Belum ada MR</div>';
+  }
 }
 
 function renderDashSubPR(prList){
+  const {from,to}=getDashRange();
+  const rows=(Array.isArray(prList)?prList:[]).filter(p=>{
+    if(!from&&!to)return true;
+    const d=new Date(p.created_at||p.pr_date||0);
+    return !isNaN(d)&&!(from&&d<from)&&!(to&&d>to);
+  });
   const el=id=>document.getElementById(id);
-  const approved=prList.filter(p=>p.status==='approved'||p.status==='approved1');
-  const pending=prList.filter(p=>p.status==='pending');
-  const totalNilai=prList.reduce((s,p)=>s+((p.items||[]).reduce((a,i)=>a+(Number(i.qty||0)*Number(i.price||0)),0)),0);
-  if(el('dpr-total')) el('dpr-total').textContent=prList.length;
-  if(el('dpr-approved')) el('dpr-approved').textContent=approved.length;
-  if(el('dpr-approved-pct')) el('dpr-approved-pct').textContent=prList.length?Math.round(approved.length/prList.length*100)+'% approved':'—';
-  if(el('dpr-pending')) el('dpr-pending').textContent=pending.length;
-  if(el('dpr-nilai')) el('dpr-nilai').textContent=fmtFull(totalNilai);
+  const set=(id,val)=>{const node=el(id);if(node)node.textContent=val};
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
+  const valueOf=p=>(p.items||[]).reduce((s,i)=>s+(Number(i.qty||0)*Number(i.price||0)),0);
+  const shortMoney=v=>{const n=Number(v)||0;if(n>=1e9)return 'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:1})+' M';if(n>=1e6)return 'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt';if(n>=1e3)return 'Rp '+(n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' rb';return 'Rp '+n.toLocaleString('id-ID')};
+  const statusOf=p=>String(p.status||'pending').toLowerCase();
+  const pending=rows.filter(p=>statusOf(p)==='pending');
+  const approved1=rows.filter(p=>statusOf(p)==='approved1');
+  const approved=rows.filter(p=>statusOf(p)==='approved');
+  const rejected=rows.filter(p=>statusOf(p)==='rejected');
+  const totalValue=rows.reduce((s,p)=>s+valueOf(p),0);
+  const avg=rows.length?Math.round(totalValue/rows.length):0;
+  const today=new Date();today.setHours(0,0,0,0);const tomorrow=new Date(today);tomorrow.setDate(tomorrow.getDate()+1);
+  const todayRows=rows.filter(p=>{const d=new Date(p.created_at||p.pr_date||0);return !isNaN(d)&&d>=today&&d<tomorrow});
+  const approvedPct=rows.length?Math.round(approved.length/rows.length*100):0;
 
-  // Status donut
-  const statusMap={};
-  prList.forEach(p=>{ const s=p.status||'pending'; statusMap[s]=(statusMap[s]||0)+1; });
-  renderDonutCustom(statusMap,'dpr-status-chart');
+  set('dpr-total',rows.length);set('dpr-pending',pending.length);set('dpr-approved1',approved1.length);set('dpr-approved',approved.length);
+  set('dpr-approved-pct',rows.length?approvedPct+'% dari total':'—');set('dpr-rejected',rejected.length);set('dpr-nilai',shortMoney(totalValue));set('dpr-average',shortMoney(avg));set('dpr-today',todayRows.length);
+  set('dpr-status-pct',rows.length?approvedPct+'%':'—');set('dpr-stat-pending',pending.length);set('dpr-stat-approved1',approved1.length);set('dpr-stat-approved',approved.length);set('dpr-stat-rejected',rejected.length);
+  const donut=el('dpr-status-donut');if(donut)donut.style.background='conic-gradient(#10B981 '+approvedPct+'%,#E9EEF5 '+approvedPct+'% 100%)';
 
-  // PR per outlet bar
-  const outletMap={};
-  prList.forEach(p=>{ if(p.outlet) outletMap[p.outlet]=(outletMap[p.outlet]||0)+1; });
-  renderHBarChart(outletMap,'dpr-outlet-chart','PR','teal');
+  const outletMap={};rows.forEach(p=>{const o=String(p.outlet||'Tanpa Outlet');if(!outletMap[o])outletMap[o]={count:0,total:0};outletMap[o].count++;outletMap[o].total+=valueOf(p)});
+  const outlets=Object.entries(outletMap).map(([name,v])=>({name,...v})).sort((a,b)=>b.total-a.total);
+  const outletBody=el('dpr-outlet-body');
+  if(outletBody){const max=Math.max(1,...outlets.map(r=>r.total));outletBody.innerHTML=outlets.slice(0,7).map(r=>{const pct=Math.round(r.total/max*100);return `<tr><td>${esc(r.name)}</td><td><div class="pxl-req-progress"><div class="pxl-req-progress-track"><div class="pxl-req-progress-fill green" style="width:${pct}%"></div></div><span class="pxl-req-progress-pct">${pct}%</span></div></td><td>${r.count}</td><td>${esc(shortMoney(r.total))}</td></tr>`}).join('')||'<tr><td colspan="4" class="pxl-req-empty">Belum ada data PR</td></tr>'}
 
-  // Tren PR
-  const byDay={};
-  prList.forEach(p=>{ const d=(p.created_at||'').slice(0,10); if(d) byDay[d]=(byDay[d]||0)+1; });
-  renderBarChart(byDay,'dpr-trend-chart','PR','accent');
+  const requesterMap={};rows.forEach(p=>{const n=String(p.requester||'Tanpa Requester');if(!requesterMap[n])requesterMap[n]={count:0,approved:0,pending:0,total:0};const r=requesterMap[n];r.count++;r.total+=valueOf(p);if(statusOf(p)==='approved')r.approved++;if(['pending','approved1'].includes(statusOf(p)))r.pending++});
+  const requesters=Object.entries(requesterMap).map(([name,v])=>({name,...v})).sort((a,b)=>b.total-a.total);
+  const reqBody=el('dpr-requester-body');
+  if(reqBody)reqBody.innerHTML=requesters.slice(0,7).map((r,i)=>`<tr><td>${i+1}</td><td><div class="pxl-req-person"><i class="pxl-req-avatar">${esc(initials(r.name))}</i><span title="${esc(r.name)}">${esc(r.name)}</span></div></td><td>${r.count}</td><td>${r.approved}</td><td>${r.pending}</td><td>${esc(shortMoney(r.total))}</td></tr>`).join('')||'<tr><td colspan="6" class="pxl-req-empty">Belum ada requester</td></tr>';
+
+  const byDay={};rows.forEach(p=>{const d=new Date(p.created_at||p.pr_date||0);if(isNaN(d))return;const k=d.toISOString().slice(0,10);byDay[k]=(byDay[k]||0)+1});
+  const days=Object.keys(byDay).sort().slice(-7),maxDay=Math.max(1,...days.map(k=>byDay[k]));
+  const trend=el('dpr-trend-chart');if(trend)trend.innerHTML=days.length?`<div class="pxl-req-trend">${days.map(k=>{const v=byDay[k],h=Math.max(3,Math.round(v/maxDay*100));return `<div class="pxl-req-day"><div class="pxl-req-bar-wrap"><div><div class="pxl-req-bar-val">${v}</div><div class="pxl-req-bar" style="height:${h}px"></div></div></div><div class="pxl-req-day-label">${k.slice(8,10)}/${k.slice(5,7)}</div></div>`}).join('')}</div>`:'<div class="pxl-req-empty">Belum ada tren PR</div>';
+
+  const pendingOld=rows.filter(p=>statusOf(p)==='pending'&&((Date.now()-new Date(p.created_at||0))/(864e5)>1)).length;
+  const approval1Old=rows.filter(p=>statusOf(p)==='approved1'&&((Date.now()-new Date(p.approved1_at||p.created_at||0))/(864e5)>1)).length;
+  const zeroValue=rows.filter(p=>valueOf(p)<=0).length;
+  const noOutlet=rows.filter(p=>!String(p.outlet||'').trim()).length;
+  const actions=el('dpr-action-list');
+  if(actions){const a=[['#FFF0F1','#EF4444','!','Pending > 1 Hari','Menunggu Approval 1',pendingOld],['#FFF2E7','#F97316','◆','Approval 1 > 1 Hari','Menunggu Approval 2',approval1Old],['#FFF8E7','#B77900','●','PR Nilai Rp 0','Perlu cek item / harga',zeroValue],['#F2EAFE','#7C3AED','↗','PR Tanpa Outlet','Perlu lengkapi outlet',noOutlet]];actions.innerHTML=a.map(x=>`<div class="pxl-req-action"><div class="pxl-req-action-ico" style="background:${x[0]};color:${x[1]}">${x[2]}</div><div><b>${x[3]}</b><small>${x[4]}</small></div><strong style="background:${x[0]};color:${x[1]}">${x[5]}</strong></div>`).join('')}
+
+  const recent=el('dpr-recent-list');
+  if(recent){const rs=[...rows].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,6);recent.innerHTML=rs.length?rs.map(p=>{const d=new Date(p.created_at||0);const ds=isNaN(d)?'-':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');const st=statusOf(p);const badge=st==='approved'?['#E9F8EF','#10B981','Approved']:st==='approved1'?['#EAF3FF','#2F80ED','Approved 1']:st==='rejected'?['#FFF0F1','#EF4444','Rejected']:['#FFF2E7','#F97316','Pending'];return `<div class="pxl-req-recent-row"><div class="pxl-req-date">${ds}<small>${esc(p.pr_number||'')}</small></div><div class="pxl-req-recent-copy"><b>${esc(p.requester||'Tanpa Requester')}</b><small>${esc(p.outlet||'Tanpa Outlet')} · ${(p.items||[]).length} item</small></div><span class="pxl-req-badge" style="background:${badge[0]};color:${badge[1]}">${badge[2]}</span></div>`}).join(''):'<div class="pxl-req-empty">Belum ada PR</div>'}
 }
 
 function renderDashSubProject(projList){
