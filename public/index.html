@@ -900,6 +900,60 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
     max-width:100%!important;
   }
 }
+
+/* PXL-DASH-UI-0012 — Technician dashboard visual aligned to approved mockup */
+#dash-sec-teknisi{background:transparent;color:#111827}
+#dash-sec-teknisi .pxl-tech-summary,
+#dash-sec-teknisi .pxl-tech-panel,
+#dash-sec-teknisi .pxl-tech-status-card{
+  background:#fff;border:1px solid #E5EAF0;border-radius:14px;
+  box-shadow:0 7px 22px rgba(15,23,42,.035)
+}
+#dash-sec-teknisi .pxl-tech-summary{padding:12px}
+#dash-sec-teknisi .pxl-tech-section-title{font-size:11px;font-weight:800;letter-spacing:.02em;color:#26334d;margin:0 0 9px}
+#dash-sec-teknisi .pxl-tech-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#dash-sec-teknisi .pxl-tech-kpi{
+  min-height:68px;background:#fff;border:1px solid #E8EDF3;border-radius:11px;
+  display:flex;align-items:center;gap:10px;padding:10px 11px;min-width:0
+}
+#dash-sec-teknisi .pxl-tech-icon{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
+  flex:0 0 38px
+}
+#dash-sec-teknisi .pxl-tech-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#dash-sec-teknisi .pxl-tech-icon.purple{background:#F3ECFF;color:#7C3AED}
+#dash-sec-teknisi .pxl-tech-icon.green{background:#EAF8EF;color:#10B981}
+#dash-sec-teknisi .pxl-tech-icon.blue{background:#EAF3FF;color:#2F80ED}
+#dash-sec-teknisi .pxl-tech-icon.orange{background:#FFF3E8;color:#F97316}
+#dash-sec-teknisi .pxl-tech-icon.red{background:#FFF0F0;color:#EF4444}
+#dash-sec-teknisi .pxl-tech-kpi-copy{min-width:0}
+#dash-sec-teknisi .pxl-tech-kpi-label{font-size:9.5px;font-weight:700;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-kpi-value{font-size:20px;line-height:1.05;font-weight:800;color:#14213d;margin:3px 0 2px}
+#dash-sec-teknisi .pxl-tech-kpi-sub{font-size:8.7px;color:#7B8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dash-sec-teknisi .pxl-tech-main-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr);gap:12px;margin-top:12px}
+#dash-sec-teknisi .pxl-tech-panel{padding:12px;min-width:0}
+#dash-sec-teknisi .pxl-tech-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+#dash-sec-teknisi .pxl-tech-panel-head b{font-size:11px}
+#dash-sec-teknisi .pxl-tech-panel-head small{display:block;font-size:8.8px;color:#7B8798;margin-top:2px;font-weight:400}
+#dash-sec-teknisi .pxl-tech-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+#dash-sec-teknisi .pxl-tech-status-card{padding:10px 12px;display:flex;align-items:center;gap:9px}
+#dash-sec-teknisi .pxl-tech-status-card .pxl-tech-icon{width:34px;height:34px;flex-basis:34px;border-radius:10px}
+#dash-sec-teknisi .pxl-tech-status-card b{font-size:17px;line-height:1.05;display:block}
+#dash-sec-teknisi .pxl-tech-status-card span{font-size:9px;font-weight:700;color:#344054}
+#dash-sec-teknisi .pxl-tech-status-card small{font-size:8.5px;color:#7B8798}
+#dash-sec-teknisi .dash-bar-bg{background:#EDF1F6}
+#dash-sec-teknisi .dash-chart-card{border-color:#E5EAF0;border-radius:14px;box-shadow:0 7px 22px rgba(15,23,42,.035)}
+@media(max-width:1000px){
+  #dash-sec-teknisi .pxl-tech-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #dash-sec-teknisi .pxl-tech-main-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  #dash-sec-teknisi .pxl-tech-kpi-grid,
+  #dash-sec-teknisi .pxl-tech-status-grid{grid-template-columns:1fr 1fr}
+  #dash-sec-teknisi .pxl-tech-kpi{padding:9px;min-height:64px}
+  #dash-sec-teknisi .pxl-tech-icon{width:34px;height:34px;flex-basis:34px}
+  #dash-sec-teknisi .pxl-tech-kpi-value{font-size:18px}
+}
 </style>
 </head>
 <body>
@@ -2301,31 +2355,48 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 
       <!-- ══ TEKNISI ══ -->
       <div id="dash-sec-teknisi" style="display:none">
-        <div class="dash-metric-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="dash-metric accent"><div class="dash-metric-icon">🎫</div><div class="dash-metric-label">Total Tiket</div><div class="dash-metric-value" id="dt-total">—</div><div class="dash-metric-sub">periode dipilih</div></div>
-          <div class="dash-metric green"><div class="dash-metric-icon">✅</div><div class="dash-metric-label">Selesai</div><div class="dash-metric-value" id="dt-done">—</div><div class="dash-metric-sub" id="dt-done-pct">—</div></div>
-          <div class="dash-metric blue"><div class="dash-metric-icon">🚗</div><div class="dash-metric-label">Dalam Perjalanan</div><div class="dash-metric-value" id="dt-travelling">—</div><div class="dash-metric-sub">travelling</div></div>
-          <div class="dash-metric amber"><div class="dash-metric-icon">⏳</div><div class="dash-metric-label">Pending</div><div class="dash-metric-value" id="dt-pending">—</div><div class="dash-metric-sub">menunggu</div></div>
-        </div>
-        <div class="dash-grid-1" style="margin-top:14px">
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">👷 Performa Teknisi</div>
-            <div class="dash-chart-sub">Tiket selesai & avg rating per teknisi periode dipilih</div>
-            <div id="dash-tech-chart"></div>
+        <section class="pxl-tech-summary">
+          <div class="pxl-tech-section-title">RINGKASAN TEKNISI</div>
+          <div class="pxl-tech-kpi-grid">
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Total Teknisi</div><div class="pxl-tech-kpi-value" id="dt-tech-total">—</div><div class="pxl-tech-kpi-sub">teknisi terdata</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Aktif Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-tech-active">—</div><div class="pxl-tech-kpi-sub">sedang bertugas</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Teknisi Tersedia</div><div class="pxl-tech-kpi-value" id="dt-tech-available">—</div><div class="pxl-tech-kpi-sub">siap menerima WO</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M4 14c2-2 4-2 6 0 2-2 4-2 6 0 2-2 3-2 4 0M12 14v6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Cuti / Izin</div><div class="pxl-tech-kpi-value" id="dt-tech-leave">—</div><div class="pxl-tech-kpi-sub">data cuti / izin</div></div></div>
+
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-wo-today">—</div><div class="pxl-tech-kpi-sub">penugasan hari ini</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Selesai Hari Ini</div><div class="pxl-tech-kpi-value" id="dt-done-today">—</div><div class="pxl-tech-kpi-sub">selesai hari ini</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">Dalam Proses</div><div class="pxl-tech-kpi-value" id="dt-process">—</div><div class="pxl-tech-kpi-sub">masih dikerjakan</div></div></div>
+            <div class="pxl-tech-kpi"><div class="pxl-tech-icon red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 17h.01"/></svg></div><div class="pxl-tech-kpi-copy"><div class="pxl-tech-kpi-label">WO Terlambat</div><div class="pxl-tech-kpi-value" id="dt-overdue">—</div><div class="pxl-tech-kpi-sub">melewati SLA</div></div></div>
           </div>
+        </section>
+
+        <div class="pxl-tech-main-grid">
+          <section class="pxl-tech-panel">
+            <div class="pxl-tech-panel-head"><div><b>Beban Kerja Teknisi</b><small>Distribusi pekerjaan dan performa teknisi</small></div></div>
+            <div id="dash-tech-chart"></div>
+          </section>
+          <section class="pxl-tech-panel">
+            <div class="pxl-tech-panel-head"><div><b>Tren WO Teknisi</b><small>Jumlah WO pada periode dipilih</small></div></div>
+            <div id="dt-trend-chart"></div>
+          </section>
         </div>
-        <div class="dash-grid-2" style="margin-top:12px">
+
+        <div class="pxl-tech-status-grid">
+          <div class="pxl-tech-status-card"><div class="pxl-tech-icon blue"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><span>Assigned</span><b id="dt-assigned">—</b><small>WO baru ditugaskan</small></div></div>
+          <div class="pxl-tech-status-card"><div class="pxl-tech-icon purple"><svg viewBox="0 0 24 24"><path d="M3 12h15M13 6l6 6-6 6"/></svg></div><div><span>Travelling</span><b id="dt-travelling">—</b><small>dalam perjalanan</small></div></div>
+          <div class="pxl-tech-status-card"><div class="pxl-tech-icon orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg></div><div><span>On Progress</span><b id="dt-ongoing">—</b><small>sedang dikerjakan</small></div></div>
+          <div class="pxl-tech-status-card"><div class="pxl-tech-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div><span>Done</span><b id="dt-done">—</b><small>selesai</small></div></div>
+        </div>
+
+        <div class="dash-grid-1" style="margin-top:12px">
           <div class="dash-chart-card">
-            <div class="dash-chart-title">📊 Distribusi Status per Teknisi</div>
-            <div class="dash-chart-sub">Komposisi status tiket tiap teknisi</div>
+            <div class="dash-chart-title">Performa Teknisi</div>
+            <div class="dash-chart-sub">Komposisi status pekerjaan per teknisi</div>
             <div id="dt-status-chart"></div>
           </div>
-          <div class="dash-chart-card">
-            <div class="dash-chart-title">📅 Tren Tiket Harian</div>
-            <div class="dash-chart-sub">Jumlah tiket masuk per hari</div>
-            <div id="dt-trend-chart"></div>
-          </div>
         </div>
+
+        <span id="dt-total" style="display:none"></span><span id="dt-pending" style="display:none"></span><span id="dt-done-pct" style="display:none"></span>
       </div>
 
       <!-- ══ INVOICE ══ -->
@@ -4888,7 +4959,7 @@ async function deleteUser(id,name){
 }
 
 /* ══ DASHBOARD ═══════════════════════════ */
-let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[], dashCrmCustomerData=[];
+let dashData=[], dashPeriod='all', dashSalesOrderData=[], dashServiceData=[], dashCrmCustomerData=[], dashTechnicianData=[];
 
 async function loadDashboard(){
   const el=document.getElementById('dash-loading');
@@ -4918,6 +4989,7 @@ async function loadDashboard(){
     if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashServiceData.length) jobs.push(api('GET','/service-orders').then(d=>{dashServiceData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!dashCrmCustomerData.length) jobs.push(api('GET','/api/crm/customers').then(d=>{dashCrmCustomerData=Array.isArray(d)?d:[];}).catch(()=>{}));
+    if(!dashTechnicianData.length) jobs.push(api('GET','/api/technician-kanban/active-technicians').then(d=>{dashTechnicianData=Array.isArray(d)?d:(Array.isArray(d?.technicians)?d.technicians:[]);}).catch(()=>{}));
 
     if(jobs.length){
       await Promise.allSettled(jobs);
@@ -5020,17 +5092,55 @@ function renderDashSubTeknisi(data){
   const done=data.filter(t=>t.status==='done');
   const travelling=data.filter(t=>t.status==='travelling');
   const pending=data.filter(t=>t.status==='pending');
+  const assigned=data.filter(t=>t.status==='assigned');
+  const ongoing=data.filter(t=>t.status==='ongoing');
   const el=id=>document.getElementById(id);
-  if(el('dt-total')) el('dt-total').textContent=data.length;
-  if(el('dt-done')) el('dt-done').textContent=done.length;
-  if(el('dt-done-pct')) el('dt-done-pct').textContent=data.length?Math.round(done.length/data.length*100)+'% dari total':'0%';
-  if(el('dt-travelling')) el('dt-travelling').textContent=travelling.length;
-  if(el('dt-pending')) el('dt-pending').textContent=pending.length;
+  const set=(id,val)=>{if(el(id))el(id).textContent=val};
 
-  // Performa teknisi chart (reuse dash-tech-chart)
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
+  const ticketDate=t=>new Date(t.worked_at||t.created_at||t.updated_at||0);
+  const todayData=data.filter(t=>{const d=ticketDate(t);return d>=today&&d<tomorrow});
+  const doneToday=todayData.filter(t=>t.status==='done');
+  const process=data.filter(t=>['assigned','travelling','ongoing','pending'].includes(t.status));
+  const overdue=data.filter(t=>{
+    const s=String(t.status||'').toLowerCase();
+    if(s==='done'||s==='cancelled')return false;
+    const due=t.sla_due_at||t.due_at||t.deadline_at||t.scheduled_end_at;
+    return due?new Date(due)<new Date():false;
+  });
+
+  const namesFromTickets=new Set();
+  data.forEach(t=>{
+    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
+    techs.forEach(n=>{if(n)namesFromTickets.add(String(n))});
+  });
+  const activeToday=new Set();
+  todayData.forEach(t=>{
+    const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
+    techs.forEach(n=>{if(n)activeToday.add(String(n))});
+  });
+  const totalTech=Math.max(dashTechnicianData.length,namesFromTickets.size);
+  const available=Math.max(0,totalTech-activeToday.size);
+
+  set('dt-tech-total',totalTech||0);
+  set('dt-tech-active',activeToday.size);
+  set('dt-tech-available',available);
+  set('dt-tech-leave','—');
+  set('dt-wo-today',todayData.length);
+  set('dt-done-today',doneToday.length);
+  set('dt-process',process.length);
+  set('dt-overdue',overdue.length);
+  set('dt-total',data.length);
+  set('dt-done',done.length);
+  set('dt-done-pct',data.length?Math.round(done.length/data.length*100)+'% dari total':'0%');
+  set('dt-travelling',travelling.length);
+  set('dt-pending',pending.length);
+  set('dt-assigned',assigned.length);
+  set('dt-ongoing',ongoing.length);
+
   renderTechChart(data,'dash-tech-chart');
 
-  // Status per teknisi bar chart
   const techMap={};
   data.forEach(t=>{
     const techs=Array.isArray(t.technicians)?t.technicians:[t.technician].filter(Boolean);
@@ -5040,28 +5150,29 @@ function renderDashSubTeknisi(data){
     });
   });
   const names=Object.keys(techMap).slice(0,8);
-  const W=500,H=Math.max(160,names.length*36+40),ML=90,MR=20,MT=20,MB=30,CW=W-ML-MR,CH=H-MT-MB;
-  const BH=20,GAP=16,colors={done:'#639922',ongoing:'#3B82F6',travelling:'#F59E0B',pending:'#EF4444',assigned:'#8B5CF6'};
+  const W=500,H=Math.max(160,names.length*36+40),ML=90,MR=20,MT=20,MB=30,CW=W-ML-MR;
+  const BH=20,GAP=16,colors={done:'#22c55e',ongoing:'#3B82F6',travelling:'#8B5CF6',pending:'#F59E0B',assigned:'#60A5FA'};
   let rows='';
   names.forEach((n,i)=>{
     const y=MT+i*(BH+GAP);
     const total=Object.values(techMap[n]).reduce((a,b)=>a+b,0)||1;
     let x=ML;
     Object.entries(techMap[n]).forEach(([st,v])=>{
-      if(!v) return;
+      if(!v)return;
       const w=Math.round((v/total)*CW);
-      rows+=`<rect x="${x}" y="${y}" width="${w}" height="${BH}" fill="${colors[st]||'#aaa'}" rx="2"><title>${st}: ${v}</title></rect>`;
-      if(w>20) rows+=`<text x="${x+w/2}" y="${y+13}" font-size="9" fill="#fff" text-anchor="middle">${v}</text>`;
+      rows+=`<rect x="${x}" y="${y}" width="${w}" height="${BH}" fill="${colors[st]||'#aaa'}" rx="4"><title>${st}: ${v}</title></rect>`;
+      if(w>20)rows+=`<text x="${x+w/2}" y="${y+13}" font-size="9" fill="#fff" text-anchor="middle">${v}</text>`;
       x+=w;
     });
-    rows+=`<text x="${ML-4}" y="${y+13}" font-size="10" fill="var(--text)" text-anchor="end">${n.split(' ')[0]}</text>`;
+    rows+=`<text x="${ML-5}" y="${y+13}" font-size="10" fill="#344054" text-anchor="end">${String(n).split(' ')[0]}</text>`;
   });
-  const legend=Object.entries(colors).map(([k,c],i)=>`<rect x="${10+i*90}" y="4" width="10" height="10" fill="${c}" rx="2"/><text x="${24+i*90}" y="13" font-size="9" fill="var(--muted)">${k}</text>`).join('');
-  const stEl=document.getElementById('dt-status-chart');
-  if(stEl) stEl.innerHTML=`<svg viewBox="0 0 ${W} ${H+20}" style="width:100%;overflow:visible"><g>${legend}</g><g transform="translate(0,20)">${rows}</g></svg>`;
+  const legend=Object.entries(colors).map(([k,col],i)=>`<rect x="${8+i*92}" y="3" width="9" height="9" fill="${col}" rx="3"/><text x="${22+i*92}" y="12" font-size="8.5" fill="#667085">${k}</text>`).join('');
+  if(el('dt-status-chart'))el('dt-status-chart').innerHTML=names.length?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><g>${legend}</g><g transform="translate(0,18)">${rows}</g></svg>`:'<div class="no-data">Belum ada data teknisi</div>';
 
-  // Tren harian
-  renderTrendChart(data,'dt-trend-chart','tiket');
+  const byDay={};
+  data.forEach(t=>{const d=ticketDate(t);if(isNaN(d))return;const k=d.toISOString().slice(0,10);byDay[k]=(byDay[k]||0)+1});
+  const days=Object.keys(byDay).sort().slice(-7),max=Math.max(1,...days.map(k=>byDay[k]));
+  if(el('dt-trend-chart'))el('dt-trend-chart').innerHTML=days.length?`<div style="display:flex;align-items:flex-end;gap:8px;height:150px;padding:10px 4px 0">${days.map(k=>{const v=byDay[k],h=Math.max(8,Math.round(v/max*105));return `<div style="flex:1;text-align:center;min-width:0"><div style="font-size:9px;font-weight:700;color:#344054;margin-bottom:4px">${v}</div><div style="height:${h}px;background:#4F8DF7;border-radius:6px 6px 2px 2px;max-width:32px;margin:auto"></div><div style="font-size:8px;color:#7B8798;margin-top:5px">${k.slice(8,10)}/${k.slice(5,7)}</div></div>`}).join('')}</div>`:'<div class="no-data">Belum ada data tren</div>';
 }
 
 function renderDashSubInvoice(data){
