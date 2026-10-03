@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-SALES-UI-0003 — fix period selector and auto-select latest data month */
 /* PXL-SALES-UI-0002 — production data source fix (CRM Invoice + actual pipeline statuses) */
 /* PXL-SALES-UI-0001 — Sales Performance redesign */
 /* PXL-DASH-UI-0023 — make Overview Project data independent from opening Project Tracker */
@@ -8067,8 +8068,46 @@ function getSalesPeriodRange(period){
 function setSalesPeriod(val,btn){
   salesPeriod=val;
   document.querySelectorAll('#tab-sales .dash-period-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn&&btn.classList) btn.classList.add('active');
+  const sel=document.getElementById('sales-period-select');
+  if(sel&&sel.value!==val) sel.value=val;
   renderSalesDashboard();
+}
+
+function salesPeriodHasData(period){
+  const {from,to}=getSalesPeriodRange(period);
+  const inRange=raw=>{const d=raw?new Date(raw):null;return d&&!isNaN(d)&&d>=from&&d<=to};
+  const invoices=buildSalesPerformanceInvoices();
+  const hasInvoice=invoices.some(inv=>inRange(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date));
+  const hasTarget=(salesTargets||[]).some(t=>{
+    const [y,m]=String(t.year_month||'').split('-').map(Number);
+    if(!y||!m)return false;
+    const a=new Date(y,m-1,1),b=new Date(y,m,0,23,59,59);
+    return !(b<from||a>to);
+  });
+  const hasVisit=(kunjunganData||[]).some(v=>inRange(v.prospect_date||v.created_at));
+  const hasSO=(dashSalesOrderData||[]).some(x=>inRange(x.created_at||x.approved_at||x.updated_at));
+  return hasInvoice||hasTarget||hasVisit||hasSO;
+}
+
+function resolveSalesInitialPeriod(){
+  // Prioritaskan bulan berjalan bila memang ada penjualan/target.
+  // Jika belum ada, gunakan bulan lalu agar dashboard pertama kali tidak tampak kosong.
+  if(salesPeriodHasData('this_month')){
+    const currentInvoices=buildSalesPerformanceInvoices().filter(inv=>{
+      const {from,to}=getSalesPeriodRange('this_month');
+      const d=new Date(inv.sales_date||inv.invoice_date||inv.uploaded_at||inv.ticket_date||0);
+      return !isNaN(d)&&d>=from&&d<=to;
+    });
+    const currentTarget=(salesTargets||[]).some(t=>{
+      const now=new Date();
+      return String(t.year_month||'')===now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    });
+    // Aktivitas canvassing/SO saja tidak cukup untuk mengubah headline penjualan menjadi nol.
+    if(currentInvoices.length||currentTarget) return 'this_month';
+  }
+  if(salesPeriodHasData('last_month')) return 'last_month';
+  return 'this_month';
 }
 
 async function loadSalesDashboard(){
@@ -8088,6 +8127,14 @@ async function loadSalesDashboard(){
     ];
     if(!allTickets.length) jobs.push(api('GET','/tickets').then(d=>{allTickets=Array.isArray(d)?d:[];}).catch(()=>{}));
     await Promise.allSettled(jobs);
+
+    if(!document.getElementById('tab-sales')?.dataset.periodInitialized){
+      salesPeriod=resolveSalesInitialPeriod();
+      const salesTab=document.getElementById('tab-sales');
+      if(salesTab) salesTab.dataset.periodInitialized='1';
+      const periodSelect=document.getElementById('sales-period-select');
+      if(periodSelect) periodSelect.value=salesPeriod;
+    }
 
     const now=new Date();
     const monthEl=document.getElementById('st-month');
@@ -8194,6 +8241,8 @@ function renderSalesDashboard(){
   set('sd-achievement',totalTarget?achv+'%':'—');
   set('sd-gap-target',totalTarget?(achv>=100?'Target tercapai':shortMoney(Math.max(0,totalTarget-totalReal))+' lagi'):'target belum diset');
   set('sd-period-label',label);
+  const subtitle=document.querySelector('#tab-sales .pxl-sales-subtitle');
+  if(subtitle) subtitle.textContent='Ringkasan penjualan aktual, performa tim sales, dan pipeline bisnis Pixel Solusindo · '+label+'.';
   set('sd-so-count',so.length);
   set('sd-so-value',shortMoney(soValue));
   set('sd-invoice-count',invFlat.length);
