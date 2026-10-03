@@ -1293,6 +1293,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 @media(max-width:850px){#dash-sec-project .pxl-proj-main-row{grid-template-columns:1fr}#dash-sec-project .pxl-proj-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#dash-sec-project .pxl-proj-aside{grid-template-columns:1fr}#dash-sec-project .pxl-proj-table{min-width:620px}}
 
+/* PXL-DASH-UI-0023 — make Overview Project data independent from opening Project Tracker */
 /* PXL-DASH-UI-0022 — add previous-month Dashboard period */
 /* PXL-DASH-UI-0021 — CRM endpoint + Project/CRM dashboard cache synchronization */
 /* PXL-DASH-UI-0020 — Customer / CRM dashboard submenu */
@@ -5544,7 +5545,16 @@ async function loadDashboard(){
       console.error('Gagal memuat Purchase Request dashboard',err);
       dashPRData=Array.isArray(prData)?prData:[];
     }));
-    if(!dashProjectData) jobs.push(api('GET','/projects').then(d=>{const rows=Array.isArray(d)?d:[];dashProjectData=rows;projectsData=rows;}).catch(()=>{dashProjectData=Array.isArray(projectsData)?projectsData:[];}));
+    // PXL-DASH-UI-0023: Overview tidak boleh bergantung pada Project Tracker pernah dibuka.
+    // Selalu refresh /projects saat Dashboard dimuat, lalu sinkronkan kedua cache.
+    jobs.push(api('GET','/projects').then(d=>{
+      const rows=Array.isArray(d)?d:[];
+      dashProjectData=rows;
+      projectsData=rows;
+    }).catch(err=>{
+      console.error('Gagal memuat project untuk Dashboard Overview',err);
+      dashProjectData=Array.isArray(projectsData)?projectsData:[];
+    }));
     if(!dashProjectReportData.length) jobs.push(api('GET','/project-report-summaries').then(d=>{dashProjectReportData=Array.isArray(d)?d:[];}).catch(()=>{}));
     if(!standaloneInvoices||!standaloneInvoices.length) jobs.push(api('GET','/invoices/standalone').then(d=>{standaloneInvoices=d||[];}));
     if(!dashSalesOrderData.length) jobs.push(api('GET','/sales-orders').then(d=>{dashSalesOrderData=Array.isArray(d)?d:[];}).catch(()=>{}));
@@ -6640,14 +6650,15 @@ function renderDashSubProject(projList){
   const totalHpp=rows.reduce((s,p)=>s+(Number(p.harga_pokok)||0),0);
   const totalOmset=rows.reduce((s,p)=>s+(Number(p.omset)||0),0);
   const margin=totalOmset-totalHpp;
-  const onPlan=rows.filter(p=>p.status==='On Plan').length;
-  const onProgress=rows.filter(p=>p.status==='On Progress').length;
-  const onHold=rows.filter(p=>p.status==='Hold').length;
+  const projStatus=p=>String(p.status||'').trim().toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const onPlan=rows.filter(p=>['on plan','plan','planned'].includes(projStatus(p))).length;
+  const onProgress=rows.filter(p=>['on progress','progress','active','aktif'].includes(projStatus(p))).length;
+  const onHold=rows.filter(p=>['hold','on hold'].includes(projStatus(p))).length;
 
   const today=new Date();today.setHours(0,0,0,0);
   const cutoff=new Date(today);cutoff.setDate(today.getDate()+14);
   const nearDeadline=rows.filter(p=>{
-    if(!['On Plan','On Progress'].includes(p.status))return false;
+    if(!['on plan','plan','planned','on progress','progress','active','aktif'].includes(projStatus(p)))return false;
     const d=targetWeekToDate(p.target_week);
     return d&&d<=cutoff;
   });
@@ -6951,7 +6962,7 @@ function renderDashboardOverviewV2(data){
   set('pxl3-wo-total',(data||[]).length||'0');
 
   const projects=(Array.isArray(dashProjectData)&&dashProjectData.length)?dashProjectData:(Array.isArray(projectsData)?projectsData:[]);
-  const pstatus=x=>String(x.status||'').toLowerCase();
+  const pstatus=x=>String(x.status||'').trim().toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
   const projectHold=projects.filter(x=>['hold','on hold'].includes(pstatus(x))).length;
   const projectDone=projects.filter(x=>['done','completed','selesai','closed','finished'].includes(pstatus(x))).length;
   const projectActive=projects.filter(x=>['on plan','on progress','active','aktif','progress'].includes(pstatus(x))).length;
@@ -9582,8 +9593,14 @@ let projectsData=[];
 window.pxlProjectReportSummaries=window.pxlProjectReportSummaries||{};
 
 async function loadProjects(){
-  try{ projectsData=await api('GET','/projects')||[]; }
-  catch(e){ projectsData=[]; }
+  try{
+    projectsData=await api('GET','/projects')||[];
+    dashProjectData=Array.isArray(projectsData)?projectsData:[];
+  }
+  catch(e){
+    projectsData=[];
+    dashProjectData=[];
+  }
   try{
     const reports=await api('GET','/project-report-summaries');
     window.pxlProjectReportSummaries={};
@@ -10026,8 +10043,10 @@ async function submitImport(){
       renderKunjunganList();
     }else if(importContext==='project'){
       projectsData=await api('GET','/projects');
+      dashProjectData=Array.isArray(projectsData)?projectsData:[];
       populateProjectPicFilter();
       renderProjectList();
+      renderDashboard();
     }
     document.getElementById('import-preview-wrap').style.display='none';
     btn.style.display='none';
