@@ -19,3 +19,14 @@ window.PXL_STG_0019={revision:'PXL-STG-0019',application:'PixelApps'};
   };
   run();
 })();
+
+/* PXL-PROBUS-BADGE-0001 — visual badge loader for main app / Material Request. */
+(function(){
+  if(window.__pxlProbusBadgeLoader0001)return;
+  window.__pxlProbusBadgeLoader0001=true;
+  const s=document.createElement('script');
+  s.src='/pxl-probus-badge-0001.js?v=PXL-PROBUS-BADGE-0001';
+  s.async=false;
+  s.dataset.pxlProbusBadge='0001';
+  document.head.appendChild(s);
+})();
