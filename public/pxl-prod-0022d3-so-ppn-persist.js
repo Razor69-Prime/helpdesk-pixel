@@ -201,3 +201,15 @@
   script.src='/pxl-urg-0036-so-excel-import.js?v=PXL-URG-0036A';
   document.head.appendChild(script);
 })();
+
+// PXL-PROBUS-BADGE-0001 — visual-only PROBUS badge loader for Sales Order item picker.
+(function(){
+  'use strict';
+  if(window.__pxlProbusBadgeLoader0001)return;
+  window.__pxlProbusBadgeLoader0001=true;
+  const script=document.createElement('script');
+  script.dataset.pxlProbusBadge='0001';
+  script.src='/pxl-probus-badge-0001.js?v=PXL-PROBUS-BADGE-0001';
+  script.async=false;
+  document.head.appendChild(script);
+})();
