@@ -1,5 +1,3 @@
-[Reading 5 lines from start (total: 5 lines, 0 remaining)]
-
 -- PXL-VNEXT-1A — CRM Customer Classification Foundation
 alter table if exists public.crm_customers add column if not exists market_segment text;
 alter table if exists public.crm_customers add column if not exists sector text;
