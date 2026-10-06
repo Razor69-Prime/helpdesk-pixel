@@ -1,5 +1,3 @@
-[Reading 4513 lines from start (total: 4513 lines, 0 remaining)]
-
 const express  = require('express');
 const multer   = require('multer');
 const fs       = require('fs');
@@ -2922,6 +2920,23 @@ app.get('/api/crm/report',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{re
 app.get('/api/crm/customers',requireRole(...CRM_READ_ROLES),async(req,res)=>{try{res.json(await db.getCrmCustomers())}catch(e){res.status(500).json({error:e.message})}});
 app.post('/api/crm/customers',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{if(!req.body.name)return res.status(400).json({error:'Nama customer wajib diisi'});let body={...req.body};if(body.market_segment!==undefined){if(!hasCustomerSegmentPermission(req,'customer_segment_manage'))return res.status(403).json({error:'Anda tidak memiliki izin Kelola Segmentasi Customer.'});body=normalizeCustomerClassification(body)}else{body.market_segment='Unclassified';body.sector=null}const x=await db.insertCrmCustomer({...body,created_by:req.session.user.name});logActivity(req,'crm','BUAT CUSTOMER',x.name);res.status(201).json(x)}catch(e){res.status(400).json({error:e.message})}});
 app.patch('/api/crm/customers/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{let body={...req.body};if(body.market_segment!==undefined||body.sector!==undefined){if(!hasCustomerSegmentPermission(req,'customer_segment_manage'))return res.status(403).json({error:'Anda tidak memiliki izin Kelola Segmentasi Customer.'});body=normalizeCustomerClassification(body)}res.json(await db.updateCrmCustomer(req.params.id,body))}catch(e){res.status(400).json({error:e.message})}});
+app.post('/api/crm/customers/bulk-classification',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{
+  try{
+    if(!hasCustomerSegmentPermission(req,'customer_segment_bulk_manage'))return res.status(403).json({error:'Anda tidak memiliki izin Bulk Segmentasi Customer.'});
+    const ids=[...new Set((Array.isArray(req.body.ids)?req.body.ids:[]).map(x=>String(x||'').trim()).filter(Boolean))];
+    if(!ids.length)return res.status(400).json({error:'Pilih minimal 1 customer.'});
+    if(ids.length>500)return res.status(400).json({error:'Maksimal 500 customer dalam satu proses bulk.'});
+    const classification=normalizeCustomerClassification({market_segment:req.body.market_segment,sector:req.body.sector});
+    const customers=await db.getCrmCustomers();
+    const byId=new Map((customers||[]).map(c=>[String(c.id),c]));
+    const missing=ids.filter(id=>!byId.has(id));
+    if(missing.length)return res.status(400).json({error:`${missing.length} customer tidak ditemukan. Muat ulang CRM lalu coba lagi.`});
+    const updated=[];
+    for(const id of ids)updated.push(await db.updateCrmCustomer(id,{market_segment:classification.market_segment,sector:classification.sector}));
+    logActivity(req,'crm','BULK SEGMENTASI CUSTOMER',`${updated.length} customer → ${classification.market_segment}${classification.sector?' / '+classification.sector:''}`);
+    res.json({ok:true,updated_count:updated.length,market_segment:classification.market_segment,sector:classification.sector,customers:updated});
+  }catch(e){res.status(400).json({error:e.message})}
+});
 app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{try{const deleted=await db.deleteCrmCustomer(req.params.id);logActivity(req,'crm','HAPUS CUSTOMER',deleted?.name||req.params.id);res.json({ok:true,deleted})}catch(e){const status=/foreign key|constraint|reference/i.test(String(e.message))?409:500;res.status(status).json({error:status===409?'Customer masih terhubung dengan data lain dan belum dapat dihapus.':e.message})}});
 
 
