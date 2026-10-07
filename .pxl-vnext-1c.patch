@@ -1,0 +1,302 @@
+From 292a5ccb966196bf947fec2e6c5664e9d6e24ef8 Mon Sep 17 00:00:00 2001
+From: Razor69-Prime <ekahendrayana1986@gmail.com>
+Date: Wed, 7 Oct 2026 06:23:51 +0000
+Subject: [PATCH] PXL-VNEXT-1C sync CRM classification to sales order
+
+---
+ PXL-VNEXT-1C-MIGRATION.sql                  |  5 ++
+ public/pxl-prod-0022ab-sales-order-sites.js |  4 +
+ public/sales-order.html                     | 96 ++++++++++++++++++++-
+ server.js                                   | 19 +++-
+ tests/vnext-1c.test.js                      | 37 ++++++++
+ 5 files changed, 156 insertions(+), 5 deletions(-)
+ create mode 100644 PXL-VNEXT-1C-MIGRATION.sql
+ create mode 100644 tests/vnext-1c.test.js
+
+diff --git a/PXL-VNEXT-1C-MIGRATION.sql b/PXL-VNEXT-1C-MIGRATION.sql
+new file mode 100644
+index 0000000..e8562c6
+--- /dev/null
++++ b/PXL-VNEXT-1C-MIGRATION.sql
+@@ -0,0 +1,5 @@
++-- PXL-VNEXT-1C — Sales Order market classification snapshot
++-- Existing Sales Order rows are intentionally not reclassified automatically.
++alter table if exists public.sales_orders add column if not exists market_segment text;
++alter table if exists public.sales_orders add column if not exists sector text;
++alter table if exists public.sales_orders alter column market_segment set default 'Unclassified';
+diff --git a/public/pxl-prod-0022ab-sales-order-sites.js b/public/pxl-prod-0022ab-sales-order-sites.js
+index 80a05ad..851c893 100644
+--- a/public/pxl-prod-0022ab-sales-order-sites.js
++++ b/public/pxl-prod-0022ab-sales-order-sites.js
+@@ -275,7 +275,11 @@
+     const materialSubtotal=items.filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
+     const serviceSubtotal=items.filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
+     const ppnTotal=items.reduce((s,x)=>s+itemTax(x),0);
++    const classification=typeof window.getCustomerClassificationSnapshot==='function'?window.getCustomerClassificationSnapshot():{customer_id:null,market_segment:'',sector:''};
+     return {
++      customer_id:classification.customer_id,
++      market_segment:classification.market_segment,
++      sector:classification.sector,
+       customer_name:$('customer')?.value.trim()||'',
+       customer_phone:$('phone')?.value.trim()||'',
+       sales_pic_user_id:sales?.id||null,
+diff --git a/public/sales-order.html b/public/sales-order.html
+index e745886..1b17880 100644
+--- a/public/sales-order.html
++++ b/public/sales-order.html
+@@ -53,9 +53,11 @@ td{padding:8px 6px;border-top:1px solid #efede7;white-space:normal;vertical-alig
+     </div>
+ 
+     <div class="form">
+-      <div><label>Customer</label><input id="customer" placeholder="Nama customer"></div>
++      <div><label>Customer</label><input id="customer" list="customerOptions" placeholder="Nama customer"><datalist id="customerOptions"></datalist><div class="sub" id="customerClassHint">Pilih customer CRM untuk sinkron otomatis, atau isi manual.</div></div>
+       <div><label>Nomor Telepon</label><input id="phone" placeholder="08..."></div>
+       <div><label>Sales PIC</label><select id="salesPic"><option value="">Memuat akun Sales...</option></select></div>
++      <div><label>Market Segment</label><select id="marketSegment"><option value="">Pilih B2B / B2C</option><option value="B2B">B2B</option><option value="B2C">B2C</option></select></div>
++      <div><label>Sector</label><select id="sector"><option value="">Pilih sector</option></select></div>
+       <div><label>Nama Project</label><input id="projectName" placeholder="Contoh: Instalasi CCTV Villa ABC"></div>
+       <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
+       <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
+@@ -108,9 +110,10 @@ td{padding:8px 6px;border-top:1px solid #efede7;white-space:normal;vertical-alig
+ <script>
+ let runtimeToken = '';
+ let D = { sales_orders: [] };
+-let OPT = { sales_users: [], inventory_items: [], package_recipes: [], can_approve: false, can_issue:false, current_user:null };
++let OPT = { sales_users: [], inventory_items: [], package_recipes: [], customers: [], can_approve: false, can_issue:false, current_user:null };
+ let MASTER_HPP_BY_ID = new Map();
+ let editId = null;
++let selectedCustomerId = null;
+ 
+ const byId = id => document.getElementById(id);
+ const numberValue = value => {
+@@ -445,12 +448,82 @@ function updateTotals() {
+   return { materialSubtotal, serviceSubtotal, grandTotal: materialSubtotal + serviceSubtotal };
+ }
+ 
++function marketSectorOptions(segment) {
++  if (segment === 'B2B') return ['Pemerintahan', 'Swasta', 'Retail', 'Corporate'];
++  if (segment === 'B2C') return ['End User', 'Hospitality'];
++  return [];
++}
++
++function syncMarketSectorOptions(preferred = '') {
++  const segment = byId('marketSegment')?.value || '';
++  const sector = byId('sector');
++  if (!sector) return;
++  const rows = marketSectorOptions(segment);
++  sector.innerHTML = '<option value="">Pilih sector</option>' + rows.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
++  if (preferred && rows.includes(preferred)) sector.value = preferred;
++}
++
++function findCrmCustomerByName(name) {
++  const key = String(name || '').trim().toLowerCase();
++  return (OPT.customers || []).find(row => String(row.name || '').trim().toLowerCase() === key) || null;
++}
++
++function applyCrmCustomer(customer, options = {}) {
++  selectedCustomerId = customer?.id || null;
++  const segment = String(customer?.market_segment || 'Unclassified');
++  const valid = ['B2B', 'B2C'].includes(segment) && marketSectorOptions(segment).includes(String(customer?.sector || ''));
++  const market = byId('marketSegment');
++  const sector = byId('sector');
++  const hint = byId('customerClassHint');
++  if (customer && options.fillContact !== false) {
++    if (customer.phone && !byId('phone')?.value.trim()) byId('phone').value = customer.phone;
++    if (customer.address && !byId('address')?.value.trim()) byId('address').value = customer.address;
++  }
++  if (customer && valid) {
++    market.value = segment; syncMarketSectorOptions(String(customer.sector || ''));
++    market.disabled = true; sector.disabled = true;
++    if (hint) hint.textContent = `CRM: ${segment} · ${customer.sector}`;
++  } else if (customer) {
++    market.value = ''; syncMarketSectorOptions(); market.disabled = true; sector.disabled = true;
++    if (hint) hint.textContent = 'Customer CRM masih Unclassified. Lengkapi klasifikasi di CRM sebelum Submit SO.';
++  } else {
++    market.disabled = false; sector.disabled = false;
++    if (hint) hint.textContent = 'Customer manual: Market Segment dan Sector wajib dipilih.';
++  }
++}
++
++function syncCustomerFromInput() {
++  const customer = findCrmCustomerByName(byId('customer')?.value);
++  applyCrmCustomer(customer);
++}
++
++function getCustomerClassificationSnapshot() {
++  const customer = findCrmCustomerByName(byId('customer')?.value);
++  if (customer) {
++    const segment = String(customer.market_segment || 'Unclassified');
++    const sector = String(customer.sector || '');
++    if (!['B2B', 'B2C'].includes(segment) || !marketSectorOptions(segment).includes(sector)) throw new Error('Customer CRM masih Unclassified. Lengkapi Market Segment dan Sector di CRM terlebih dahulu.');
++    return { customer_id: customer.id, market_segment: segment, sector };
++  }
++  const segment = byId('marketSegment')?.value || '';
++  const sector = byId('sector')?.value || '';
++  if (!['B2B', 'B2C'].includes(segment)) throw new Error('Market Segment wajib dipilih: B2B atau B2C.');
++  if (!marketSectorOptions(segment).includes(sector)) throw new Error(`Sector ${segment} wajib dipilih.`);
++  return { customer_id: selectedCustomerId, market_segment: segment, sector };
++}
++window.getCustomerClassificationSnapshot = getCustomerClassificationSnapshot;
++
+ function reset() {
+   editId = null;
++  selectedCustomerId = null;
+   ['customer', 'phone', 'projectName', 'address', 'notes'].forEach(id => {
+     const element = byId(id);
+     if (element) element.value = '';
+   });
++  if (byId('marketSegment')) { byId('marketSegment').value=''; byId('marketSegment').disabled=false; }
++  syncMarketSectorOptions();
++  if (byId('sector')) byId('sector').disabled=false;
++  if (byId('customerClassHint')) byId('customerClassHint').textContent='Pilih customer CRM untuk sinkron otomatis, atau isi manual.';
+   const salesPic = byId('salesPic');
+   if (salesPic) { salesPic.value=''; const me=OPT.current_user;if(me){const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());if(mine){salesPic.value=String(mine.id);salesPic.disabled=String(me.role||'').toLowerCase()==='sales';}} }
+   if (byId('materialItems')) byId('materialItems').innerHTML = '';
+@@ -530,8 +603,12 @@ function collect() {
+ 
+   if (!items.length) throw new Error('Tambahkan minimal satu Material atau Jasa.');
+   const totals = updateTotals();
++  const classification = getCustomerClassificationSnapshot();
+ 
+   return {
++    customer_id: classification.customer_id,
++    market_segment: classification.market_segment,
++    sector: classification.sector,
+     customer_name: byId('customer')?.value.trim() || '',
+     customer_phone: byId('phone')?.value.trim() || '',
+     sales_pic_user_id: sales?.id || null,
+@@ -582,6 +659,15 @@ function editSO(id) {
+     const element = byId(key);
+     if (element) element.value = value;
+   });
++  const crmCustomer = (OPT.customers || []).find(c => String(c.id) === String(salesOrder.customer_id || '')) || findCrmCustomerByName(salesOrder.customer_name);
++  if (crmCustomer) applyCrmCustomer(crmCustomer, { fillContact:false });
++  else {
++    selectedCustomerId = null;
++    if (byId('marketSegment')) byId('marketSegment').value = ['B2B','B2C'].includes(salesOrder.market_segment) ? salesOrder.market_segment : '';
++    syncMarketSectorOptions(salesOrder.sector || '');
++    if (byId('marketSegment')) byId('marketSegment').disabled = false;
++    if (byId('sector')) byId('sector').disabled = false;
++  }
+ 
+   if (byId('materialItems')) byId('materialItems').innerHTML = '';
+   if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
+@@ -697,11 +783,14 @@ async function load() {
+       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
+       inventory_items: unifiedItems,
+       package_recipes: Array.isArray(packages.items) ? packages.items : [],
++      customers: Array.isArray(options.customers) ? options.customers : [],
+       can_approve: options.can_approve === true,
+       can_issue: options.can_issue === true,
+       current_user: options.current_user || null
+     };
+     D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
++    const customerOptions = byId('customerOptions');
++    if (customerOptions) customerOptions.innerHTML = OPT.customers.map(c => `<option value="${esc(c.name)}"></option>`).join('');
+     const salesPic = byId('salesPic');
+     if (salesPic) {
+       const selectedValue = salesPic.value;
+@@ -727,6 +816,9 @@ async function load() {
+ }
+ 
+ byId('refreshBtn')?.addEventListener('click', load);
++byId('customer')?.addEventListener('change', syncCustomerFromInput);
++byId('customer')?.addEventListener('blur', syncCustomerFromInput);
++byId('marketSegment')?.addEventListener('change', () => syncMarketSectorOptions());
+ byId('soSearch')?.addEventListener('input', render);
+ byId('soSearchClear')?.addEventListener('click', () => { if(byId('soSearch')) byId('soSearch').value=''; render(); byId('soSearch')?.focus(); });
+ byId('resetBtn')?.addEventListener('click', reset);
+diff --git a/server.js b/server.js
+index 3dcf16f..c959970 100644
+--- a/server.js
++++ b/server.js
+@@ -2943,11 +2943,12 @@ app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{t
+ // PXL-STG-0003B/0003C/STG-0004 — options, approval, MR and inventory issue.
+ app.get('/api/sales-orders/options',requireRole(...SO_READ_ROLES),async(req,res)=>{
+   try{
+-    const [users,inventory]=await Promise.all([db.getUsers(),db.getInventoryItems()]);
++    const [users,inventory,crmRows]=await Promise.all([db.getUsers(),db.getInventoryItems(),db.getCrmCustomers()]);
+     const salesUsers=(users||[]).filter(u=>u.is_active!==false&&String(u.role||'').toLowerCase()!=='superadmin'&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
+       .map(u=>({id:u.id,name:u.name,email:u.email||null,role:u.role}));
+     const items=(inventory||[]).filter(i=>i.is_active!==false).map(i=>({id:i.id,name:i.name,sku:i.sku||null,unit:i.unit||'pcs',stock:Number(i.stock||0),tracking_mode:i.tracking_mode||'quantity'}));
+-    res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
++    const crmCustomers=(crmRows||[]).map(c=>({id:c.id,name:c.name,phone:c.phone||null,address:c.address||null,market_segment:c.market_segment||'Unclassified',sector:c.sector||null}));
++    res.json({sales_users:salesUsers,inventory_items:items,customers:crmCustomers,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
+   }catch(e){res.status(500).json({error:e.message})}
+ });
+ 
+@@ -3034,8 +3035,20 @@ app.post('/api/sales-orders/site-templates',requireRole(...CRM_WRITE_ROLES),asyn
+   }catch(e){res.status(400).json({error:e.message})}
+ });
+ 
++function normalizeSalesOrderMarketSnapshot(body){
++  const out={...body};
++  const seg=String(out.market_segment||'').trim();
++  if(!['B2B','B2C'].includes(seg)) throw new Error('Market Segment wajib dipilih: B2B atau B2C.');
++  const sector=String(out.sector||'').trim();
++  const allowedSectors={B2B:['Pemerintahan','Swasta','Retail','Corporate'],B2C:['End User','Hospitality']};
++  if(!allowedSectors[seg].includes(sector)) throw new Error(`Sector ${seg} tidak valid.`);
++  out.market_segment=seg; out.sector=sector;
++  return out;
++}
++
+ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{
+   try{
++    req.body=normalizeSalesOrderMarketSnapshot(req.body);
+     // PXL-PROD-0022A — validate Material + Jasa per Site without changing existing SO→WO→MR flow.
+     if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});
+     if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});
+@@ -3054,7 +3067,7 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnP
+     res.status(201).json(x);
+   }catch(e){res.status(500).json({error:e.message})}
+ });
+-app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
++app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});let body={...req.body};if(body.market_segment!==undefined||body.sector!==undefined)body=normalizeSalesOrderMarketSnapshot(body);const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...body,history}))}catch(e){res.status(400).json({error:e.message})}});
+ 
+ 
+ // PXL-STG-0003 — konversi Sales Order menjadi WO operasional existing.
+diff --git a/tests/vnext-1c.test.js b/tests/vnext-1c.test.js
+new file mode 100644
+index 0000000..9b9fbf4
+--- /dev/null
++++ b/tests/vnext-1c.test.js
+@@ -0,0 +1,37 @@
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++
++const root = path.resolve(__dirname, '..');
++const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
++const so = fs.readFileSync(path.join(root, 'public/sales-order.html'), 'utf8');
++const migrationPath = path.join(root, 'PXL-VNEXT-1C-MIGRATION.sql');
++
++test('1C migration adds SO market snapshot columns without overwriting legacy data', () => {
++  assert.ok(fs.existsSync(migrationPath));
++  const sql = fs.readFileSync(migrationPath, 'utf8');
++  assert.match(sql, /add column if not exists market_segment text/i);
++  assert.match(sql, /add column if not exists sector text/i);
++  assert.doesNotMatch(sql, /update\s+sales_orders\s+set\s+market_segment/i);
++});
++
++test('SO backend exposes CRM customer classification and validates snapshot', () => {
++  assert.match(server, /customers:\s*crmCustomers/i);
++  assert.match(server, /market_segment/);
++  assert.match(server, /B2B:\['Pemerintahan','Swasta','Retail','Corporate'\]/);
++  assert.match(server, /B2C:\['End User','Hospitality'\]/);
++  assert.match(server, /Market Segment wajib dipilih/);
++});
++
++test('SO form requires B2B B2C and aligned sector selection', () => {
++  assert.match(so, /id="marketSegment"/);
++  assert.match(so, /id="sector"/);
++  assert.match(so, /<option value="B2B">B2B<\/option>/);
++  assert.match(so, /<option value="B2C">B2C<\/option>/);
++  assert.match(so, /Pemerintahan/);
++  assert.match(so, /Hospitality/);
++  assert.match(so, /customer_id:/);
++  assert.match(so, /market_segment:/);
++  assert.match(so, /sector:/);
++});
+-- 
+2.43.0
