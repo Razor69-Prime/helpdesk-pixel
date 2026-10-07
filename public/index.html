@@ -1520,7 +1520,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
       <div id="alert-success" class="alert success">✅ Laporan berhasil disimpan!</div>
       <div id="alert-error"   class="alert error">❌ <span id="err-msg">Gagal.</span></div>
       <div class="card">
-        <div class="card-title">Form Laporan Pekerjaan</div>
+        <div class="card-title">Form Input Work Order</div>
         <div class="form-row">
           <div class="form-group">
             <label>Nomor Tiket (WO) dari POS</label>
@@ -4158,7 +4158,7 @@ function buildNav(){
   const isSuperAdmin=role==='superadmin';
   const ALL_TAB_DEFS=[
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
-    {id:'report',    label:'📋 Input Laporan', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
+    {id:'report',    label:'📋 Input WO', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
     {id:'tickets',   label:'📄 Work Order',  show: true},
     {id:'service_center',label:'🔧 Service Center',show: role==='technician'||role==='operator'||role==='admin'||isManager||isSuperAdmin},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
@@ -5431,7 +5431,7 @@ async function addUser(){
 
 // Definisi semua menu yang tersedia
 const ALL_MENUS=[
-  {id:'report',  label:'📋 Input Laporan'},
+  {id:'report',  label:'📋 Input WO'},
   {id:'tickets', label:'📄 Daftar Tiket'},
   {id:'service_center',label:'🔧 Service Center'},
   {id:'invoice', label:'🧾 Invoice'},

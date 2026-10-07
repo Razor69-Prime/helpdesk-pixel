@@ -629,6 +629,18 @@ function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
   });
 }
 
+const WORK_ORDER_TYPES=['Survey','Project','Operasional','Unclassified'];
+function classifyWorkOrderType(input, crmCustomers=[]){
+  const row=input||{};
+  const text=[row.wo_number,row.project_name,row.description].filter(Boolean).join(' ').toLowerCase();
+  if(/(^|[^a-z0-9])survey([^a-z0-9]|$)/i.test(text)) return 'Survey';
+  const customerName=String(row.customer_name||'').trim().toLowerCase();
+  const exactCrm=(crmCustomers||[]).find(c=>String(c.name||'').trim().toLowerCase()===customerName);
+  if(exactCrm&&/(kantor\s+desa|(^|[^a-z0-9])desa([^a-z0-9]|$)|(^|[^a-z0-9])bpn([^a-z0-9]|$))/i.test(String(exactCrm.name||''))) return 'Project';
+  if(/(^|[^a-z0-9])(instalasi|maintenance)([^a-z0-9]|$)/i.test(text)) return 'Operasional';
+  return 'Unclassified';
+}
+
 app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), blockStagingDemoOnProduction, async (req, res) => {
   try {
     const now   = new Date().toISOString();
@@ -660,8 +672,11 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       return sendLeaveAssignmentConflict(res, leaveConflicts, workDate, canForceLeave);
     }
 
+    const crmCustomers = await db.getCrmCustomers();
+    const workOrderType = classifyWorkOrderType(req.body, crmCustomers);
     const ticket = await db.insertTicket({
       wo_number:      req.body.wo_number,
+      work_order_type:workOrderType,
       project_name:   req.body.project_name  || null,
       customer_name:  req.body.customer_name || null,
       customer_phone: req.body.customer_phone|| null,
@@ -3108,9 +3123,14 @@ app.post('/api/sales-orders/:id/work-order',requireSalesOrderPermission('sales_o
       }).join(', ');
       const now=new Date().toISOString();
       const workedAt=req.body.worked_at||new Date().toISOString().slice(0,10);
+      const woProjectName=req.body.project_name||so.project_name||`Pekerjaan ${so.so_number}`;
+      const woDescription=req.body.description||[`Dibuat otomatis dari ${so.so_number}.`,so.address?`Lokasi pekerjaan: ${so.address}.`:'',so.notes||'',itemSummary?`Item: ${itemSummary}`:''].filter(Boolean).join(' ');
+      const woCrmCustomers=await db.getCrmCustomers();
+      const workOrderType=classifyWorkOrderType({wo_number:woNumber,project_name:woProjectName,description:woDescription,customer_name:so.customer_name},woCrmCustomers);
       ticket=await db.insertTicket({
         wo_number:woNumber,
-        project_name:req.body.project_name||so.project_name||`Pekerjaan ${so.so_number}`,
+        work_order_type:workOrderType,
+        project_name:woProjectName,
         customer_name:so.customer_name||null,
         customer_phone:so.customer_phone||null,
         technicians:[],
@@ -3118,7 +3138,7 @@ app.post('/api/sales-orders/:id/work-order',requireSalesOrderPermission('sales_o
         created_by:req.session.user.name,
         status:'assigned',
         worked_at:workedAt,
-        description:req.body.description||[`Dibuat otomatis dari ${so.so_number}.`,so.address?`Lokasi pekerjaan: ${so.address}.`:'',so.notes||'',itemSummary?`Item: ${itemSummary}`:''].filter(Boolean).join(' '),
+        description:woDescription,
         rating:0,
         tracking_token:crypto.randomBytes(14).toString('hex'),
         last_lat:null,last_lng:null,last_gps_at:null,
