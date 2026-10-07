@@ -2909,9 +2909,9 @@ function normalizeCustomerClassification(body){
     const seg=String(out.market_segment||'Unclassified').trim();
     if(!['B2B','B2C','Unclassified'].includes(seg)) throw new Error('Market Segment tidak valid.');
     let sector=out.sector==null?'':String(out.sector).trim();
-    if(seg==='B2C') sector='End User';
     if(seg==='Unclassified') sector='';
-    if(seg==='B2B'&&!['Pemerintahan','Swasta'].includes(sector)) throw new Error('Sector B2B wajib Pemerintahan atau Swasta.');
+    const allowedSectors={B2B:['Pemerintahan','Swasta','Retail','Corporate'],B2C:['End User','Hospitality'],Unclassified:[]};
+    if(seg!=='Unclassified'&&!allowedSectors[seg].includes(sector)) throw new Error(`Sector ${seg} tidak valid.`);
     out.market_segment=seg; out.sector=sector||null;
   }
   return out;
