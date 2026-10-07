@@ -275,7 +275,11 @@
     const materialSubtotal=items.filter(x=>!['service','jasa'].includes(String(x.item_type||x.type||'item').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
     const serviceSubtotal=items.filter(x=>['service','jasa'].includes(String(x.item_type||x.type||'').toLowerCase())).reduce((s,x)=>s+itemBase(x)+itemTax(x),0);
     const ppnTotal=items.reduce((s,x)=>s+itemTax(x),0);
+    const classification=typeof window.getCustomerClassificationSnapshot==='function'?window.getCustomerClassificationSnapshot():{customer_id:null,market_segment:'',sector:''};
     return {
+      customer_id:classification.customer_id,
+      market_segment:classification.market_segment,
+      sector:classification.sector,
       customer_name:$('customer')?.value.trim()||'',
       customer_phone:$('phone')?.value.trim()||'',
       sales_pic_user_id:sales?.id||null,

@@ -2943,11 +2943,12 @@ app.delete('/api/crm/customers/:id',requireRole('superadmin'),async(req,res)=>{t
 // PXL-STG-0003B/0003C/STG-0004 — options, approval, MR and inventory issue.
 app.get('/api/sales-orders/options',requireRole(...SO_READ_ROLES),async(req,res)=>{
   try{
-    const [users,inventory]=await Promise.all([db.getUsers(),db.getInventoryItems()]);
+    const [users,inventory,crmRows]=await Promise.all([db.getUsers(),db.getInventoryItems(),db.getCrmCustomers()]);
     const salesUsers=(users||[]).filter(u=>u.is_active!==false&&String(u.role||'').toLowerCase()!=='superadmin'&&(u.role==='sales'||(u.extra_roles||[]).includes('sales')))
       .map(u=>({id:u.id,name:u.name,email:u.email||null,role:u.role}));
     const items=(inventory||[]).filter(i=>i.is_active!==false).map(i=>({id:i.id,name:i.name,sku:i.sku||null,unit:i.unit||'pcs',stock:Number(i.stock||0),tracking_mode:i.tracking_mode||'quantity'}));
-    res.json({sales_users:salesUsers,inventory_items:items,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
+    const crmCustomers=(crmRows||[]).map(c=>({id:c.id,name:c.name,phone:c.phone||null,address:c.address||null,market_segment:c.market_segment||'Unclassified',sector:c.sector||null}));
+    res.json({sales_users:salesUsers,inventory_items:items,customers:crmCustomers,current_user:{id:req.session.user.id,name:req.session.user.name,role:req.session.user.role},can_approve:hasSalesOrderPermission(req,'sales_order_approve'),can_issue:hasSalesOrderPermission(req,'sales_order_create_wo')});
   }catch(e){res.status(500).json({error:e.message})}
 });
 
@@ -3034,8 +3035,20 @@ app.post('/api/sales-orders/site-templates',requireRole(...CRM_WRITE_ROLES),asyn
   }catch(e){res.status(400).json({error:e.message})}
 });
 
+function normalizeSalesOrderMarketSnapshot(body){
+  const out={...body};
+  const seg=String(out.market_segment||'').trim();
+  if(!['B2B','B2C'].includes(seg)) throw new Error('Market Segment wajib dipilih: B2B atau B2C.');
+  const sector=String(out.sector||'').trim();
+  const allowedSectors={B2B:['Pemerintahan','Swasta','Retail','Corporate'],B2C:['End User','Hospitality']};
+  if(!allowedSectors[seg].includes(sector)) throw new Error(`Sector ${seg} tidak valid.`);
+  out.market_segment=seg; out.sector=sector;
+  return out;
+}
+
 app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{
   try{
+    req.body=normalizeSalesOrderMarketSnapshot(req.body);
     // PXL-PROD-0022A — validate Material + Jasa per Site without changing existing SO→WO→MR flow.
     if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});
     if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});
@@ -3054,7 +3067,7 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnP
     res.status(201).json(x);
   }catch(e){res.status(500).json({error:e.message})}
 });
-app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:req.body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...req.body,history}))}catch(e){res.status(500).json({error:e.message})}});
+app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});let body={...req.body};if(body.market_segment!==undefined||body.sector!==undefined)body=normalizeSalesOrderMarketSnapshot(body);const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...body,history}))}catch(e){res.status(400).json({error:e.message})}});
 
 
 // PXL-STG-0003 — konversi Sales Order menjadi WO operasional existing.

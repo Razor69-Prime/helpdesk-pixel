@@ -53,9 +53,11 @@ td{padding:8px 6px;border-top:1px solid #efede7;white-space:normal;vertical-alig
     </div>
 
     <div class="form">
-      <div><label>Customer</label><input id="customer" placeholder="Nama customer"></div>
+      <div><label>Customer</label><input id="customer" list="customerOptions" placeholder="Nama customer"><datalist id="customerOptions"></datalist><div class="sub" id="customerClassHint">Pilih customer CRM untuk sinkron otomatis, atau isi manual.</div></div>
       <div><label>Nomor Telepon</label><input id="phone" placeholder="08..."></div>
       <div><label>Sales PIC</label><select id="salesPic"><option value="">Memuat akun Sales...</option></select></div>
+      <div><label>Market Segment</label><select id="marketSegment"><option value="">Pilih B2B / B2C</option><option value="B2B">B2B</option><option value="B2C">B2C</option></select></div>
+      <div><label>Sector</label><select id="sector"><option value="">Pilih sector</option></select></div>
       <div><label>Nama Project</label><input id="projectName" placeholder="Contoh: Instalasi CCTV Villa ABC"></div>
       <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
       <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
@@ -108,9 +110,10 @@ td{padding:8px 6px;border-top:1px solid #efede7;white-space:normal;vertical-alig
 <script>
 let runtimeToken = '';
 let D = { sales_orders: [] };
-let OPT = { sales_users: [], inventory_items: [], package_recipes: [], can_approve: false, can_issue:false, current_user:null };
+let OPT = { sales_users: [], inventory_items: [], package_recipes: [], customers: [], can_approve: false, can_issue:false, current_user:null };
 let MASTER_HPP_BY_ID = new Map();
 let editId = null;
+let selectedCustomerId = null;
 
 const byId = id => document.getElementById(id);
 const numberValue = value => {
@@ -445,12 +448,82 @@ function updateTotals() {
   return { materialSubtotal, serviceSubtotal, grandTotal: materialSubtotal + serviceSubtotal };
 }
 
+function marketSectorOptions(segment) {
+  if (segment === 'B2B') return ['Pemerintahan', 'Swasta', 'Retail', 'Corporate'];
+  if (segment === 'B2C') return ['End User', 'Hospitality'];
+  return [];
+}
+
+function syncMarketSectorOptions(preferred = '') {
+  const segment = byId('marketSegment')?.value || '';
+  const sector = byId('sector');
+  if (!sector) return;
+  const rows = marketSectorOptions(segment);
+  sector.innerHTML = '<option value="">Pilih sector</option>' + rows.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+  if (preferred && rows.includes(preferred)) sector.value = preferred;
+}
+
+function findCrmCustomerByName(name) {
+  const key = String(name || '').trim().toLowerCase();
+  return (OPT.customers || []).find(row => String(row.name || '').trim().toLowerCase() === key) || null;
+}
+
+function applyCrmCustomer(customer, options = {}) {
+  selectedCustomerId = customer?.id || null;
+  const segment = String(customer?.market_segment || 'Unclassified');
+  const valid = ['B2B', 'B2C'].includes(segment) && marketSectorOptions(segment).includes(String(customer?.sector || ''));
+  const market = byId('marketSegment');
+  const sector = byId('sector');
+  const hint = byId('customerClassHint');
+  if (customer && options.fillContact !== false) {
+    if (customer.phone && !byId('phone')?.value.trim()) byId('phone').value = customer.phone;
+    if (customer.address && !byId('address')?.value.trim()) byId('address').value = customer.address;
+  }
+  if (customer && valid) {
+    market.value = segment; syncMarketSectorOptions(String(customer.sector || ''));
+    market.disabled = true; sector.disabled = true;
+    if (hint) hint.textContent = `CRM: ${segment} · ${customer.sector}`;
+  } else if (customer) {
+    market.value = ''; syncMarketSectorOptions(); market.disabled = true; sector.disabled = true;
+    if (hint) hint.textContent = 'Customer CRM masih Unclassified. Lengkapi klasifikasi di CRM sebelum Submit SO.';
+  } else {
+    market.disabled = false; sector.disabled = false;
+    if (hint) hint.textContent = 'Customer manual: Market Segment dan Sector wajib dipilih.';
+  }
+}
+
+function syncCustomerFromInput() {
+  const customer = findCrmCustomerByName(byId('customer')?.value);
+  applyCrmCustomer(customer);
+}
+
+function getCustomerClassificationSnapshot() {
+  const customer = findCrmCustomerByName(byId('customer')?.value);
+  if (customer) {
+    const segment = String(customer.market_segment || 'Unclassified');
+    const sector = String(customer.sector || '');
+    if (!['B2B', 'B2C'].includes(segment) || !marketSectorOptions(segment).includes(sector)) throw new Error('Customer CRM masih Unclassified. Lengkapi Market Segment dan Sector di CRM terlebih dahulu.');
+    return { customer_id: customer.id, market_segment: segment, sector };
+  }
+  const segment = byId('marketSegment')?.value || '';
+  const sector = byId('sector')?.value || '';
+  if (!['B2B', 'B2C'].includes(segment)) throw new Error('Market Segment wajib dipilih: B2B atau B2C.');
+  if (!marketSectorOptions(segment).includes(sector)) throw new Error(`Sector ${segment} wajib dipilih.`);
+  return { customer_id: selectedCustomerId, market_segment: segment, sector };
+}
+window.getCustomerClassificationSnapshot = getCustomerClassificationSnapshot;
+
 function reset() {
   editId = null;
+  selectedCustomerId = null;
   ['customer', 'phone', 'projectName', 'address', 'notes'].forEach(id => {
     const element = byId(id);
     if (element) element.value = '';
   });
+  if (byId('marketSegment')) { byId('marketSegment').value=''; byId('marketSegment').disabled=false; }
+  syncMarketSectorOptions();
+  if (byId('sector')) byId('sector').disabled=false;
+  if (byId('customerClassHint')) byId('customerClassHint').textContent='Pilih customer CRM untuk sinkron otomatis, atau isi manual.';
   const salesPic = byId('salesPic');
   if (salesPic) { salesPic.value=''; const me=OPT.current_user;if(me){const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());if(mine){salesPic.value=String(mine.id);salesPic.disabled=String(me.role||'').toLowerCase()==='sales';}} }
   if (byId('materialItems')) byId('materialItems').innerHTML = '';
@@ -530,8 +603,12 @@ function collect() {
 
   if (!items.length) throw new Error('Tambahkan minimal satu Material atau Jasa.');
   const totals = updateTotals();
+  const classification = getCustomerClassificationSnapshot();
 
   return {
+    customer_id: classification.customer_id,
+    market_segment: classification.market_segment,
+    sector: classification.sector,
     customer_name: byId('customer')?.value.trim() || '',
     customer_phone: byId('phone')?.value.trim() || '',
     sales_pic_user_id: sales?.id || null,
@@ -582,6 +659,15 @@ function editSO(id) {
     const element = byId(key);
     if (element) element.value = value;
   });
+  const crmCustomer = (OPT.customers || []).find(c => String(c.id) === String(salesOrder.customer_id || '')) || findCrmCustomerByName(salesOrder.customer_name);
+  if (crmCustomer) applyCrmCustomer(crmCustomer, { fillContact:false });
+  else {
+    selectedCustomerId = null;
+    if (byId('marketSegment')) byId('marketSegment').value = ['B2B','B2C'].includes(salesOrder.market_segment) ? salesOrder.market_segment : '';
+    syncMarketSectorOptions(salesOrder.sector || '');
+    if (byId('marketSegment')) byId('marketSegment').disabled = false;
+    if (byId('sector')) byId('sector').disabled = false;
+  }
 
   if (byId('materialItems')) byId('materialItems').innerHTML = '';
   if (byId('serviceItems')) byId('serviceItems').innerHTML = '';
@@ -697,11 +783,14 @@ async function load() {
       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],
       inventory_items: unifiedItems,
       package_recipes: Array.isArray(packages.items) ? packages.items : [],
+      customers: Array.isArray(options.customers) ? options.customers : [],
       can_approve: options.can_approve === true,
       can_issue: options.can_issue === true,
       current_user: options.current_user || null
     };
     D = { sales_orders: Array.isArray(report.sales_orders) ? report.sales_orders : [] };
+    const customerOptions = byId('customerOptions');
+    if (customerOptions) customerOptions.innerHTML = OPT.customers.map(c => `<option value="${esc(c.name)}"></option>`).join('');
     const salesPic = byId('salesPic');
     if (salesPic) {
       const selectedValue = salesPic.value;
@@ -727,6 +816,9 @@ async function load() {
 }
 
 byId('refreshBtn')?.addEventListener('click', load);
+byId('customer')?.addEventListener('change', syncCustomerFromInput);
+byId('customer')?.addEventListener('blur', syncCustomerFromInput);
+byId('marketSegment')?.addEventListener('change', () => syncMarketSectorOptions());
 byId('soSearch')?.addEventListener('input', render);
 byId('soSearchClear')?.addEventListener('click', () => { if(byId('soSearch')) byId('soSearch').value=''; render(); byId('soSearch')?.focus(); });
 byId('resetBtn')?.addEventListener('click', reset);
