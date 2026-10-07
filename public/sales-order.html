@@ -58,6 +58,7 @@ td{padding:8px 6px;border-top:1px solid #efede7;white-space:normal;vertical-alig
       <div><label>Sales PIC</label><select id="salesPic"><option value="">Memuat akun Sales...</option></select></div>
       <div><label>Market Segment</label><select id="marketSegment"><option value="">Pilih B2B / B2C</option><option value="B2B">B2B</option><option value="B2C">B2C</option></select></div>
       <div><label>Sector</label><select id="sector"><option value="">Pilih sector</option></select></div>
+      <div><label>Sumber Customer</label><select id="customerSource"><option value="">Pilih sumber customer</option><option value="Meta Ads">Meta Ads</option><option value="Organic">Organic</option><option value="Referral">Referral</option><option value="Walk In">Walk In</option><option value="Existing Customer">Existing Customer</option><option value="Lainnya">Lainnya</option></select><div class="sub">Wajib untuk B2C agar omzet dapat dianalisis berdasarkan sumber.</div></div>
       <div><label>Nama Project</label><input id="projectName" placeholder="Contoh: Instalasi CCTV Villa ABC"></div>
       <div class="full"><label>Alamat/Lokasi Pekerjaan</label><textarea id="address" placeholder="Alamat lengkap pekerjaan"></textarea></div>
       <div class="full"><label>Catatan</label><textarea id="notes" placeholder="Catatan kebutuhan pekerjaan"></textarea></div>
@@ -497,19 +498,24 @@ function syncCustomerFromInput() {
   applyCrmCustomer(customer);
 }
 
+const CUSTOMER_SOURCE_OPTIONS = ['Meta Ads','Organic','Referral','Walk In','Existing Customer','Lainnya'];
 function getCustomerClassificationSnapshot() {
   const customer = findCrmCustomerByName(byId('customer')?.value);
+  const source = byId('customerSource')?.value || '';
+  if (source && !CUSTOMER_SOURCE_OPTIONS.includes(source)) throw new Error('Sumber Customer tidak valid.');
   if (customer) {
     const segment = String(customer.market_segment || 'Unclassified');
     const sector = String(customer.sector || '');
     if (!['B2B', 'B2C'].includes(segment) || !marketSectorOptions(segment).includes(sector)) throw new Error('Customer CRM masih Unclassified. Lengkapi Market Segment dan Sector di CRM terlebih dahulu.');
-    return { customer_id: customer.id, market_segment: segment, sector };
+    if (segment === 'B2C' && !source) throw new Error('B2C: Sumber Customer wajib dipilih.');
+    return { customer_id: customer.id, market_segment: segment, sector, customer_source: source || null };
   }
   const segment = byId('marketSegment')?.value || '';
   const sector = byId('sector')?.value || '';
   if (!['B2B', 'B2C'].includes(segment)) throw new Error('Market Segment wajib dipilih: B2B atau B2C.');
   if (!marketSectorOptions(segment).includes(sector)) throw new Error(`Sector ${segment} wajib dipilih.`);
-  return { customer_id: selectedCustomerId, market_segment: segment, sector };
+  if (segment === 'B2C' && !source) throw new Error('B2C: Sumber Customer wajib dipilih.');
+  return { customer_id: selectedCustomerId, market_segment: segment, sector, customer_source: source || null };
 }
 window.getCustomerClassificationSnapshot = getCustomerClassificationSnapshot;
 
@@ -523,6 +529,7 @@ function reset() {
   if (byId('marketSegment')) { byId('marketSegment').value=''; byId('marketSegment').disabled=false; }
   syncMarketSectorOptions();
   if (byId('sector')) byId('sector').disabled=false;
+  if (byId('customerSource')) byId('customerSource').value='';
   if (byId('customerClassHint')) byId('customerClassHint').textContent='Pilih customer CRM untuk sinkron otomatis, atau isi manual.';
   const salesPic = byId('salesPic');
   if (salesPic) { salesPic.value=''; const me=OPT.current_user;if(me){const mine=OPT.sales_users.find(u=>String(u.id)===String(me.id))||OPT.sales_users.find(u=>String(u.name||'').trim().toLowerCase()===String(me.name||'').trim().toLowerCase());if(mine){salesPic.value=String(mine.id);salesPic.disabled=String(me.role||'').toLowerCase()==='sales';}} }
@@ -609,6 +616,7 @@ function collect() {
     customer_id: classification.customer_id,
     market_segment: classification.market_segment,
     sector: classification.sector,
+    customer_source: classification.customer_source,
     customer_name: byId('customer')?.value.trim() || '',
     customer_phone: byId('phone')?.value.trim() || '',
     sales_pic_user_id: sales?.id || null,
@@ -651,6 +659,7 @@ function editSO(id) {
     customer: salesOrder.customer_name || '',
     phone: salesOrder.customer_phone || '',
     salesPic: salesOrder.sales_pic_user_id || '',
+    customerSource: salesOrder.customer_source || '',
     projectName: salesOrder.project_name || '',
     address: salesOrder.address || salesOrder.location || '',
     notes: salesOrder.notes || ''

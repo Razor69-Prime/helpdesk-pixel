@@ -280,6 +280,7 @@
       customer_id:classification.customer_id,
       market_segment:classification.market_segment,
       sector:classification.sector,
+      customer_source:classification.customer_source||null,
       customer_name:$('customer')?.value.trim()||'',
       customer_phone:$('phone')?.value.trim()||'',
       sales_pic_user_id:sales?.id||null,
