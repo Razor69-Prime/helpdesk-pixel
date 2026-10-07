@@ -3035,6 +3035,7 @@ app.post('/api/sales-orders/site-templates',requireRole(...CRM_WRITE_ROLES),asyn
   }catch(e){res.status(400).json({error:e.message})}
 });
 
+const CUSTOMER_SOURCE_OPTIONS=['Meta Ads','Organic','Referral','Walk In','Existing Customer','Lainnya'];
 function normalizeSalesOrderMarketSnapshot(body){
   const out={...body};
   const seg=String(out.market_segment||'').trim();
@@ -3042,7 +3043,10 @@ function normalizeSalesOrderMarketSnapshot(body){
   const sector=String(out.sector||'').trim();
   const allowedSectors={B2B:['Pemerintahan','Swasta','Retail','Corporate'],B2C:['End User','Hospitality']};
   if(!allowedSectors[seg].includes(sector)) throw new Error(`Sector ${seg} tidak valid.`);
-  out.market_segment=seg; out.sector=sector;
+  const source=String(out.customer_source||'').trim();
+  if(source&&!CUSTOMER_SOURCE_OPTIONS.includes(source)) throw new Error('Sumber Customer tidak valid.');
+  if(seg==='B2C'&&!source) throw new Error('B2C: Sumber Customer wajib dipilih.');
+  out.market_segment=seg; out.sector=sector; out.customer_source=source||null;
   return out;
 }
 
@@ -3067,7 +3071,7 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnP
     res.status(201).json(x);
   }catch(e){res.status(500).json({error:e.message})}
 });
-app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});let body={...req.body};if(body.market_segment!==undefined||body.sector!==undefined)body=normalizeSalesOrderMarketSnapshot(body);const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...body,history}))}catch(e){res.status(400).json({error:e.message})}});
+app.patch('/api/sales-orders/:id',requireRole(...CRM_WRITE_ROLES),async(req,res)=>{try{const old=(await db.getSalesOrders()).find(x=>x.id===req.params.id);if(!old)return res.status(404).json({error:'SO tidak ditemukan'});if(req.body.delete===true)return res.status(400).json({error:'Sales Order tidak dapat dihapus. Gunakan status void/cancelled.'});let body={...req.body};if(body.market_segment!==undefined||body.sector!==undefined||body.customer_source!==undefined)body=normalizeSalesOrderMarketSnapshot(body);const history=[...(old.history||[]),{at:new Date().toISOString(),by:req.session.user.name,action:'update',status:body.status||old.status}];res.json(await db.updateSalesOrder(req.params.id,{...body,history}))}catch(e){res.status(400).json({error:e.message})}});
 
 
 // PXL-STG-0003 — konversi Sales Order menjadi WO operasional existing.
