@@ -4831,6 +4831,9 @@ function renderTickets(){
   const isManager=currentUser.role==='manager';
   const isOperator=currentUser.role==='operator';
   const canEditStatus=isAdmin||isOperator; // admin & operator boleh ubah status manual dari Daftar Tiket
+  const currentRole=String(currentUser.role||'').toLowerCase();
+  const extraRoles=Array.isArray(currentUser.extra_roles)?currentUser.extra_roles.map(r=>String(r||'').toLowerCase()):[];
+  const canEditRemarks=['admin','superadmin','manager','operator','technician'].includes(currentRole)||extraRoles.includes('technician');
   const isReadOnly=isManager; // read-only roles: lihat semua, tidak bisa aksi apapun
 
   const data=applyRange(allTickets,'t').filter(t=>
@@ -4908,6 +4911,10 @@ function renderTickets(){
     const canAssignTicket=isAdmin||currentUser.role==='manager'||isOperator;
     const assignBtn=canAssignTicket
       ?`<button class="btn sm" style="background:var(--purple-bg);color:var(--purple);border-color:#AFA9EC;font-size:12px;padding:4px 10px" onclick="openAssignModal('${t.id}','${(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean)).join('|')}')">👷 Assign</button>`
+      :'';
+    // PXL-VNEXT-2C3 — tombol Remarks dirender native agar langsung tersedia saat card WO muncul.
+    const remarksBtn=canEditRemarks
+      ?`<button type="button" class="btn sm pxl-native-remarks-btn" data-ticket-id="${t.id}" style="padding:4px 9px;font-size:11px;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);border-color:#FAC775">${technicianRemarks?'📝 Edit Remarks':'📝 Add Remarks'}</button>`
       :'';
     // PDF report: teknisi & admin (bukan akunting, bukan manager)
     const pdfBtn=(!isAccounting&&!isReadOnly)
@@ -4989,6 +4996,7 @@ function renderTickets(){
           ${statusSel}
           ${stageBtns}
           ${assignBtn}
+          ${remarksBtn}
           ${pdfBtn}
           ${photoBtn}
           ${surveyResultBtn}
