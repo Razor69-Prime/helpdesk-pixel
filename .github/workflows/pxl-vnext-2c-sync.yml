@@ -28,7 +28,7 @@ jobs:
           gzip -dc /tmp/pxl-vnext-2c.patch.gz > /tmp/pxl-vnext-2c.patch
           git apply --check /tmp/pxl-vnext-2c.patch
           git apply /tmp/pxl-vnext-2c.patch
-          git rm .pxl-vnext-2c.patch.gz.b64 .github/workflows/pxl-vnext-2c-sync.yml
+          git rm -f .pxl-vnext-2c.patch.gz.b64 .github/workflows/pxl-vnext-2c-sync.yml
           git add -A
           git commit -m "PXL-VNEXT-2C manual survey to sales order flow"
           git push origin HEAD:main
