@@ -1,0 +1,87 @@
+name: PXL-VNEXT-2D2 Survey PROBUS Badge
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pxl-vnext-2d2-survey-probus.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply PXL-VNEXT-2D2
+        shell: bash
+        run: |
+          cat > /tmp/pxl-vnext-2d2.patch.gz.b64 <<'PATCH64'
+          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
+          a6nJvwCGhlD2aiAAAA==
+          PATCH64
+          base64 -d /tmp/pxl-vnext-2d2.patch.gz.b64 > /tmp/pxl-vnext-2d2.patch.gz
+          gzip -dc /tmp/pxl-vnext-2d2.patch.gz > /tmp/pxl-vnext-2d2.patch
+          git apply --index /tmp/pxl-vnext-2d2.patch
+      - name: Verify
+        run: |
+          node --test tests/pxl-vnext-2c2-remarks.test.js tests/pxl-vnext-2c3-native-remarks-button.test.js tests/pxl-vnext-2c4-wo-list-performance.test.js tests/pxl-vnext-2d-survey-results.test.js tests/pxl-vnext-2d1-survey-mobile.test.js tests/pxl-vnext-2d2-survey-probus-badge.test.js tests/vnext-1b.test.js tests/vnext-1c.test.js tests/vnext-1c1.test.js tests/vnext-2a.test.js tests/vnext-2b.test.js tests/vnext-2b1.test.js tests/vnext-2c.test.js
+          node --check server.js
+          node --check public/pxl-vnext-2c-survey-flow.js
+          git diff --cached --check
+      - name: Commit and cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/pxl-vnext-2d2-survey-probus.yml
+          git commit -m 'PXL-VNEXT-2D2 show PROBUS badge in Survey material search'
+          git push origin main
