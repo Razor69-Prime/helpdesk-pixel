@@ -677,6 +677,13 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
     const ticket = await db.insertTicket({
       wo_number:      req.body.wo_number,
       work_order_type:workOrderType,
+      ...(workOrderType === 'Survey' ? {
+        survey_location:req.body.survey_location||null,
+        survey_pic_name:req.body.survey_pic_name||null,
+        survey_pic_phone:req.body.survey_pic_phone||null,
+        survey_notes:req.body.survey_notes||null,
+        survey_result:req.body.survey_result||null
+      } : {}),
       project_name:   req.body.project_name  || null,
       customer_name:  req.body.customer_name || null,
       customer_phone: req.body.customer_phone|| null,
