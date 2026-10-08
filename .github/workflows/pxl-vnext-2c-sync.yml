@@ -1,0 +1,30 @@
+name: PXL-VNEXT-2C Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pxl-vnext-2c-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply PXL-VNEXT-2C patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Razor69-Prime"
+          git config user.email "ekahendrayana1986@gmail.com"
+          base64 -d .pxl-vnext-2c.patch.gz.b64 > /tmp/pxl-vnext-2c.patch.gz
+          gzip -dc /tmp/pxl-vnext-2c.patch.gz > /tmp/pxl-vnext-2c.patch
+          git am /tmp/pxl-vnext-2c.patch
+          git rm .pxl-vnext-2c.patch.gz.b64 .github/workflows/pxl-vnext-2c-sync.yml
+          git commit -m "PXL-VNEXT-2C cleanup sync workflow"
+          git push origin HEAD:main
