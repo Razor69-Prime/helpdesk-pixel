@@ -1642,6 +1642,26 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
       <div id="ticket-list"></div>
     </div>
 
+    <!-- PXL-VNEXT-2D — pusat hasil Survey yang sudah disubmit dari masing-masing WO Survey. -->
+    <div id="tab-survey_results" class="tab-content">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <h2 style="font-size:20px;margin:0 0 4px">Hasil Survey</h2>
+          <div style="font-size:12px;color:var(--muted)">Menampilkan WO Survey yang hasil surveynya sudah disubmit teknisi. Input hasil tetap dilakukan dari masing-masing Work Order bertanda Survey.</div>
+        </div>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="survey-results-search" placeholder="Cari WO, customer, project, atau teknisi..." oninput="renderSurveyResults()"/>
+        <select id="survey-results-status" onchange="renderSurveyResults()" style="flex:0;min-width:170px">
+          <option value="">Semua status</option>
+          <option value="ready_for_so">Siap Dibuat SO</option>
+          <option value="so_created">SO Dibuat</option>
+        </select>
+      </div>
+      <div id="survey-results-summary" style="margin-bottom:10px"></div>
+      <div id="survey-results-list"></div>
+    </div>
+
     <!-- TAB: INVOICE -->
     <div id="tab-invoice" class="tab-content">
       <div class="card">
@@ -4136,6 +4156,7 @@ function pxlNavIcon(id){
   const icons={
     dashboard:'<svg '+common+'><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>',
     tickets:'<svg '+common+'><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+    survey_results:'<svg '+common+'><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h5M8 16h7"/></svg>',
     service_center:'<svg '+common+'><path d="m14.7 6.3 3-3a4 4 0 0 1-5.1 5.1l-6.8 6.8a2 2 0 1 0 2.8 2.8l6.8-6.8a4 4 0 0 1 5.1-5.1l-3 3"/></svg>',
     sales_order:'<svg '+common+'><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg>',
     inventory:'<svg '+common+'><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8M12 12v8"/></svg>',
@@ -4191,6 +4212,7 @@ function buildNav(){
     {id:'dashboard', label:'📊 Dashboard',     show: isManager||isSuperAdmin},
     {id:'report',    label:'📋 Input WO', show: role==='technician'||role==='admin'||isManager||isSuperAdmin||role==='operator'||role==='sales'},
     {id:'tickets',   label:'📄 Work Order',  show: true},
+    {id:'survey_results',label:'🧾 Hasil Survey', show: true},
     {id:'service_center',label:'🔧 Service Center',show: role==='technician'||role==='operator'||role==='admin'||isManager||isSuperAdmin},
     {id:'invoice',   label:'🧾 Invoice',        show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
     {id:'piutang',   label:'💳 Daftar Piutang', show: role==='accounting'||role==='admin'||isManager||isSuperAdmin},
@@ -4220,6 +4242,8 @@ function buildNav(){
     const effective=currentUser.custom_menus_override===true
       ? [...new Set(customMenus)]
       : [...new Set([...getDefaultMenus(role),...customMenus])];
+    // Hasil Survey mengikuti akses Work Order; tidak membuat permission paralel baru.
+    if(effective.includes('tickets')&&!effective.includes('survey_results')) effective.push('survey_results');
     // Permission Service Center selalu menyinkronkan menu induknya.
     if(customMenus.some(x=>String(x||'').startsWith('service_'))&&!effective.includes('service_center')) effective.push('service_center');
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id) && t.id!=='users' && t.id!=='banner_promo');
@@ -4239,7 +4263,7 @@ function buildNav(){
   }
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
-    {label:'Operasional Teknisi', ids:['report','tickets','service_center','materials']},
+    {label:'Operasional Teknisi', ids:['report','tickets','survey_results','service_center','materials']},
     {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm','sales_order']},
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
@@ -4393,6 +4417,10 @@ function switchTab(tab,btn){
     if(!allTickets.length) loadTickets(true);
     else renderTickets();
   }
+  if(tab==='survey_results'){
+    renderSurveyResults();
+    loadTickets(true);
+  }
   if(tab==='kpi'){
     // PXL-STG-0018C: KPI harus memuat sumber WO sendiri, tanpa bergantung pada Daftar Tiket pernah dibuka.
     if(!allTickets.length){
@@ -4503,6 +4531,7 @@ async function loadTickets(force=false){
     try{
       allTickets=await api('GET','/tickets');
       setConn(true); renderTickets(); renderKPI();
+      if(typeof renderSurveyResults==='function') renderSurveyResults();
       if(currentUser&&currentUser.role==='manager') dashData=allTickets;
       const el=document.getElementById('last-updated');
       if(el) el.textContent=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
@@ -4823,6 +4852,50 @@ function pxlToggleWoDescription(btn){
   const wrap=btn?.closest?.('.wo-desc-wrap'); if(!wrap)return;
   const collapsed=wrap.classList.toggle('is-collapsed');
   btn.textContent=collapsed?'Lihat Selengkapnya':'Tutup';
+}
+
+function renderSurveyResults(){
+  const list=document.getElementById('survey-results-list');
+  if(!list)return;
+  const summary=document.getElementById('survey-results-summary');
+  const search=String(document.getElementById('survey-results-search')?.value||'').trim().toLowerCase();
+  const status=String(document.getElementById('survey-results-status')?.value||'');
+  const rows=(Array.isArray(allTickets)?allTickets:[]).filter(t=>{
+    const manual=String(t.source_type||'manual').toLowerCase()==='manual';
+    const survey=String(t.work_order_type||'')==='Survey';
+    const submitted=['ready_for_so','so_created'].includes(String(t.survey_status||''));
+    const hay=[t.wo_number,t.customer_name,t.project_name,t.technician,...(Array.isArray(t.technicians)?t.technicians:[])].filter(Boolean).join(' ').toLowerCase();
+    return manual&&survey&&submitted&&(!status||t.survey_status===status)&&(!search||hay.includes(search));
+  }).sort((a,b)=>new Date(b.survey_completed_at||b.worked_at||b.created_at||0)-new Date(a.survey_completed_at||a.worked_at||a.created_at||0));
+
+  const allSubmitted=(Array.isArray(allTickets)?allTickets:[]).filter(t=>
+    String(t.source_type||'manual').toLowerCase()==='manual'&&
+    String(t.work_order_type||'')==='Survey'&&
+    ['ready_for_so','so_created'].includes(String(t.survey_status||''))
+  );
+  const pendingDone=allSubmitted.filter(t=>t.survey_status==='ready_for_so'&&String(t.status||'').toLowerCase()!=='done').length;
+  const ready=allSubmitted.filter(t=>t.survey_status==='ready_for_so'&&String(t.status||'').toLowerCase()==='done').length;
+  const created=allSubmitted.filter(t=>t.survey_status==='so_created').length;
+  if(summary)summary.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge" style="background:var(--blue-bg);color:var(--blue)">Total Hasil Survey: ${allSubmitted.length}</span><span class="badge" style="background:var(--surface2);color:var(--muted)">Menunggu TTD/WO Selesai: ${pendingDone}</span><span class="badge" style="background:var(--amber-bg);color:var(--amber)">Siap Dibuat SO: ${ready}</span><span class="badge" style="background:var(--green-bg);color:var(--green)">SO Dibuat: ${created}</span></div>`;
+  if(!rows.length){list.innerHTML='<div class="empty">📭 Belum ada hasil Survey yang sesuai filter.</div>';return;}
+
+  const canCreate=typeof canCreateSalesOrderFromSurvey==='function'&&canCreateSalesOrderFromSurvey();
+  const fmtDate=value=>{if(!value)return'-';const d=new Date(value);return Number.isNaN(d.getTime())?'-':d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});};
+  list.innerHTML=`<div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:980px"><thead><tr style="background:var(--surface2);text-align:left"><th style="padding:10px">WO</th><th style="padding:10px">Customer / Project</th><th style="padding:10px">Lokasi</th><th style="padding:10px">Teknisi</th><th style="padding:10px">Tanggal Survey</th><th style="padding:10px">Material</th><th style="padding:10px">Jasa</th><th style="padding:10px">Status</th><th style="padding:10px">Aksi</th></tr></thead><tbody>${rows.map(t=>{
+    const materials=Array.isArray(t.survey_materials)?t.survey_materials:[];
+    const services=Array.isArray(t.survey_services)?t.survey_services:[];
+    const techs=(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician]).filter(Boolean).join(' & ')||'-';
+    const maps=t.google_maps_url?`<a href="${pxlWoDescEsc(t.google_maps_url)}" target="_blank" rel="noopener" style="color:var(--blue)">📍 Maps</a>`:'-';
+    const woDone=String(t.status||'').toLowerCase()==='done';
+    const done=t.survey_status==='so_created'||!!t.survey_sales_order_id;
+    const statusHtml=done
+      ?`<span class="badge" style="background:var(--green-bg);color:var(--green)">SO Dibuat${t.survey_so_number?' · '+pxlWoDescEsc(t.survey_so_number):''}</span>`
+      :(woDone?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">Siap Dibuat SO</span>`:`<span class="badge" style="background:var(--surface2);color:var(--muted)">Menunggu TTD / WO Selesai</span>`);
+    const soAction=done&&canCreate
+      ?`<button type="button" class="btn sm green" onclick="openExistingSalesOrderFromSurvey('${t.id}')">Buka Sales Order</button>`
+      :(done?'<span style="font-size:11px;color:var(--muted)">SO terkait tersedia · akses SO tidak tersedia</span>':(woDone&&canCreate?`<button type="button" class="btn sm primary" onclick="openSalesOrderFromSurvey('${t.id}')">Buat Sales Order</button>`:(woDone?'<span style="font-size:11px;color:var(--muted)">Menunggu user berwenang</span>':'<span style="font-size:11px;color:var(--muted)">Menunggu TTD / WO Selesai</span>')));
+    return `<tr style="border-top:1px solid var(--border)"><td style="padding:10px"><b>${pxlWoDescEsc(t.wo_number||'-')}</b></td><td style="padding:10px"><b>${pxlWoDescEsc(t.customer_name||'-')}</b><div style="font-size:11px;color:var(--muted);margin-top:3px">${pxlWoDescEsc(t.project_name||'-')}</div></td><td style="padding:10px">${maps}</td><td style="padding:10px">${pxlWoDescEsc(techs)}</td><td style="padding:10px;white-space:nowrap">${fmtDate(t.survey_completed_at||t.worked_at)}</td><td style="padding:10px;text-align:center">${materials.length}</td><td style="padding:10px;text-align:center">${services.length}</td><td style="padding:10px">${statusHtml}</td><td style="padding:10px"><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" onclick="openSurveyReportModal('${t.id}',true)">Lihat Hasil Survey</button>${soAction}</div></td></tr>`;
+  }).join('')}</tbody></table></div></div>`;
 }
 
 function renderTickets(){

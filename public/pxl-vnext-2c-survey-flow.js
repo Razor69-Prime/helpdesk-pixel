@@ -68,7 +68,7 @@
         <div id="pxl2c-survey-error" style="display:none;background:var(--red-bg,#fee);color:var(--red,#a22);padding:10px;border-radius:8px"></div>
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
           <div style="font-size:11px;color:var(--muted)">Dokumentasi foto tetap menggunakan tombol <b>📷 Foto</b> pada Work Order.</div>
-          <button type="button" class="btn primary" id="pxl2c-survey-submit">✅ Submit Hasil Survey & Lanjut TTD</button>
+          <button type="button" class="btn primary" id="pxl2c-survey-submit">💾 Simpan Hasil Survey</button>
         </div>
       </div>
     </div>`;
@@ -179,9 +179,9 @@
       if(idx>=0&&result?.ticket)allTickets[idx]={...allTickets[idx],...result.ticket};
       modal.style.display='none';
       if(typeof renderTickets==='function')renderTickets();
-      if(typeof openTTDSelesaiModal==='function')openTTDSelesaiModal(ticketId);
+      if(typeof renderSurveyResults==='function')renderSurveyResults();
     }catch(e){err.textContent=e.message||'Gagal menyimpan hasil Survey.';err.style.display='block'}
-    finally{btn.disabled=false;btn.textContent='✅ Submit Hasil Survey & Lanjut TTD'}
+    finally{btn.disabled=false;btn.textContent='💾 Simpan Hasil Survey'}
   }
 
   async function cancelWO(ticketId){

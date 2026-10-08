@@ -232,11 +232,11 @@
 // PXL-URG-0038B — isolated Ticket Detail + Copy WhatsApp loader; cache-busted for PWA/mobile.
 (function(){
   'use strict';
-  if(document.querySelector('script[data-pxl-ticket-detail="PXL-WO-UI-0001C"]')) return;
+  if(document.querySelector('script[data-pxl-ticket-detail="PXL-VNEXT-2D"]')) return;
   document.querySelectorAll('script[data-pxl-ticket-detail]').forEach(el=>el.remove());
   const script=document.createElement('script');
-  script.dataset.pxlTicketDetail='PXL-WO-UI-0001C';
-  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-WO-UI-0001C';
+  script.dataset.pxlTicketDetail='PXL-VNEXT-2D';
+  script.src='/pxl-urg-0038-ticket-detail-modal.js?v=PXL-VNEXT-2D';
   document.head.appendChild(script);
 })();
 
