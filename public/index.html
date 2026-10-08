@@ -4893,6 +4893,7 @@ function renderTickets(){
     const delBtn=''; // PXL-VNEXT-2C: WO tidak dihapus; gunakan Cancel WO.
     const canCancelWo=['manager','admin','superadmin'].includes(String(currentUser.role||'').toLowerCase())&&!['done','cancelled'].includes(String(t.status||'').toLowerCase());
     const cancelBtn=canCancelWo?`<button class="btn danger sm" onclick="cancelWorkOrder('${t.id}')">Cancel WO</button>`:'';
+    const isManualSurvey=String(t.source_type||'manual').toLowerCase()==='manual'&&t.work_order_type==='Survey'&&!t.sales_order_id&&!t.so_number;
     const canSurveySO=typeof canCreateSalesOrderFromSurvey==='function'&&canCreateSalesOrderFromSurvey();
     const surveyResultBtn=isManualSurvey&&t.survey_status
       ?`<button class="btn sm" onclick="openSurveyReportModal('${t.id}',true)">🔎 Hasil Survey</button>`:'';
@@ -4917,7 +4918,6 @@ function renderTickets(){
 
     // ── Job Stage buttons (teknisi saja) ──
     const stages = t.job_stages || [];
-    const isManualSurvey=String(t.source_type||'manual').toLowerCase()==='manual'&&t.work_order_type==='Survey'&&!t.sales_order_id&&!t.so_number;
     const hasBerangkat = stages.some(s=>s.stage==='berangkat');
     const hasTiba      = stages.some(s=>s.stage==='tiba');
     let stageBtns = '';

@@ -59,6 +59,12 @@ test('WO list supports type filter and cancel keeps record with audit fields',()
   assert.match(index,/Cancelled/);
 });
 
+test('WO renderer declares isManualSurvey before any survey action uses it',()=>{
+  const decl=index.indexOf('const isManualSurvey=');
+  const use=index.indexOf('const surveyResultBtn=isManualSurvey');
+  assert.ok(decl>=0&&use>=0&&decl<use,'isManualSurvey must be initialized before survey action buttons are built');
+});
+
 test('existing SO to WO and MR routes remain present',()=>{
   assert.match(server,/app\.post\(['"]\/api\/sales-orders\/:id\/work-order['"]/);
   assert.match(server,/integrationKey=`sales-order:\$\{so\.id\}`/);
