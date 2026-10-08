@@ -1,23 +1,21 @@
-name: PXL VNext 1C1 Apply
+name: PXL VNext 2B Apply
 on:
   push:
-    branches: [pxl-vnext-1c1-apply]
+    branches: [main]
 permissions:
   contents: write
 jobs:
   apply:
+    if: contains(github.event.head_commit.message, 'PXL-VNEXT-2B stage survey files')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: pxl-vnext-1c1-apply
-          fetch-depth: 0
-      - run: git apply --check .pxl-vnext-1c1.patch && git apply .pxl-vnext-1c1.patch
-      - run: node --test tests/vnext-1b.test.js tests/vnext-sector-expansion.test.js tests/vnext-1c.test.js tests/vnext-1c1.test.js && node --check server.js && git diff --check
+      - run: git apply .pxl-vnext-2b-code.patch
+      - run: node --test tests/vnext-2b.test.js tests/vnext-2a.test.js
+      - run: git diff --check
       - run: |
-          rm -f .pxl-vnext-1c1.patch .github/workflows/pxl-vnext-1c1-apply.yml
-          git config user.name 'PixelApps Deployment'
-          git config user.email 'actions@users.noreply.github.com'
-          git add server.js public/sales-order.html public/pxl-prod-0022ab-sales-order-sites.js PXL-VNEXT-1C1-MIGRATION.sql tests/vnext-1c1.test.js
-          git commit -m 'PXL-VNEXT-1C1 add customer source to sales order'
-          git push origin HEAD:pxl-vnext-1c1-apply
+          git config user.name PixelApps
+          git config user.email actions@users.noreply.github.com
+          git add public/index.html server.js
+          git commit -m "PXL-VNEXT-2B add survey work order form"
+          git push
