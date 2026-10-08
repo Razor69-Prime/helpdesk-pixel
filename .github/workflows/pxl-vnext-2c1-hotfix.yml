@@ -1,0 +1,49 @@
+name: PXL-VNEXT-2C1 Hotfix Sync
+on:
+  push:
+    paths:
+      - '.github/workflows/pxl-vnext-2c1-hotfix.yml'
+permissions:
+  contents: write
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply TDZ hotfix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/index.html'); s=p.read_text()
+          old="""    const canSurveySO=typeof canCreateSalesOrderFromSurvey==='function'&&canCreateSalesOrderFromSurvey();\n    const surveyResultBtn=isManualSurvey&&t.survey_status\n"""
+          new="""    const isManualSurvey=String(t.source_type||'manual').toLowerCase()==='manual'&&t.work_order_type==='Survey'&&!t.sales_order_id&&!t.so_number;\n    const canSurveySO=typeof canCreateSalesOrderFromSurvey==='function'&&canCreateSalesOrderFromSurvey();\n    const surveyResultBtn=isManualSurvey&&t.survey_status\n"""
+          if old not in s: raise SystemExit('expected first block not found')
+          s=s.replace(old,new,1)
+          later="""    const stages = t.job_stages || [];\n    const isManualSurvey=String(t.source_type||'manual').toLowerCase()==='manual'&&t.work_order_type==='Survey'&&!t.sales_order_id&&!t.so_number;\n    const hasBerangkat = stages.some(s=>s.stage==='berangkat');\n"""
+          repl="""    const stages = t.job_stages || [];\n    const hasBerangkat = stages.some(s=>s.stage==='berangkat');\n"""
+          if later not in s: raise SystemExit('expected later block not found')
+          s=s.replace(later,repl,1); p.write_text(s)
+          t=Path('tests/vnext-2c.test.js'); x=t.read_text()
+          add="""test('WO renderer declares isManualSurvey before any survey action uses it',()=>{\n  const decl=index.indexOf('const isManualSurvey=');\n  const use=index.indexOf('const surveyResultBtn=isManualSurvey');\n  assert.ok(decl>=0&&use>=0&&decl<use,'isManualSurvey must be initialized before survey action buttons are built');\n});\n\n"""
+          marker="test('existing SO to WO and MR routes remain present',()=>{"
+          if add not in x: x=x.replace(marker,add+marker)
+          t.write_text(x)
+          PY
+      - name: Verify
+        run: |
+          node --test tests/vnext-1b.test.js tests/vnext-1c.test.js tests/vnext-1c1.test.js tests/vnext-2a.test.js tests/vnext-2b.test.js tests/vnext-2b1.test.js tests/vnext-2c.test.js
+          git diff --check
+      - name: Commit and cleanup workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/index.html tests/vnext-2c.test.js
+          git rm .github/workflows/pxl-vnext-2c1-hotfix.yml
+          git commit -m 'PXL-VNEXT-2C1 fix WO list survey renderer TDZ'
+          git push origin main
