@@ -24,7 +24,9 @@ jobs:
           git config user.email "ekahendrayana1986@gmail.com"
           base64 -d .pxl-vnext-2c.patch.gz.b64 > /tmp/pxl-vnext-2c.patch.gz
           gzip -dc /tmp/pxl-vnext-2c.patch.gz > /tmp/pxl-vnext-2c.patch
-          git am /tmp/pxl-vnext-2c.patch
+          git apply --check /tmp/pxl-vnext-2c.patch
+          git apply /tmp/pxl-vnext-2c.patch
           git rm .pxl-vnext-2c.patch.gz.b64 .github/workflows/pxl-vnext-2c-sync.yml
-          git commit -m "PXL-VNEXT-2C cleanup sync workflow"
+          git add -A
+          git commit -m "PXL-VNEXT-2C manual survey to sales order flow"
           git push origin HEAD:main
