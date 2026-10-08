@@ -630,6 +630,7 @@ function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
 }
 
 const WORK_ORDER_TYPES=['Survey','Project','Operasional','Unclassified'];
+const MANUAL_WORK_ORDER_TYPES=['Survey','Operasional','Project'];
 const WORK_ORDER_TYPE_OVERRIDE_ROLES=['manager','admin','superadmin'];
 function classifyWorkOrderType(input, crmCustomers=[]){
   const row=input||{};
@@ -640,6 +641,29 @@ function classifyWorkOrderType(input, crmCustomers=[]){
   if(exactCrm&&/(kantor\s+desa|(^|[^a-z0-9])desa([^a-z0-9]|$)|(^|[^a-z0-9])bpn([^a-z0-9]|$))/i.test(String(exactCrm.name||''))) return 'Project';
   if(/(^|[^a-z0-9])(instalasi|maintenance)([^a-z0-9]|$)/i.test(text)) return 'Operasional';
   return 'Unclassified';
+}
+
+function validHttpUrl(value){
+  if(!value) return true;
+  try{const u=new URL(String(value));return ['http:','https:'].includes(u.protocol)}catch(_){return false}
+}
+function sanitizeSurveyLines(lines, kind='material'){
+  const rows=Array.isArray(lines)?lines:[];
+  return rows.map((row,index)=>{
+    const name=String(row?.name||row?.item_name||'').trim();
+    const qty=Number(row?.qty||0);
+    const unit=String(row?.unit||'pcs').trim()||'pcs';
+    if(!name) throw new Error(`${kind==='service'?'Nama jasa':'Nama material'} baris ${index+1} wajib diisi.`);
+    if(!(qty>0)) throw new Error(`Qty ${name} harus lebih dari 0.`);
+    return {
+      name, qty, unit,
+      notes:String(row?.notes||'').trim()||null,
+      ...(kind==='material'?{
+        inventory_item_id:row?.inventory_item_id||null,
+        source_type:row?.inventory_item_id?'inventory':'manual'
+      }:{item_type:'service'})
+    };
+  });
 }
 
 app.post('/api/tickets', requireRole('technician','admin','superadmin','manager','operator','sales'), blockStagingDemoOnProduction, async (req, res) => {
@@ -674,14 +698,27 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
     }
 
     const crmCustomers = await db.getCrmCustomers();
+    const sourceType = String(req.body.source_type||'manual').trim().toLowerCase()||'manual';
     const requestedWorkOrderType = String(req.body.work_order_type||'').trim();
+    if(sourceType==='manual' && requestedWorkOrderType && !MANUAL_WORK_ORDER_TYPES.includes(requestedWorkOrderType)){
+      return res.status(400).json({error:'Tipe WO manual harus Survey, Operasional, atau Project.'});
+    }
     const mayOverrideWorkOrderType = WORK_ORDER_TYPE_OVERRIDE_ROLES.includes(String(role||'').toLowerCase());
-    const workOrderType = mayOverrideWorkOrderType && WORK_ORDER_TYPES.includes(requestedWorkOrderType)
+    const workOrderType = sourceType==='manual' && MANUAL_WORK_ORDER_TYPES.includes(requestedWorkOrderType)
       ? requestedWorkOrderType
-      : classifyWorkOrderType(req.body, crmCustomers);
+      : (mayOverrideWorkOrderType && WORK_ORDER_TYPES.includes(requestedWorkOrderType)
+        ? requestedWorkOrderType
+        : classifyWorkOrderType(req.body, crmCustomers));
+    const googleMapsUrl=String(req.body.google_maps_url||'').trim()||null;
+    if(!validHttpUrl(googleMapsUrl)) return res.status(400).json({error:'Google Maps Link harus berupa URL http/https yang valid.'});
+    const existingTickets=await db.getTickets(null,true);
+    if(existingTickets.some(row=>String(row.wo_number||'').trim().toLowerCase()===String(req.body.wo_number||'').trim().toLowerCase())){
+      return res.status(409).json({error:'Nomor WO sudah pernah digunakan dan tidak boleh dipakai ulang.'});
+    }
     const ticket = await db.insertTicket({
       wo_number:      req.body.wo_number,
       work_order_type:workOrderType,
+      google_maps_url:googleMapsUrl,
       ...(workOrderType === 'Survey' ? {
         survey_location:req.body.survey_location||null,
         survey_pic_name:req.body.survey_pic_name||null,
@@ -704,7 +741,7 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
       last_lng:       req.body.lng           || null,
       last_gps_at:    req.body.lat ? now : null,
       // PXL-STG-0002 — relasi integrasi bersifat opsional; WO manual tetap valid.
-      source_type:    req.body.source_type    || 'manual',
+      source_type:    sourceType,
       sales_order_id: req.body.sales_order_id || null,
       so_number:      req.body.so_number      || null,
       crm_customer_id:req.body.crm_customer_id|| null,
@@ -740,12 +777,86 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
   } catch(e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+// PXL-VNEXT-2C — hasil survey hanya untuk WO Manual bertipe Survey.
+app.post('/api/tickets/:id/survey-report', requireRole('technician'), async (req,res)=>{
+  try{
+    const ticket=(await db.getTickets(null,true)).find(x=>String(x.id)===String(req.params.id));
+    if(!ticket)return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    if(String(ticket.source_type||'manual').toLowerCase()!=='manual'||ticket.sales_order_id||ticket.so_number)return res.status(400).json({error:'Laporan Survey hanya berlaku untuk WO Manual.'});
+    if(String(ticket.work_order_type||'')!=='Survey')return res.status(400).json({error:'WO ini bukan tipe Survey.'});
+    if(String(ticket.status||'').toLowerCase()==='cancelled')return res.status(409).json({error:'WO Cancelled tidak dapat diisi laporan Survey.'});
+    const role=String(req.session.user.role||'').toLowerCase();
+    const techs=Array.isArray(ticket.technicians)?ticket.technicians:[ticket.technician].filter(Boolean);
+    if(role!=='superadmin'&&!techs.some(n=>String(n||'').trim().toLowerCase()===String(req.session.user.name||'').trim().toLowerCase()))return res.status(403).json({error:'WO Survey ini tidak ditugaskan kepada Anda.'});
+    if(ticket.survey_sales_order_id)return res.status(409).json({error:'Hasil Survey sudah menjadi Sales Order dan tidak dapat diubah.'});
+    const materials=sanitizeSurveyLines(req.body.materials,'material');
+    const services=sanitizeSurveyLines(req.body.services,'service');
+    if(!materials.length&&!services.length)return res.status(400).json({error:'Minimal isi 1 Material atau Jasa hasil Survey.'});
+    const now=new Date().toISOString();
+    const updated=await db.updateTicket(ticket.id,{
+      survey_status:'ready_for_so',
+      survey_conditions:String(req.body.conditions||'').trim()||null,
+      survey_customer_needs:String(req.body.customer_needs||'').trim()||null,
+      survey_technical_notes:String(req.body.technical_notes||'').trim()||null,
+      survey_recommendation:String(req.body.recommendation||'').trim()||null,
+      survey_constraints:String(req.body.constraints||'').trim()||null,
+      survey_materials:materials,
+      survey_services:services,
+      survey_completed_at:now,
+      survey_completed_by:req.session.user.name
+    });
+    logActivity(req,'ticket','SUBMIT HASIL SURVEY',`${ticket.wo_number} · ${materials.length} material · ${services.length} jasa`);
+    res.json({ok:true,ticket:updated,survey_status:'ready_for_so'});
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
+// PXL-VNEXT-2C — Cancel tidak menghapus record/nomor WO.
+app.post('/api/tickets/:id/cancel', requireRole('manager','admin','superadmin'), async (req,res)=>{
+  try{
+    const reason=String(req.body.reason||'').trim();
+    if(!reason)return res.status(400).json({error:'Alasan pembatalan wajib diisi.'});
+    const ticket=(await db.getTickets(null,true)).find(x=>String(x.id)===String(req.params.id));
+    if(!ticket)return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    if(String(ticket.status||'').toLowerCase()==='cancelled')return res.status(409).json({error:'Work Order sudah Cancelled.'});
+    if(String(ticket.status||'').toLowerCase()==='done')return res.status(409).json({error:'Work Order yang sudah selesai tidak dapat dibatalkan.'});
+    const now=new Date().toISOString();
+    const updated=await db.updateTicket(ticket.id,{status:'cancelled',cancelled_at:now,cancelled_by:req.session.user.name,cancel_reason:reason});
+    await db.insertStatusHistory({ticket_id:ticket.id,status:'cancelled',timestamp:now,technician:req.session.user.name,lat:null,lng:null});
+    logActivity(req,'ticket','CANCEL WORK ORDER',`${ticket.wo_number} · ${reason}`);
+    res.json({ok:true,ticket:updated});
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
+// PXL-VNEXT-2C — sumber prefill SO dari hasil Survey. Permission memakai permission existing Buat WO.
+app.get('/api/tickets/:id/survey-sales-order-draft', requireSalesOrderPermission('sales_order_create_wo'), async (req,res)=>{
+  try{
+    const ticket=(await db.getTickets(null,true)).find(x=>String(x.id)===String(req.params.id));
+    if(!ticket)return res.status(404).json({error:'Work Order Survey tidak ditemukan.'});
+    if(String(ticket.source_type||'manual').toLowerCase()!=='manual'||String(ticket.work_order_type||'')!=='Survey')return res.status(400).json({error:'Sumber Sales Order harus WO Manual bertipe Survey.'});
+    if(String(ticket.status||'').toLowerCase()!=='done')return res.status(409).json({error:'WO Survey harus selesai terlebih dahulu.'});
+    if(!['ready_for_so','so_created'].includes(String(ticket.survey_status||'')))return res.status(409).json({error:'Hasil Survey belum siap dibuat Sales Order.'});
+    const crmCustomers=await db.getCrmCustomers();
+    const customer=(crmCustomers||[]).find(c=>String(c.id||'')===String(ticket.crm_customer_id||''))||(crmCustomers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(ticket.customer_name||'').trim().toLowerCase())||null;
+    res.json({
+      source_ticket_id:ticket.id,source_wo_number:ticket.wo_number,
+      existing_sales_order_id:ticket.survey_sales_order_id||null,existing_so_number:ticket.survey_so_number||null,
+      customer_name:ticket.customer_name||'',customer_phone:ticket.customer_phone||'',project_name:ticket.project_name||'',address:customer?.address||'',google_maps_url:ticket.google_maps_url||'',
+      market_segment:customer?.market_segment||'',sector:customer?.sector||'',customer_id:customer?.id||ticket.crm_customer_id||null,
+      materials:Array.isArray(ticket.survey_materials)?ticket.survey_materials:[],services:Array.isArray(ticket.survey_services)?ticket.survey_services:[],
+      notes:[ticket.survey_customer_needs,ticket.survey_technical_notes,ticket.survey_recommendation,ticket.survey_constraints].filter(Boolean).join('\n')
+    });
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
 // PATCH — teknisi hanya bisa update status tiket milik sendiri
 app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
   try {
     const role = req.session.user.role;
     const { status, lat, lng } = req.body;
     const now = new Date().toISOString();
+    const currentTicket=(await db.getTickets(null,true)).find(t=>String(t.id)===String(req.params.id));
+    if(!currentTicket)return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    if(String(currentTicket.status||'').toLowerCase()==='cancelled')return res.status(409).json({error:'WO Cancelled tidak dapat diaktifkan atau diubah kembali.'});
 
     // Validasi kepemilikan untuk teknisi
     if (role === 'technician') {
@@ -801,10 +912,10 @@ app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE — hanya admin
+// PXL-VNEXT-2C — Nomor WO adalah audit trail dan tidak boleh dihapus dari flow operasional.
+// Gunakan Cancel WO agar nomor tetap tersimpan. Cleanup staging memakai endpoint staging khusus.
 app.delete('/api/tickets/:id', requireRole('admin'), async (req, res) => {
-  try { await db.deleteTicket(req.params.id); res.json({ ok: true }); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  res.status(405).json({ error: 'Work Order tidak dapat dihapus. Gunakan Cancel WO agar nomor WO tetap tercatat.' });
 });
 
 // ── ARSIP ──────────────────────────────────
@@ -1981,6 +2092,11 @@ app.post('/api/tickets/:id/stage', requireRole('technician','admin'), async (req
     const allTickets = await db.getTickets(null);
     const ticket = allTickets.find(t => t.id === req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Tiket tidak ditemukan.' });
+    if (String(ticket.status||'').toLowerCase()==='cancelled') return res.status(409).json({ error: 'WO Cancelled tidak dapat diproses.' });
+    const manualSurvey=String(ticket.source_type||'manual').toLowerCase()==='manual'&&String(ticket.work_order_type||'')==='Survey'&&!ticket.sales_order_id&&!ticket.so_number;
+    if(stage==='selesai'&&manualSurvey&&!['ready_for_so','so_created'].includes(String(ticket.survey_status||''))){
+      return res.status(409).json({error:'Submit Laporan Hasil Survey terlebih dahulu sebelum menyelesaikan WO Survey.'});
+    }
 
     // cek apakah user adalah anggota tim tiket ini
     const techs = Array.isArray(ticket.technicians) ? ticket.technicians
@@ -3080,6 +3196,20 @@ function normalizeSalesOrderMarketSnapshot(body){
 app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnProduction,async(req,res)=>{
   try{
     req.body=normalizeSalesOrderMarketSnapshot(req.body);
+    const surveySourceTicketId=String(req.body.survey_source_ticket_id||'').trim()||null;
+    let surveySourceTicket=null;
+    if(surveySourceTicketId){
+      if(!hasSalesOrderPermission(req,'sales_order_create_wo'))return res.status(403).json({error:'Anda tidak memiliki izin membuat Sales Order dari hasil Survey.'});
+      surveySourceTicket=(await db.getTickets(null,true)).find(x=>String(x.id)===surveySourceTicketId)||null;
+      if(!surveySourceTicket)return res.status(404).json({error:'Sumber WO Survey tidak ditemukan.'});
+      if(String(surveySourceTicket.source_type||'manual').toLowerCase()!=='manual'||String(surveySourceTicket.work_order_type||'')!=='Survey')return res.status(400).json({error:'Sumber Sales Order harus WO Manual bertipe Survey.'});
+      if(String(surveySourceTicket.status||'').toLowerCase()!=='done'||String(surveySourceTicket.survey_status||'')!=='ready_for_so')return res.status(409).json({error:'Hasil Survey belum berstatus Siap Dibuat SO.'});
+      if(surveySourceTicket.survey_sales_order_id)return res.status(409).json({error:`Hasil Survey sudah terhubung ke ${surveySourceTicket.survey_so_number||'Sales Order'}.`});
+      const existingSurveySo=(await db.getSalesOrders()).find(x=>String(x.survey_source_ticket_id||'')===surveySourceTicketId&&!['cancelled','void'].includes(String(x.status||'').toLowerCase()));
+      if(existingSurveySo)return res.status(409).json({error:`Hasil Survey sudah memiliki ${existingSurveySo.so_number||'Sales Order'}.`});
+      req.body.survey_source_ticket_id=surveySourceTicketId;
+      req.body.survey_source_wo_number=surveySourceTicket.wo_number||req.body.survey_source_wo_number||null;
+    }
     // PXL-PROD-0022A — validate Material + Jasa per Site without changing existing SO→WO→MR flow.
     if(!req.body.customer_name)return res.status(400).json({error:'Customer wajib diisi'});
     if(!req.body.sales_pic_user_id)return res.status(400).json({error:'Sales PIC wajib dipilih dari akun Sales'});
@@ -3094,6 +3224,10 @@ app.post('/api/sales-orders',requireRole(...CRM_WRITE_ROLES),blockStagingDemoOnP
     if(!items.length||invalid)return res.status(400).json({error:'Minimal satu Material/Jasa valid wajib diisi. Material manual wajib dipilih dari Inventory; material Master Paket boleh belum termapping.'});
     const total=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.unit_price||0),0);
     const x=await db.insertSalesOrder({...req.body,status:'draft',items,total_amount:req.body.total_amount??total,created_by:req.session.user.name});
+    if(surveySourceTicket){
+      await db.updateTicket(surveySourceTicket.id,{survey_status:'so_created',survey_sales_order_id:String(x.id),survey_so_number:x.so_number||null});
+      logActivity(req,'ticket','SURVEY MENJADI SALES ORDER',`${surveySourceTicket.wo_number} → ${x.so_number}`);
+    }
     logActivity(req,'so','BUAT SALES ORDER',x.so_number);
     res.status(201).json(x);
   }catch(e){res.status(500).json({error:e.message})}

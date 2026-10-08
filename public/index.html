@@ -1541,6 +1541,11 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
             <input type="tel" id="f-customer-phone" placeholder="mis. 08123456789"/>
           </div>
         </div>
+        <div class="form-group">
+          <label>Google Maps / Lokasi Survey atau Pekerjaan</label>
+          <input type="url" id="f-google-maps-url" placeholder="Tempel link Google Maps, contoh https://maps.app.goo.gl/..."/>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">Dipakai sebagai lokasi Survey, Operasional, atau Project sesuai tipe WO.</div>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>Tanggal &amp; Waktu Pekerjaan</label>
@@ -1573,20 +1578,14 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           </div>
           <div class="form-group">
             <label>Tipe Work Order</label>
-            <select id="f-work-order-type" onchange="updateWorkOrderTypeUI(true)">
-              <option value="auto">Auto (Sistem)</option>
-              <option value="Operasional">Operasional</option>
+            <select id="f-work-order-type">
+              <option value="">Pilih tipe WO...</option>
               <option value="Survey">Survey</option>
+              <option value="Operasional">Operasional</option>
               <option value="Project">Project</option>
             </select>
-            <div id="f-work-order-type-hint" style="font-size:11px;color:var(--muted);margin-top:5px">Sistem akan menentukan tipe dari sumber/tagging atau isi WO.</div>
+            <div id="f-work-order-type-hint" style="font-size:11px;color:var(--muted);margin-top:5px">Input WO manual wajib menentukan tipe. Form hasil Survey diisi teknisi saat reporting, bukan di sini.</div>
           </div>
-        </div>
-        <div id="f-survey-fields" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
-          <div class="card-title" style="margin-bottom:12px">Data Survey</div>
-          <div class="form-row"><div class="form-group"><label>Lokasi Survey</label><input id="f-survey-location" type="text" placeholder="Lokasi/titik survey"/></div><div class="form-group"><label>PIC Survey</label><input id="f-survey-pic" type="text" placeholder="Nama PIC di lokasi"/></div></div>
-          <div class="form-row"><div class="form-group"><label>No. PIC Survey</label><input id="f-survey-pic-phone" type="tel" placeholder="08xxxxxxxxxx"/></div><div class="form-group"><label>Catatan Kebutuhan</label><textarea id="f-survey-notes" placeholder="Kebutuhan/catatan saat survey..."></textarea></div></div>
-          <div class="form-group"><label>Hasil Survey</label><textarea id="f-survey-result" placeholder="Ringkasan hasil survey..."></textarea></div>
         </div>
         <!-- Rating: hanya admin -->
         <!-- GPS info: hanya admin -->
@@ -1616,6 +1615,14 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           <option value="ongoing">Sedang Dikerjakan</option>
           <option value="done">Selesai</option>
           <option value="pending">Menunggu</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select id="t-work-order-type" onchange="renderTickets()" style="flex:0;min-width:155px">
+          <option value="">Semua tipe WO</option>
+          <option value="Survey">Survey</option>
+          <option value="Operasional">Operasional</option>
+          <option value="Project">Project</option>
+          <option value="Unclassified">Unclassified</option>
         </select>
       </div>
       <div class="period-row">
@@ -4079,7 +4086,7 @@ function showApp(){
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const canAssign=isAdmin||currentUser.role==='manager'||currentUser.role==='operator';
   const typeSelect=document.getElementById('f-work-order-type');
-  if(typeSelect){ typeSelect.disabled=!canOverrideWorkOrderType(); typeSelect.dataset.manual=''; updateWorkOrderTypeUI(false); }
+  if(typeSelect) typeSelect.disabled=false;
   document.getElementById('gps-status-group').style.display =isAdmin?'block':'none';
   // admin: tampilkan dropdown assign teknisi
   const assignGroup=document.getElementById('f-assign-group');
@@ -4618,38 +4625,10 @@ async function loadTechnicianDropdown(){
   }catch(e){ console.error('Failed to load technicians',e); }
 }
 
-function canOverrideWorkOrderType(){
-  return ['manager','admin','superadmin'].includes(String(currentUser?.role||'').toLowerCase());
-}
-function detectWorkOrderTypeFromForm(){
-  const wo=document.getElementById('f-wo')?.value||'';
-  const project=document.getElementById('f-project')?.value||'';
-  const desc=document.getElementById('f-desc')?.value||'';
-  const text=[wo,project,desc].join(' ');
-  if(/(^|[^a-z0-9])survey([^a-z0-9]|$)/i.test(text)) return 'Survey';
-  if(/(^|[^a-z0-9])(instalasi|maintenance)([^a-z0-9]|$)/i.test(text)) return 'Operasional';
-  return 'auto';
-}
-function updateWorkOrderTypeUI(manualChange=false){
-  const select=document.getElementById('f-work-order-type');
-  if(!select) return false;
-  if(!manualChange && select.dataset.manual!=='1') select.value=detectWorkOrderTypeFromForm();
-  if(manualChange && canOverrideWorkOrderType()) select.dataset.manual='1';
-  const selectedType=select.value;
-  const box=document.getElementById('f-survey-fields');
-  if(box) box.style.display=selectedType==='Survey'?'block':'none';
-  const hint=document.getElementById('f-work-order-type-hint');
-  if(hint) hint.textContent=select.disabled?'Tipe ditentukan otomatis oleh sistem.':(select.dataset.manual==='1'?'Tipe dipilih manual.':'Sistem akan menentukan tipe dari sumber/tagging atau isi WO.');
-  return selectedType==='Survey';
-}
 function applyWorkOrderTypePreset(type){
   const select=document.getElementById('f-work-order-type');
-  const normalized=['Operasional','Survey','Project'].includes(type)?type:'auto';
-  if(select){ select.value=normalized; select.dataset.manual=''; }
-  updateWorkOrderTypeUI(false);
+  if(select&&['Operasional','Survey','Project'].includes(type)) select.value=type;
 }
-function toggleSurveyFields(){ return updateWorkOrderTypeUI(false); }
-document.addEventListener('input',e=>{if(['f-wo','f-project','f-desc'].includes(e.target?.id))updateWorkOrderTypeUI(false);});
 
 async function saveReport(){
   const wo=document.getElementById('f-wo').value.trim();
@@ -4662,7 +4641,10 @@ async function saveReport(){
   const tech1=document.getElementById('f-assign-tech')?.value.trim()||'';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
   const typeSelect=document.getElementById('f-work-order-type');
-  const selectedWorkOrderType=typeSelect?.value||'auto';
+  const selectedWorkOrderType=typeSelect?.value||'';
+  const googleMapsUrl=document.getElementById('f-google-maps-url')?.value.trim()||'';
+  if(!['Survey','Operasional','Project'].includes(selectedWorkOrderType)){showAlert('error','Tipe Work Order wajib dipilih.');return;}
+  if(googleMapsUrl&&!/^https?:\/\//i.test(googleMapsUrl)){showAlert('error','Google Maps Link harus diawali http:// atau https://');return;}
   if(canAssign&&!tech1){showAlert('error','Wajib memilih minimal 1 teknisi.');return;}
   if(canAssign&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
 
@@ -4677,14 +4659,9 @@ async function saveReport(){
       status:        'assigned',
       worked_at:     new Date(time).toISOString(),
       description:   document.getElementById('f-desc').value.trim()||null,
-      ...(canOverrideWorkOrderType()&&selectedWorkOrderType!=='auto'&&{work_order_type:selectedWorkOrderType}),
-      ...(selectedWorkOrderType==='Survey'&&{
-        survey_location:document.getElementById('f-survey-location')?.value.trim()||null,
-        survey_pic_name:document.getElementById('f-survey-pic')?.value.trim()||null,
-        survey_pic_phone:document.getElementById('f-survey-pic-phone')?.value.trim()||null,
-        survey_notes:document.getElementById('f-survey-notes')?.value.trim()||null,
-        survey_result:document.getElementById('f-survey-result')?.value.trim()||null
-      }),
+      work_order_type:selectedWorkOrderType,
+      google_maps_url:googleMapsUrl||null,
+      source_type:    'manual',
       rating:        currentRating,
       ...(canAssign && { assigned_to: tech1, ...(tech2&&{assigned_to2:tech2}) }),
       ...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng})
@@ -4747,13 +4724,11 @@ async function deleteTicket(id){
   }catch(e){alert('Gagal hapus: '+e.message);}
 }
 function clearForm(){
-  ['f-wo','f-project','f-customer','f-customer-phone','f-desc'].forEach(id=>document.getElementById(id).value='');
+  ['f-wo','f-project','f-customer','f-customer-phone','f-desc','f-google-maps-url'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f-status').value='assigned';
   const s1=document.getElementById('f-assign-tech');  if(s1) s1.value='';
   const s2=document.getElementById('f-assign-tech2'); if(s2) s2.value='';
-  const wt=document.getElementById('f-work-order-type'); if(wt){wt.value='auto';wt.dataset.manual='';}
-  ['f-survey-location','f-survey-pic','f-survey-pic-phone','f-survey-notes','f-survey-result'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  updateWorkOrderTypeUI(false);
+  const wt=document.getElementById('f-work-order-type'); if(wt)wt.value='';
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   document.getElementById('f-time').value=now.toISOString().slice(0,16);
   currentRating=0; document.querySelectorAll('.star').forEach(s=>s.classList.remove('active'));
@@ -4849,6 +4824,7 @@ function pxlToggleWoDescription(btn){
 function renderTickets(){
   const search=document.getElementById('t-search').value.toLowerCase();
   const status=document.getElementById('t-status').value;
+  const workOrderType=document.getElementById('t-work-order-type')?.value||'';
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const isTech=currentUser.role==='technician';
   const isAccounting=currentUser.role==='accounting';
@@ -4861,12 +4837,13 @@ function renderTickets(){
     (!search||(t.wo_number||'').toLowerCase().includes(search)||
                (t.project_name||'').toLowerCase().includes(search)||
                (t.customer_name||'').toLowerCase().includes(search))&&
-    (!status||t.status===status)
+    (!status||t.status===status)&&
+    (!workOrderType||t.work_order_type===workOrderType)
   );
 
   const el=document.getElementById('ticket-list');
   if(!data.length){el.innerHTML=`<div class="empty">📭 Belum ada tiket</div>`;return;}
-  const smap={done:['Selesai','done'],assigned:['Assigned','assigned'],travelling:['Dalam Perjalanan','travelling'],ongoing:['Sedang Dikerjakan','ongoing'],pending:['Menunggu','pending']};
+  const smap={done:['Selesai','done'],assigned:['Assigned','assigned'],travelling:['Dalam Perjalanan','travelling'],ongoing:['Sedang Dikerjakan','ongoing'],pending:['Menunggu','pending'],cancelled:['Cancelled','pending']};
 
   el.innerHTML=data.map(t=>{
     const[,cls]=smap[t.status]||['?','pending'];
@@ -4913,7 +4890,15 @@ function renderTickets(){
       ?`<button class="btn blue sm" data-token="${t.tracking_token}" data-wo="${t.wo_number}" data-created="${t.created_at}" onclick="openTrackModal(this)">🔗</button>`:'';
 
     // Hapus btn: hanya admin
-    const delBtn=isAdmin?`<button class="btn danger" onclick="deleteTicket('${t.id}')">Hapus</button>`:'';
+    const delBtn=''; // PXL-VNEXT-2C: WO tidak dihapus; gunakan Cancel WO.
+    const canCancelWo=['manager','admin','superadmin'].includes(String(currentUser.role||'').toLowerCase())&&!['done','cancelled'].includes(String(t.status||'').toLowerCase());
+    const cancelBtn=canCancelWo?`<button class="btn danger sm" onclick="cancelWorkOrder('${t.id}')">Cancel WO</button>`:'';
+    const canSurveySO=typeof canCreateSalesOrderFromSurvey==='function'&&canCreateSalesOrderFromSurvey();
+    const surveyResultBtn=isManualSurvey&&t.survey_status
+      ?`<button class="btn sm" onclick="openSurveyReportModal('${t.id}',true)">🔎 Hasil Survey</button>`:'';
+    const surveySoBtn=isManualSurvey&&t.status==='done'&&t.survey_status==='ready_for_so'&&canSurveySO
+      ?`<button class="btn green sm" onclick="openSalesOrderFromSurvey('${t.id}')">🧾 Buat SO dari Survey</button>`
+      :(isManualSurvey&&t.survey_sales_order_id&&canSurveySO?`<button class="btn green sm" onclick="openExistingSalesOrderFromSurvey('${t.id}')">🧾 Buka ${t.survey_so_number||'Sales Order'}</button>`:'');
 
     // Assign Teknisi btn: manager ke atas
     const canAssignTicket=isAdmin||currentUser.role==='manager'||isOperator;
@@ -4932,6 +4917,7 @@ function renderTickets(){
 
     // ── Job Stage buttons (teknisi saja) ──
     const stages = t.job_stages || [];
+    const isManualSurvey=String(t.source_type||'manual').toLowerCase()==='manual'&&t.work_order_type==='Survey'&&!t.sales_order_id&&!t.so_number;
     const hasBerangkat = stages.some(s=>s.stage==='berangkat');
     const hasTiba      = stages.some(s=>s.stage==='tiba');
     let stageBtns = '';
@@ -4958,9 +4944,15 @@ function renderTickets(){
           stageBtns=`<button class="btn sm" style="background:#EAF3DE;color:#3B6D11;border-color:#C0DD97;font-size:12px" onclick="recordStage('${t.id}','tiba')">${lbl}</button>`;
         }
       } else if (t.status==='ongoing') {
-        // Sudah tiba — semua bisa klik Selesai
+        // Survey manual memakai form hasil Survey; WO lain tetap memakai flow existing Material/Jasa.
         const lbl=anyTiba&&!isMine(whoTiba)?`✅ Selesai <span style="font-size:10px;opacity:.7">(${whoTiba.split(' ')[0]} sudah tiba)</span>`:'✅ Selesai';
-        stageBtns=`<button class="btn sm" style="background:#EAF3DE;color:#3B6D11;border-color:#C0DD97;font-size:12px;font-weight:600" onclick="openMaterialModal('${t.id}')">${lbl}</button>`;
+        if(isManualSurvey){
+          stageBtns=t.survey_status==='ready_for_so'
+            ?`<button class="btn sm" style="background:#EAF3DE;color:#3B6D11;border-color:#C0DD97;font-size:12px;font-weight:600" onclick="openTTDSelesaiModal('${t.id}')">✍️ Lanjut TTD</button>`
+            :`<button class="btn sm" style="background:var(--blue-bg);color:var(--blue);border-color:#B5D4F4;font-size:12px;font-weight:600" onclick="openSurveyReportModal('${t.id}')">📝 Isi Laporan Survey</button>`;
+        }else{
+          stageBtns=`<button class="btn sm" style="background:#EAF3DE;color:#3B6D11;border-color:#C0DD97;font-size:12px;font-weight:600" onclick="openMaterialModal('${t.id}')">${lbl}</button>`;
+        }
       }
     }
 
@@ -4996,12 +4988,17 @@ function renderTickets(){
           ${assignBtn}
           ${pdfBtn}
           ${photoBtn}
+          ${surveyResultBtn}
+          ${surveySoBtn}
           ${trackBtn}
+          ${cancelBtn}
           ${delBtn}
         </div>
       </div>
       <div class="ticket-meta">
         <span class="badge ${cls}">${smap[t.status]?.[0]||'?'}</span>
+        ${t.work_order_type?`<span class="badge" style="background:var(--blue-bg);color:var(--blue)">${t.work_order_type}</span>`:''}
+        ${isManualSurvey&&t.survey_status?`<span class="badge" style="background:var(--green-bg);color:var(--green)">${t.survey_status==='so_created'?'SO Dibuat':'Siap Dibuat SO'}</span>`:''}
         <span>🕐 ${dt}</span>
         ${gpsMeta}
         ${(showInvoice&&invCount)?`<span style="color:var(--green)">📄 ${invCount} invoice</span>`:''}
@@ -13037,5 +13034,6 @@ setInterval(()=>{
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
 <script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
+<script src="/pxl-vnext-2c-survey-flow.js?v=PXL-VNEXT-2C"></script>
 </body>
 </html>
