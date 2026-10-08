@@ -1,0 +1,96 @@
+name: PXL-VNEXT-2C3 Native Remarks Button
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pxl-vnext-2c3-native-remarks.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply native remarks button fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/index.html')
+          s=p.read_text()
+          old="""  const canEditStatus=isAdmin||isOperator; // admin & operator boleh ubah status manual dari Daftar Tiket
+          const isReadOnly=isManager; // read-only roles: lihat semua, tidak bisa aksi apapun
+          """
+          new="""  const canEditStatus=isAdmin||isOperator; // admin & operator boleh ubah status manual dari Daftar Tiket
+          const currentRole=String(currentUser.role||'').toLowerCase();
+          const extraRoles=Array.isArray(currentUser.extra_roles)?currentUser.extra_roles.map(r=>String(r||'').toLowerCase()):[];
+          const canEditRemarks=['admin','superadmin','manager','operator','technician'].includes(currentRole)||extraRoles.includes('technician');
+          const isReadOnly=isManager; // read-only roles: lihat semua, tidak bisa aksi apapun
+          """
+          if old not in s: raise SystemExit('role anchor not found')
+          s=s.replace(old,new,1)
+          old2="""    const assignBtn=canAssignTicket
+                ?`<button class=\"btn sm\" style=\"background:var(--purple-bg);color:var(--purple);border-color:#AFA9EC;font-size:12px;padding:4px 10px\" onclick=\"openAssignModal('${t.id}','${(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean)).join('|')}')\">👷 Assign</button>`
+                :'';
+              // PDF report: teknisi & admin (bukan akunting, bukan manager)
+          """
+          new2="""    const assignBtn=canAssignTicket
+                ?`<button class=\"btn sm\" style=\"background:var(--purple-bg);color:var(--purple);border-color:#AFA9EC;font-size:12px;padding:4px 10px\" onclick=\"openAssignModal('${t.id}','${(Array.isArray(t.technicians)&&t.technicians.length?t.technicians:[t.technician].filter(Boolean)).join('|')}')\">👷 Assign</button>`
+                :'';
+              // PXL-VNEXT-2C3 — tombol Remarks dirender native agar langsung tersedia saat card WO muncul.
+              const remarksBtn=canEditRemarks
+                ?`<button type=\"button\" class=\"btn sm pxl-native-remarks-btn\" data-ticket-id=\"${t.id}\" style=\"padding:4px 9px;font-size:11px;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);border-color:#FAC775\">${technicianRemarks?'📝 Edit Remarks':'📝 Add Remarks'}</button>`
+                :'';
+              // PDF report: teknisi & admin (bukan akunting, bukan manager)
+          """
+          if old2 not in s: raise SystemExit('assign anchor not found')
+          s=s.replace(old2,new2,1)
+          old3="""          ${assignBtn}
+                    ${pdfBtn}
+          """
+          new3="""          ${assignBtn}
+                    ${remarksBtn}
+                    ${pdfBtn}
+          """
+          if old3 not in s: raise SystemExit('actions anchor not found')
+          s=s.replace(old3,new3,1)
+          p.write_text(s)
+
+          test=Path('tests/pxl-vnext-2c3-native-remarks-button.test.js')
+          test.write_text("""const test=require('node:test');
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const index=fs.readFileSync('public/index.html','utf8');
+          const start=index.indexOf('function renderTickets(){');
+          const end=index.indexOf('\\n}\\n\\n\\n\\n/* ══ PXL-REV-0064',start);
+          const block=index.slice(start,end);
+
+          test('Daftar Tiket renders Remarks button natively without delayed injector dependency',()=>{
+            assert.match(block,/const canEditRemarks=/);
+            assert.match(block,/const remarksBtn=/);
+            assert.match(block,/pxl-native-remarks-btn/);
+            assert.match(block,/data-ticket-id=\"\\$\\{t\\.id\\}\"/);
+            const remarksBtnPos=block.indexOf('${remarksBtn}');
+            const actionsEnd=block.indexOf('</div>\\n      </div>',block.indexOf('<div class=\"ticket-actions\">'));
+            assert.ok(remarksBtnPos>=0 && remarksBtnPos<actionsEnd,'native remarks button must be emitted inside ticket-actions');
+          });
+          """)
+          PY
+      - name: Verify
+        run: |
+          node --test tests/pxl-vnext-2c2-remarks.test.js tests/pxl-vnext-2c3-native-remarks-button.test.js tests/vnext-1b.test.js tests/vnext-1c.test.js tests/vnext-1c1.test.js tests/vnext-2a.test.js tests/vnext-2b.test.js tests/vnext-2b1.test.js tests/vnext-2c.test.js
+          node --check server.js
+          git diff --check
+      - name: Commit and cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/index.html tests/pxl-vnext-2c3-native-remarks-button.test.js
+          git rm .github/workflows/pxl-vnext-2c3-native-remarks.yml
+          git commit -m 'PXL-VNEXT-2C3 render native remarks button'
+          git push origin main
