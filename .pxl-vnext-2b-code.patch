@@ -1,0 +1,66 @@
+diff --git a/public/index.html b/public/index.html
+index 903c500..8655a3c 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -1570,6 +1570,12 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
+           <label>Deskripsi Pekerjaan</label>
+           <textarea id="f-desc" placeholder="Jelaskan pekerjaan yang dilakukan..."></textarea>
+         </div>
++        <div id="f-survey-fields" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
++          <div class="card-title" style="margin-bottom:12px">Data Survey</div>
++          <div class="form-row"><div class="form-group"><label>Lokasi Survey</label><input id="f-survey-location" type="text" placeholder="Lokasi/titik survey"/></div><div class="form-group"><label>PIC Survey</label><input id="f-survey-pic" type="text" placeholder="Nama PIC di lokasi"/></div></div>
++          <div class="form-row"><div class="form-group"><label>No. PIC Survey</label><input id="f-survey-pic-phone" type="tel" placeholder="08xxxxxxxxxx"/></div><div class="form-group"><label>Catatan Kebutuhan</label><textarea id="f-survey-notes" placeholder="Kebutuhan/catatan saat survey..."></textarea></div></div>
++          <div class="form-group"><label>Hasil Survey</label><textarea id="f-survey-result" placeholder="Ringkasan hasil survey..."></textarea></div>
++        </div>
+         <!-- Rating: hanya admin -->
+         <!-- GPS info: hanya admin -->
+         <div id="gps-status-group" style="margin-bottom:12px">
+@@ -4598,6 +4604,16 @@ async function loadTechnicianDropdown(){
+   }catch(e){ console.error('Failed to load technicians',e); }
+ }
+ 
++function toggleSurveyFields(){
++  const wo=document.getElementById('f-wo')?.value||'';
++  const project=document.getElementById('f-project')?.value||'';
++  const desc=document.getElementById('f-desc')?.value||'';
++  const isSurvey=/(^|[^a-z0-9])survey([^a-z0-9]|$)/i.test([wo,project,desc].join(' '));
++  const box=document.getElementById('f-survey-fields'); if(box) box.style.display=isSurvey?'block':'none';
++  return isSurvey;
++}
++document.addEventListener('input',e=>{if(['f-wo','f-project','f-desc'].includes(e.target?.id))toggleSurveyFields();});
++
+ async function saveReport(){
+   const wo=document.getElementById('f-wo').value.trim();
+   const time=document.getElementById('f-time').value;
+@@ -4622,6 +4638,13 @@ async function saveReport(){
+       status:        'assigned',
+       worked_at:     new Date(time).toISOString(),
+       description:   document.getElementById('f-desc').value.trim()||null,
++      ...(toggleSurveyFields()&&{
++        survey_location:document.getElementById('f-survey-location')?.value.trim()||null,
++        survey_pic_name:document.getElementById('f-survey-pic')?.value.trim()||null,
++        survey_pic_phone:document.getElementById('f-survey-pic-phone')?.value.trim()||null,
++        survey_notes:document.getElementById('f-survey-notes')?.value.trim()||null,
++        survey_result:document.getElementById('f-survey-result')?.value.trim()||null
++      }),
+       rating:        currentRating,
+       ...(canAssign && { assigned_to: tech1, ...(tech2&&{assigned_to2:tech2}) }),
+       ...(gpsCache&&{lat:gpsCache.lat,lng:gpsCache.lng})
+diff --git a/server.js b/server.js
+index aa142a5..33194ff 100644
+--- a/server.js
++++ b/server.js
+@@ -677,6 +677,13 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
+     const ticket = await db.insertTicket({
+       wo_number:      req.body.wo_number,
+       work_order_type:workOrderType,
++      ...(workOrderType === 'Survey' ? {
++        survey_location:req.body.survey_location||null,
++        survey_pic_name:req.body.survey_pic_name||null,
++        survey_pic_phone:req.body.survey_pic_phone||null,
++        survey_notes:req.body.survey_notes||null,
++        survey_result:req.body.survey_result||null
++      } : {}),
+       project_name:   req.body.project_name  || null,
+       customer_name:  req.body.customer_name || null,
+       customer_phone: req.body.customer_phone|| null,
