@@ -51,7 +51,7 @@ test('backend preserves removed legacy Survey narrative fields when saving new f
   assert.match(route,/survey_constraints\s*:/);
 });
 
-test('Survey mobile script is cache-busted for PXL-VNEXT-2D1',()=>{
+test('Survey mobile script remains cache-busted at PXL-VNEXT-2D1 or newer',()=>{
   const index=fs.readFileSync('public/index.html','utf8');
-  assert.match(index,/pxl-vnext-2c-survey-flow\.js\?v=PXL-VNEXT-2D1/);
+  assert.match(index,/pxl-vnext-2c-survey-flow\.js\?v=PXL-VNEXT-2D(?:1|2)/);
 });

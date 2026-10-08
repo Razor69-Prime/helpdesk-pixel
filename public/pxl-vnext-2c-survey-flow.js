@@ -1,4 +1,4 @@
-/* PXL-VNEXT-2D1 — Manual WO Survey reporting + mobile fast search + Survey → SO handoff. */
+/* PXL-VNEXT-2D2 — Manual WO Survey reporting + mobile fast search + PROBUS badge + Survey → SO handoff. */
 (function(){
   'use strict';
   let catalog=[];
@@ -32,7 +32,8 @@
         unit:String(x.unit||'pcs').trim()||'pcs',
         stock:Number(x.stock||0),
         barcode:String(x.barcode||'').trim(),
-        product_number:String(x.product_number||'').trim()
+        product_number:String(x.product_number||'').trim(),
+        source_key:String(x.source_key||'')
       })).filter(x=>x.id&&x.name);
     }catch(_){catalog=[]}
     catalogLoaded=true;
@@ -58,6 +59,7 @@
       #pxl-vnext-2c-survey-modal .pxl2c-material-option{padding:9px 10px;border-bottom:1px solid var(--border,#eee);border-left:4px solid var(--accent,#e07b39);cursor:pointer;background:var(--surface,#fff)}
       #pxl-vnext-2c-survey-modal .pxl2c-material-option:last-child{border-bottom:0}
       #pxl-vnext-2c-survey-modal .pxl2c-material-option small{display:block;margin-top:2px;color:var(--muted,#777)}
+      #pxl-vnext-2c-survey-modal .pxl2c-probus-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:999px;background:#e8f5e9;color:#2e7d32;font-size:9px;font-weight:800;line-height:1.2;vertical-align:1px}
       #pxl-vnext-2c-survey-modal .pxl2c-selected{font-size:10px;color:var(--green,#3b6d11);margin-top:4px;min-height:14px}
       #pxl-vnext-2c-survey-modal .pxl2c-row-compact{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;align-items:end;min-width:0}
       #pxl-vnext-2c-survey-modal .pxl2c-remove{width:40px;height:38px;padding:0;align-self:end}
@@ -109,6 +111,8 @@
   function infoCell(label,value,wide=false){return `<div style="${wide?'grid-column:1/-1;':''}min-width:0"><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">${esc(label)}</div><div style="font-size:12px;margin-top:2px;overflow-wrap:anywhere">${value||'-'}</div></div>`}
   function makeRemoveButton(){const b=document.createElement('button');b.type='button';b.className='btn danger sm pxl2c-remove';b.textContent='✕';b.setAttribute('aria-label','Hapus baris');return b}
 
+  function isProbusItem(item){return String(item?.source_key||'').startsWith('MANUAL:PROBUS:')}
+  function probusBadge(item){return isProbusItem(item)?'<span class="pxl2c-probus-badge">PROBUS</span>':''}
   function catalogSearchText(x){return [x.name,x.sku,x.barcode,x.product_number].map(v=>String(v||'').toLowerCase()).join(' ')}
   function findCatalogMatches(value){
     const q=String(value||'').trim().toLowerCase();
@@ -127,7 +131,7 @@
     const input=row.querySelector('.pxl2c-name'),unit=row.querySelector('.pxl2c-unit'),selected=row.querySelector('.pxl2c-selected'),results=row.querySelector('.pxl2c-material-results');
     if(input)input.value=item.name||'';
     if(unit)unit.value=item.unit||'pcs';
-    if(selected)selected.textContent=`Dipilih: ${item.sku||'-'} · Stok: ${Number(item.stock||0)} ${item.unit||'pcs'}`;
+    if(selected)selected.innerHTML=`Dipilih: ${esc(item.sku||'-')} · Stok: ${Number(item.stock||0)} ${esc(item.unit||'pcs')} ${probusBadge(item)}`;
     if(results){results.style.display='none';results.innerHTML='';}
   }
   function renderMaterialSuggestions(row,value){
@@ -135,7 +139,7 @@
     const q=String(value||'').trim();
     if(!q){box.style.display='none';box.innerHTML='';return;}
     const matches=findCatalogMatches(q);
-    box.innerHTML=matches.length?matches.map((item,i)=>`<div class="pxl2c-material-option" data-catalog-index="${i}"><b>${esc(item.name)}</b><small>SKU: ${esc(item.sku||'-')} · Stok: ${Number(item.stock||0)} ${esc(item.unit||'pcs')}</small></div>`).join(''):'<div style="padding:10px;color:var(--muted);font-size:11px">Tidak ditemukan di Inventory. Nama tetap boleh diinput manual.</div>';
+    box.innerHTML=matches.length?matches.map((item,i)=>`<div class="pxl2c-material-option" data-catalog-index="${i}"><b>${esc(item.name)}${probusBadge(item)}</b><small>SKU: ${esc(item.sku||'-')} · Stok: ${Number(item.stock||0)} ${esc(item.unit||'pcs')}</small></div>`).join(''):'<div style="padding:10px;color:var(--muted);font-size:11px">Tidak ditemukan di Inventory. Nama tetap boleh diinput manual.</div>';
     box.style.display='block';
     box.querySelectorAll('[data-catalog-index]').forEach(el=>el.onmousedown=e=>{e.preventDefault();selectMaterial(row,matches[Number(el.dataset.catalogIndex)])});
   }
