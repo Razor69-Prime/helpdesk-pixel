@@ -1566,9 +1566,21 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
             </select>
           </div>
         </div>
-        <div class="form-group">
-          <label>Deskripsi Pekerjaan</label>
-          <textarea id="f-desc" placeholder="Jelaskan pekerjaan yang dilakukan..."></textarea>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Deskripsi Pekerjaan</label>
+            <textarea id="f-desc" placeholder="Jelaskan pekerjaan yang dilakukan..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Tipe Work Order</label>
+            <select id="f-work-order-type" onchange="updateWorkOrderTypeUI(true)">
+              <option value="auto">Auto (Sistem)</option>
+              <option value="Operasional">Operasional</option>
+              <option value="Survey">Survey</option>
+              <option value="Project">Project</option>
+            </select>
+            <div id="f-work-order-type-hint" style="font-size:11px;color:var(--muted);margin-top:5px">Sistem akan menentukan tipe dari sumber/tagging atau isi WO.</div>
+          </div>
         </div>
         <div id="f-survey-fields" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
           <div class="card-title" style="margin-bottom:12px">Data Survey</div>
@@ -4066,6 +4078,8 @@ function showApp(){
   // hide rating & gps for non-admin
   const isAdmin=currentUser.role==='admin'||currentUser.role==='superadmin';
   const canAssign=isAdmin||currentUser.role==='manager'||currentUser.role==='operator';
+  const typeSelect=document.getElementById('f-work-order-type');
+  if(typeSelect){ typeSelect.disabled=!canOverrideWorkOrderType(); typeSelect.dataset.manual=''; updateWorkOrderTypeUI(false); }
   document.getElementById('gps-status-group').style.display =isAdmin?'block':'none';
   // admin: tampilkan dropdown assign teknisi
   const assignGroup=document.getElementById('f-assign-group');
@@ -4604,15 +4618,38 @@ async function loadTechnicianDropdown(){
   }catch(e){ console.error('Failed to load technicians',e); }
 }
 
-function toggleSurveyFields(){
+function canOverrideWorkOrderType(){
+  return ['manager','admin','superadmin'].includes(String(currentUser?.role||'').toLowerCase());
+}
+function detectWorkOrderTypeFromForm(){
   const wo=document.getElementById('f-wo')?.value||'';
   const project=document.getElementById('f-project')?.value||'';
   const desc=document.getElementById('f-desc')?.value||'';
-  const isSurvey=/(^|[^a-z0-9])survey([^a-z0-9]|$)/i.test([wo,project,desc].join(' '));
-  const box=document.getElementById('f-survey-fields'); if(box) box.style.display=isSurvey?'block':'none';
-  return isSurvey;
+  const text=[wo,project,desc].join(' ');
+  if(/(^|[^a-z0-9])survey([^a-z0-9]|$)/i.test(text)) return 'Survey';
+  if(/(^|[^a-z0-9])(instalasi|maintenance)([^a-z0-9]|$)/i.test(text)) return 'Operasional';
+  return 'auto';
 }
-document.addEventListener('input',e=>{if(['f-wo','f-project','f-desc'].includes(e.target?.id))toggleSurveyFields();});
+function updateWorkOrderTypeUI(manualChange=false){
+  const select=document.getElementById('f-work-order-type');
+  if(!select) return false;
+  if(!manualChange && select.dataset.manual!=='1') select.value=detectWorkOrderTypeFromForm();
+  if(manualChange && canOverrideWorkOrderType()) select.dataset.manual='1';
+  const selectedType=select.value;
+  const box=document.getElementById('f-survey-fields');
+  if(box) box.style.display=selectedType==='Survey'?'block':'none';
+  const hint=document.getElementById('f-work-order-type-hint');
+  if(hint) hint.textContent=select.disabled?'Tipe ditentukan otomatis oleh sistem.':(select.dataset.manual==='1'?'Tipe dipilih manual.':'Sistem akan menentukan tipe dari sumber/tagging atau isi WO.');
+  return selectedType==='Survey';
+}
+function applyWorkOrderTypePreset(type){
+  const select=document.getElementById('f-work-order-type');
+  const normalized=['Operasional','Survey','Project'].includes(type)?type:'auto';
+  if(select){ select.value=normalized; select.dataset.manual=''; }
+  updateWorkOrderTypeUI(false);
+}
+function toggleSurveyFields(){ return updateWorkOrderTypeUI(false); }
+document.addEventListener('input',e=>{if(['f-wo','f-project','f-desc'].includes(e.target?.id))updateWorkOrderTypeUI(false);});
 
 async function saveReport(){
   const wo=document.getElementById('f-wo').value.trim();
@@ -4624,6 +4661,8 @@ async function saveReport(){
   const canAssign=isAdmin||currentUser.role==='manager'||currentUser.role==='operator';
   const tech1=document.getElementById('f-assign-tech')?.value.trim()||'';
   const tech2=document.getElementById('f-assign-tech2')?.value.trim()||'';
+  const typeSelect=document.getElementById('f-work-order-type');
+  const selectedWorkOrderType=typeSelect?.value||'auto';
   if(canAssign&&!tech1){showAlert('error','Wajib memilih minimal 1 teknisi.');return;}
   if(canAssign&&tech1&&tech2&&tech1===tech2){showAlert('error','Teknisi 1 dan 2 tidak boleh sama.');return;}
 
@@ -4638,7 +4677,8 @@ async function saveReport(){
       status:        'assigned',
       worked_at:     new Date(time).toISOString(),
       description:   document.getElementById('f-desc').value.trim()||null,
-      ...(toggleSurveyFields()&&{
+      ...(canOverrideWorkOrderType()&&selectedWorkOrderType!=='auto'&&{work_order_type:selectedWorkOrderType}),
+      ...(selectedWorkOrderType==='Survey'&&{
         survey_location:document.getElementById('f-survey-location')?.value.trim()||null,
         survey_pic_name:document.getElementById('f-survey-pic')?.value.trim()||null,
         survey_pic_phone:document.getElementById('f-survey-pic-phone')?.value.trim()||null,
@@ -4711,6 +4751,9 @@ function clearForm(){
   document.getElementById('f-status').value='assigned';
   const s1=document.getElementById('f-assign-tech');  if(s1) s1.value='';
   const s2=document.getElementById('f-assign-tech2'); if(s2) s2.value='';
+  const wt=document.getElementById('f-work-order-type'); if(wt){wt.value='auto';wt.dataset.manual='';}
+  ['f-survey-location','f-survey-pic','f-survey-pic-phone','f-survey-notes','f-survey-result'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  updateWorkOrderTypeUI(false);
   const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   document.getElementById('f-time').value=now.toISOString().slice(0,16);
   currentRating=0; document.querySelectorAll('.star').forEach(s=>s.classList.remove('active'));

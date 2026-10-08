@@ -630,6 +630,7 @@ function sendLeaveAssignmentConflict(res, conflicts, workDate, canForce) {
 }
 
 const WORK_ORDER_TYPES=['Survey','Project','Operasional','Unclassified'];
+const WORK_ORDER_TYPE_OVERRIDE_ROLES=['manager','admin','superadmin'];
 function classifyWorkOrderType(input, crmCustomers=[]){
   const row=input||{};
   const text=[row.wo_number,row.project_name,row.description].filter(Boolean).join(' ').toLowerCase();
@@ -673,7 +674,11 @@ app.post('/api/tickets', requireRole('technician','admin','superadmin','manager'
     }
 
     const crmCustomers = await db.getCrmCustomers();
-    const workOrderType = classifyWorkOrderType(req.body, crmCustomers);
+    const requestedWorkOrderType = String(req.body.work_order_type||'').trim();
+    const mayOverrideWorkOrderType = WORK_ORDER_TYPE_OVERRIDE_ROLES.includes(String(role||'').toLowerCase());
+    const workOrderType = mayOverrideWorkOrderType && WORK_ORDER_TYPES.includes(requestedWorkOrderType)
+      ? requestedWorkOrderType
+      : classifyWorkOrderType(req.body, crmCustomers);
     const ticket = await db.insertTicket({
       wo_number:      req.body.wo_number,
       work_order_type:workOrderType,

@@ -1,0 +1,11 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+test('Input WO shows work order type selector with auto, operasional, survey and project',()=>{assert.match(index,/id="f-work-order-type"/);assert.match(index,/value="auto"/);assert.match(index,/value="Operasional"/);assert.match(index,/value="Survey"/);assert.match(index,/value="Project"/);});
+test('Survey type selection opens survey fields and preset can trigger it',()=>{assert.match(index,/function updateWorkOrderTypeUI\(/);assert.match(index,/function applyWorkOrderTypePreset\(/);assert.match(index,/selectedType\s*===\s*['"]Survey['"]/);});
+test('only manager admin superadmin may manually override WO type on backend',()=>{assert.match(server,/WORK_ORDER_TYPE_OVERRIDE_ROLES/);assert.match(server,/manager.*admin.*superadmin|admin.*superadmin.*manager|superadmin.*manager.*admin/s);assert.match(server,/requestedWorkOrderType/);assert.match(server,/WORK_ORDER_TYPES\.includes\(requestedWorkOrderType\)/);});
+test('submitted payload carries selected WO type only when manual selection is allowed',()=>{assert.match(index,/work_order_type:selectedWorkOrderType/);assert.match(index,/canOverrideWorkOrderType/);});
