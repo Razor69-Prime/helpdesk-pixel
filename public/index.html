@@ -4853,6 +4853,9 @@ function renderTickets(){
     const expiry=new Date(new Date(t.created_at).getTime()+14*864e5);
     const expired=new Date()>expiry;
     const daysLeft=Math.max(0,Math.ceil((expiry-new Date())/864e5));
+    // PXL-VNEXT-2C2 — Remarks harus dirender native agar tidak hilang saat card WO dirender ulang.
+    const technicianRemarks=String(t.technician_remarks||'').trim();
+    const technicianRemarksHtml=technicianRemarks.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     // invoice tampil untuk semua kecuali teknisi
     const showInvoice=!isTech;
 
@@ -4995,6 +4998,7 @@ function renderTickets(){
           ${delBtn}
         </div>
       </div>
+      ${technicianRemarksHtml?`<div class="pxl-native-remarks-inline" style="display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;clear:both">Remarks: ${technicianRemarksHtml}</div>`:''}
       <div class="ticket-meta">
         <span class="badge ${cls}">${smap[t.status]?.[0]||'?'}</span>
         ${t.work_order_type?`<span class="badge" style="background:var(--blue-bg);color:var(--blue)">${t.work_order_type}</span>`:''}
