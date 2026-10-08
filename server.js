@@ -803,10 +803,8 @@ app.post('/api/tickets/:id/survey-report', requireRole('technician'), async (req
     const now=new Date().toISOString();
     const updated=await db.updateTicket(ticket.id,{
       survey_status:'ready_for_so',
-      survey_conditions:String(req.body.conditions||'').trim()||null,
-      survey_customer_needs:String(req.body.customer_needs||'').trim()||null,
+      // PXL-VNEXT-2D1 — field naratif lama tidak ditimpa agar history Survey existing tetap aman.
       survey_technical_notes:String(req.body.technical_notes||'').trim()||null,
-      survey_recommendation:String(req.body.recommendation||'').trim()||null,
       survey_constraints:String(req.body.constraints||'').trim()||null,
       survey_materials:materials,
       survey_services:services,
