@@ -531,6 +531,14 @@ app.delete('/api/sales-targets/:id', requireRole('admin','superadmin','manager')
 // ══════════════════════════════════════════
 //  TICKETS
 // ══════════════════════════════════════════
+// PXL-VNEXT-2C4 — list payload tidak membawa blob tanda tangan.
+// TTD tetap tersedia lewat endpoint tracking/detail saat PDF/BAST dibutuhkan.
+function compactTicketForList(ticket){
+  const row={...(ticket||{})};
+  delete row.tech_signature;
+  delete row.customer_signature;
+  return row;
+}
 app.get('/api/tickets', requireAuth, async (req, res) => {
   const startedAt = Date.now();
   try {
@@ -542,7 +550,7 @@ app.get('/api/tickets', requireAuth, async (req, res) => {
     const enriched = tickets.map(t => {
       const id = String(t.id);
       return {
-        ...t,
+        ...compactTicketForList(t),
         invoices: relations.invoices[id] || [],
         status_history: relations.status_history[id] || [],
         job_stages: relations.job_stages[id] || []

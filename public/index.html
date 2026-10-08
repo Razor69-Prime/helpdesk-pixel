@@ -1607,8 +1607,8 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <span id="last-updated" style="margin-left:auto;font-size:11px"></span>
       </div>
       <div class="filter-row">
-        <input type="text" id="t-search" placeholder="Cari WO, project, atau customer..." oninput="renderTickets()"/>
-        <select id="t-status" onchange="renderTickets()" style="flex:0;min-width:150px">
+        <input type="text" id="t-search" placeholder="Cari WO, project, atau customer..." oninput="resetTicketListPage()"/>
+        <select id="t-status" onchange="resetTicketListPage()" style="flex:0;min-width:150px">
           <option value="">Semua status</option>
           <option value="assigned">Assigned</option>
           <option value="travelling">Dalam Perjalanan</option>
@@ -1617,7 +1617,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
           <option value="pending">Menunggu</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <select id="t-work-order-type" onchange="renderTickets()" style="flex:0;min-width:155px">
+        <select id="t-work-order-type" onchange="resetTicketListPage()" style="flex:0;min-width:155px">
           <option value="">Semua tipe WO</option>
           <option value="Survey">Survey</option>
           <option value="Operasional">Operasional</option>
@@ -1631,9 +1631,9 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         <button class="period-btn" onclick="setPeriod('t','today',this)">Hari ini</button>
         <button class="period-btn" onclick="setPeriod('t','week',this)">7 hari</button>
         <button class="period-btn" onclick="setPeriod('t','month',this)">Bulan ini</button>
-        <input type="date" id="t-from" onchange="renderTickets()" style="flex:0;width:130px;font-size:12px"/>
+        <input type="date" id="t-from" onchange="resetTicketListPage()" style="flex:0;width:130px;font-size:12px"/>
         <span style="font-size:12px;color:var(--muted)">s/d</span>
-        <input type="date" id="t-to" onchange="renderTickets()" style="flex:0;width:130px;font-size:12px"/>
+        <input type="date" id="t-to" onchange="resetTicketListPage()" style="flex:0;width:130px;font-size:12px"/>
       </div>
       <div class="export-row" style="gap:8px">
         <button class="btn green" onclick="exportExcel()">📥 Export Excel</button>
@@ -3898,6 +3898,10 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
 let allTickets=[], allUsers=[], allSuppliers=[], salesPics=[], currentUser=null, currentRating=0;
 let myPrRoles=[]; // pr_roles milik currentUser, di-set ulang tiap kali login/showApp
 let periodState={t:'all',k:'all'}, pollTimer=null, trackUrl='', selectedFile=null;
+const TICKET_LIST_PAGE_SIZE=25;
+let ticketListPage=1;
+function resetTicketListPage(){ticketListPage=1;renderTickets();}
+function changeTicketListPage(delta){ticketListPage=Math.max(1,ticketListPage+Number(delta||0));renderTickets();const el=document.getElementById('tab-tickets');if(el)el.scrollIntoView({block:'start',behavior:'smooth'});}
 let gpsCache=null;
 
 /* ══ PWA + GPS ══════════════════════════ */
@@ -4747,7 +4751,7 @@ function setPeriod(ctx,val,btn){
   btn.classList.add('active');
   document.getElementById(ctx+'-from').value='';
   document.getElementById(ctx+'-to').value='';
-  if(ctx==='t') renderTickets(); else renderKPI();
+  if(ctx==='t'){ticketListPage=1;renderTickets();} else renderKPI();
 }
 function getRange(ctx){
   const from=document.getElementById(ctx+'-from').value;
@@ -4836,7 +4840,7 @@ function renderTickets(){
   const canEditRemarks=['admin','superadmin','manager','operator','technician'].includes(currentRole)||extraRoles.includes('technician');
   const isReadOnly=isManager; // read-only roles: lihat semua, tidak bisa aksi apapun
 
-  const data=applyRange(allTickets,'t').filter(t=>
+  const filteredData=applyRange(allTickets,'t').filter(t=>
     (!search||(t.wo_number||'').toLowerCase().includes(search)||
                (t.project_name||'').toLowerCase().includes(search)||
                (t.customer_name||'').toLowerCase().includes(search))&&
@@ -4845,7 +4849,11 @@ function renderTickets(){
   );
 
   const el=document.getElementById('ticket-list');
-  if(!data.length){el.innerHTML=`<div class="empty">📭 Belum ada tiket</div>`;return;}
+  if(!filteredData.length){ticketListPage=1;el.innerHTML=`<div class="empty">📭 Belum ada tiket</div>`;return;}
+  const totalPages=Math.max(1,Math.ceil(filteredData.length/TICKET_LIST_PAGE_SIZE));
+  if(ticketListPage>totalPages) ticketListPage=totalPages;
+  const pageStart=(ticketListPage-1)*TICKET_LIST_PAGE_SIZE;
+  const data=filteredData.slice(pageStart,pageStart+TICKET_LIST_PAGE_SIZE);
   const smap={done:['Selesai','done'],assigned:['Assigned','assigned'],travelling:['Dalam Perjalanan','travelling'],ongoing:['Sedang Dikerjakan','ongoing'],pending:['Menunggu','pending'],cancelled:['Cancelled','pending']};
 
   el.innerHTML=data.map(t=>{
@@ -5021,6 +5029,8 @@ function renderTickets(){
       ${(showInvoice&&invCount)?`<div class="invoice-section"><div class="invoice-section-title">📄 Invoice</div>${invoiceChips}${invSummaryHtml}</div>`:''}
     </div>`;
   }).join('');
+  const pageEnd=Math.min(pageStart+data.length,filteredData.length);
+  el.insertAdjacentHTML('beforeend',`<div class="ticket-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 2px 4px"><span style="font-size:11px;color:var(--muted)">Menampilkan ${pageStart+1}–${pageEnd} dari ${filteredData.length} WO · Halaman ${ticketListPage}/${totalPages}</span><div style="display:flex;gap:6px"><button type="button" class="btn sm" onclick="changeTicketListPage(-1)" ${ticketListPage<=1?'disabled':''}>← Sebelumnya</button><button type="button" class="btn sm" onclick="changeTicketListPage(1)" ${ticketListPage>=totalPages?'disabled':''}>Berikutnya →</button></div></div>`);
   pxlRefreshWoDescriptionToggles(el);
 }
 
