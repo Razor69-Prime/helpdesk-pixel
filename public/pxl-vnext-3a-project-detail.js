@@ -1,7 +1,7 @@
 /* PXL-VNEXT-3A — Project Detail Core. */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3A1';
+  const REV='PXL-URG-0112';
   const PDF_DAYS_PER_PAGE=31;
   const DAY_MS=24*60*60*1000;
   const GANTT_STAGE_COLORS=[[37,99,235],[5,150,105],[217,119,6],[220,38,38],[124,58,237],[8,145,178],[190,24,93],[79,70,229],[101,163,13]];
@@ -51,7 +51,25 @@
         </div>
       </div>`);
     $('#pxl-v3a-close').onclick=close;
-    $('#pxl-v3a-modal').addEventListener('click',e=>{if(e.target.id==='pxl-v3a-modal')close()});
+    // PXL-URG-0112 — drag/select-safe backdrop, sama seperti pola Pricing Calculator.
+    // Drag/select dari input Gantt tidak boleh menutup seluruh Project Detail.
+    const modal=$('#pxl-v3a-modal');
+    let backdropGesture=null;
+    modal.addEventListener('pointerdown',e=>{
+      backdropGesture=e.target===modal
+        ?{x:e.clientX,y:e.clientY,pointerId:e.pointerId,moved:false}
+        :null;
+    });
+    modal.addEventListener('pointermove',e=>{
+      if(!backdropGesture||backdropGesture.pointerId!==e.pointerId)return;
+      if(Math.hypot(e.clientX-backdropGesture.x,e.clientY-backdropGesture.y)>6)backdropGesture.moved=true;
+    });
+    modal.addEventListener('pointerup',e=>{
+      const g=backdropGesture;
+      backdropGesture=null;
+      if(g&&g.pointerId===e.pointerId&&!g.moved&&e.target===modal)close();
+    });
+    modal.addEventListener('pointercancel',()=>{backdropGesture=null;});
     document.querySelectorAll('[data-v3a-tab]').forEach(btn=>btn.onclick=()=>{state.activeTab=btn.dataset.v3aTab;render()});
   }
 
