@@ -1,7 +1,7 @@
 /* PXL-URG-0032D — Keep Add/Edit Remarks logic intact; align remarks output above ticket meta. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0032D';
+  const REV='PXL-URG-0112';
   let installTimer=null;
 
   function activeTickets(){
@@ -61,8 +61,14 @@
       el.className='pxl-native-remarks-inline';
     }
 
-    el.style.cssText='display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;position:static;float:none;clear:both;';
-    const nextText='Remarks: '+remarks;if(el.textContent!==nextText)el.textContent=nextText;
+    el.style.cssText='display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;overflow-wrap:anywhere;word-break:break-word;position:static;float:none;clear:both;';
+    if(el.dataset.pxlRemarksValue!==remarks){
+      el.dataset.pxlRemarksValue=remarks;
+      el.innerHTML=typeof pxlFormatWoRemarks==='function'
+        ?pxlFormatWoRemarks(remarks,true)
+        :'Remarks: '+remarks.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    if(typeof pxlRefreshWoRemarksToggles==='function')pxlRefreshWoRemarksToggles(card);
 
     // Output remarks must live immediately above the status/date/duration row
     // for PWA, mobile browser and desktop. This only changes placement/styling.

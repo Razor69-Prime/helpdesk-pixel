@@ -51,6 +51,6 @@ test('existing Project Report exposes direct BOQ handoff helper',()=>{
   assert.match(report,/openBoqProject/);
 });
 
-test('Project Detail script is cache-busted at PXL-VNEXT-3A1',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3A1/);
+test('Project Detail script remains explicitly cache-busted after Phase 3A1',()=>{
+  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A1|URG-\d+)/);
 });

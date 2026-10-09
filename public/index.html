@@ -177,6 +177,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content{max-height:4.65em;overflow:hidden;position:relative}
 .ticket-desc .wo-desc-wrap.is-collapsed .wo-desc-content:after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,var(--surface))}
 .wo-desc-toggle{margin-top:7px;border:0;background:transparent;color:var(--blue);font-size:11px;font-weight:700;padding:0;cursor:pointer}
+.pxl-remarks-wrap{min-width:0}.pxl-remarks-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}.pxl-remarks-wrap.is-collapsed .pxl-remarks-content{max-height:4.35em;overflow:hidden;position:relative}.pxl-remarks-wrap.is-collapsed .pxl-remarks-content:after{content:"";position:absolute;left:0;right:0;bottom:0;height:22px;background:linear-gradient(transparent,var(--amber-bg,#FAEEDA))}.pxl-remarks-toggle{margin-top:5px;border:0;background:transparent;color:var(--amber,#854F0B);font-size:11px;font-weight:700;padding:0;cursor:pointer}
 .ticket-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .status-select{font-size:12px;padding:4px 8px;border-radius:99px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500}
 
@@ -4862,6 +4863,32 @@ function pxlToggleWoDescription(btn){
   btn.textContent=collapsed?'Lihat Selengkapnya':'Tutup';
 }
 
+function pxlFormatWoRemarks(value,compact=true){
+  const raw=String(value??'').trim();if(!raw)return '';
+  return '<div class="pxl-remarks-wrap '+(compact?'is-collapsed':'')+'"><div class="pxl-remarks-content">Remarks: '+pxlWoDescEsc(raw)+'</div>'
+    +(compact?'<button type="button" class="pxl-remarks-toggle" style="display:none" onclick="event.stopPropagation();pxlToggleWoRemarks(this)">Lihat Selengkapnya</button>':'')+'</div>';
+}
+function pxlRefreshWoRemarksToggles(root=document){
+  requestAnimationFrame(()=>{
+    root.querySelectorAll?.('.pxl-native-remarks-inline .pxl-remarks-wrap').forEach(wrap=>{
+      const content=wrap.querySelector('.pxl-remarks-content'),btn=wrap.querySelector('.pxl-remarks-toggle');
+      if(!content||!btn)return;
+      if(btn.dataset.pxlExpanded==='1'){wrap.classList.remove('is-collapsed');btn.style.display='inline-block';btn.textContent='Tutup';return;}
+      wrap.classList.add('is-collapsed');
+      const overflow=content.scrollHeight>content.clientHeight+2;
+      btn.style.display=overflow?'inline-block':'none';
+      if(!overflow)wrap.classList.remove('is-collapsed');
+      btn.textContent='Lihat Selengkapnya';
+    });
+  });
+}
+function pxlToggleWoRemarks(btn){
+  const wrap=btn?.closest?.('.pxl-remarks-wrap');if(!wrap)return;
+  const collapsed=wrap.classList.toggle('is-collapsed');
+  btn.dataset.pxlExpanded=collapsed?'0':'1';
+  btn.textContent=collapsed?'Lihat Selengkapnya':'Tutup';
+}
+
 function renderSurveyResults(){
   const list=document.getElementById('survey-results-list');
   if(!list)return;
@@ -5097,7 +5124,7 @@ function renderTickets(){
           ${delBtn}
         </div>
       </div>
-      ${technicianRemarksHtml?`<div class="pxl-native-remarks-inline" style="display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;clear:both">Remarks: ${technicianRemarksHtml}</div>`:''}
+      ${technicianRemarks?`<div class="pxl-native-remarks-inline" data-pxl-remarks-value="${technicianRemarksHtml}" style="display:block;width:100%;max-width:100%;box-sizing:border-box;margin:7px 0 5px;padding:7px 10px;border-left:3px solid #D97706;background:var(--amber-bg,#FAEEDA);color:var(--amber,#854F0B);font-size:11px;line-height:1.45;border-radius:0 7px 7px 0;overflow-wrap:anywhere;word-break:break-word;clear:both">${pxlFormatWoRemarks(technicianRemarks,true)}</div>`:''}
       <div class="ticket-meta">
         <span class="badge ${cls}">${smap[t.status]?.[0]||'?'}</span>
         ${t.work_order_type?`<span class="badge" style="background:var(--blue-bg);color:var(--blue)">${t.work_order_type}</span>`:''}
@@ -5115,6 +5142,7 @@ function renderTickets(){
   const pageEnd=Math.min(pageStart+data.length,filteredData.length);
   el.insertAdjacentHTML('beforeend',`<div class="ticket-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 2px 4px"><span style="font-size:11px;color:var(--muted)">Menampilkan ${pageStart+1}–${pageEnd} dari ${filteredData.length} WO · Halaman ${ticketListPage}/${totalPages}</span><div style="display:flex;gap:6px"><button type="button" class="btn sm" onclick="changeTicketListPage(-1)" ${ticketListPage<=1?'disabled':''}>← Sebelumnya</button><button type="button" class="btn sm" onclick="changeTicketListPage(1)" ${ticketListPage>=totalPages?'disabled':''}>Berikutnya →</button></div></div>`);
   pxlRefreshWoDescriptionToggles(el);
+  pxlRefreshWoRemarksToggles(el);
 }
 
 
@@ -13171,7 +13199,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-URG-0112"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 </body>
