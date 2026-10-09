@@ -5625,7 +5625,9 @@ const MATERIAL_REQUEST_PERMISSIONS=[
   {id:'material_request_barcode',label:'📷 Scan Barcode Material'}
 ];
 const PROJECT_PERMISSIONS=[
-  {id:'project_boq_manage',label:'📐 Input Total BOQ Project'}
+  {id:'project_boq_manage',label:'📐 Input Total BOQ Project'},
+  {id:'project_gantt_manage',label:'📅 Kelola Gantt Plan Project'},
+  {id:'project_primary_wo_manage',label:'🛠️ Link Primary WO Project'}
 ];
 const VNEXT_CRM_PERMISSIONS=[
   {id:'customer_segment_read',label:'🏷️ Lihat Segmentasi Customer'},
@@ -5744,7 +5746,7 @@ function resetMenuToRole(){
   const defaults=getDefaultMenus(role);
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
-  const projectDefaults=['manager','superadmin'].includes(role)?PROJECT_PERMISSIONS.map(x=>x.id):[];
+  const projectDefaults=role==='superadmin'?PROJECT_PERMISSIONS.map(x=>x.id):role==='manager'?['project_boq_manage']:[];
   const serviceDefaults={
     superadmin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
     admin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
@@ -10360,6 +10362,7 @@ function renderProjectList(){
       </td>
       <td class="proj-target-week">${p.target_week||'—'}</td>
       <td style="white-space:nowrap">
+        <button class="btn blue sm" onclick="window.pxlProjectVnext3A&&window.pxlProjectVnext3A.open('${p.id}')" title="Detail Project">Detail</button>
         ${canEdit?`<button class="btn ghost sm" onclick="editProject('${p.id}')" title="Edit">✏️</button>`:''}
         ${canDelete?`<button class="btn ghost sm" onclick="deleteProject('${p.id}')" title="Hapus">🗑️</button>`:''}
       </td>
@@ -13131,7 +13134,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-VNEXT-2D2"></script>
 </body>

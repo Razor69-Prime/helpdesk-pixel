@@ -195,6 +195,19 @@
   async function importExcel(e){const file=e.target.files?.[0];e.target.value='';const r=currentBoq();if(!r){alert('Pilih project terlebih dahulu sebelum import Excel.');return}if(!file)return;if(typeof XLSX==='undefined'){alert('Library Excel belum siap.');return}try{const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:''});if(!raw.length)throw new Error('File Excel kosong.');const norm=v=>String(v??'').trim();const rowsImport=raw.filter(x=>Object.values(x).some(v=>norm(v)!=='')).map((x,idx)=>({category:norm(x['Kategori']||x['kategori']).toLowerCase(),item_name:norm(x['Nama Item/Jasa']||x['Nama Item']||x['Item']||x['item_name']),boq_qty:Number(x['BOQ']||x['boq_qty']),unit:norm(x['Satuan']||x['unit']),notes:norm(x['Catatan']||x['notes']),sort_order:Number(x['Urutan']||x['sort_order']||idx+1)}));if(!confirm(`Import ${rowsImport.length} baris BOQ ke project "${r.nama_project}"?`))return;const u=await api('POST',`/project-reports/${encodeURIComponent(r.id)}/items/import`,{rows:rowsImport});replace(u);renderBoqEditor();syncTrackerFromRows();alert(`Import BOQ berhasil: ${rowsImport.length} baris.`)}catch(err){alert('Import BOQ gagal: '+(err.message||'Unknown error'))}}
 
   function replace(u){const i=rows.findIndex(r=>String(r.id)===String(u.id));if(i>=0)rows[i]=u;else rows.push(u)}
+
+  async function openBoqProject(projectId){
+    if(!canBoq())return false;
+    refreshAccess();
+    show('boq');
+    await loadFull();
+    boqProjectId=String(projectId);
+    populateBoqProjects();
+    const sel=$('#pr12-boq-project');
+    if(sel&&[...sel.options].some(o=>String(o.value)===boqProjectId)) sel.value=boqProjectId;
+    renderBoqEditor();
+    return true;
+  }
   function init(){
     let tries=0;
     const ready=()=>{
@@ -213,6 +226,7 @@
     open:(view='report')=>{refreshAccess();show(view)},
     refresh:loadFull,
     refreshSummaries,
-    refreshAccess
+    refreshAccess,
+    openBoqProject
   };
 })();

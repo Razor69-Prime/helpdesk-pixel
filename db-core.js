@@ -669,6 +669,63 @@ async function deleteProject(id){
   await restFetch('DELETE',`/projects?id=eq.${id}`);
 }
 
+
+// PXL-VNEXT-3A — Project Detail / Primary WO / Gantt Plan
+async function getTicketById(id){
+  if(!id) return null;
+  if(!USE_POSTGREST) return readLocal().find(t=>String(t.id)===String(id))||null;
+  const rows=await restFetch('GET',`/tickets?id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows?.[0]||null;
+}
+async function searchTicketsCompact(query='',limit=20){
+  const capped=Math.max(1,Math.min(20,Number(limit)||20));
+  const q=String(query||'').trim().toLowerCase();
+  if(!USE_POSTGREST){
+    return readLocal().filter(t=>!t.archived).filter(t=>!q||[t.wo_number,t.customer_name,t.project_name].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,capped).map(t=>({
+      id:t.id,wo_number:t.wo_number,work_order_type:t.work_order_type,status:t.status,customer_name:t.customer_name,project_name:t.project_name,technician:t.technician,technicians:t.technicians,worked_at:t.worked_at,created_at:t.created_at
+    }));
+  }
+  const select='id,wo_number,work_order_type,status,customer_name,project_name,technician,technicians,worked_at,created_at';
+  let path=`/tickets?select=${select}&archived=is.false&order=created_at.desc&limit=${capped}`;
+  if(q){
+    const term=encodeURIComponent(`*${String(query).trim().replace(/[(),]/g,' ')}*`);
+    path+=`&or=(wo_number.ilike.${term},customer_name.ilike.${term},project_name.ilike.${term})`;
+  }
+  return await restFetch('GET',path)||[];
+}
+async function getProjectPrimaryWorkOrder(projectId){
+  if(!projectId||!USE_POSTGREST) return null;
+  const rows=await restFetch('GET',`/project_primary_work_orders?project_id=eq.${encodeURIComponent(projectId)}&limit=1`);
+  return rows?.[0]||null;
+}
+async function upsertProjectPrimaryWorkOrder(projectId,ticketId,actor){
+  const now=new Date().toISOString();
+  const existing=await getProjectPrimaryWorkOrder(projectId);
+  const payload={ticket_id:ticketId||null,updated_by:actor||null,updated_at:now};
+  if(!USE_POSTGREST) return {project_id:projectId,...payload,created_by:actor||null,created_at:now};
+  if(existing){
+    const rows=await restFetch('PATCH',`/project_primary_work_orders?project_id=eq.${encodeURIComponent(projectId)}`,payload);
+    return rows?.[0]||{...existing,...payload};
+  }
+  const row={project_id:projectId,...payload,created_by:actor||null,created_at:now};
+  const rows=await restFetch('POST','/project_primary_work_orders',row);
+  return rows?.[0]||row;
+}
+async function getProjectGanttPlan(projectId){
+  if(!projectId||!USE_POSTGREST) return null;
+  const headers=await restFetch('GET',`/project_gantt_plans?project_id=eq.${encodeURIComponent(projectId)}&limit=1`);
+  if(!headers?.length) return null;
+  const stages=await restFetch('GET',`/project_gantt_stages?project_id=eq.${encodeURIComponent(projectId)}&order=sort_order.asc`)||[];
+  return {...headers[0],stages};
+}
+async function replaceProjectGanttPlan(projectId,startDate,stages,actor){
+  if(!USE_POSTGREST) return {project_id:projectId,start_date:startDate,stages};
+  await restFetch('POST','/rpc/pxl_vnext_3a_replace_project_gantt_plan',{
+    p_project_id:projectId,p_start_date:startDate,p_stages:stages,p_actor:actor||'System'
+  });
+  return getProjectGanttPlan(projectId);
+}
+
 // PXL-STG-0010 — PROJECT REPORT
 async function getProjectReports(){
   if(!USE_POSTGREST) return [];
@@ -1324,6 +1381,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
+  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getTicketById, searchTicketsCompact,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,

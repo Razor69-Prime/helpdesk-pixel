@@ -12,6 +12,7 @@ const cloudBackupCenter = require('./ops/backup/cloudinary-retention-lib');
 const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
 const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
 const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy');
+const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./project-vnext-3a');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -1193,6 +1194,23 @@ function requireProjectAchievementInput(req,res,next){
   next();
 }
 
+
+// PXL-VNEXT-3A — new Project management permissions default OFF for non-Superadmin.
+function hasProjectVnextPermission(req, permission){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(role==='superadmin') return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  return custom.includes(permission);
+}
+function requireProjectVnextPermission(permission){
+  return (req,res,next)=>{
+    if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+    if(!hasProjectVnextPermission(req,permission)) return res.status(403).json({error:'Anda tidak memiliki izin untuk aksi Project ini.'});
+    next();
+  };
+}
+
 app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
   try{ res.json(await db.getProjects()); }
   catch(e){ res.status(500).json({error:e.message}); }
@@ -1393,6 +1411,98 @@ async function buildProjectReportRows(){
       material_summary:material,jasa_summary:jasa,items:detailItems,has_detail_boq:hasDetail,achievements:legacyHist};
   });
 }
+
+// PXL-VNEXT-3A — Project Detail aggregation + Primary WO + Gantt Plan
+app.get('/api/projects/:id/detail', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const [reportRows,relation,ganttPlan]=await Promise.all([
+      buildProjectReportRows(),
+      db.getProjectPrimaryWorkOrder(req.params.id),
+      db.getProjectGanttPlan(req.params.id)
+    ]);
+    const report=reportRows.find(r=>String(r.id)===String(req.params.id))||null;
+    let primaryWorkOrder=null;
+    if(relation?.ticket_id){
+      const linked=await db.getTicketById(relation.ticket_id);
+      primaryWorkOrder=linked?{...linked,ticket_id:relation.ticket_id}:{unavailable:true,ticket_id:relation.ticket_id};
+    }
+    res.json({project,report,primary_work_order:primaryWorkOrder,gantt_plan:ganttPlan});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/projects/:id/work-order-options', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    if(!projects.some(p=>String(p.id)===String(req.params.id))) return res.status(404).json({error:'Project tidak ditemukan.'});
+    res.json(await db.searchTicketsCompact(req.query.q||'',20));
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_primary_wo_manage'), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const ticketId=String(req.body.ticket_id||'').trim();
+    if(!ticketId) return res.status(400).json({error:'Work Order wajib dipilih.'});
+    const ticket=await db.getTicketById(ticketId);
+    if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
+
+    const relations=await Promise.all(projects.map(async p=>({project:p,relation:await db.getProjectPrimaryWorkOrder(p.id)})));
+    const owner=relations.find(x=>x.relation?.ticket_id&&String(x.relation.ticket_id)===ticketId&&String(x.project.id)!==String(req.params.id));
+    if(owner) return res.status(409).json({error:`Work Order sudah menjadi Primary WO untuk project ${owner.project.nama_project||owner.project.id}.`});
+
+    const relation=await db.upsertProjectPrimaryWorkOrder(req.params.id,ticketId,req.session.user.name);
+    logActivity(req,'project','LINK PRIMARY WO',`${project.nama_project}: ${ticket.wo_number||ticket.id}`);
+    res.json({relation,work_order:ticket});
+  }catch(e){
+    const message=String(e.message||e);
+    if(/unique|duplicate|project_primary_work_orders_ticket_unique/i.test(message)) return res.status(409).json({error:'Work Order sudah terhubung sebagai Primary WO project lain.'});
+    res.status(500).json({error:message});
+  }
+});
+
+app.delete('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_primary_wo_manage'), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const relation=await db.getProjectPrimaryWorkOrder(req.params.id);
+    if(relation) await db.upsertProjectPrimaryWorkOrder(req.params.id,null,req.session.user.name);
+    logActivity(req,'project','UNLINK PRIMARY WO',project.nama_project||req.params.id);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    if(!projects.some(p=>String(p.id)===String(req.params.id))) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const plan=await db.getProjectGanttPlan(req.params.id);
+    res.json({plan,default_stages:[...DEFAULT_PROJECT_GANTT_STAGES]});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_gantt_manage'), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const existing=await db.getProjectGanttPlan(req.params.id);
+    const calculated=buildSequentialGanttPlan(req.body.start_date,req.body.stages);
+    await db.replaceProjectGanttPlan(req.params.id,req.body.start_date,calculated,req.session.user.name);
+    const fresh=await db.getProjectGanttPlan(req.params.id);
+    logActivity(req,'project',existing?'UPDATE GANTT PLAN':'CREATE GANTT PLAN',project.nama_project||req.params.id);
+    res.json({plan:fresh,default_stages:[...DEFAULT_PROJECT_GANTT_STAGES]});
+  }catch(e){
+    const message=String(e.message||e);
+    const status=/tanggal|tahap|durasi|100/i.test(message)?400:500;
+    res.status(status).json({error:message});
+  }
+});
 
 app.get('/api/project-reports', requireProjectReportRead, async (req,res)=>{
   try{ res.json(await buildProjectReportRows()); }
