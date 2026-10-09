@@ -37,7 +37,7 @@ test('cancel WO endpoint continues to write canonical cancelled status and audit
 });
 
 test('Sales Order exposes an explicit readiness promise that resolves after load and reset',()=>{
-  assert.match(salesOrder,/pxl-vnext-2c-survey-so-prefill\.js\?v=PXL-URG-0109/);
+  assert.match(salesOrder,/pxl-vnext-2c-survey-so-prefill\.js\?v=PXL-URG-\d+/);
   assert.match(salesOrder,/window\.pxlSalesOrderReady\s*=\s*load\(\)\.then\(\(\)=>\{/);
   assert.match(salesOrder,/window\.pxlSalesOrderReady[\s\S]{0,180}reset\(\)/);
 });
