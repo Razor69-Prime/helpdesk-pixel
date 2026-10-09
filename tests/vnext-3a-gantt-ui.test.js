@@ -47,6 +47,19 @@ test('Gantt PDF is stored-plan only, landscape A4, and paginates at 31 calendar 
   assert.match(src,/planned_end/);
 });
 
+test('Gantt PDF uses deterministic printable stage colors across pages',()=>{
+  assert.match(src,/const GANTT_STAGE_COLORS=\[/);
+  const palette=src.match(/const GANTT_STAGE_COLORS=\[([\s\S]*?)\];/)?.[1]||'';
+  const entries=(palette.match(/\[[0-9]+,[0-9]+,[0-9]+\]/g)||[]);
+  assert.ok(entries.length>=6,'palette must contain at least 6 printable colors');
+  assert.match(src,/function ganttStageColor\(index\)/);
+  assert.match(src,/GANTT_STAGE_COLORS\[index%GANTT_STAGE_COLORS\.length\]/);
+  assert.match(src,/const \[r,g,b\]=ganttStageColor\(i\)/);
+  assert.match(src,/doc\.setFillColor\(r,g,b\)[\s\S]{0,180}doc\.rect\(barX,y\+2,barW,4,'F'\)/);
+  assert.match(src,/doc\.setTextColor\(0,0,0\)/);
+  assert.match(src,/doc\.setDrawColor\(/);
+});
+
 test('Phase 3A Gantt UI contains Plan only and does not introduce Actual/Realisasi fields',()=>{
   assert.doesNotMatch(src,/actual_start|actual_end|realisasi_start|realisasi_end/i);
 });
