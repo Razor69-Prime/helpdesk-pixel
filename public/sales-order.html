@@ -835,7 +835,7 @@ byId('saveBtn')?.addEventListener('click', save);
 byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
 byId('addServiceBtn')?.addEventListener('click', () => addService());
 
-load().then(reset);
+window.pxlSalesOrderReady=load().then(()=>{ reset(); return true; });
 </script>
 <script src="/pxl-stg-0006c-sales-order.js?v=PXL-PROD-0021C"></script>
 <script src="/pxl-prod-0022ab-sales-order-sites.js?v=PXL-URG-0105"></script>
@@ -843,6 +843,6 @@ load().then(reset);
 <script src="/pxl-prod-0022d-so-ppn.js?v=PXL-PROD-0022D"></script>
 <script src="/pxl-prod-0022d3-so-ppn-persist.js?v=PXL-URG-0048B"></script>
 <script src="/pxl-prod-0022d7-project-pdf-sync.js?v=PXL-PROD-0022D7"></script>
-<script src="/pxl-vnext-2c-survey-so-prefill.js?v=PXL-VNEXT-2C"></script>
+<script src="/pxl-vnext-2c-survey-so-prefill.js?v=PXL-URG-0109"></script>
 </body>
 </html>

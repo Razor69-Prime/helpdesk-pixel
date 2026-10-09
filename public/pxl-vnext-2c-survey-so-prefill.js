@@ -11,9 +11,10 @@
   const delay=ms=>new Promise(r=>setTimeout(r,ms));
 
   async function waitReady(){
-    for(let i=0;i<80;i++){
+    if(window.pxlSalesOrderReady&&typeof window.pxlSalesOrderReady.then==='function')await window.pxlSalesOrderReady;
+    for(let i=0;i<30;i++){
       const maps=document.getElementById('pxlGoogleMapsUrl');
-      if(typeof api==='function'&&typeof addMaterial==='function'&&typeof addService==='function'&&typeof reset==='function'&&typeof collect==='function'&&window.collect.__pxlUrg0021c===true&&maps)return true;
+      if(typeof api==='function'&&typeof addMaterial==='function'&&typeof addService==='function'&&typeof reset==='function'&&typeof collect==='function'&&maps)return true;
       await delay(100);
     }
     throw new Error('Form Sales Order belum siap. Silakan refresh halaman.');
