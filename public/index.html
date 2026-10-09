@@ -12070,7 +12070,11 @@ async function submitMR(skipSignature=false){
     }else{
       result=await api('POST','/material-requests-form', payload);
       mrData.unshift(result);
-      if(hasPricelistOnly)alert('MR disimpan sebagai Draft karena ada item Master Pricelist yang belum terdaftar di Inventory. Stok belum dikurangi.');
+      if(result?.warehouse_pending===true||(newStatus==='taken'&&String(result?.status||'').toLowerCase()==='draft')){
+        alert('MR disimpan sebagai Draft / Menunggu Gudang karena stok Tambahan Lapangan belum cukup. Stok belum dikurangi.');
+      }else if(hasPricelistOnly){
+        alert('MR disimpan sebagai Draft karena ada item Master Pricelist yang belum terdaftar di Inventory. Stok belum dikurangi.');
+      }
     }
     mrPendingSignature=null;
     cancelMRForm();

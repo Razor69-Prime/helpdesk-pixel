@@ -11,6 +11,7 @@ const reportSvc = require('./report-service');
 const cloudBackupCenter = require('./ops/backup/cloudinary-retention-lib');
 const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
 const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
+const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -1659,39 +1660,54 @@ app.get('/api/material-requests-form', requireAuth, async (req,res)=>{
 });
 
 app.post('/api/material-requests-form', requireAuth, async (req,res)=>{
+  let entry=null;
   try{
     const requestedStatus=String(req.body.status||'draft').toLowerCase();
+    const submittedItems=Array.isArray(req.body.items)?req.body.items:[];
+    let effectiveStatus=requestedStatus;
+    let stockAssessment=null;
 
-    const entry=await db.insertMRForm({
+    if(requestedStatus==='taken'){
+      const inventoryItems=await db.getInventoryItems();
+      stockAssessment=assessMaterialRequestStock(submittedItems,inventoryItems);
+      if(!stockAssessment.ok){
+        return res.status(409).json({error:stockAssessment.error});
+      }
+      if(stockAssessment.pendingWarehouse){
+        effectiveStatus='draft';
+      }
+    }
+
+    entry=await db.insertMRForm({
       ...req.body,
-      status:requestedStatus==='taken'?'draft':requestedStatus,
+      status:effectiveStatus==='taken'?'draft':effectiveStatus,
       created_by:req.session.user.name
     });
 
     let finalEntry=entry;
 
-    if(requestedStatus==='taken'){
+    if(effectiveStatus==='taken'){
       const items=(Array.isArray(entry.items)?entry.items:[]).map(i=>({
         inventory_item_id:i.inventory_item_id||null,
         qty_out:Number(i.qty_out??i.qty??0)
       }));
 
-      if(!items.length){
-        throw new Error('Material Request tidak memiliki item Inventory.');
+      try{
+        await db.issueInventoryMaterialRequest(
+          entry.id,
+          items,
+          req.session.user.name,
+          entry.wo_number||''
+        );
+        finalEntry=await db.updateMRForm(entry.id,{status:'taken'});
+      }catch(issueError){
+        try{ await db.deleteMRForm(entry.id); }
+        catch(cleanupError){ console.error('MR temporary draft cleanup failed:',cleanupError.message); }
+        entry=null;
+        throw issueError;
       }
-
-      if(items.some(i=>!i.inventory_item_id||i.qty_out<=0)){
-        throw new Error('Ada item Material Request yang belum terhubung ke Inventory atau quantity tidak valid.');
-      }
-
-      await db.issueInventoryMaterialRequest(
-        entry.id,
-        items,
-        req.session.user.name,
-        entry.wo_number||''
-      );
-
-      finalEntry=await db.updateMRForm(entry.id,{status:'taken'});
+    }else if(requestedStatus==='taken'&&stockAssessment?.pendingWarehouse){
+      finalEntry={...entry,warehouse_pending:true,warehouse_pending_item_ids:stockAssessment.pendingItemIds};
     }
 
     logActivity(req,'material','BUAT MR FORM',`WO: ${req.body.wo_number}`);
