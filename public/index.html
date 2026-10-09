@@ -346,6 +346,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .proj-pic-desa-name,.proj-target-week{font-size:10.5px}
 .proj-pic-desa-phone{font-size:10px}
 .proj-table tbody tr:hover{background:var(--surface2)}
+.proj-mobile-list{display:none;width:100%;min-width:0;padding:10px;gap:10px;background:var(--surface2)}
+.proj-mobile-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.035)}
+.proj-mobile-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0}.proj-mobile-title{min-width:0;flex:1}.proj-mobile-name{font-size:13px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.proj-mobile-meta{font-size:10px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.proj-mobile-progress{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.proj-mobile-progress>div{background:var(--surface2);border-radius:8px;padding:8px;min-width:0}.proj-mobile-progress b{display:block;font-size:11px;margin-top:2px}.proj-mobile-label{font-size:8.5px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
+.proj-mobile-copy{margin-top:9px;display:grid;gap:7px}.proj-mobile-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;font-size:10.5px;line-height:1.45;color:var(--text)}
+.proj-mobile-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.proj-mobile-empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface);border:1px dashed var(--border);border-radius:10px}
+@media(max-width:700px){#tab-projects .proj-table-wrap{display:none}.proj-mobile-list{display:grid;grid-template-columns:1fr}.proj-summary-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.proj-filter-bar{align-items:stretch}.proj-filter-bar .proj-filter-select,.proj-filter-bar input,.proj-filter-bar button{width:100%;margin-left:0!important}.proj-header{padding:14px}.proj-header-title{font-size:16px}}
 .proj-no-col{color:var(--muted);font-weight:600}
 .proj-prior-badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700}
 .proj-prior-badge.p1{background:#FEE2E2;color:#DC2626}
@@ -2119,6 +2126,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
               <tbody id="proj-table-body"></tbody>
             </table>
           </div>
+          <div class="proj-mobile-list" id="proj-mobile-list"></div>
 
           <div class="proj-catatan">
             <div class="proj-catatan-title">CATATAN</div>
@@ -10298,6 +10306,31 @@ function filterProjects(){
   });
 }
 
+function projectMobileEsc(v){
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderProjectMobileCards(filtered){
+  const list=document.getElementById('proj-mobile-list');
+  if(!list) return;
+  if(!filtered.length){list.innerHTML='<div class="proj-mobile-empty">📭 Belum ada project</div>';return;}
+  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold'};
+  const priorClass={'P1':'p1','P2':'p2'};
+  const canEdit=['admin','superadmin','manager','sales'].includes(currentUser.role);
+  const canDelete=['admin','superadmin'].includes(currentUser.role);
+  list.innerHTML=filtered.map(p=>{
+    const summary=(window.pxlProjectReportSummaries||{})[String(p.id)]||{};
+    const material=Number(summary.material?.progress)||0;
+    const jasa=Number(summary.jasa?.progress)||0;
+    return `<div class="proj-mobile-card">
+      <div class="proj-mobile-head"><div class="proj-mobile-title"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${projectMobileEsc(p.prioritas||'P2')}</span><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${projectMobileEsc(p.status||'On Plan')}</span></div><div class="proj-mobile-name" style="margin-top:7px">${projectMobileEsc(p.nama_project||'—')}</div><div class="proj-mobile-meta">PIC: ${projectMobileEsc(p.pic||'—')} · Target: ${projectMobileEsc(p.target_week||'—')}</div></div></div>
+      <div class="proj-mobile-progress"><div><span class="proj-mobile-label">Material</span><b>${material.toFixed(1)}%</b></div><div><span class="proj-mobile-label">Jasa</span><b>${jasa.toFixed(1)}%</b></div></div>
+      <div class="proj-mobile-copy"><div><span class="proj-mobile-label">Issue</span><div class="proj-mobile-clamp">${projectMobileEsc(p.issue||'—')}</div></div><div><span class="proj-mobile-label">Action Plan</span><div class="proj-mobile-clamp">${projectMobileEsc(p.action_plan||'—')}</div></div></div>
+      <div class="proj-mobile-actions"><button class="btn blue sm" onclick="window.pxlProjectVnext3A&&window.pxlProjectVnext3A.open('${p.id}')">Detail</button>${canEdit?`<button class="btn ghost sm" onclick="editProject('${p.id}')">✏️ Edit</button>`:''}${canDelete?`<button class="btn ghost sm" onclick="deleteProject('${p.id}')">🗑️</button>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
 function renderProjectList(){
   const filtered=filterProjects();
   const tbody=document.getElementById('proj-table-body');
@@ -10325,6 +10358,8 @@ function renderProjectList(){
   setEl('ps-plan', onPlan);
   setEl('ps-progress', onProgress);
   setEl('ps-hold', onHold);
+
+  renderProjectMobileCards(filtered);
 
   if(!filtered.length){
     tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">📭 Belum ada project</td></tr>';
@@ -13134,7 +13169,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-VNEXT-2D2"></script>
 </body>

@@ -3,7 +3,9 @@
 const DEFAULT_PROJECT_GANTT_STAGES=Object.freeze([
   'Preparation',
   'Order Barang',
+  'Amprah PLN',
   'Tanam Tiang',
+  'Tarik Kabel FO',
   'Instalasi Perangkat',
   'Konfigurasi',
   'Testing / Commissioning',

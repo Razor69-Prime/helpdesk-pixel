@@ -711,6 +711,32 @@ async function upsertProjectPrimaryWorkOrder(projectId,ticketId,actor){
   const rows=await restFetch('POST','/project_primary_work_orders',row);
   return rows?.[0]||row;
 }
+async function getProjectGanttTemplates(){
+  if(!USE_POSTGREST) return [];
+  const rows=await restFetch('GET','/project_gantt_templates?order=created_at.desc,name.asc')||[];
+  return await Promise.all(rows.map(async row=>{
+    const stages=await restFetch('GET',`/project_gantt_template_stages?template_id=eq.${encodeURIComponent(row.id)}&order=sort_order.asc`)||[];
+    return {...row,stages};
+  }));
+}
+async function getProjectGanttTemplate(templateId){
+  if(!templateId||!USE_POSTGREST) return null;
+  const rows=await restFetch('GET',`/project_gantt_templates?id=eq.${encodeURIComponent(templateId)}&limit=1`);
+  if(!rows?.length) return null;
+  const stages=await restFetch('GET',`/project_gantt_template_stages?template_id=eq.${encodeURIComponent(templateId)}&order=sort_order.asc`)||[];
+  return {...rows[0],stages};
+}
+async function createProjectGanttTemplate(name,stages,actor){
+  if(!USE_POSTGREST){
+    return {id:crypto.randomUUID(),name,stages,created_by:actor||'System',created_at:new Date().toISOString()};
+  }
+  const created=await restFetch('POST','/rpc/pxl_vnext_3a1_create_gantt_template',{
+    p_name:name,p_stages:stages,p_actor:actor||'System'
+  });
+  const templateId=Array.isArray(created)?created[0]:created;
+  return getProjectGanttTemplate(templateId);
+}
+
 async function getProjectGanttPlan(projectId){
   if(!projectId||!USE_POSTGREST) return null;
   const headers=await restFetch('GET',`/project_gantt_plans?project_id=eq.${encodeURIComponent(projectId)}&limit=1`);
@@ -1381,7 +1407,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getTicketById, searchTicketsCompact,
+  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,

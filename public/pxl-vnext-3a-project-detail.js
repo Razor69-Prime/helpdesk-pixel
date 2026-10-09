@@ -1,10 +1,12 @@
 /* PXL-VNEXT-3A — Project Detail Core. */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3A';
+  const REV='PXL-VNEXT-3A1';
   const PDF_DAYS_PER_PAGE=31;
   const DAY_MS=24*60*60*1000;
-  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:''};
+  const GANTT_STAGE_COLORS=[[37,99,235],[5,150,105],[217,119,6],[220,38,38],[124,58,237],[8,145,178],[190,24,93],[79,70,229],[101,163,13]];
+  function ganttStageColor(index){return GANTT_STAGE_COLORS[index%GANTT_STAGE_COLORS.length];}
+  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:'',ganttTemplates:[]};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const n=v=>Number(v)||0;
@@ -153,12 +155,56 @@
       const result=await api('GET',`/projects/${encodeURIComponent(state.projectId)}/gantt-plan`);
       state.ganttLoadedProjectId=state.projectId;
       initGanttEditor(result||{});
+      await loadGanttTemplates();
       if(state.activeTab==='gantt')render();
     }catch(e){
       state.ganttLoadedProjectId=state.projectId;
       const body=$('#pxl-v3a-body');
       if(body&&state.activeTab==='gantt')body.innerHTML=`<div class="pxl-v3a-error">${h(e.message||'Gagal memuat Gantt Plan.')}</div>`;
     }
+  }
+
+  async function loadGanttTemplates(){
+    if(!hasPermission('project_gantt_manage')){state.ganttTemplates=[];return []}
+    try{
+      const rows=await api('GET','/project-gantt-templates');
+      state.ganttTemplates=Array.isArray(rows)?rows:[];
+      return state.ganttTemplates;
+    }catch(e){
+      state.ganttTemplates=[];
+      return [];
+    }
+  }
+
+  async function saveCurrentGanttAsTemplate(){
+    if(!hasPermission('project_gantt_manage'))return;
+    const raw=prompt('Nama template Gantt:');
+    const name=String(raw||'').trim();
+    if(!name)return;
+    const stages=state.ganttStages.map((stage,index)=>({
+      name:String(stage.name||'').trim(),
+      duration_days:Number(stage.duration_days),
+      sort_order:index
+    }));
+    try{
+      await api('POST','/project-gantt-templates',{name,stages});
+      await loadGanttTemplates();
+      render();
+    }catch(e){alert(e.message||'Gagal menyimpan template Gantt.');}
+  }
+
+  function applyGanttTemplate(templateId){
+    if(!hasPermission('project_gantt_manage'))return;
+    const currentStartDate=state.ganttStartDate;
+    const hasSavedPlan=!!state.data?.gantt_plan?.stages?.length;
+    if(hasSavedPlan&&!confirm('Project ini sudah memiliki Gantt Plan. Pakai template untuk mengganti isi editor? Perubahan belum disimpan sampai Anda menekan Simpan Gantt Plan.'))return;
+    const source=templateId==='__default__'
+      ?{stages:state.ganttDefaults.map((name,index)=>({name,duration_days:1,sort_order:index}))}
+      :state.ganttTemplates.find(t=>String(t.id)===String(templateId));
+    if(!source?.stages?.length){alert('Template Gantt tidak ditemukan.');return;}
+    state.ganttStages=source.stages.map(stage=>({name:String(stage.name||''),duration_days:Number(stage.duration_days)||1,notes:''}));
+    state.ganttStartDate=currentStartDate;
+    render();
   }
 
   function renderGanttRows(calculated,canManage){
@@ -180,7 +226,9 @@
     if(state.ganttStartDate&&state.ganttStages.length){
       try{calculated=calculateBrowserGantt(state.ganttStartDate,state.ganttStages)}catch(e){validation=e.message}
     }
-    const toolbar=`<div class="pxl-v3a-toolbar"><div><b>Gantt Plan</b><div class="pxl-v3a-muted">Hari kalender termasuk Sabtu/Minggu. Tahap berjalan sequential satu-per-satu.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap">${plan?.stages?.length?'<button class="btn blue sm" id="pxl-v3a-gantt-pdf">Download PDF</button>':''}${canManage?'<button class="btn primary sm" id="pxl-v3a-gantt-save">Simpan Gantt Plan</button>':''}</div></div>`;
+    const templateOptions=[`<option value="__default__">Default 9 Tahap</option>`,...state.ganttTemplates.map(t=>`<option value="${h(t.id)}">${h(t.name)}</option>`)].join('');
+    const templateControls=canManage?`<select id="pxl-v3a-template-select" style="min-width:170px">${templateOptions}</select><button class="btn ghost sm" id="pxl-v3a-template-apply">Pakai Template</button><button class="btn ghost sm" id="pxl-v3a-template-save">Simpan Sebagai Template</button>`:'';
+    const toolbar=`<div class="pxl-v3a-toolbar"><div><b>Gantt Plan</b><div class="pxl-v3a-muted">Hari kalender termasuk Sabtu/Minggu. Tahap berjalan sequential satu-per-satu.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">${templateControls}${plan?.stages?.length?'<button class="btn blue sm" id="pxl-v3a-gantt-pdf">Download PDF</button>':''}${canManage?'<button class="btn primary sm" id="pxl-v3a-gantt-save">Simpan Gantt Plan</button>':''}</div></div>`;
     const start=canManage?`<div class="pxl-v3a-card" style="margin-bottom:10px;max-width:360px"><label>Project Start Date</label><input type="date" id="pxl-v3a-gantt-start" value="${h(state.ganttStartDate)}"><div class="pxl-v3a-muted" style="margin-top:5px">Mengubah tanggal/durasi otomatis menggeser tahap berikutnya.</div></div>`:`<div class="pxl-v3a-card" style="margin-bottom:10px;max-width:360px"><div class="pxl-v3a-label">Project Start Date</div><div class="pxl-v3a-value">${h(plan?.start_date||'—')}</div></div>`;
     const actions=canManage?`<div style="margin-top:10px"><button class="btn sm" id="pxl-v3a-gantt-add">＋ Tambah Tahap</button><span class="pxl-v3a-muted" style="margin-left:8px">${state.ganttStages.length}/100 tahap</span></div>`:'';
     const status=`<div id="pxl-v3a-gantt-status" class="${validation?'pxl-v3a-error':'pxl-v3a-muted'}" style="margin-top:10px">${validation?h(validation):(calculated.length?`Plan: ${h(calculated[0].planned_start)} — ${h(calculated[calculated.length-1].planned_end)} · ${calculated.length} tahap`:'Belum ada Gantt Plan.')}</div>`;
@@ -203,6 +251,8 @@
     document.querySelectorAll('[data-v3a-stage-down]').forEach(b=>b.onclick=()=>moveGanttStage(Number(b.dataset.v3aStageDown),1));
     document.querySelectorAll('[data-v3a-stage-remove]').forEach(b=>b.onclick=()=>removeGanttStage(Number(b.dataset.v3aStageRemove)));
     const add=$('#pxl-v3a-gantt-add');if(add)add.onclick=addGanttStage;
+    const templateSave=$('#pxl-v3a-template-save');if(templateSave)templateSave.onclick=saveCurrentGanttAsTemplate;
+    const templateApply=$('#pxl-v3a-template-apply');if(templateApply)templateApply.onclick=()=>applyGanttTemplate($('#pxl-v3a-template-select')?.value||'__default__');
     const save=$('#pxl-v3a-gantt-save');if(save)save.onclick=saveGanttPlan;
   }
 
@@ -304,7 +354,11 @@
             const startIndex=Math.floor((overlapStart-pageStart)/DAY_MS);
             const dayCount=Math.floor((overlapEnd-overlapStart)/DAY_MS)+1;
             const barX=chartX+(startIndex*cellW)+0.5,barW=Math.max(1,(dayCount*cellW)-1);
+            const [r,g,b]=ganttStageColor(i);
+            doc.setFillColor(r,g,b);
             doc.rect(barX,y+2,barW,4,'F');
+            doc.setTextColor(0,0,0);
+            doc.setDrawColor(120,120,120);
           }
         }
       }

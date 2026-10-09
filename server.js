@@ -1477,6 +1477,32 @@ app.delete('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES)
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.get('/api/project-gantt-templates', requireRole(...PROJECT_ROLES), async (req,res)=>{
+  try{ res.json(await db.getProjectGanttTemplates()); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/project-gantt-templates', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_gantt_manage'), async (req,res)=>{
+  try{
+    const name=String(req.body?.name||'').trim();
+    const stages=Array.isArray(req.body?.stages)?req.body.stages:[];
+    if(!name||name.length>120) return res.status(400).json({error:'Nama template wajib 1 sampai 120 karakter.'});
+    const calculated=buildSequentialGanttPlan('2000-01-01',stages);
+    const templateStages=calculated.map((stage,index)=>({
+      name:stage.name,
+      duration_days:stage.duration_days,
+      sort_order:index
+    }));
+    const template=await db.createProjectGanttTemplate(name,templateStages,req.session.user.name);
+    logActivity(req,'project','CREATE GANTT TEMPLATE',name);
+    res.status(201).json(template);
+  }catch(e){
+    const message=String(e.message||e);
+    const status=/tanggal|tahap|durasi|100|template/i.test(message)?400:500;
+    res.status(status).json({error:message});
+  }
+});
+
 app.get('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), async (req,res)=>{
   try{
     const projects=await db.getProjects();

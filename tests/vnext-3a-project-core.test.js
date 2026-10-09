@@ -30,10 +30,10 @@ test('3A migration creates additive primary WO and Gantt persistence with atomic
   assert.match(sql,/notify\s+pgrst\s*,\s*['"]reload schema['"]/i,'migration must reload PostgREST schema cache after adding new tables/RPC');
 });
 
-test('default Gantt stages are exactly the approved seven stages',()=>{
+test('default Gantt stages are exactly the approved nine stages',()=>{
   const {DEFAULT_PROJECT_GANTT_STAGES}=loadCore();
   assert.deepEqual(DEFAULT_PROJECT_GANTT_STAGES,[
-    'Preparation','Order Barang','Tanam Tiang','Instalasi Perangkat','Konfigurasi','Testing / Commissioning','Serah Terima'
+    'Preparation','Order Barang','Amprah PLN','Tanam Tiang','Tarik Kabel FO','Instalasi Perangkat','Konfigurasi','Testing / Commissioning','Serah Terima'
   ]);
 });
 
