@@ -78,7 +78,7 @@
   }
 
   async function prefillSurvey(){
-    const data=await api('GET',`/tickets/${encodeURIComponent(surveyTicketId)}/survey-sales-order-draft`);
+    const data=await api('GET',`/api/tickets/${encodeURIComponent(surveyTicketId)}/survey-sales-order-draft`);
     if(data.existing_sales_order_id){
       if(typeof editSO==='function'){
         editSO(data.existing_sales_order_id);
