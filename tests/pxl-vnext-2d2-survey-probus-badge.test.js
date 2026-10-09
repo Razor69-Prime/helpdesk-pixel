@@ -29,6 +29,6 @@ test('selected Survey material keeps PROBUS badge visible',()=>{
   assert.match(block,/probusBadge\(item\)/);
 });
 
-test('Survey script cache version is PXL-VNEXT-2D2',()=>{
-  assert.match(index,/pxl-vnext-2c-survey-flow\.js\?v=PXL-VNEXT-2D2/);
+test('Survey script remains cache-busted at PXL-VNEXT-2D2 or a later urgent revision',()=>{
+  assert.match(index,/pxl-vnext-2c-survey-flow\.js\?v=(?:PXL-VNEXT-2D2|PXL-URG-\d+)/);
 });

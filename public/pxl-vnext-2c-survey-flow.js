@@ -258,7 +258,7 @@
     const query=existing&&t.survey_sales_order_id?`focus_so_id=${encodeURIComponent(t.survey_sales_order_id)}`:`survey_ticket_id=${encodeURIComponent(ticketId)}`;
     frame.dataset.loaded='1';
     frame.addEventListener('load',()=>{try{sendModuleToken(frame)}catch(_){}},{once:true});
-    frame.src=`/sales-order.html?v=PXL-VNEXT-2D1&${query}`;
+    frame.src=`/sales-order.html?v=PXL-URG-0111&${query}`;
     const nav=document.querySelector('[data-tab-id="sales-order-fallback"]');
     if(typeof switchTab==='function')switchTab('sales_order',nav||undefined);
   }

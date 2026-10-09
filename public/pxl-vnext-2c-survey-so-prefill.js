@@ -79,6 +79,7 @@
 
   async function prefillSurvey(){
     const data=await api('GET',`/api/tickets/${encodeURIComponent(surveyTicketId)}/survey-sales-order-draft`);
+    if(!data||String(data.source_ticket_id||'')!==String(surveyTicketId))throw new Error('Data hasil Survey tidak valid atau belum siap diprefill.');
     if(data.existing_sales_order_id){
       if(typeof editSO==='function'){
         editSO(data.existing_sales_order_id);

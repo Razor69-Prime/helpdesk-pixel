@@ -18,5 +18,5 @@ test('Survey to SO prefill calls the actual protected API endpoint',()=>{
 });
 
 test('Sales Order cache-busts the corrected Survey prefill script',()=>{
-  assert.match(so,/pxl-vnext-2c-survey-so-prefill\.js\?v=PXL-URG-0110/);
+  assert.match(so,/pxl-vnext-2c-survey-so-prefill\.js\?v=PXL-URG-\d+/);
 });

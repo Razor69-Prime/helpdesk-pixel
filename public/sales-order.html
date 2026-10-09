@@ -140,6 +140,17 @@ window.addEventListener('message', event => {
   }
 });
 
+async function waitForSalesOrderToken(maxWaitMs = 4000) {
+  const started = Date.now();
+  let value = token();
+  while (!value && Date.now() - started < maxWaitMs) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    value = token();
+  }
+  if (!value) throw new Error('Sesi login Sales Order belum siap. Silakan buka ulang menu Sales Order.');
+  return value;
+}
+
 const H = () => ({
   'Content-Type': 'application/json',
   ...(token() ? { Authorization: 'Bearer ' + token() } : {})
@@ -714,6 +725,8 @@ async function act(id, action) {
     await load();
   } catch (error) {
     toast(error.message);
+    if (throwOnError) throw error;
+    return false;
   }
 }
 
@@ -778,7 +791,7 @@ function render() {
   });
 }
 
-async function load() {
+async function load({ throwOnError = false } = {}) {
   try {
     const [options, report, unified, packages] = await Promise.all([
       api('GET', '/api/sales-orders/options'),
@@ -835,7 +848,7 @@ byId('saveBtn')?.addEventListener('click', save);
 byId('addMaterialBtn')?.addEventListener('click', () => addMaterial());
 byId('addServiceBtn')?.addEventListener('click', () => addService());
 
-window.pxlSalesOrderReady=load().then(()=>{ reset(); return true; });
+window.pxlSalesOrderReady=waitForSalesOrderToken().then(()=>load({throwOnError:true})).then(()=>{ reset(); return true; });
 </script>
 <script src="/pxl-stg-0006c-sales-order.js?v=PXL-PROD-0021C"></script>
 <script src="/pxl-prod-0022ab-sales-order-sites.js?v=PXL-URG-0105"></script>
@@ -843,6 +856,6 @@ window.pxlSalesOrderReady=load().then(()=>{ reset(); return true; });
 <script src="/pxl-prod-0022d-so-ppn.js?v=PXL-PROD-0022D"></script>
 <script src="/pxl-prod-0022d3-so-ppn-persist.js?v=PXL-URG-0048B"></script>
 <script src="/pxl-prod-0022d7-project-pdf-sync.js?v=PXL-PROD-0022D7"></script>
-<script src="/pxl-vnext-2c-survey-so-prefill.js?v=PXL-URG-0110"></script>
+<script src="/pxl-vnext-2c-survey-so-prefill.js?v=PXL-URG-0111"></script>
 </body>
 </html>
