@@ -1,0 +1,1364 @@
+diff --git a/PXL-VNEXT-3A1-MIGRATION.sql b/PXL-VNEXT-3A1-MIGRATION.sql
+new file mode 100644
+index 0000000..f210a47
+--- /dev/null
++++ b/PXL-VNEXT-3A1-MIGRATION.sql
+@@ -0,0 +1,113 @@
++-- PXL-VNEXT-3A1 — Shared Gantt templates
++-- Additive only. Existing project Gantt plans/stages are never rewritten or backfilled.
++
++begin;
++
++create table if not exists public.project_gantt_templates (
++  id uuid primary key default gen_random_uuid(),
++  name text not null check (length(trim(name)) between 1 and 120),
++  created_by text,
++  created_at timestamptz not null default now(),
++  updated_by text,
++  updated_at timestamptz not null default now()
++);
++
++create table if not exists public.project_gantt_template_stages (
++  id uuid primary key default gen_random_uuid(),
++  template_id uuid not null references public.project_gantt_templates(id) on delete cascade,
++  name text not null check (length(trim(name)) > 0),
++  duration_days integer not null check (duration_days between 1 and 3650),
++  sort_order integer not null,
++  created_by text,
++  created_at timestamptz not null default now(),
++  updated_by text,
++  updated_at timestamptz not null default now(),
++  constraint project_gantt_template_stages_sort_unique unique (template_id, sort_order)
++);
++
++create index if not exists idx_project_gantt_template_stages_template_id
++  on public.project_gantt_template_stages(template_id, sort_order);
++
++alter table public.project_gantt_templates enable row level security;
++alter table public.project_gantt_template_stages enable row level security;
++
++do $$
++begin
++  if not exists (
++    select 1 from pg_policies where schemaname='public' and tablename='project_gantt_templates' and policyname='Allow all for authenticated'
++  ) then
++    create policy "Allow all for authenticated" on public.project_gantt_templates for all using (true) with check (true);
++  end if;
++  if not exists (
++    select 1 from pg_policies where schemaname='public' and tablename='project_gantt_template_stages' and policyname='Allow all for authenticated'
++  ) then
++    create policy "Allow all for authenticated" on public.project_gantt_template_stages for all using (true) with check (true);
++  end if;
++end $$;
++
++create or replace function public.pxl_vnext_3a1_create_gantt_template(
++  p_name text,
++  p_stages jsonb,
++  p_actor text default 'System'
++)
++returns uuid
++language plpgsql
++security definer
++set search_path=public
++as $$
++declare
++  v_template_id uuid;
++  v_name text:=trim(coalesce(p_name,''));
++  v_actor text:=coalesce(nullif(trim(p_actor),''),'System');
++  v_stage jsonb;
++  v_stage_count integer;
++  v_stage_name text;
++  v_duration integer;
++  v_sort_order integer;
++begin
++  if length(v_name)<1 or length(v_name)>120 then
++    raise exception 'Nama template wajib 1 sampai 120 karakter.';
++  end if;
++  if p_stages is null or jsonb_typeof(p_stages)<>'array' then
++    raise exception 'Daftar tahap template tidak valid.';
++  end if;
++  v_stage_count:=jsonb_array_length(p_stages);
++  if v_stage_count<1 or v_stage_count>100 then
++    raise exception 'Template Gantt harus memiliki 1 sampai 100 tahap.';
++  end if;
++
++  insert into public.project_gantt_templates(name,created_by,created_at,updated_by,updated_at)
++  values(v_name,v_actor,now(),v_actor,now())
++  returning id into v_template_id;
++
++  for v_stage in select value from jsonb_array_elements(p_stages)
++  loop
++    v_stage_name:=trim(coalesce(v_stage->>'name',''));
++    begin
++      v_duration:=(v_stage->>'duration_days')::integer;
++      v_sort_order:=(v_stage->>'sort_order')::integer;
++    exception when others then
++      raise exception 'Durasi atau urutan tahap template tidak valid.';
++    end;
++    if v_stage_name='' then raise exception 'Nama tahap template wajib diisi.'; end if;
++    if v_duration<1 or v_duration>3650 then raise exception 'Durasi tahap template harus 1 sampai 3650 hari.'; end if;
++    if v_sort_order<0 or v_sort_order>=v_stage_count then raise exception 'Urutan tahap template tidak valid.'; end if;
++
++    insert into public.project_gantt_template_stages(
++      template_id,name,duration_days,sort_order,created_by,created_at,updated_by,updated_at
++    ) values(
++      v_template_id,v_stage_name,v_duration,v_sort_order,v_actor,now(),v_actor,now()
++    );
++  end loop;
++
++  if (select count(*) from public.project_gantt_template_stages where template_id=v_template_id)<>v_stage_count then
++    raise exception 'Urutan tahap template tidak lengkap atau duplikat.';
++  end if;
++
++  return v_template_id;
++end;
++$$;
++
++-- Full VPS: PostgREST runs as owner role `pixelapps`; no Supabase-role GRANT required.
++commit;
++notify pgrst, 'reload schema';
+diff --git a/db-core.js b/db-core.js
+index 22cd99c..cb873cd 100644
+--- a/db-core.js
++++ b/db-core.js
+@@ -711,6 +711,32 @@ async function upsertProjectPrimaryWorkOrder(projectId,ticketId,actor){
+   const rows=await restFetch('POST','/project_primary_work_orders',row);
+   return rows?.[0]||row;
+ }
++async function getProjectGanttTemplates(){
++  if(!USE_POSTGREST) return [];
++  const rows=await restFetch('GET','/project_gantt_templates?order=created_at.desc,name.asc')||[];
++  return await Promise.all(rows.map(async row=>{
++    const stages=await restFetch('GET',`/project_gantt_template_stages?template_id=eq.${encodeURIComponent(row.id)}&order=sort_order.asc`)||[];
++    return {...row,stages};
++  }));
++}
++async function getProjectGanttTemplate(templateId){
++  if(!templateId||!USE_POSTGREST) return null;
++  const rows=await restFetch('GET',`/project_gantt_templates?id=eq.${encodeURIComponent(templateId)}&limit=1`);
++  if(!rows?.length) return null;
++  const stages=await restFetch('GET',`/project_gantt_template_stages?template_id=eq.${encodeURIComponent(templateId)}&order=sort_order.asc`)||[];
++  return {...rows[0],stages};
++}
++async function createProjectGanttTemplate(name,stages,actor){
++  if(!USE_POSTGREST){
++    return {id:crypto.randomUUID(),name,stages,created_by:actor||'System',created_at:new Date().toISOString()};
++  }
++  const created=await restFetch('POST','/rpc/pxl_vnext_3a1_create_gantt_template',{
++    p_name:name,p_stages:stages,p_actor:actor||'System'
++  });
++  const templateId=Array.isArray(created)?created[0]:created;
++  return getProjectGanttTemplate(templateId);
++}
++
+ async function getProjectGanttPlan(projectId){
+   if(!projectId||!USE_POSTGREST) return null;
+   const headers=await restFetch('GET',`/project_gantt_plans?project_id=eq.${encodeURIComponent(projectId)}&limit=1`);
+@@ -1381,7 +1407,7 @@ module.exports = {
+   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
+   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
+   getProjects, insertProject, updateProject, deleteProject,
+-  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getTicketById, searchTicketsCompact,
++  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
+   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
+   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
+   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
+diff --git a/docs/superpowers/plans/2026-10-09-phase-3a1-gantt-template-mobile-fix.md b/docs/superpowers/plans/2026-10-09-phase-3a1-gantt-template-mobile-fix.md
+new file mode 100644
+index 0000000..46f62ec
+--- /dev/null
++++ b/docs/superpowers/plans/2026-10-09-phase-3a1-gantt-template-mobile-fix.md
+@@ -0,0 +1,257 @@
++# PXL-VNEXT-3A1 Gantt Template + Mobile Project Tracker Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** Improve Phase 3A Gantt defaults/PDF/template reuse and fix unreadable Project Tracker rendering on mobile without rewriting desktop Project Tracker or Project Report.
++
++**Architecture:** Extend the existing Phase 3A Gantt module with additive shared-template persistence and API endpoints. Keep project Gantt plans authoritative and separate from templates; templates contain only name/order/duration and never a project start date. Keep the existing desktop Project Tracker table, while rendering a separate mobile card list from the same filtered `projectsData` source.
++
++**Tech Stack:** Node.js/Express, PostgreSQL 17 + PostgREST, vanilla JavaScript, jsPDF, Node built-in test runner.
++
++**Spec:** `docs/superpowers/specs/2026-10-09-phase-3a1-3a2-gantt-mobile-multi-wo-design.md`
++
++## Global Constraints
++
++- Baseline is `PXL-VNEXT-3A` commit `c44c34e139edbc05aa0a6a6dbcc48952436fc3ba` plus the approved spec commit.
++- New unsaved Gantt defaults must be exactly: Preparation, Order Barang, Amprah PLN, Tanam Tiang, Tarik Kabel FO, Instalasi Perangkat, Konfigurasi, Testing / Commissioning, Serah Terima.
++- Existing saved project Gantt plans must not be rewritten or backfilled.
++- Gantt calculations remain sequential calendar days including Saturday/Sunday.
++- Templates store only template name, stage name, stage order, and duration; no project start date/project id in template content.
++- Applying a template edits the current editor only; it never auto-saves the Project Gantt Plan.
++- Reuse existing `project_gantt_manage`; do not introduce a new role/permission.
++- Desktop Project Tracker remains a table; mobile Project Tracker becomes cards without horizontal scrolling.
++- Do not change SO→WO, WO→MR, BOQ, Today Achievement, or Actual/Realisasi.
++- Migration is additive and ends with `notify pgrst, 'reload schema';`.
++
++## Review Focus
++
++- Existing saved Gantt plan must win over new defaults even after the default list changes; pin this in Task 2 API/UI regression tests.
++- Template names may be blank/duplicate/very long; Task 1 validates trimmed non-empty names, bounded length, and allows duplicate names only if the schema intentionally does so.
++- Applying a template over an already saved plan must require explicit confirmation and still not save automatically; pin in Task 3 UI tests.
++- PDF schedules longer than 31 days must preserve deterministic colors across pages; pin in Task 4 PDF tests.
++- Mobile list must remain readable when issue/action text is long and when there are zero projects; pin in Task 5 responsive rendering tests.
++
++---
++
++### Task 1: Add shared Gantt template persistence
++
++**Files:**
++- Create: `PXL-VNEXT-3A1-MIGRATION.sql`
++- Modify: `db-core.js:680-740` and export block near file end
++- Test: `tests/vnext-3a1-gantt-template-core.test.js`
++
++**Interfaces:**
++- Produces: `getProjectGanttTemplates() -> Promise<Array<Template>>`
++- Produces: `getProjectGanttTemplate(templateId) -> Promise<Template|null>` where `Template` includes `stages` ordered by `sort_order`.
++- Produces: `createProjectGanttTemplate(name, stages, actor) -> Promise<Template>`.
++- Template stage input is `{name:string,duration_days:number,sort_order:number}` only.
++
++- [ ] **Step 1: Write failing persistence tests**
++  - Assert migration creates `project_gantt_templates` and `project_gantt_template_stages` additively.
++  - Assert template stages do not contain `start_date`, `planned_start`, `planned_end`, or `project_id` as project-specific state beyond the template FK.
++  - Assert migration contains no update/insert against existing `project_gantt_plans` or `project_gantt_stages`.
++  - Assert `db-core.js` exposes the three interfaces above.
++
++- [ ] **Step 2: Run the focused test and verify RED**
++  - Run: `node --test tests/vnext-3a1-gantt-template-core.test.js`
++  - Expected: FAIL because 3A1 migration/helpers do not exist.
++
++- [ ] **Step 3: Implement additive template schema**
++  - `project_gantt_templates`: UUID id, `name` text non-empty with max 120 chars, created/updated actor/timestamps.
++  - `project_gantt_template_stages`: UUID id, template FK cascade, non-empty name, `duration_days` 1..3650, `sort_order`, audit metadata, unique `(template_id,sort_order)`.
++  - Add RLS/policy following 3A Full VPS pattern; no Supabase-role grants.
++  - Add an atomic `pxl_vnext_3a1_create_gantt_template(p_name,p_stages,p_actor)` RPC that validates 1..100 stages and inserts header+stages in one transaction.
++  - End migration with PostgREST schema reload notify.
++
++- [ ] **Step 4: Implement DB helpers**
++  - Read templates ordered newest/name consistently.
++  - Read one template with ordered stages.
++  - Create template through the RPC and return the freshly loaded template.
++
++- [ ] **Step 5: Run focused test and verify GREEN**
++  - Run: `node --test tests/vnext-3a1-gantt-template-core.test.js`
++  - Expected: PASS.
++
++- [ ] **Step 6: Commit Task 1**
++  - `git add PXL-VNEXT-3A1-MIGRATION.sql db-core.js tests/vnext-3a1-gantt-template-core.test.js`
++  - `git commit -m "PXL-VNEXT-3A1 add shared Gantt template persistence"`
++
++### Task 2: Update nine-stage defaults and template APIs
++
++**Files:**
++- Modify: `project-vnext-3a.js:3-13`
++- Modify: `server.js:1417-1505`
++- Test: `tests/vnext-3a-project-core.test.js`
++- Create: `tests/vnext-3a1-gantt-template-api.test.js`
++
++**Interfaces:**
++- Consumes Task 1 DB helpers.
++- Produces: `GET /api/project-gantt-templates` under existing Project read role protection.
++- Produces: `POST /api/project-gantt-templates` under `project_gantt_manage`.
++- Existing `GET /api/projects/:id/gantt-plan` keeps returning `{plan,default_stages}`; `default_stages` becomes the approved nine-stage array only when no saved plan is being edited by the client.
++
++- [ ] **Step 1: Update tests first**
++  - Change the Phase 3A default-stage regression from seven to the exact approved nine-stage order.
++  - Add API tests proving GET is read-protected and POST is permission-protected.
++  - Assert POST accepts `{name,stages:[{name,duration_days,sort_order}]}` and rejects blank names/invalid stage counts/durations.
++  - Assert no route mutates existing project Gantt plans when creating a template.
++
++- [ ] **Step 2: Run tests and verify RED**
++  - Run: `node --test tests/vnext-3a-project-core.test.js tests/vnext-3a1-gantt-template-api.test.js`
++  - Expected: FAIL on old seven-stage defaults and missing template routes.
++
++- [ ] **Step 3: Implement exact nine-stage defaults**
++  - Replace only `DEFAULT_PROJECT_GANTT_STAGES`; leave `buildSequentialGanttPlan()` behavior unchanged.
++
++- [ ] **Step 4: Implement template API endpoints**
++  - GET returns shared templates with stage layouts.
++  - POST validates request using existing server-side Gantt duration/name limits before calling Task 1 DB helper.
++  - Use `req.session.user.name` for audit actor and `logActivity()` with a Project/Gantt template action.
++
++- [ ] **Step 5: Run tests and verify GREEN**
++  - Run the two focused test files; expected PASS.
++
++- [ ] **Step 6: Commit Task 2**
++  - `git add project-vnext-3a.js server.js tests/vnext-3a-project-core.test.js tests/vnext-3a1-gantt-template-api.test.js`
++  - `git commit -m "PXL-VNEXT-3A1 expose nine-stage defaults and template API"`
++
++### Task 3: Add Save As Template and Apply Template UI
++
++**Files:**
++- Modify: `public/pxl-vnext-3a-project-detail.js:140-256`
++- Test: `tests/vnext-3a1-gantt-template-ui.test.js`
++
++**Interfaces:**
++- Consumes `GET/POST /api/project-gantt-templates`.
++- Produces UI functions: `loadGanttTemplates()`, `saveCurrentGanttAsTemplate()`, `applyGanttTemplate(templateId)`.
++- Applying template updates `state.ganttStages` only; `state.ganttStartDate` remains the current project's value.
++
++- [ ] **Step 1: Write failing UI tests**
++  - Assert buttons/text `Simpan Sebagai Template` and `Pakai Template` exist only for `project_gantt_manage` mutation actions.
++  - Assert save-template payload excludes start date/project id.
++  - Assert apply-template retains the current start date and calls no `PUT /projects/:id/gantt-plan`.
++  - Assert applying when `state.data.gantt_plan.stages.length > 0` requires `confirm()` before replacing editor stages.
++  - Assert `Simpan Gantt Plan` remains the only action that persists the project plan.
++
++- [ ] **Step 2: Run UI test and verify RED**
++  - Run: `node --test tests/vnext-3a1-gantt-template-ui.test.js`
++
++- [ ] **Step 3: Implement template picker/save UX**
++  - Load shared templates when Gantt editor opens.
++  - `Simpan Sebagai Template` prompts for a trimmed template name, posts the current stage name/order/duration layout, refreshes template list, and does not alter project plan.
++  - `Pakai Template` uses a select/picker from shared templates; confirm if a saved project plan exists; replace editor stages only, recalculate preview from the project's current start date, and wait for explicit `Simpan Gantt Plan`.
++  - Include the nine-stage default as a non-DB system option in the picker so it is not duplicated per project.
++
++- [ ] **Step 4: Run UI test and verify GREEN**
++  - Run focused UI test; expected PASS.
++
++- [ ] **Step 5: Commit Task 3**
++  - `git add public/pxl-vnext-3a-project-detail.js tests/vnext-3a1-gantt-template-ui.test.js`
++  - `git commit -m "PXL-VNEXT-3A1 add reusable Gantt template controls"`
++
++### Task 4: Make Gantt PDF colored and deterministic
++
++**Files:**
++- Modify: `public/pxl-vnext-3a-project-detail.js:256-313`
++- Modify/Test: `tests/vnext-3a-gantt-ui.test.js`
++
++**Interfaces:**
++- Produces local deterministic helper `ganttStageColor(index)` returning one entry from a fixed printable RGB palette.
++- Existing `downloadGanttPdf()` remains landscape A4 and 31-day page chunks.
++
++- [ ] **Step 1: Write failing PDF tests**
++  - Assert a palette of at least 6 distinct colors exists.
++  - Assert each stage bar calls `doc.setFillColor(...)` before drawing the bar.
++  - Assert stage color is based on stage index/order so the same stage keeps the same color on every PDF page.
++  - Preserve assertions for landscape A4 and 31-day pagination.
++
++- [ ] **Step 2: Run test and verify RED**
++  - Run: `node --test tests/vnext-3a-gantt-ui.test.js`
++
++- [ ] **Step 3: Implement printable color palette**
++  - Use fixed medium/dark RGB colors with readable contrast; do not randomize.
++  - Reset text/grid colors explicitly after drawing bars so later cells/pages are not tinted accidentally.
++
++- [ ] **Step 4: Run test and verify GREEN**
++  - Run focused test; expected PASS.
++
++- [ ] **Step 5: Commit Task 4**
++  - `git add public/pxl-vnext-3a-project-detail.js tests/vnext-3a-gantt-ui.test.js`
++  - `git commit -m "PXL-VNEXT-3A1 colorize Gantt PDF report"`
++
++### Task 5: Replace mobile Project Tracker table with cards
++
++**Files:**
++- Modify: `public/index.html:312-350` CSS
++- Modify: `public/index.html:2109-2120` markup
++- Modify: `public/index.html:10301-10365` renderer
++- Create: `tests/vnext-3a1-project-mobile-ui.test.js`
++
++**Interfaces:**
++- Produces mobile container `#proj-mobile-list` sourced from the same `filterProjects()` result.
++- Produces helper `renderProjectMobileCards(filtered)` returning/rendering compact cards.
++- Desktop table remains `#proj-table-body` and existing Edit/Delete behavior is not removed.
++
++- [ ] **Step 1: Write failing responsive UI tests**
++  - Assert mobile container/card classes exist.
++  - Assert media CSS hides `.proj-table-wrap` and shows mobile cards only at mobile width, while desktop does the inverse.
++  - Assert card contains priority/name, status, PIC, Material/Jasa progress, target, latest issue, action plan, and Detail.
++  - Assert issue/action text uses line clamping or bounded wrapping and does not force horizontal scroll.
++  - Assert empty filtered results render a mobile empty-state as well as desktop empty row.
++
++- [ ] **Step 2: Run test and verify RED**
++  - Run: `node --test tests/vnext-3a1-project-mobile-ui.test.js`
++
++- [ ] **Step 3: Add mobile-only markup/CSS**
++  - Keep desktop/table styles intact.
++  - Add card styles under the Project Tracker section and a mobile breakpoint matching the current app's phone layout.
++
++- [ ] **Step 4: Render mobile cards from the same filtered data**
++  - Call `renderProjectMobileCards(filtered)` from `renderProjectList()` after summary calculation.
++  - Reuse `window.pxlProjectReportSummaries` for Material/Jasa progress and existing permission checks for actions.
++  - Detail remains the primary action; Edit/Delete may remain as compact secondary actions if already allowed.
++
++- [ ] **Step 5: Run test and verify GREEN**
++  - Run focused mobile test; expected PASS.
++
++- [ ] **Step 6: Commit Task 5**
++  - `git add public/index.html tests/vnext-3a1-project-mobile-ui.test.js`
++  - `git commit -m "PXL-VNEXT-3A1 fix Project Tracker mobile cards"`
++
++### Task 6: Full 3A1 verification and release gate
++
++**Files:**
++- No new product code unless verification reveals a defect.
++
++- [ ] **Step 1: Run complete regression**
++  - Run: `node --test tests/*.test.js`
++  - Expected: all tests PASS, including existing 3A tests intentionally updated only for nine-stage default.
++
++- [ ] **Step 2: Run syntax/diff checks**
++  - `node --check project-vnext-3a.js`
++  - `node --check db-core.js`
++  - `node --check server.js`
++  - `node --check public/pxl-vnext-3a-project-detail.js`
++  - Extract/check inline JS from `public/index.html` using the repository's existing syntax-check pattern.
++  - `git diff --check` must be clean.
++
++- [ ] **Step 3: Migration safety review**
++  - Confirm 3A1 migration has no backfill/update of saved project Gantt plans.
++  - Confirm Full VPS PostgREST reload notify is present.
++  - Confirm no new permission defaults.
++
++- [ ] **Step 4: Production release sequence after explicit release instruction**
++  - Backup DB/source.
++  - Push verified commit to GitHub.
++  - Fast-forward VPS only.
++  - Run 3A1 migration transactionally.
++  - Restart/reload Node/PostgREST as required.
++  - Verify public/local HTTP, new template tables/API, row counts, and full regression.
++
++- [ ] **Step 5: UAT checklist**
++  - New unsaved Gantt shows the exact nine stages.
++  - Existing saved Gantt remains unchanged.
++  - Save a layout as template; apply it to a second project; second project keeps its own start date and requires explicit Save Plan.
++  - PDF displays colored stage bars across pages.
++  - Project Tracker on phone renders cards with no overlapping columns.
++
+diff --git a/docs/superpowers/plans/2026-10-09-phase-3a2-project-multi-wo.md b/docs/superpowers/plans/2026-10-09-phase-3a2-project-multi-wo.md
+new file mode 100644
+index 0000000..bf8040a
+--- /dev/null
++++ b/docs/superpowers/plans/2026-10-09-phase-3a2-project-multi-wo.md
+@@ -0,0 +1,213 @@
++# PXL-VNEXT-3A2 Project Multi-WO Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** Extend Project Detail from one Primary WO to one Primary WO plus multiple existing Related WOs while enforcing one WO belongs to only one Project.
++
++**Architecture:** Keep `project_primary_work_orders` authoritative for the single Primary WO and add an additive `project_related_work_orders` table. Enforce the cross-table one-WO-one-Project invariant both in PostgreSQL triggers and backend validation helpers. Reuse the existing compact WO search and existing Daftar WO opening flow; Project Detail never creates a WO.
++
++**Tech Stack:** Node.js/Express, PostgreSQL 17 + PostgREST, vanilla JavaScript, Node built-in test runner.
++
++**Spec:** `docs/superpowers/specs/2026-10-09-phase-3a1-3a2-gantt-mobile-multi-wo-design.md`
++
++## Global Constraints
++
++- Execute only after `PXL-VNEXT-3A1` production UAT is accepted.
++- A Project has zero/one Primary WO and zero/many Related WOs.
++- A WO may belong to at most one Project across both Primary and Related relations.
++- Related WOs are linked from existing WO only; no Project Detail WO creation endpoint/UI.
++- Existing WO, TTD, photos, status, MR, SO→WO, and WO→MR behavior must remain untouched.
++- Reuse `project_primary_wo_manage`; no new permission or role defaults.
++- Unlinking a relation never deletes or edits the WO.
++- No automatic relation backfill from project names.
++- Expose a backend DB helper that returns all linked WO IDs for future Phase 3B MR aggregation.
++- Migration is additive and reloads PostgREST schema cache.
++
++## Review Focus
++
++- A WO linked Primary in Project A must be rejected as Related/Primary in any other project; pin in Task 1 DB and Task 3 API tests.
++- A WO linked Related in Project A must be rejected as Primary/Related elsewhere and as Related duplicate in A; pin in Task 1/3.
++- Changing an existing Primary WO must release only the old Primary relation and must not alter the old WO; pin in Task 3 regression.
++- Stale/deleted/unavailable WO relation must render safely and remain unlinkable; pin in Task 4 UI tests.
++- Concurrent cross-table link attempts must still be rejected by database triggers even if backend pre-check races; pin migration trigger definitions in Task 1 tests.
++
++---
++
++### Task 1: Add Related WO persistence and cross-table database guard
++
++**Files:**
++- Create: `PXL-VNEXT-3A2-MIGRATION.sql`
++- Test: `tests/vnext-3a2-multi-wo-core.test.js`
++
++**Interfaces:**
++- Produces table `project_related_work_orders`.
++- Produces DB guard function `pxl_vnext_3a2_guard_project_work_order_link()` attached to both Primary and Related relation tables.
++
++- [ ] **Step 1: Write failing migration tests**
++  - Assert additive Related WO table with project FK, ticket FK, audit fields, unique `ticket_id`, and unique `(project_id,ticket_id)`.
++  - Assert no insert/backfill from ticket/project-name matching.
++  - Assert trigger function checks the opposite relation table before Primary or Related insert/update.
++  - Assert both `project_primary_work_orders` and `project_related_work_orders` have BEFORE INSERT/UPDATE guard triggers.
++  - Assert PostgREST reload notify exists.
++
++- [ ] **Step 2: Run test and verify RED**
++  - `node --test tests/vnext-3a2-multi-wo-core.test.js`
++
++- [ ] **Step 3: Implement migration**
++  - Create `project_related_work_orders(id uuid default gen_random_uuid(), project_id uuid not null, ticket_id uuid not null, created_by text, created_at timestamptz default now())` with indexes/uniques and RLS policy matching Full VPS style.
++  - Guard function rules: reject if NEW.ticket_id is linked in the opposite table; on Primary update, allow the row's own existing Primary relation but reject any Related relation; on Related update/insert, reject any Primary relation or another Related owner.
++  - Use clear exception text that backend can map to HTTP 409.
++
++- [ ] **Step 4: Run test and verify GREEN**
++  - Focused test PASS.
++
++- [ ] **Step 5: Commit Task 1**
++  - `git add PXL-VNEXT-3A2-MIGRATION.sql tests/vnext-3a2-multi-wo-core.test.js`
++  - `git commit -m "PXL-VNEXT-3A2 add related WO relation guards"`
++
++### Task 2: Add authoritative DB helpers for linked WOs
++
++**Files:**
++- Modify: `db-core.js:680-735` and export block
++- Test: `tests/vnext-3a2-multi-wo-db.test.js`
++
++**Interfaces:**
++- Produces: `getProjectRelatedWorkOrders(projectId) -> Promise<Array<Relation>>`.
++- Produces: `linkProjectRelatedWorkOrder(projectId,ticketId,actor) -> Promise<Relation>`.
++- Produces: `unlinkProjectRelatedWorkOrder(projectId,ticketId) -> Promise<void>`.
++- Produces: `getProjectWorkOrderOwner(ticketId) -> Promise<{project_id:string,kind:'primary'|'related'}|null>`.
++- Produces: `getProjectLinkedWorkOrderIds(projectId) -> Promise<Array<string>>` returning Primary first when present, then Related, unique IDs.
++
++- [ ] **Step 1: Write failing helper tests**
++  - Assert all five helpers are exported and reference both relation tables where appropriate.
++  - Assert `getProjectLinkedWorkOrderIds` de-duplicates IDs and excludes null Primary ticket IDs.
++
++- [ ] **Step 2: Run test and verify RED**
++  - `node --test tests/vnext-3a2-multi-wo-db.test.js`
++
++- [ ] **Step 3: Implement minimal PostgREST helpers**
++  - Preserve existing `getProjectPrimaryWorkOrder`/`upsertProjectPrimaryWorkOrder` signatures for compatibility.
++  - Query related rows ordered by creation time.
++  - `getProjectWorkOrderOwner` checks Primary first then Related and returns one normalized owner object.
++  - No WO table mutation occurs in these helpers.
++
++- [ ] **Step 4: Run test and verify GREEN**
++
++- [ ] **Step 5: Commit Task 2**
++  - `git add db-core.js tests/vnext-3a2-multi-wo-db.test.js`
++  - `git commit -m "PXL-VNEXT-3A2 add Project linked WO helpers"`
++
++### Task 3: Enforce one-WO-one-Project in APIs and add Related WO routes
++
++**Files:**
++- Modify: `server.js:1417-1480`
++- Modify/Test: `tests/vnext-3a-project-api.test.js`
++- Create: `tests/vnext-3a2-multi-wo-api.test.js`
++
++**Interfaces:**
++- Consumes Task 2 `getProjectWorkOrderOwner` and Related helpers.
++- Extends `GET /api/projects/:id/detail` response with `related_work_orders:Array<WO|UnavailableRef>`.
++- Produces `POST /api/projects/:id/related-work-orders` body `{ticket_id}`.
++- Produces `DELETE /api/projects/:id/related-work-orders/:ticketId`.
++- Existing `PUT /api/projects/:id/primary-work-order` now validates against both Primary and Related ownership.
++
++- [ ] **Step 1: Write failing API tests**
++  - Primary link rejects owner kind Primary or Related in another/same project as conflict when it would duplicate relation.
++  - Related link rejects any existing owner, including the same project's Primary.
++  - Related link requires existing Project and existing WO.
++  - Link/unlink routes require `project_primary_wo_manage`.
++  - DELETE only removes relation; test source must not call ticket delete/update APIs.
++  - Existing SO→WO and WO→MR routes remain present.
++
++- [ ] **Step 2: Run focused tests and verify RED**
++  - `node --test tests/vnext-3a-project-api.test.js tests/vnext-3a2-multi-wo-api.test.js`
++
++- [ ] **Step 3: Refactor Primary validation to owner helper**
++  - Before Primary upsert, call `getProjectWorkOrderOwner(ticketId)`.
++  - Allow the existing same-project Primary relation when selecting the currently linked WO; reject Related or another project's Primary with 409.
++  - Preserve current activity logging and response shape.
++
++- [ ] **Step 4: Add Related routes and detail aggregation**
++  - Load each Related relation's WO through `getTicketById`; unavailable relations return `{unavailable:true,ticket_id}`.
++  - POST checks project/ticket, checks normalized owner, inserts relation, logs `LINK RELATED WO`, returns relation+WO.
++  - DELETE validates relation belongs to the current project, removes only relation, logs `UNLINK RELATED WO`.
++  - Map database guard/unique exceptions to HTTP 409 with user-readable text.
++
++- [ ] **Step 5: Run focused tests and verify GREEN**
++
++- [ ] **Step 6: Commit Task 3**
++  - `git add server.js tests/vnext-3a-project-api.test.js tests/vnext-3a2-multi-wo-api.test.js`
++  - `git commit -m "PXL-VNEXT-3A2 add Related WO APIs and ownership guard"`
++
++### Task 4: Extend Project Detail Work Order tab for Related WOs
++
++**Files:**
++- Modify: `public/pxl-vnext-3a-project-detail.js:316-390`
++- Modify/Test: `tests/vnext-3a-primary-wo-ui.test.js`
++- Create: `tests/vnext-3a2-multi-wo-ui.test.js`
++
++**Interfaces:**
++- Consumes detail response `related_work_orders`.
++- Produces UI actions `linkRelatedWorkOrder(ticketId)` and `unlinkRelatedWorkOrder(ticketId)`.
++- Reuses `GET /api/projects/:id/work-order-options` and `openTicketInList(woNumber)`.
++
++- [ ] **Step 1: Write failing UI tests**
++  - Assert Work Order tab renders a Primary WO section plus Related WO list.
++  - Assert `Tambah Related WO` appears only with `project_primary_wo_manage`.
++  - Assert Related search uses the existing compact options endpoint and has no WO creation POST.
++  - Assert Related WO can open through existing Daftar WO flow.
++  - Assert unlink requires confirmation text explicitly stating WO/history are not deleted.
++  - Assert unavailable Related relation renders safely with ticket id and unlink action.
++
++- [ ] **Step 2: Run UI tests and verify RED**
++  - `node --test tests/vnext-3a-primary-wo-ui.test.js tests/vnext-3a2-multi-wo-ui.test.js`
++
++- [ ] **Step 3: Implement Related WO list**
++  - Keep current Primary section intact.
++  - Render Related WOs below Primary with identifying fields: WO number/id, customer/project, type/status, technician when available.
++  - Use compact cards responsive on mobile.
++
++- [ ] **Step 4: Implement Related link/search/unlink actions**
++  - Reuse existing compact WO search output; distinguish Primary-select and Related-add button handlers so one action cannot call the wrong endpoint.
++  - POST Related route on add, refresh authoritative detail response.
++  - DELETE Related route on confirmed unlink, refresh detail.
++
++- [ ] **Step 5: Run UI tests and verify GREEN**
++
++- [ ] **Step 6: Commit Task 4**
++  - `git add public/pxl-vnext-3a-project-detail.js tests/vnext-3a-primary-wo-ui.test.js tests/vnext-3a2-multi-wo-ui.test.js`
++  - `git commit -m "PXL-VNEXT-3A2 show Primary and Related WOs in Project Detail"`
++
++### Task 5: Full 3A2 regression and release gate
++
++**Files:**
++- No new product code unless verification finds a defect.
++
++- [ ] **Step 1: Full regression**
++  - `node --test tests/*.test.js`
++  - Expected: all tests PASS, including 3A1 and urgent MR regression tests.
++
++- [ ] **Step 2: Syntax and diff checks**
++  - `node --check db-core.js`
++  - `node --check server.js`
++  - `node --check public/pxl-vnext-3a-project-detail.js`
++  - `git diff --check`
++
++- [ ] **Step 3: Migration/data safety review**
++  - Confirm migration creates no Related rows automatically.
++  - Confirm existing Primary rows are not rewritten.
++  - Confirm `projects` and `tickets` row counts are unchanged in a dry/read-only compatibility check.
++  - Confirm trigger handles cross-table race defensively.
++
++- [ ] **Step 4: Production release after explicit release instruction**
++  - Backup DB/source.
++  - Push verified commit, fast-forward VPS, execute migration transactionally, reload schema/restart Node, verify HTTP and PostgREST.
++
++- [ ] **Step 5: UAT checklist**
++  - Keep/set one Primary WO.
++  - Add at least two existing Related WOs.
++  - Attempt to link one of those WOs into another Project and verify 409/user-visible rejection.
++  - Open Primary and Related WOs via existing Daftar WO flow.
++  - Unlink one Related WO and verify the WO/status/history/TTD/photos remain untouched.
++  - Verify `getProjectLinkedWorkOrderIds(projectId)` includes remaining Primary+Related IDs for Phase 3B readiness.
++
+diff --git a/docs/superpowers/specs/2026-10-09-phase-3a1-3a2-gantt-mobile-multi-wo-design.md b/docs/superpowers/specs/2026-10-09-phase-3a1-3a2-gantt-mobile-multi-wo-design.md
+new file mode 100644
+index 0000000..84c0e96
+--- /dev/null
++++ b/docs/superpowers/specs/2026-10-09-phase-3a1-3a2-gantt-mobile-multi-wo-design.md
+@@ -0,0 +1,250 @@
++# PXL-VNEXT-3A1 / 3A2 Design — Gantt Template, Mobile Project Tracker, Multi-WO
++
++Date: 2026-10-09
++Baseline: PXL-VNEXT-3A (`c44c34e139edbc05aa0a6a6dbcc48952436fc3ba`)
++Status: Design approved in chat; written spec pending user review.
++
++## 1. Goals
++
++This revision addresses Phase 3A production UAT findings without rewriting Project Tracker or Work Order flows.
++
++### 3A1 goals
++- Improve Gantt PDF readability with colored stage bars.
++- Extend the default Gantt stage set with `Amprah PLN` and `Tarik Kabel FO`.
++- Allow a saved Gantt stage/duration layout to be reused across multiple projects as a shared template.
++- Fix Project Tracker mobile rendering so project rows do not overlap or become unreadable.
++
++### 3A2 goals
++- Extend the Phase 3A relation from one Primary WO to one Primary WO plus multiple Related WO.
++- Related WO may only link existing Work Orders; Project Detail must not create a second WO creation flow.
++- One WO may belong to only one Project across both Primary and Related relations.
++- Preserve existing WO, TTD, photo, MR, SO→WO, and WO→MR behavior.
++
++## 2. Non-goals
++
++- Do not auto-create Project from SO or WO.
++- Do not create WO from Project Detail.
++- Do not modify SO→WO or WO→MR logic.
++- Do not add Actual/Realisasi Gantt in 3A1/3A2; that remains Phase 3B.
++- Do not change BOQ/Today Achievement behavior.
++- Do not implement Project Material & MR aggregation yet; 3A2 only prepares authoritative WO-to-Project links for Phase 3B.
++- Do not automatically modify existing saved Gantt plans when the default stage list changes.
++
++## 3. Phase 3A1 — Gantt Plan revisions
++
++### 3.1 Default stages
++
++For projects that do not yet have a saved Gantt Plan, the default template becomes nine sequential stages:
++
++1. Preparation
++2. Order Barang
++3. Amprah PLN
++4. Tanam Tiang
++5. Tarik Kabel FO
++6. Instalasi Perangkat
++7. Konfigurasi
++8. Testing / Commissioning
++9. Serah Terima
++
++Existing saved plans remain unchanged. Users can continue to rename, add, remove, reorder, and modify durations before saving.
++
++### 3.2 Shared Gantt templates
++
++Add shared, reusable Gantt templates. A template stores only:
++- template name
++- stage name
++- stage order
++- default duration in calendar days
++- audit metadata (created/updated timestamp and actor when practical with existing auth patterns)
++
++A template must NOT store a project start date or project-specific identifiers.
++
++UI in the Gantt tab:
++- `Simpan Gantt Plan` continues to save only the current project's plan.
++- Add `Simpan Sebagai Template` for users with `project_gantt_manage`.
++- Add `Pakai Template` for selecting a shared template.
++- Applying a template populates stage names/order/durations into the editor and keeps/uses the current project's start date separately.
++- If the current project already has a saved plan, applying a template requires explicit confirmation before replacing the editable plan and saving it.
++- Applying a template does not save immediately; the user still presses `Simpan Gantt Plan`.
++
++Default nine-stage layout should be available as a system/default template, but it should not be duplicated in the database for every project.
++
++### 3.3 Gantt PDF colors
++
++Keep A4 landscape and the current sequential date-axis model. Improve visual output:
++- Stage bars use a deterministic repeating color palette so neighboring stages are visually distinct.
++- Title/header remains clean and professional.
++- Date grid remains readable in print/PDF.
++- Text maintains sufficient contrast.
++- Multi-page pagination remains supported for long schedules.
++- Same stage always gets the same color within one generated PDF.
++
++No change to calendar-day calculation: Saturday and Sunday are included.
++
++## 4. Phase 3A1 — Project Tracker mobile fix
++
++Desktop/tablet desktop layout keeps the existing table behavior.
++
++On mobile widths, Project Tracker switches from the 12-column fixed table to project cards. Each card contains the minimum useful information:
++- priority + project name
++- project status
++- PIC
++- Material progress
++- Jasa progress
++- target
++- latest issue (truncated/compact)
++- action plan (truncated/compact)
++- primary action: `Detail`
++
++The mobile card must not require horizontal scrolling for the main project list and must avoid word-by-word column wrapping.
++
++Existing filters, summaries, search, and project actions remain available. The desktop table is not rewritten.
++
++## 5. Phase 3A2 — Multi-WO Project model
++
++### 5.1 Locked relationship model
++
++A Project has:
++- zero or one `Primary WO`
++- zero or more `Related WO`
++
++A Work Order can belong to at most one Project, regardless of whether it is Primary or Related.
++
++### 5.2 Primary WO
++
++The existing `project_primary_work_orders` relation remains authoritative for the Primary WO. Existing Phase 3A API behavior is preserved unless an internal validation helper is refactored to enforce the global one-WO-one-Project rule.
++
++### 5.3 Related WO persistence
++
++Add an additive relation table, conceptually `project_related_work_orders`, with at least:
++- id
++- project_id
++- work_order_id / ticket_id
++- created_at
++- created_by where existing backend auth patterns allow it
++
++Constraints:
++- unique work_order_id across Related WO links
++- unique (project_id, work_order_id)
++- validation must reject a WO already linked as Primary to any project
++- Primary linking must also reject a WO already linked as Related to any project
++
++The database and backend together should enforce the rule defensively.
++
++### 5.4 Related WO UI
++
++Project Detail → Work Order tab shows:
++- Primary WO card/section as today
++- Related WO list below it
++- `Tambah Related WO` action for users with `project_primary_wo_manage` (reuse existing permission for Phase 3A2; no new permission required)
++- search existing WO using the existing compact WO search endpoint/pattern
++- WO identifying fields: WO number, customer/project, status, technician when available
++- action to open the existing WO using the existing Daftar Tiket/detail flow
++- action to unlink a Related WO with explicit confirmation
++
++There is no `Buat WO` action in Project Detail.
++
++### 5.5 One WO = one Project validation
++
++Before linking Primary or Related WO, backend checks both relation sets.
++
++Examples:
++- WO linked as Primary in Project A → cannot be Primary or Related in Project B.
++- WO linked as Related in Project A → cannot be Primary or Related in Project B.
++- A Primary WO cannot also appear as Related in the same project.
++- Unlinking removes only the Project relation; it never deletes or edits the WO itself.
++
++## 6. Future Phase 3B compatibility
++
++Phase 3B Material & MR will use all linked WOs for a Project:
++- Primary WO
++- Related WOs
++
++This enables Project-level MR aggregation without relying on project-name string matching.
++
++No MR aggregation is implemented in 3A2, but the relation model must expose a simple backend method to retrieve all linked WO IDs for a project.
++
++## 7. Permissions
++
++Reuse existing Phase 3A permissions:
++- `project_gantt_manage`: edit Gantt plan, save template, apply template.
++- `project_primary_wo_manage`: link/unlink Primary and Related WO.
++
++Read-only Project Detail remains under existing Project Tracker read access.
++
++No new role defaults are introduced. Superadmin bypass remains as implemented. Non-Superadmin permissions remain explicit.
++
++## 8. Data migration and backward compatibility
++
++### 3A1 migration
++- Additive Gantt template tables only if persistent shared templates require them.
++- No rewrite of existing project Gantt plans.
++- No automatic application of the new nine-stage default to existing saved plans.
++
++### 3A2 migration
++- Additive Related WO table/indexes/constraints.
++- Existing Primary WO table remains intact.
++- No automatic multi-WO backfill based on project names.
++- Existing project and ticket row counts must remain unchanged.
++
++PostgREST schema reload must follow the Full VPS pattern already used in 3A.
++
++## 9. API shape
++
++Exact route names may follow current Phase 3A conventions, but responsibilities are:
++
++### Gantt templates
++- list shared templates
++- create template from stage layout
++- optionally update/delete template if kept in scope; YAGNI recommendation for 3A1 is create/list/apply only unless management becomes necessary during implementation
++
++### Related WO
++- list related WOs for project
++- search existing candidate WO using existing compact search path
++- link related WO
++- unlink related WO
++
++All mutation endpoints enforce backend permissions.
++
++## 10. Testing requirements
++
++TDD regression coverage must include:
++- default Gantt now contains exactly the approved nine stages in order
++- saved existing Gantt plans are not silently modified
++- shared template stores stage/order/duration but not project start date
++- applying template does not auto-save project plan
++- PDF generation uses multiple stage colors and remains landscape/paginated
++- mobile Project Tracker renders project cards and desktop table remains available
++- Primary WO cannot be linked if already Related elsewhere
++- Related WO cannot be linked if already Primary or Related elsewhere
++- one WO cannot belong to two projects
++- unlink Related WO does not mutate/delete WO
++- existing SO→WO and WO→MR routes remain present
++- existing Phase 3A tests remain green or are intentionally updated for the approved nine-stage default
++
++## 11. Release sequencing
++
++Recommended release order:
++
++1. `PXL-VNEXT-3A1` — Gantt colors/default stages/templates + mobile Project Tracker fix.
++2. Production UAT for 3A1.
++3. `PXL-VNEXT-3A2` — Related WO + global one-WO-one-Project enforcement.
++4. Production UAT for 3A2.
++5. Continue Phase 3B Material & MR using authoritative Primary + Related WO links.
++
++Each release follows:
++Audit → TDD implementation → full regression → backup → GitHub push → VPS deploy → migration if needed → schema reload/restart → production verification.
++
++## 12. UAT acceptance
++
++### 3A1
++- New unsaved project Gantt shows nine default stages including Amprah PLN and Tarik Kabel FO.
++- User can save a project Gantt, save its layout as a template, open another project, apply the template, set a separate start date, and save.
++- PDF shows colored bars and remains readable on landscape A4.
++- Project Tracker on mobile displays readable project cards without overlapping columns.
++
++### 3A2
++- Project can retain one Primary WO and link multiple existing Related WOs.
++- Same WO cannot be linked to another project.
++- Related WO opens through existing WO flow.
++- Unlinking a Related WO leaves the WO and all its history untouched.
+diff --git a/project-vnext-3a.js b/project-vnext-3a.js
+index 7ccec83..12c43d1 100644
+--- a/project-vnext-3a.js
++++ b/project-vnext-3a.js
+@@ -3,7 +3,9 @@
+ const DEFAULT_PROJECT_GANTT_STAGES=Object.freeze([
+   'Preparation',
+   'Order Barang',
++  'Amprah PLN',
+   'Tanam Tiang',
++  'Tarik Kabel FO',
+   'Instalasi Perangkat',
+   'Konfigurasi',
+   'Testing / Commissioning',
+diff --git a/public/index.html b/public/index.html
+index ff9aa84..1e7a030 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -346,6 +346,13 @@ input[type=file]{padding:7px 11px;cursor:pointer}
+ .proj-pic-desa-name,.proj-target-week{font-size:10.5px}
+ .proj-pic-desa-phone{font-size:10px}
+ .proj-table tbody tr:hover{background:var(--surface2)}
++.proj-mobile-list{display:none;width:100%;min-width:0;padding:10px;gap:10px;background:var(--surface2)}
++.proj-mobile-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.035)}
++.proj-mobile-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0}.proj-mobile-title{min-width:0;flex:1}.proj-mobile-name{font-size:13px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.proj-mobile-meta{font-size:10px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
++.proj-mobile-progress{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.proj-mobile-progress>div{background:var(--surface2);border-radius:8px;padding:8px;min-width:0}.proj-mobile-progress b{display:block;font-size:11px;margin-top:2px}.proj-mobile-label{font-size:8.5px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
++.proj-mobile-copy{margin-top:9px;display:grid;gap:7px}.proj-mobile-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;font-size:10.5px;line-height:1.45;color:var(--text)}
++.proj-mobile-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.proj-mobile-empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface);border:1px dashed var(--border);border-radius:10px}
++@media(max-width:700px){#tab-projects .proj-table-wrap{display:none}.proj-mobile-list{display:grid;grid-template-columns:1fr}.proj-summary-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.proj-filter-bar{align-items:stretch}.proj-filter-bar .proj-filter-select,.proj-filter-bar input,.proj-filter-bar button{width:100%;margin-left:0!important}.proj-header{padding:14px}.proj-header-title{font-size:16px}}
+ .proj-no-col{color:var(--muted);font-weight:600}
+ .proj-prior-badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700}
+ .proj-prior-badge.p1{background:#FEE2E2;color:#DC2626}
+@@ -2119,6 +2126,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
+               <tbody id="proj-table-body"></tbody>
+             </table>
+           </div>
++          <div class="proj-mobile-list" id="proj-mobile-list"></div>
+ 
+           <div class="proj-catatan">
+             <div class="proj-catatan-title">CATATAN</div>
+@@ -10298,6 +10306,31 @@ function filterProjects(){
+   });
+ }
+ 
++function projectMobileEsc(v){
++  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
++}
++
++function renderProjectMobileCards(filtered){
++  const list=document.getElementById('proj-mobile-list');
++  if(!list) return;
++  if(!filtered.length){list.innerHTML='<div class="proj-mobile-empty">📭 Belum ada project</div>';return;}
++  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold'};
++  const priorClass={'P1':'p1','P2':'p2'};
++  const canEdit=['admin','superadmin','manager','sales'].includes(currentUser.role);
++  const canDelete=['admin','superadmin'].includes(currentUser.role);
++  list.innerHTML=filtered.map(p=>{
++    const summary=(window.pxlProjectReportSummaries||{})[String(p.id)]||{};
++    const material=Number(summary.material?.progress)||0;
++    const jasa=Number(summary.jasa?.progress)||0;
++    return `<div class="proj-mobile-card">
++      <div class="proj-mobile-head"><div class="proj-mobile-title"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${projectMobileEsc(p.prioritas||'P2')}</span><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${projectMobileEsc(p.status||'On Plan')}</span></div><div class="proj-mobile-name" style="margin-top:7px">${projectMobileEsc(p.nama_project||'—')}</div><div class="proj-mobile-meta">PIC: ${projectMobileEsc(p.pic||'—')} · Target: ${projectMobileEsc(p.target_week||'—')}</div></div></div>
++      <div class="proj-mobile-progress"><div><span class="proj-mobile-label">Material</span><b>${material.toFixed(1)}%</b></div><div><span class="proj-mobile-label">Jasa</span><b>${jasa.toFixed(1)}%</b></div></div>
++      <div class="proj-mobile-copy"><div><span class="proj-mobile-label">Issue</span><div class="proj-mobile-clamp">${projectMobileEsc(p.issue||'—')}</div></div><div><span class="proj-mobile-label">Action Plan</span><div class="proj-mobile-clamp">${projectMobileEsc(p.action_plan||'—')}</div></div></div>
++      <div class="proj-mobile-actions"><button class="btn blue sm" onclick="window.pxlProjectVnext3A&&window.pxlProjectVnext3A.open('${p.id}')">Detail</button>${canEdit?`<button class="btn ghost sm" onclick="editProject('${p.id}')">✏️ Edit</button>`:''}${canDelete?`<button class="btn ghost sm" onclick="deleteProject('${p.id}')">🗑️</button>`:''}</div>
++    </div>`;
++  }).join('');
++}
++
+ function renderProjectList(){
+   const filtered=filterProjects();
+   const tbody=document.getElementById('proj-table-body');
+@@ -10326,6 +10359,8 @@ function renderProjectList(){
+   setEl('ps-progress', onProgress);
+   setEl('ps-hold', onHold);
+ 
++  renderProjectMobileCards(filtered);
++
+   if(!filtered.length){
+     tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">📭 Belum ada project</td></tr>';
+     return;
+@@ -13134,7 +13169,7 @@ setInterval(()=>{
+   </div>
+ </div>
+ <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
+-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
++<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+ <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
+ <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-VNEXT-2D2"></script>
+ </body>
+diff --git a/public/pxl-vnext-3a-project-detail.js b/public/pxl-vnext-3a-project-detail.js
+index da46a01..eda485d 100644
+--- a/public/pxl-vnext-3a-project-detail.js
++++ b/public/pxl-vnext-3a-project-detail.js
+@@ -1,10 +1,12 @@
+ /* PXL-VNEXT-3A — Project Detail Core. */
+ (function(){
+   'use strict';
+-  const REV='PXL-VNEXT-3A';
++  const REV='PXL-VNEXT-3A1';
+   const PDF_DAYS_PER_PAGE=31;
+   const DAY_MS=24*60*60*1000;
+-  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:''};
++  const GANTT_STAGE_COLORS=[[37,99,235],[5,150,105],[217,119,6],[220,38,38],[124,58,237],[8,145,178],[190,24,93],[79,70,229],[101,163,13]];
++  function ganttStageColor(index){return GANTT_STAGE_COLORS[index%GANTT_STAGE_COLORS.length];}
++  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:'',ganttTemplates:[]};
+   const $=s=>document.querySelector(s);
+   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+   const n=v=>Number(v)||0;
+@@ -153,6 +155,7 @@
+       const result=await api('GET',`/projects/${encodeURIComponent(state.projectId)}/gantt-plan`);
+       state.ganttLoadedProjectId=state.projectId;
+       initGanttEditor(result||{});
++      await loadGanttTemplates();
+       if(state.activeTab==='gantt')render();
+     }catch(e){
+       state.ganttLoadedProjectId=state.projectId;
+@@ -161,6 +164,49 @@
+     }
+   }
+ 
++  async function loadGanttTemplates(){
++    if(!hasPermission('project_gantt_manage')){state.ganttTemplates=[];return []}
++    try{
++      const rows=await api('GET','/project-gantt-templates');
++      state.ganttTemplates=Array.isArray(rows)?rows:[];
++      return state.ganttTemplates;
++    }catch(e){
++      state.ganttTemplates=[];
++      return [];
++    }
++  }
++
++  async function saveCurrentGanttAsTemplate(){
++    if(!hasPermission('project_gantt_manage'))return;
++    const raw=prompt('Nama template Gantt:');
++    const name=String(raw||'').trim();
++    if(!name)return;
++    const stages=state.ganttStages.map((stage,index)=>({
++      name:String(stage.name||'').trim(),
++      duration_days:Number(stage.duration_days),
++      sort_order:index
++    }));
++    try{
++      await api('POST','/project-gantt-templates',{name,stages});
++      await loadGanttTemplates();
++      render();
++    }catch(e){alert(e.message||'Gagal menyimpan template Gantt.');}
++  }
++
++  function applyGanttTemplate(templateId){
++    if(!hasPermission('project_gantt_manage'))return;
++    const currentStartDate=state.ganttStartDate;
++    const hasSavedPlan=!!state.data?.gantt_plan?.stages?.length;
++    if(hasSavedPlan&&!confirm('Project ini sudah memiliki Gantt Plan. Pakai template untuk mengganti isi editor? Perubahan belum disimpan sampai Anda menekan Simpan Gantt Plan.'))return;
++    const source=templateId==='__default__'
++      ?{stages:state.ganttDefaults.map((name,index)=>({name,duration_days:1,sort_order:index}))}
++      :state.ganttTemplates.find(t=>String(t.id)===String(templateId));
++    if(!source?.stages?.length){alert('Template Gantt tidak ditemukan.');return;}
++    state.ganttStages=source.stages.map(stage=>({name:String(stage.name||''),duration_days:Number(stage.duration_days)||1,notes:''}));
++    state.ganttStartDate=currentStartDate;
++    render();
++  }
++
+   function renderGanttRows(calculated,canManage){
+     return `<div class="pxl-v3a-gantt-scroll"><div><div class="pxl-v3a-gantt-row header"><div>No</div><div>Tahap</div><div>Durasi</div><div>Plan Start</div><div>Plan Finish</div><div>Catatan</div><div>Aksi</div></div>${state.ganttStages.map((stage,index)=>{
+       const c=calculated?.[index]||{};
+@@ -180,7 +226,9 @@
+     if(state.ganttStartDate&&state.ganttStages.length){
+       try{calculated=calculateBrowserGantt(state.ganttStartDate,state.ganttStages)}catch(e){validation=e.message}
+     }
+-    const toolbar=`<div class="pxl-v3a-toolbar"><div><b>Gantt Plan</b><div class="pxl-v3a-muted">Hari kalender termasuk Sabtu/Minggu. Tahap berjalan sequential satu-per-satu.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap">${plan?.stages?.length?'<button class="btn blue sm" id="pxl-v3a-gantt-pdf">Download PDF</button>':''}${canManage?'<button class="btn primary sm" id="pxl-v3a-gantt-save">Simpan Gantt Plan</button>':''}</div></div>`;
++    const templateOptions=[`<option value="__default__">Default 9 Tahap</option>`,...state.ganttTemplates.map(t=>`<option value="${h(t.id)}">${h(t.name)}</option>`)].join('');
++    const templateControls=canManage?`<select id="pxl-v3a-template-select" style="min-width:170px">${templateOptions}</select><button class="btn ghost sm" id="pxl-v3a-template-apply">Pakai Template</button><button class="btn ghost sm" id="pxl-v3a-template-save">Simpan Sebagai Template</button>`:'';
++    const toolbar=`<div class="pxl-v3a-toolbar"><div><b>Gantt Plan</b><div class="pxl-v3a-muted">Hari kalender termasuk Sabtu/Minggu. Tahap berjalan sequential satu-per-satu.</div></div><div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">${templateControls}${plan?.stages?.length?'<button class="btn blue sm" id="pxl-v3a-gantt-pdf">Download PDF</button>':''}${canManage?'<button class="btn primary sm" id="pxl-v3a-gantt-save">Simpan Gantt Plan</button>':''}</div></div>`;
+     const start=canManage?`<div class="pxl-v3a-card" style="margin-bottom:10px;max-width:360px"><label>Project Start Date</label><input type="date" id="pxl-v3a-gantt-start" value="${h(state.ganttStartDate)}"><div class="pxl-v3a-muted" style="margin-top:5px">Mengubah tanggal/durasi otomatis menggeser tahap berikutnya.</div></div>`:`<div class="pxl-v3a-card" style="margin-bottom:10px;max-width:360px"><div class="pxl-v3a-label">Project Start Date</div><div class="pxl-v3a-value">${h(plan?.start_date||'—')}</div></div>`;
+     const actions=canManage?`<div style="margin-top:10px"><button class="btn sm" id="pxl-v3a-gantt-add">＋ Tambah Tahap</button><span class="pxl-v3a-muted" style="margin-left:8px">${state.ganttStages.length}/100 tahap</span></div>`:'';
+     const status=`<div id="pxl-v3a-gantt-status" class="${validation?'pxl-v3a-error':'pxl-v3a-muted'}" style="margin-top:10px">${validation?h(validation):(calculated.length?`Plan: ${h(calculated[0].planned_start)} — ${h(calculated[calculated.length-1].planned_end)} · ${calculated.length} tahap`:'Belum ada Gantt Plan.')}</div>`;
+@@ -203,6 +251,8 @@
+     document.querySelectorAll('[data-v3a-stage-down]').forEach(b=>b.onclick=()=>moveGanttStage(Number(b.dataset.v3aStageDown),1));
+     document.querySelectorAll('[data-v3a-stage-remove]').forEach(b=>b.onclick=()=>removeGanttStage(Number(b.dataset.v3aStageRemove)));
+     const add=$('#pxl-v3a-gantt-add');if(add)add.onclick=addGanttStage;
++    const templateSave=$('#pxl-v3a-template-save');if(templateSave)templateSave.onclick=saveCurrentGanttAsTemplate;
++    const templateApply=$('#pxl-v3a-template-apply');if(templateApply)templateApply.onclick=()=>applyGanttTemplate($('#pxl-v3a-template-select')?.value||'__default__');
+     const save=$('#pxl-v3a-gantt-save');if(save)save.onclick=saveGanttPlan;
+   }
+ 
+@@ -304,7 +354,11 @@
+             const startIndex=Math.floor((overlapStart-pageStart)/DAY_MS);
+             const dayCount=Math.floor((overlapEnd-overlapStart)/DAY_MS)+1;
+             const barX=chartX+(startIndex*cellW)+0.5,barW=Math.max(1,(dayCount*cellW)-1);
++            const [r,g,b]=ganttStageColor(i);
++            doc.setFillColor(r,g,b);
+             doc.rect(barX,y+2,barW,4,'F');
++            doc.setTextColor(0,0,0);
++            doc.setDrawColor(120,120,120);
+           }
+         }
+       }
+diff --git a/server.js b/server.js
+index 1f21ee8..b25daeb 100644
+--- a/server.js
++++ b/server.js
+@@ -1477,6 +1477,32 @@ app.delete('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES)
+   }catch(e){ res.status(500).json({error:e.message}); }
+ });
+ 
++app.get('/api/project-gantt-templates', requireRole(...PROJECT_ROLES), async (req,res)=>{
++  try{ res.json(await db.getProjectGanttTemplates()); }
++  catch(e){ res.status(500).json({error:e.message}); }
++});
++
++app.post('/api/project-gantt-templates', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_gantt_manage'), async (req,res)=>{
++  try{
++    const name=String(req.body?.name||'').trim();
++    const stages=Array.isArray(req.body?.stages)?req.body.stages:[];
++    if(!name||name.length>120) return res.status(400).json({error:'Nama template wajib 1 sampai 120 karakter.'});
++    const calculated=buildSequentialGanttPlan('2000-01-01',stages);
++    const templateStages=calculated.map((stage,index)=>({
++      name:stage.name,
++      duration_days:stage.duration_days,
++      sort_order:index
++    }));
++    const template=await db.createProjectGanttTemplate(name,templateStages,req.session.user.name);
++    logActivity(req,'project','CREATE GANTT TEMPLATE',name);
++    res.status(201).json(template);
++  }catch(e){
++    const message=String(e.message||e);
++    const status=/tanggal|tahap|durasi|100|template/i.test(message)?400:500;
++    res.status(status).json({error:message});
++  }
++});
++
+ app.get('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), async (req,res)=>{
+   try{
+     const projects=await db.getProjects();
+diff --git a/tests/vnext-3a-gantt-ui.test.js b/tests/vnext-3a-gantt-ui.test.js
+index 00cca3d..460ae83 100644
+--- a/tests/vnext-3a-gantt-ui.test.js
++++ b/tests/vnext-3a-gantt-ui.test.js
+@@ -47,6 +47,19 @@ test('Gantt PDF is stored-plan only, landscape A4, and paginates at 31 calendar
+   assert.match(src,/planned_end/);
+ });
+ 
++test('Gantt PDF uses deterministic printable stage colors across pages',()=>{
++  assert.match(src,/const GANTT_STAGE_COLORS=\[/);
++  const palette=src.match(/const GANTT_STAGE_COLORS=\[([\s\S]*?)\];/)?.[1]||'';
++  const entries=(palette.match(/\[[0-9]+,[0-9]+,[0-9]+\]/g)||[]);
++  assert.ok(entries.length>=6,'palette must contain at least 6 printable colors');
++  assert.match(src,/function ganttStageColor\(index\)/);
++  assert.match(src,/GANTT_STAGE_COLORS\[index%GANTT_STAGE_COLORS\.length\]/);
++  assert.match(src,/const \[r,g,b\]=ganttStageColor\(i\)/);
++  assert.match(src,/doc\.setFillColor\(r,g,b\)[\s\S]{0,180}doc\.rect\(barX,y\+2,barW,4,'F'\)/);
++  assert.match(src,/doc\.setTextColor\(0,0,0\)/);
++  assert.match(src,/doc\.setDrawColor\(/);
++});
++
+ test('Phase 3A Gantt UI contains Plan only and does not introduce Actual/Realisasi fields',()=>{
+   assert.doesNotMatch(src,/actual_start|actual_end|realisasi_start|realisasi_end/i);
+ });
+diff --git a/tests/vnext-3a-project-core.test.js b/tests/vnext-3a-project-core.test.js
+index 438536b..d66a2ba 100644
+--- a/tests/vnext-3a-project-core.test.js
++++ b/tests/vnext-3a-project-core.test.js
+@@ -30,10 +30,10 @@ test('3A migration creates additive primary WO and Gantt persistence with atomic
+   assert.match(sql,/notify\s+pgrst\s*,\s*['"]reload schema['"]/i,'migration must reload PostgREST schema cache after adding new tables/RPC');
+ });
+ 
+-test('default Gantt stages are exactly the approved seven stages',()=>{
++test('default Gantt stages are exactly the approved nine stages',()=>{
+   const {DEFAULT_PROJECT_GANTT_STAGES}=loadCore();
+   assert.deepEqual(DEFAULT_PROJECT_GANTT_STAGES,[
+-    'Preparation','Order Barang','Tanam Tiang','Instalasi Perangkat','Konfigurasi','Testing / Commissioning','Serah Terima'
++    'Preparation','Order Barang','Amprah PLN','Tanam Tiang','Tarik Kabel FO','Instalasi Perangkat','Konfigurasi','Testing / Commissioning','Serah Terima'
+   ]);
+ });
+ 
+diff --git a/tests/vnext-3a-project-ui.test.js b/tests/vnext-3a-project-ui.test.js
+index fa1fce8..0fe9afe 100644
+--- a/tests/vnext-3a-project-ui.test.js
++++ b/tests/vnext-3a-project-ui.test.js
+@@ -51,6 +51,6 @@ test('existing Project Report exposes direct BOQ handoff helper',()=>{
+   assert.match(report,/openBoqProject/);
+ });
+ 
+-test('Project Detail script is cache-busted at PXL-VNEXT-3A',()=>{
+-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3A/);
++test('Project Detail script is cache-busted at PXL-VNEXT-3A1',()=>{
++  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3A1/);
+ });
+diff --git a/tests/vnext-3a1-gantt-template-api.test.js b/tests/vnext-3a1-gantt-template-api.test.js
+new file mode 100644
+index 0000000..745305e
+--- /dev/null
++++ b/tests/vnext-3a1-gantt-template-api.test.js
+@@ -0,0 +1,40 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const src=fs.readFileSync('server.js','utf8');
++
++function route(method,path){
++  const start=src.indexOf(`app.${method}('${path}'`);
++  assert.ok(start>=0,`${method.toUpperCase()} ${path} missing`);
++  const next=src.indexOf('\napp.',start+5);
++  return src.slice(start,next<0?src.length:next);
++}
++
++test('shared Gantt template GET is Project-read protected and returns DB templates',()=>{
++  const block=route('get','/api/project-gantt-templates');
++  assert.match(block,/requireRole\(\.\.\.PROJECT_ROLES\)/);
++  assert.match(block,/db\.getProjectGanttTemplates\(\)/);
++});
++
++test('shared Gantt template POST reuses project_gantt_manage and validates bounded template input',()=>{
++  const block=route('post','/api/project-gantt-templates');
++  assert.match(block,/requireRole\(\.\.\.PROJECT_ROLES\)/);
++  assert.match(block,/requireProjectVnextPermission\('project_gantt_manage'\)/);
++  assert.match(block,/name[^\n]*trim/);
++  assert.match(block,/120/);
++  assert.match(block,/Array\.isArray\([^\n]*stages/);
++  assert.match(block,/buildSequentialGanttPlan/);
++  assert.match(block,/createProjectGanttTemplate/);
++  assert.match(block,/req\.session\.user\.name/);
++  assert.doesNotMatch(block,/replaceProjectGanttPlan|project_gantt_plans|project_gantt_stages/);
++});
++
++test('template POST strips project dates and normalizes template stage payload',()=>{
++  const block=route('post','/api/project-gantt-templates');
++  assert.match(block,/duration_days/);
++  assert.match(block,/sort_order/);
++  assert.doesNotMatch(block,/planned_start\s*:/);
++  assert.doesNotMatch(block,/planned_end\s*:/);
++  assert.doesNotMatch(block,/start_date\s*:/);
++  assert.doesNotMatch(block,/project_id\s*:/);
++});
+diff --git a/tests/vnext-3a1-gantt-template-core.test.js b/tests/vnext-3a1-gantt-template-core.test.js
+new file mode 100644
+index 0000000..f302f1f
+--- /dev/null
++++ b/tests/vnext-3a1-gantt-template-core.test.js
+@@ -0,0 +1,31 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++
++const read=p=>fs.readFileSync(p,'utf8');
++
++test('3A1 migration adds shared Gantt template schema without rewriting project plans',()=>{
++  const sql=read('PXL-VNEXT-3A1-MIGRATION.sql');
++  assert.match(sql,/create table if not exists public\.project_gantt_templates/i);
++  assert.match(sql,/create table if not exists public\.project_gantt_template_stages/i);
++  const stageBlock=sql.match(/create table if not exists public\.project_gantt_template_stages\s*\(([^;]+?)\);/is)?.[1]||'';
++  assert.match(stageBlock,/template_id\s+uuid/i);
++  for(const forbidden of ['start_date','planned_start','planned_end','project_id']) assert.doesNotMatch(stageBlock,new RegExp(`\\b${forbidden}\\b`,'i'));
++  assert.match(sql,/pxl_vnext_3a1_create_gantt_template/i);
++  assert.match(sql,/length\(trim\(name\)\)\s+between\s+1\s+and\s+120/i);
++  assert.match(sql,/duration_days\s+between\s+1\s+and\s+3650/i);
++  assert.match(sql,/jsonb_array_length\(p_stages\)/i);
++  assert.doesNotMatch(sql,/\b(update|insert\s+into)\s+public\.project_gantt_plans\b/i);
++  assert.doesNotMatch(sql,/\b(update|insert\s+into)\s+public\.project_gantt_stages\b/i);
++  assert.match(sql,/notify\s+pgrst\s*,\s*'reload schema'/i);
++});
++
++test('db-core exposes Gantt template read/create helpers',()=>{
++  const src=read('db-core.js');
++  for(const fn of ['getProjectGanttTemplates','getProjectGanttTemplate','createProjectGanttTemplate']){
++    assert.match(src,new RegExp(`async function ${fn}\\(`));
++    assert.match(src,new RegExp(`\\b${fn}\\b[^}]*module.exports|module.exports[\\s\\S]*\\b${fn}\\b`));
++  }
++  assert.match(src,/pxl_vnext_3a1_create_gantt_template/);
++  assert.match(src,/project_gantt_template_stages\?template_id=eq\./);
++});
+diff --git a/tests/vnext-3a1-gantt-template-ui.test.js b/tests/vnext-3a1-gantt-template-ui.test.js
+new file mode 100644
+index 0000000..8689ec2
+--- /dev/null
++++ b/tests/vnext-3a1-gantt-template-ui.test.js
+@@ -0,0 +1,45 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const src=fs.readFileSync('public/pxl-vnext-3a-project-detail.js','utf8');
++
++function fn(name,nextName){
++  const start=src.indexOf(`function ${name}(`);
++  assert.ok(start>=0,`${name} missing`);
++  const end=nextName?src.indexOf(`\n  function ${nextName}(`,start+1):src.indexOf('\n  function ',start+20);
++  return src.slice(start,end<0?src.length:end);
++}
++
++test('Gantt template controls are permission-gated and available in Gantt editor',()=>{
++  assert.match(src,/Simpan Sebagai Template/);
++  assert.match(src,/Pakai Template/);
++  assert.match(src,/hasPermission\('project_gantt_manage'\)/);
++  assert.match(src,/loadGanttTemplates/);
++});
++
++test('saveCurrentGanttAsTemplate sends only template name and stage layout',()=>{
++  const block=fn('saveCurrentGanttAsTemplate','applyGanttTemplate');
++  assert.match(block,/api\('POST','\/project-gantt-templates'/);
++  assert.match(block,/name/);
++  assert.match(block,/duration_days/);
++  assert.match(block,/sort_order/);
++  assert.doesNotMatch(block,/start_date\s*:/);
++  assert.doesNotMatch(block,/project_id\s*:/);
++});
++
++test('applyGanttTemplate keeps current project start date and never auto-saves project plan',()=>{
++  const block=fn('applyGanttTemplate','renderGanttRows');
++  assert.match(block,/state\.ganttStartDate/);
++  assert.match(block,/state\.ganttStages\s*=/);
++  assert.match(block,/state\.data\?\.gantt_plan\?\.stages\?\.length|state\.data\.gantt_plan/);
++  assert.match(block,/confirm\(/);
++  assert.doesNotMatch(block,/api\('PUT',[^\n]*gantt-plan/);
++  assert.doesNotMatch(block,/saveGanttPlan\(/);
++});
++
++test('Simpan Gantt Plan remains the explicit project-plan persistence action',()=>{
++  const save=fn('saveGanttPlan','downloadGanttPdf');
++  assert.match(save,/api\('PUT',`\/projects\/\$\{encodeURIComponent\(state\.projectId\)\}\/gantt-plan`/);
++  const apply=fn('applyGanttTemplate','renderGanttRows');
++  assert.doesNotMatch(apply,/\/gantt-plan/);
++});
+diff --git a/tests/vnext-3a1-project-mobile-ui.test.js b/tests/vnext-3a1-project-mobile-ui.test.js
+new file mode 100644
+index 0000000..fcd94f5
+--- /dev/null
++++ b/tests/vnext-3a1-project-mobile-ui.test.js
+@@ -0,0 +1,31 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const src=fs.readFileSync('public/index.html','utf8');
++
++test('Project Tracker has separate mobile card container and responsive visibility',()=>{
++  assert.match(src,/id="proj-mobile-list"/);
++  assert.match(src,/\.proj-mobile-list\{display:none/);
++  assert.match(src,/@media\(max-width:700px\)[\s\S]{0,1200}#tab-projects \.proj-table-wrap\{display:none/);
++  assert.match(src,/@media\(max-width:700px\)[\s\S]{0,1500}\.proj-mobile-list\{display:grid/);
++});
++
++test('mobile project cards contain required project summary and Detail action',()=>{
++  assert.match(src,/function renderProjectMobileCards\(filtered\)/);
++  for(const token of ['Material','Jasa','PIC','Target','Issue','Action Plan','Detail']) assert.match(src,new RegExp(token));
++  assert.match(src,/window\.pxlProjectReportSummaries/);
++  assert.match(src,/window\.pxlProjectVnext3A.*\.open/);
++});
++
++test('mobile project text is clamped and avoids horizontal overflow',()=>{
++  assert.match(src,/\.proj-mobile-clamp\{[^}]*-webkit-line-clamp:/);
++  assert.match(src,/\.proj-mobile-card\{[^}]*min-width:0/);
++  assert.match(src,/\.proj-mobile-list\{display:none;[^}]*min-width:0/);
++});
++
++test('renderProjectList renders mobile empty state from same filtered source',()=>{
++  assert.match(src,/renderProjectMobileCards\(filtered\)/);
++  assert.match(src,/proj-mobile-empty/);
++  assert.match(src,/Belum ada project/);
++  assert.match(src,/tbody\.innerHTML='<tr><td colspan="12"/);
++});
