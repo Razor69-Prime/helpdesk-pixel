@@ -1,0 +1,65 @@
+name: PXL-VNEXT-3A1 PR Verify
+
+on:
+  push:
+    branches:
+      - pxl-vnext-3a1
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-build-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: pxl-vnext-3a1
+
+      - name: Verify staged patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "9db5eeb2759290cf604e1cf12901a59e6fb0c83be39c3300a0d1f8e5d7027880  .github/pxl-vnext-3a1.patch" | sha256sum -c -
+          git diff --exit-code c44c34e139edbc05aa0a6a6dbcc48952436fc3ba -- . ':!.github/pxl-vnext-3a1.patch' ':!.github/workflows/pxl-vnext-3a1-pr.yml'
+          git apply --check .github/pxl-vnext-3a1.patch
+          git apply .github/pxl-vnext-3a1.patch
+
+      - name: Verify PXL-VNEXT-3A1
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.js
+          node --check project-vnext-3a.js
+          node --check db-core.js
+          node --check server.js
+          node --check public/pxl-vnext-3a-project-detail.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          text=Path('public/index.html').read_text()
+          blocks=[]
+          for m in re.finditer(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', text, re.I):
+              tag=text[m.start():text.find('>',m.start())+1]
+              if 'src=' not in tag.lower():
+                  blocks.append(m.group(1))
+          code='\n'.join(blocks)
+          p=Path('/tmp/pxl-inline.js'); p.write_text(code)
+          subprocess.run(['node','--check',str(p)],check=True)
+          print(f'INLINE_BLOCKS={len(blocks)} BYTES={len(code)}')
+          PY
+          git diff --check
+          test -z "$(git diff --name-only c44c34e139edbc05aa0a6a6dbcc48952436fc3ba -- server.js db-core.js public/index.html public/pxl-vnext-3a-project-detail.js project-vnext-3a.js PXL-VNEXT-3A1-MIGRATION.sql tests docs | grep -Ev '^(server\.js|db-core\.js|public/index\.html|public/pxl-vnext-3a-project-detail\.js|project-vnext-3a\.js|PXL-VNEXT-3A1-MIGRATION\.sql|tests/|docs/)' || true)"
+
+      - name: Finalize clean feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/pxl-vnext-3a1.patch .github/workflows/pxl-vnext-3a1-pr.yml
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "PXL-VNEXT-3A1 Gantt templates, colored PDF, mobile Project Tracker"
+          git push origin HEAD:pxl-vnext-3a1
