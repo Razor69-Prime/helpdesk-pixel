@@ -47,12 +47,12 @@
 - Test: `tests/vnext-3b-project-mr-core.test.js`
 
 **Interfaces:**
-- Produces `normalizeProjectMrItems(rawItems)` returning normalized item rows or throwing a validation error.
+- Produces `normalizeProjectMrItems(rawItems,{requireItems=false}={})` returning normalized item rows or throwing a validation error.
 - Produces `calculateProjectMrOutstanding(item)` returning `qty_taken - qty_returned - qty_used` with finite non-negative numeric validation.
 - Produces SQL RPC `pxl_vnext_3b_create_project_mr(p_project_id uuid,p_actor text,p_actor_id text)` returning `{ok,id,project_id,project_number,mr_number,status}`.
 - Produces SQL RPC `pxl_vnext_3b_replace_project_mr_items(p_request_id uuid,p_items jsonb,p_actor text,p_actor_id text)`.
 - Produces SQL RPC `pxl_vnext_3b_transition_project_mr(p_request_id uuid,p_action text,p_actor text,p_actor_id text,p_reason text)`.
-- Produces SQL RPC `pxl_vnext_3b_apply_project_mr_movement(p_request_id uuid,p_movement_type text,p_items jsonb,p_actor text,p_actor_id text,p_idempotency_key text)`.
+- Produces SQL RPC `pxl_vnext_3b_apply_project_mr_movement(p_request_id uuid,p_movement_type text,p_items jsonb,p_actor text,p_actor_id text,p_idempotency_key text)` returning `{ok,already_applied,request_id,movement_type,...}`.
 
 - [ ] **Step 1: Write failing schema/domain tests**
 
@@ -67,7 +67,7 @@ Create tests asserting the migration is additive and contains:
 - Unique MR number and unique idempotency key.
 - RPCs named above using row locks (`FOR UPDATE`) for counter/state/stock operations.
 
-Also assert `normalizeProjectMrItems` rejects empty list on submit validation, zero/negative/NaN quantity, `inventory_extra` without `inventory_item_id` or reason, and accepts BOQ rows with `project_boq_item_id`. Assert `calculateProjectMrOutstanding({taken:10,returned:2,used:3}) === 5` and rejects a negative result.
+Also assert `normalizeProjectMrItems([], {requireItems:true})` rejects an empty list, draft normalization may return `[]` when `requireItems:false`, zero/negative/NaN quantity fails, `inventory_extra` without `inventory_item_id` or reason fails, and BOQ rows with `project_boq_item_id` pass. Assert `calculateProjectMrOutstanding({qty_taken:10,qty_returned:2,qty_used:3}) === 5` and a negative result throws.
 
 - [ ] **Step 2: Run core test and verify RED**
 
@@ -78,17 +78,17 @@ Expected: FAIL because Phase 3B migration/domain module does not exist.
 
 In `PXL-VNEXT-3B-MIGRATION.sql`, add `projects.project_number text` only if absent and a unique index for non-null values. Add an allocator that preserves an existing valid `PRJ-YY-NNN`; otherwise allocates the next number per two-digit year using a locked counter. Backfill existing projects deterministically by `created_at,id` inside the migration so every current project receives a stable human-readable number while `projects.id` remains unchanged.
 
-- [ ] **Step 4: Add isolated Project MR tables and constraints**
+- [ ] **Step 4: Add isolated Project MR tables and exact foreign-key behavior**
 
 Create:
-- `project_material_requests(id,project_id,mr_number,status,created_by,created_by_user_id,submitted_by,submitted_at,approved_by,approved_at,rejected_by,rejected_at,reject_reason,finalized_by,finalized_at,created_at,updated_at)`.
-- `project_material_request_items(id,project_material_request_id,source_type,project_boq_item_id,inventory_item_id,item_name_snapshot,sku_snapshot,unit_snapshot,qty_requested,qty_taken,qty_returned,qty_used,additional_reason,created_at,updated_at)`.
-- `project_material_request_movements(id,project_material_request_id,project_material_request_item_id,movement_type,qty,operation_id,performed_by,performed_by_user_id,performed_at)`.
-- `project_material_request_operations(id,idempotency_key unique,project_material_request_id,movement_type,performed_by,performed_at,result_json)`.
-- `project_material_request_history(id,project_material_request_id,event_type,from_status,to_status,note,actor,actor_user_id,created_at)`.
+- `project_material_requests(id,project_id,mr_number,status,created_by,created_by_user_id,submitted_by,submitted_at,approved_by,approved_at,rejected_by,rejected_at,reject_reason,finalized_by,finalized_at,created_at,updated_at)` with `project_id references projects(id) on delete cascade`.
+- `project_material_request_items(id,project_material_request_id,source_type,project_boq_item_id,inventory_item_id,item_name_snapshot,sku_snapshot,unit_snapshot,qty_requested,qty_taken,qty_returned,qty_used,additional_reason,created_at,updated_at)` with request FK `on delete cascade`, BOQ FK `on delete set null`, Inventory FK `on delete set null`.
+- `project_material_request_movements(id,project_material_request_id,project_material_request_item_id,movement_type,qty,operation_id,performed_by,performed_by_user_id,performed_at)` with request/item FKs `on delete cascade`.
+- `project_material_request_operations(id,idempotency_key unique,project_material_request_id,movement_type,performed_by,performed_at,result_json)` with request FK `on delete cascade`.
+- `project_material_request_history(id,project_material_request_id,event_type,from_status,to_status,note,actor,actor_user_id,created_at)` with request FK `on delete cascade`.
 - Per-project sequence/counter storage for MR suffix allocation.
 
-Reference `projects`, `project_report_items`, and `inventory_items` with restrictive/cascade behavior appropriate to audit retention: deleting a project may cascade its Project MR data; BOQ/Inventory deletion must not erase movement history, so item snapshot columns remain authoritative for historical display.
+Snapshot name/SKU/unit columns remain authoritative if a BOQ or Inventory row is later removed/deactivated.
 
 - [ ] **Step 5: Implement create/replace/transition RPCs**
 
@@ -96,11 +96,11 @@ Reference `projects`, `project_report_items`, and `inventory_items` with restric
 
 - [ ] **Step 6: Implement idempotent atomic movement RPC**
 
-`pxl_vnext_3b_apply_project_mr_movement` accepts `take`, `return`, or `use` and a required idempotency key. It must claim the operation key before movement; a repeated key returns stored `result_json` without changing stock again. For each row lock the MR item and Inventory item when stock changes. `take` is allowed from `approved/issued`, rejects `tracking_mode='serial'` without serial support, rejects insufficient stock, and limits new take to `qty_requested - (qty_taken - qty_returned)`; it decreases Inventory, writes `inventory_transactions` type `PROJECT_MR_TAKE`, increments `qty_taken`, and changes `approved→issued` on first take. `return` and `use` reject quantities above current outstanding; Return increases Inventory and writes `PROJECT_MR_RETURN`, Use does not alter Inventory. Every movement writes the immutable movement ledger and history.
+`pxl_vnext_3b_apply_project_mr_movement` accepts `take`, `return`, or `use` and a required idempotency key. It must claim the operation key before movement; a repeated key returns stored `result_json` with `already_applied:true` without changing stock again. For each row lock the MR item and Inventory item when stock changes. `take` is allowed from `approved/issued`, rejects `tracking_mode='serial'` without serial support, rejects insufficient stock, and limits new take to `qty_requested - (qty_taken - qty_returned)`; it decreases Inventory, writes `inventory_transactions` type `PROJECT_MR_TAKE`, increments `qty_taken`, and changes `approved→issued` on first take. `return` and `use` reject quantities above current outstanding; Return increases Inventory and writes `PROJECT_MR_RETURN`, Use does not alter Inventory. Every newly applied movement writes the immutable movement ledger and history.
 
 - [ ] **Step 7: Implement pure JS domain helpers**
 
-In `project-vnext-3b.js`, export `normalizeProjectMrItems(rawItems)` and `calculateProjectMrOutstanding(item)` using decimal-safe finite Number validation for API/UI prechecks. Keep database RPCs as the final authority.
+In `project-vnext-3b.js`, export `normalizeProjectMrItems(rawItems,{requireItems=false}={})` and `calculateProjectMrOutstanding(item)` using finite Number validation for API/UI prechecks. Keep database RPCs as the final authority.
 
 - [ ] **Step 8: Run core tests and syntax**
 
@@ -141,11 +141,12 @@ Assert route presence and server-side rules:
 - Project MR read/create endpoints allow authenticated Project roles plus `technician` without widening the legacy `/api/projects` role constant.
 - Technician can create, replace items, and submit only their own request.
 - Manager/Admin can approve/reject; Technician/Superadmin cannot approve/reject under Phase 3B.
-- Approve/reject endpoints accept only action metadata; item/qty fields are ignored/rejected rather than persisted.
+- Approve/reject endpoints accept only action metadata; item/qty fields are rejected rather than persisted.
 - `material_request_issue` is required for Take.
 - Request owner or `material_request_edit` can Return/Use; ownership must be checked server-side.
 - Finalization calls the transition RPC and cannot bypass outstanding validation.
 - Catalog filters BOQ to material rows and Inventory to active items.
+- A movement response with `already_applied:true` does not create a second notification batch.
 - Existing legacy MR route blocks remain present and unchanged in behavior markers.
 
 - [ ] **Step 2: Run API test and verify RED**
@@ -163,7 +164,7 @@ In `server.js`, add focused helpers for Project MR read/requester access, Manage
 
 - [ ] **Step 5: Add Project MR catalog and CRUD/state routes**
 
-Catalog resolves the real project and project BOQ rows, returns only material BOQ items, and includes active Inventory choices for `inventory_extra`. Create delegates number allocation to the RPC. Item PUT passes normalized rows only for `draft/rejected`. Submit/Approve/Reject/Finalize are separate endpoints so state transitions cannot be smuggled through a generic PATCH.
+Catalog resolves the real project and project BOQ rows, returns only material BOQ items, and includes active Inventory choices for `inventory_extra`. Create delegates number allocation to the RPC. Item PUT calls `normalizeProjectMrItems(...,{requireItems:false})` and persists only for `draft/rejected`; Submit reloads current items and validates with `requireItems:true` before transition. Submit/Approve/Reject/Finalize are separate endpoints so state transitions cannot be smuggled through a generic PATCH.
 
 - [ ] **Step 6: Add movement endpoint with required idempotency key**
 
@@ -174,10 +175,10 @@ Catalog resolves the real project and project BOQ rows, returns only material BO
 After successful state/movement RPC calls, send targeted notifications without changing legacy notifications:
 - submitted → Manager, Admin, Superadmin.
 - approved/rejected → requester.
-- take/return → requester plus Manager/Admin/Superadmin and the handling user where applicable.
+- newly applied take/return → requester plus Manager/Admin/Superadmin and the handling user where applicable.
 - final → requester plus Manager/Admin/Superadmin.
 
-Notification text includes project number/name, MR number, event/status, and actor. Store no notification before the underlying state change succeeds.
+Notification text includes project number/name, MR number, event/status, and actor. Store no notification before the underlying state change succeeds, and skip movement notifications when the RPC returns `already_applied:true`.
 
 - [ ] **Step 8: Run API/core/regression tests and syntax**
 
@@ -321,7 +322,7 @@ git commit -m "PXL-VNEXT-3B add Project MR approval and material lifecycle UI"
 Assert migration/RPC semantics for:
 - Approval leaves `inventory_items.stock` untouched.
 - Take locks stock, rejects insufficient stock, reduces stock once, logs `PROJECT_MR_TAKE`, and transitions Approved→Issued.
-- Same Take idempotency key cannot reduce stock twice.
+- Same Take idempotency key returns `already_applied:true`, cannot reduce stock twice, and does not trigger a second notification batch through the API.
 - Return increases stock once and logs `PROJECT_MR_RETURN`.
 - Use never changes Inventory.
 - Outstanding sequence examples: take 10 → 10; use 3 → 7; return 2 → 5; re-take 2 → 7, while net issued never exceeds requested.
