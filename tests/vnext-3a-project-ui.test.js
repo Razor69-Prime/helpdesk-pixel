@@ -52,5 +52,5 @@ test('existing Project Report exposes direct BOQ handoff helper',()=>{
 });
 
 test('Project Detail script remains explicitly cache-busted after Phase 3A1',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A1|URG-\d+)/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A(?:1|2)|URG-\d+)/);
 });

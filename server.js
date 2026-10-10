@@ -1418,9 +1418,10 @@ app.get('/api/projects/:id/detail', requireRole(...PROJECT_ROLES), async (req,re
     const projects=await db.getProjects();
     const project=projects.find(p=>String(p.id)===String(req.params.id));
     if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
-    const [reportRows,relation,ganttPlan]=await Promise.all([
+    const [reportRows,relation,relatedRelations,ganttPlan]=await Promise.all([
       buildProjectReportRows(),
       db.getProjectPrimaryWorkOrder(req.params.id),
+      db.getProjectRelatedWorkOrders(req.params.id),
       db.getProjectGanttPlan(req.params.id)
     ]);
     const report=reportRows.find(r=>String(r.id)===String(req.params.id))||null;
@@ -1429,7 +1430,13 @@ app.get('/api/projects/:id/detail', requireRole(...PROJECT_ROLES), async (req,re
       const linked=await db.getTicketById(relation.ticket_id);
       primaryWorkOrder=linked?{...linked,ticket_id:relation.ticket_id}:{unavailable:true,ticket_id:relation.ticket_id};
     }
-    res.json({project,report,primary_work_order:primaryWorkOrder,gantt_plan:ganttPlan});
+    const relatedWorkOrders=await Promise.all(relatedRelations.map(async related=>{
+      const linked=await db.getTicketById(related.ticket_id);
+      return linked
+        ?{...linked,ticket_id:related.ticket_id,relation_id:related.id}
+        :{unavailable:true,ticket_id:related.ticket_id,relation_id:related.id};
+    }));
+    res.json({project,report,primary_work_order:primaryWorkOrder,related_work_orders:relatedWorkOrders,gantt_plan:ganttPlan});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -1451,18 +1458,57 @@ app.put('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES), r
     const ticket=await db.getTicketById(ticketId);
     if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
 
-    const relations=await Promise.all(projects.map(async p=>({project:p,relation:await db.getProjectPrimaryWorkOrder(p.id)})));
-    const owner=relations.find(x=>x.relation?.ticket_id&&String(x.relation.ticket_id)===ticketId&&String(x.project.id)!==String(req.params.id));
-    if(owner) return res.status(409).json({error:`Work Order sudah menjadi Primary WO untuk project ${owner.project.nama_project||owner.project.id}.`});
+    const owner=await db.getProjectWorkOrderOwner(ticketId);
+    const isSamePrimary=owner&&owner.kind==='primary'&&String(owner.project_id)===String(req.params.id);
+    if(owner&&!isSamePrimary){
+      const ownerProject=projects.find(p=>String(p.id)===String(owner.project_id));
+      return res.status(409).json({error:`Work Order sudah terhubung ke project ${ownerProject?.nama_project||owner.project_id} sebagai ${owner.kind==='primary'?'Primary WO':'Related WO'}.`});
+    }
 
     const relation=await db.upsertProjectPrimaryWorkOrder(req.params.id,ticketId,req.session.user.name);
     logActivity(req,'project','LINK PRIMARY WO',`${project.nama_project}: ${ticket.wo_number||ticket.id}`);
     res.json({relation,work_order:ticket});
   }catch(e){
     const message=String(e.message||e);
-    if(/unique|duplicate|project_primary_work_orders_ticket_unique/i.test(message)) return res.status(409).json({error:'Work Order sudah terhubung sebagai Primary WO project lain.'});
+    if(/23505|unique|duplicate|project_primary_work_orders_ticket_unique|project_related_work_orders_ticket_unique|sudah terhubung/i.test(message)) return res.status(409).json({error:'Work Order sudah terhubung ke project lain.'});
     res.status(500).json({error:message});
   }
+});
+
+
+app.post('/api/projects/:id/related-work-orders', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_primary_wo_manage'), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const ticketId=String(req.body.ticket_id||'').trim();
+    if(!ticketId) return res.status(400).json({error:'Work Order wajib dipilih.'});
+    const ticket=await db.getTicketById(ticketId);
+    if(!ticket) return res.status(404).json({error:'Work Order tidak ditemukan.'});
+    const owner=await db.getProjectWorkOrderOwner(ticketId);
+    if(owner) return res.status(409).json({error:`Work Order sudah terhubung ke project lain sebagai ${owner.kind==='primary'?'Primary WO':'Related WO'}.`});
+    const relation=await db.linkProjectRelatedWorkOrder(req.params.id,ticketId,req.session.user.name);
+    logActivity(req,'project','LINK RELATED WO',`${project.nama_project}: ${ticket.wo_number||ticket.id}`);
+    res.status(201).json({relation,work_order:ticket});
+  }catch(e){
+    const message=String(e.message||e);
+    if(/23505|unique|duplicate|project_primary_work_orders_ticket_unique|project_related_work_orders_ticket_unique|sudah terhubung/i.test(message)) return res.status(409).json({error:'Work Order sudah terhubung ke project lain.'});
+    res.status(500).json({error:message});
+  }
+});
+
+app.delete('/api/projects/:id/related-work-orders/:ticketId', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_primary_wo_manage'), async (req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    const project=projects.find(p=>String(p.id)===String(req.params.id));
+    if(!project) return res.status(404).json({error:'Project tidak ditemukan.'});
+    const related=await db.getProjectRelatedWorkOrders(req.params.id);
+    const relation=related.find(r=>String(r.ticket_id)===String(req.params.ticketId));
+    if(!relation) return res.status(404).json({error:'Related WO tidak ditemukan pada project ini.'});
+    await db.unlinkProjectRelatedWorkOrder(req.params.id,req.params.ticketId);
+    logActivity(req,'project','UNLINK RELATED WO',`${project.nama_project}: ${req.params.ticketId}`);
+    res.json({ok:true});
+  }catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.delete('/api/projects/:id/primary-work-order', requireRole(...PROJECT_ROLES), requireProjectVnextPermission('project_primary_wo_manage'), async (req,res)=>{

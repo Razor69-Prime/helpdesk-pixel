@@ -34,7 +34,7 @@ test('legacy native remarks compatibility patch preserves compact markup instead
   assert.match(remarksPatch,/pxlRefreshWoRemarksToggles/);
 });
 
-test('0112 cache-busts both Project Detail and injected remarks compatibility script',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-URG-0112/);
+test('0112 fixes remain cache-busted while Project Detail may advance to a newer VNext revision',()=>{
+  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:URG-0112|VNEXT-3A\d+)/);
   assert.match(wrapper,/pxl-urg-0032a-remarks-button-fix\.js\?v=PXL-URG-0112/);
 });

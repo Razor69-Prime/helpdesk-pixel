@@ -711,6 +711,37 @@ async function upsertProjectPrimaryWorkOrder(projectId,ticketId,actor){
   const rows=await restFetch('POST','/project_primary_work_orders',row);
   return rows?.[0]||row;
 }
+async function getProjectRelatedWorkOrders(projectId){
+  if(!projectId||!USE_POSTGREST) return [];
+  return await restFetch('GET',`/project_related_work_orders?project_id=eq.${encodeURIComponent(projectId)}&order=created_at.asc`)||[];
+}
+async function linkProjectRelatedWorkOrder(projectId,ticketId,actor){
+  const row={project_id:projectId,ticket_id:ticketId,created_by:actor||null,created_at:new Date().toISOString()};
+  if(!USE_POSTGREST) return row;
+  const rows=await restFetch('POST','/project_related_work_orders',row);
+  return rows?.[0]||row;
+}
+async function unlinkProjectRelatedWorkOrder(projectId,ticketId){
+  if(!projectId||!ticketId||!USE_POSTGREST) return;
+  await restFetch('DELETE',`/project_related_work_orders?project_id=eq.${encodeURIComponent(projectId)}&ticket_id=eq.${encodeURIComponent(ticketId)}`);
+}
+async function getProjectWorkOrderOwner(ticketId){
+  if(!ticketId||!USE_POSTGREST) return null;
+  const primary=await restFetch('GET',`/project_primary_work_orders?ticket_id=eq.${encodeURIComponent(ticketId)}&limit=1`);
+  if(primary?.[0]?.project_id) return {project_id:String(primary[0].project_id),kind:'primary'};
+  const related=await restFetch('GET',`/project_related_work_orders?ticket_id=eq.${encodeURIComponent(ticketId)}&limit=1`);
+  if(related?.[0]?.project_id) return {project_id:String(related[0].project_id),kind:'related'};
+  return null;
+}
+async function getProjectLinkedWorkOrderIds(projectId){
+  if(!projectId) return [];
+  const [primary,related]=await Promise.all([
+    getProjectPrimaryWorkOrder(projectId),
+    getProjectRelatedWorkOrders(projectId)
+  ]);
+  const ids=[primary?.ticket_id,...(related||[]).map(r=>r.ticket_id)].filter(Boolean).map(String);
+  return [...new Set(ids)];
+}
 async function getProjectGanttTemplates(){
   if(!USE_POSTGREST) return [];
   const rows=await restFetch('GET','/project_gantt_templates?order=created_at.desc,name.asc')||[];
@@ -1407,7 +1438,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
-  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
+  getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectRelatedWorkOrders, linkProjectRelatedWorkOrder, unlinkProjectRelatedWorkOrder, getProjectWorkOrderOwner, getProjectLinkedWorkOrderIds, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
