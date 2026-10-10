@@ -1,0 +1,67 @@
+name: PXL-VNEXT-3A2 Release Verify
+
+on:
+  push:
+    branches:
+      - pxl-vnext-3a2
+    paths:
+      - .github/pxl-vnext-3a2.patch.gz.b64
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3a2
+          fetch-depth: 0
+      - name: Verify release payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "28a8bb0a4adebd78847587a22e4a5ef133cd52f203944bbfc6c4b0434747d3f3  .github/pxl-vnext-3a2.patch.gz.b64" | sha256sum -c -
+          base64 -d .github/pxl-vnext-3a2.patch.gz.b64 | gzip -d > /tmp/pxl-vnext-3a2.patch
+          git apply --check /tmp/pxl-vnext-3a2.patch
+      - name: Apply candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply /tmp/pxl-vnext-3a2.patch
+          rm -f .github/pxl-vnext-3a2.patch.gz.b64
+          rm -f .github/workflows/pxl-vnext-3a2-release-verify.yml
+      - name: Full gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.js
+          node --check db-core.js
+          node --check server.js
+          node --check public/pxl-vnext-3a-project-detail.js
+          node --check public/pxl-vnext-2c-survey-so-prefill.js
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          html=Path('public/index.html').read_text()
+          scripts=re.findall(r'<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)</script>',html,re.I)
+          for i,js in enumerate(scripts):
+              if not js.strip(): continue
+              fn=f'/tmp/inline-{i}.js'; Path(fn).write_text(js)
+              subprocess.run(['node','--check',fn],check=True)
+          sql=Path('PXL-VNEXT-3A2-MIGRATION.sql').read_text()
+          assert not re.search(r'insert\\s+into\\s+public\\.project_related_work_orders',sql,re.I)
+          assert 'pg_advisory_xact_lock' in sql
+          print('GITHUB_FULL_GATE=PASS')
+          PY
+      - name: Commit verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "PXL-VNEXT-3A2 multi-WO project and one-page Gantt PDF"
+          git push origin HEAD:pxl-vnext-3a2
