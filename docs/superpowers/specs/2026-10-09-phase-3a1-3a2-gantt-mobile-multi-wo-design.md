@@ -76,7 +76,7 @@ Keep A4 landscape and the current sequential date-axis model. Improve visual out
 - Title/header remains clean and professional.
 - Date grid remains readable in print/PDF.
 - Text maintains sufficient contrast.
-- Multi-page pagination remains supported for long schedules.
+- PDF Gantt must fit the full stage list and full timeline on a single A4 landscape page. Column width, row height, date ticks, and font size scale automatically for long schedules; the export must not create a second page.
 - Same stage always gets the same color within one generated PDF.
 
 No change to calendar-day calculation: Saturday and Sunday are included.

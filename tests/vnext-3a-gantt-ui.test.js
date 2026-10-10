@@ -35,19 +35,20 @@ test('Gantt save submits raw stage intent to PUT then reloads authoritative serv
   assert.match(src,/state\.data\.gantt_plan=result\.plan/);
 });
 
-test('Gantt PDF is stored-plan only, landscape A4, and paginates at 31 calendar days',()=>{
-  assert.match(src,/const PDF_DAYS_PER_PAGE=31/);
+test('Gantt PDF is stored-plan only, landscape A4, and fits the full timeline on one page',()=>{
   assert.match(src,/Download PDF/);
   assert.match(src,/if\(!plan\?\.stages\?\.length\)return/);
   assert.match(src,/new jsPDF\(\{orientation:'landscape',unit:'mm',format:'a4'\}\)/);
-  assert.match(src,/Math\.ceil\(totalDays\/PDF_DAYS_PER_PAGE\)/);
-  assert.match(src,/doc\.addPage\(\)/);
+  assert.match(src,/const cellW=chartW\/Math\.max\(1,totalDays\)/);
+  assert.match(src,/const rowH=Math\.min\(/);
+  assert.match(src,/Page 1\/1/);
+  assert.doesNotMatch(src,/doc\.addPage\(/);
   assert.match(src,/doc\.rect\(/);
   assert.match(src,/planned_start/);
   assert.match(src,/planned_end/);
 });
 
-test('Gantt PDF uses deterministic printable stage colors across pages',()=>{
+test('Gantt PDF uses deterministic printable stage colors on the single page',()=>{
   assert.match(src,/const GANTT_STAGE_COLORS=\[/);
   const palette=src.match(/const GANTT_STAGE_COLORS=\[([\s\S]*?)\];/)?.[1]||'';
   const entries=(palette.match(/\[[0-9]+,[0-9]+,[0-9]+\]/g)||[]);
@@ -55,7 +56,7 @@ test('Gantt PDF uses deterministic printable stage colors across pages',()=>{
   assert.match(src,/function ganttStageColor\(index\)/);
   assert.match(src,/GANTT_STAGE_COLORS\[index%GANTT_STAGE_COLORS\.length\]/);
   assert.match(src,/const \[r,g,b\]=ganttStageColor\(i\)/);
-  assert.match(src,/doc\.setFillColor\(r,g,b\)[\s\S]{0,180}doc\.rect\(barX,y\+2,barW,4,'F'\)/);
+  assert.match(src,/doc\.setFillColor\(r,g,b\)[\s\S]{0,220}doc\.rect\(barX,y\+barOffset,barW,barH,'F'\)/);
   assert.match(src,/doc\.setTextColor\(0,0,0\)/);
   assert.match(src,/doc\.setDrawColor\(/);
 });

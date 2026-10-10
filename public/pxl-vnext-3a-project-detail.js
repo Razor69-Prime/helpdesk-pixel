@@ -1,12 +1,11 @@
 /* PXL-VNEXT-3A — Project Detail Core. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0112';
-  const PDF_DAYS_PER_PAGE=31;
+  const REV='PXL-VNEXT-3A2';
   const DAY_MS=24*60*60*1000;
   const GANTT_STAGE_COLORS=[[37,99,235],[5,150,105],[217,119,6],[220,38,38],[124,58,237],[8,145,178],[190,24,93],[79,70,229],[101,163,13]];
   function ganttStageColor(index){return GANTT_STAGE_COLORS[index%GANTT_STAGE_COLORS.length];}
-  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:'',ganttTemplates:[]};
+  const state={projectId:null,data:null,activeTab:'overview',woSearchSeq:0,relatedWoSearchSeq:0,ganttLoadedProjectId:null,ganttDefaults:[],ganttStages:[],ganttStartDate:'',ganttTemplates:[]};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const n=v=>Number(v)||0;
@@ -330,55 +329,55 @@
     const first=parseGanttDate(stages[0].planned_start);
     const last=parseGanttDate(stages[stages.length-1].planned_end);
     const totalDays=Math.floor((last-first)/DAY_MS)+1;
-    const datePages=Math.ceil(totalDays/PDF_DAYS_PER_PAGE);
-    const STAGES_PER_PDF_PAGE=18;
-    const stagePages=Math.ceil(stages.length/STAGES_PER_PDF_PAGE);
-    const totalPages=datePages*stagePages;
     const project=state.data?.project||{};
     const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-    const pageW=doc.internal.pageSize.getWidth();
-    const margin=9,labelW=62,chartX=margin+labelW,chartW=pageW-margin-chartX,rowH=8,top=38;
-    let pageNo=0;
-    for(let datePage=0;datePage<datePages;datePage++){
-      const pageStart=first+(datePage*PDF_DAYS_PER_PAGE*DAY_MS);
-      const pageEnd=Math.min(last,pageStart+((PDF_DAYS_PER_PAGE-1)*DAY_MS));
-      const daysThisPage=Math.floor((pageEnd-pageStart)/DAY_MS)+1;
-      for(let stagePage=0;stagePage<stagePages;stagePage++){
-        if(pageNo>0)doc.addPage();pageNo++;
-        doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text('PROJECT TIMELINE',margin,12);
-        doc.setFontSize(10);doc.text(String(project.nama_project||'Project'),margin,18);
-        doc.setFont('helvetica','normal');doc.setFontSize(8);
-        doc.text(`Plan: ${stages[0].planned_start} - ${stages[stages.length-1].planned_end}`,margin,23);
-        doc.text(`Generated: ${new Date().toLocaleString('id-ID')}`,margin,27);
-        doc.text(`Page ${pageNo}/${totalPages}`,pageW-margin-22,12);
-        doc.setFont('helvetica','bold');doc.text('Tahap',margin,34);
-        const cellW=chartW/PDF_DAYS_PER_PAGE;
-        for(let d=0;d<daysThisPage;d++){
-          const stamp=pageStart+(d*DAY_MS),x=chartX+(d*cellW);
-          const date=new Date(stamp);
-          doc.setFontSize(6);doc.text(String(date.getUTCDate()),x+(cellW/2),34,{align:'center'});
-          doc.line(x,35,x,top+(Math.min(STAGES_PER_PDF_PAGE,stages.length-(stagePage*STAGES_PER_PDF_PAGE))*rowH));
-        }
-        doc.line(chartX+(daysThisPage*cellW),35,chartX+(daysThisPage*cellW),top+(Math.min(STAGES_PER_PDF_PAGE,stages.length-(stagePage*STAGES_PER_PDF_PAGE))*rowH));
-        const from=stagePage*STAGES_PER_PDF_PAGE,to=Math.min(stages.length,from+STAGES_PER_PDF_PAGE);
-        for(let i=from;i<to;i++){
-          const local=i-from,y=top+(local*rowH),stage=stages[i];
-          doc.setFont('helvetica','normal');doc.setFontSize(7);
-          const label=doc.splitTextToSize(String(stage.name||'-'),labelW-4);doc.text(label.slice(0,2),margin,y+4);
-          doc.line(margin,y+rowH,pageW-margin,y+rowH);
-          const s=parseGanttDate(stage.planned_start),e=parseGanttDate(stage.planned_end);
-          const overlapStart=Math.max(s,pageStart),overlapEnd=Math.min(e,pageEnd);
-          if(overlapStart<=overlapEnd){
-            const startIndex=Math.floor((overlapStart-pageStart)/DAY_MS);
-            const dayCount=Math.floor((overlapEnd-overlapStart)/DAY_MS)+1;
-            const barX=chartX+(startIndex*cellW)+0.5,barW=Math.max(1,(dayCount*cellW)-1);
-            const [r,g,b]=ganttStageColor(i);
-            doc.setFillColor(r,g,b);
-            doc.rect(barX,y+2,barW,4,'F');
-            doc.setTextColor(0,0,0);
-            doc.setDrawColor(120,120,120);
-          }
-        }
+    const pageW=doc.internal.pageSize.getWidth(),pageH=doc.internal.pageSize.getHeight();
+    const margin=9,labelW=58,chartX=margin+labelW,chartW=pageW-margin-chartX,top=38,bottom=8;
+    const availableH=Math.max(8,pageH-top-bottom);
+    const rowH=Math.min(8,availableH/Math.max(1,stages.length));
+    const labelFont=Math.max(3,Math.min(7,rowH*.78));
+    const barH=Math.max(.8,Math.min(4,rowH*.52));
+    const barOffset=Math.max(.1,(rowH-barH)/2);
+    const cellW=chartW/Math.max(1,totalDays);
+    const tickStep=Math.max(1,Math.ceil(totalDays/62));
+    const gridBottom=top+(stages.length*rowH);
+
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text('PROJECT TIMELINE',margin,12);
+    doc.setFontSize(10);doc.text(String(project.nama_project||'Project'),margin,18);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    doc.text(`Plan: ${stages[0].planned_start} - ${stages[stages.length-1].planned_end}`,margin,23);
+    doc.text(`Generated: ${new Date().toLocaleString('id-ID')}`,margin,27);
+    doc.text('Page 1/1',pageW-margin-22,12);
+    doc.setFont('helvetica','bold');doc.text('Tahap',margin,34);
+
+    for(let d=0;d<totalDays;d++){
+      const stamp=first+(d*DAY_MS),x=chartX+(d*cellW),date=new Date(stamp);
+      if(d%tickStep===0||d===totalDays-1){
+        doc.setFontSize(Math.max(3.2,Math.min(6,cellW*2.4)));
+        doc.text(String(date.getUTCDate()),x+(cellW/2),34,{align:'center'});
+        doc.line(x,35,x,gridBottom);
+      }
+    }
+    doc.line(chartX+chartW,35,chartX+chartW,gridBottom);
+
+    for(let i=0;i<stages.length;i++){
+      const y=top+(i*rowH),stage=stages[i];
+      doc.setFont('helvetica','normal');doc.setFontSize(labelFont);
+      const label=doc.splitTextToSize(String(stage.name||'-'),labelW-3);
+      doc.text(label.slice(0,rowH>=5?2:1),margin,y+Math.max(1,rowH*.68));
+      doc.line(margin,y+rowH,pageW-margin,y+rowH);
+      const s=parseGanttDate(stage.planned_start),e=parseGanttDate(stage.planned_end);
+      const startIndex=Math.max(0,Math.floor((s-first)/DAY_MS));
+      const endIndex=Math.min(totalDays-1,Math.floor((e-first)/DAY_MS));
+      if(startIndex<=endIndex){
+        const dayCount=(endIndex-startIndex)+1;
+        const barX=chartX+(startIndex*cellW)+Math.min(.5,cellW*.12);
+        const barW=Math.max(.6,(dayCount*cellW)-Math.min(1,cellW*.24));
+        const [r,g,b]=ganttStageColor(i);
+        doc.setFillColor(r,g,b);
+        doc.rect(barX,y+barOffset,barW,barH,'F');
+        doc.setTextColor(0,0,0);
+        doc.setDrawColor(120,120,120);
       }
     }
     const safe=String(project.nama_project||'Project').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'Project';
@@ -387,20 +386,36 @@
 
   function renderWorkOrder(){
     const wo=state.data?.primary_work_order;
+    const related=Array.isArray(state.data?.related_work_orders)?state.data.related_work_orders:[];
     const canManage=hasPermission('project_primary_wo_manage');
     const unavailable=wo?.unavailable===true;
     const hasWo=!!(wo&&(wo.wo_number||wo.ticket_id));
-    const summary=hasWo?`
+    const primarySummary=hasWo?`
       <div class="pxl-v3a-card" style="margin-bottom:12px">
         <div class="pxl-v3a-toolbar"><div><div class="pxl-v3a-label">Primary WO</div><div class="pxl-v3a-value">${h(unavailable?'WO tidak tersedia':wo.wo_number||wo.ticket_id)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap">${wo?.wo_number?'<button class="btn blue sm" id="pxl-v3a-open-wo">Buka di Daftar WO</button>':''}${canManage?'<button class="btn danger sm" id="pxl-v3a-unlink-wo">Lepas Primary WO</button>':''}</div></div>
         ${unavailable?'<div class="pxl-v3a-error" style="margin:8px 0 0">WO tidak tersedia. Relasi tersimpan dan dapat dilepas oleh user berizin.</div>':`<div class="pxl-v3a-grid"><div><div class="pxl-v3a-label">Customer</div><div class="pxl-v3a-value" style="font-size:12px">${h(wo.customer_name||'—')}</div></div><div><div class="pxl-v3a-label">Project WO</div><div class="pxl-v3a-value" style="font-size:12px">${h(wo.project_name||'—')}</div></div><div><div class="pxl-v3a-label">Tipe</div><div class="pxl-v3a-value" style="font-size:12px">${h(wo.work_order_type||'—')}</div></div><div><div class="pxl-v3a-label">Status</div><div class="pxl-v3a-value" style="font-size:12px">${h(wo.status||'—')}</div></div></div>`}
-      </div>`:'<div class="pxl-v3a-placeholder" style="margin-bottom:12px"><b>Belum ada Primary WO.</b><br><span class="pxl-v3a-muted">Project Phase 3A hanya menggunakan satu Primary WO.</span></div>';
-    const manage=canManage?`
-      <div class="pxl-v3a-card"><div class="pxl-v3a-toolbar"><div><b>${hasWo?'Pilih/Ganti Primary WO':'Pilih Primary WO'}</b><div class="pxl-v3a-muted">Cari WO existing berdasarkan nomor WO, customer, atau nama project.</div></div></div>
-      <input id="pxl-v3a-wo-search" placeholder="Cari WO existing..." autocomplete="off">
+      </div>`:'<div class="pxl-v3a-placeholder" style="margin-bottom:12px"><b>Belum ada Primary WO.</b><br><span class="pxl-v3a-muted">Pilih satu WO utama project dari WO existing.</span></div>';
+
+    const relatedList=related.length?related.map(relatedWo=>{
+      const relatedUnavailable=relatedWo.unavailable===true;
+      const ticketId=relatedWo.ticket_id||relatedWo.id||'';
+      const tech=Array.isArray(relatedWo.technicians)&&relatedWo.technicians.length?relatedWo.technicians.join(' & '):(relatedWo.technician||'—');
+      return `<div class="pxl-v3a-card" style="margin-bottom:8px;padding:11px">
+        <div class="pxl-v3a-toolbar" style="margin-bottom:${relatedUnavailable?'0':'8px'}"><div><div class="pxl-v3a-label">Related WO</div><div class="pxl-v3a-value" style="font-size:13px">${h(relatedUnavailable?'WO tidak tersedia':relatedWo.wo_number||ticketId)}</div>${relatedUnavailable?`<div class="pxl-v3a-muted">ID: ${h(relatedWo.ticket_id||'—')}</div>`:''}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${relatedWo.wo_number?`<button class="btn blue sm" data-v3a-open-related="${h(relatedWo.wo_number)}">Buka di Daftar WO</button>`:''}${canManage?`<button class="btn danger sm" data-v3a-unlink-related="${h(ticketId)}">Lepas Related WO</button>`:''}</div></div>
+        ${relatedUnavailable?'':`<div class="pxl-v3a-grid"><div><div class="pxl-v3a-label">Customer</div><div class="pxl-v3a-value" style="font-size:11px">${h(relatedWo.customer_name||'—')}</div></div><div><div class="pxl-v3a-label">Project WO</div><div class="pxl-v3a-value" style="font-size:11px">${h(relatedWo.project_name||'—')}</div></div><div><div class="pxl-v3a-label">Tipe / Status</div><div class="pxl-v3a-value" style="font-size:11px">${h(relatedWo.work_order_type||'—')} · ${h(relatedWo.status||'—')}</div></div><div><div class="pxl-v3a-label">Teknisi</div><div class="pxl-v3a-value" style="font-size:11px">${h(tech)}</div></div></div>`}
+      </div>`;
+    }).join(''):'<div class="pxl-v3a-placeholder" style="margin-bottom:12px">Belum ada Related WO.</div>';
+
+    const primaryManage=canManage?`
+      <div class="pxl-v3a-card" style="margin-bottom:12px"><div class="pxl-v3a-toolbar"><div><b>${hasWo?'Pilih/Ganti Primary WO':'Pilih Primary WO'}</b><div class="pxl-v3a-muted">Cari WO existing berdasarkan nomor WO, customer, atau nama project.</div></div></div>
+      <input id="pxl-v3a-wo-search" placeholder="Cari WO existing untuk Primary..." autocomplete="off">
       <div id="pxl-v3a-wo-results" style="margin-top:8px"></div></div>`:'';
+    const relatedManage=canManage?`
+      <div class="pxl-v3a-card"><div class="pxl-v3a-toolbar"><div><b>Tambah Related WO</b><div class="pxl-v3a-muted">Link WO existing sebagai pekerjaan pendukung. Satu WO hanya boleh dimiliki satu Project.</div></div></div>
+      <input id="pxl-v3a-related-wo-search" placeholder="Cari WO existing untuk Related..." autocomplete="off">
+      <div id="pxl-v3a-related-wo-results" style="margin-top:8px"></div></div>`:'';
     setTimeout(bindWorkOrderActions,0);
-    return summary+manage;
+    return primarySummary+`<div class="pxl-v3a-section">Related WO (${related.length})</div>`+relatedList+primaryManage+relatedManage;
   }
 
   function bindWorkOrderActions(){
@@ -409,11 +424,20 @@
     if(openBtn&&wo?.wo_number)openBtn.onclick=()=>openTicketInList(wo.wo_number);
     const unlinkBtn=$('#pxl-v3a-unlink-wo');
     if(unlinkBtn)unlinkBtn.onclick=unlinkPrimaryWorkOrder;
+    document.querySelectorAll('[data-v3a-open-related]').forEach(btn=>btn.onclick=()=>openTicketInList(btn.dataset.v3aOpenRelated));
+    document.querySelectorAll('[data-v3a-unlink-related]').forEach(btn=>btn.onclick=()=>unlinkRelatedWorkOrder(btn.dataset.v3aUnlinkRelated));
+
     const search=$('#pxl-v3a-wo-search');
     if(search){
       let timer=null;
       search.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchWoOptions(search.value),180)};
       searchWoOptions('');
+    }
+    const relatedSearch=$('#pxl-v3a-related-wo-search');
+    if(relatedSearch){
+      let timer=null;
+      relatedSearch.oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>searchRelatedWoOptions(relatedSearch.value),180)};
+      searchRelatedWoOptions('');
     }
   }
 
@@ -433,12 +457,36 @@
     }
   }
 
+  async function searchRelatedWoOptions(query){
+    if(!hasPermission('project_primary_wo_manage')||!state.projectId)return;
+    const results=$('#pxl-v3a-related-wo-results');
+    if(!results)return;
+    const seq=++state.relatedWoSearchSeq;
+    results.innerHTML='<div class="pxl-v3a-muted">Mencari WO...</div>';
+    try{
+      const rows=await api('GET',`/projects/${encodeURIComponent(state.projectId)}/work-order-options?q=${encodeURIComponent(String(query||'').trim())}`);
+      if(seq!==state.relatedWoSearchSeq||!$('#pxl-v3a-related-wo-results'))return;
+      results.innerHTML=(rows||[]).length?(rows||[]).map(row=>`<div class="pxl-v3a-card" style="margin-bottom:6px;padding:9px"><div class="pxl-v3a-toolbar" style="margin:0"><div><b>${h(row.wo_number||row.id)}</b><div class="pxl-v3a-muted">${h(row.customer_name||'-')} · ${h(row.project_name||'-')} · ${h(row.work_order_type||'-')} · ${h(row.status||'-')}</div></div><button class="btn primary sm" data-v3a-link-related-wo="${h(row.id)}">Tambah</button></div></div>`).join(''):'<div class="pxl-v3a-muted">WO tidak ditemukan.</div>';
+      results.querySelectorAll('[data-v3a-link-related-wo]').forEach(btn=>btn.onclick=()=>linkRelatedWorkOrder(btn.dataset.v3aLinkRelatedWo));
+    }catch(e){
+      if(seq===state.relatedWoSearchSeq&&results)results.innerHTML=`<div class="pxl-v3a-error">${h(e.message||'Gagal mencari WO.')}</div>`;
+    }
+  }
+
   async function linkPrimaryWorkOrder(ticketId){
     if(!hasPermission('project_primary_wo_manage')||!ticketId)return;
     try{
       await api('PUT',`/projects/${encodeURIComponent(state.projectId)}/primary-work-order`,{ticket_id:ticketId});
       await refresh();
     }catch(e){ alert(e.message||'Gagal menghubungkan Primary WO.'); }
+  }
+
+  async function linkRelatedWorkOrder(ticketId){
+    if(!hasPermission('project_primary_wo_manage')||!ticketId)return;
+    try{
+      await api('POST',`/projects/${encodeURIComponent(state.projectId)}/related-work-orders`,{ticket_id:ticketId});
+      await refresh();
+    }catch(e){ alert(e.message||'Gagal menghubungkan Related WO.'); }
   }
 
   async function unlinkPrimaryWorkOrder(){
@@ -448,6 +496,15 @@
       await api('DELETE',`/projects/${encodeURIComponent(state.projectId)}/primary-work-order`);
       await refresh();
     }catch(e){ alert(e.message||'Gagal melepas Primary WO.'); }
+  }
+
+  async function unlinkRelatedWorkOrder(ticketId){
+    if(!hasPermission('project_primary_wo_manage')||!state.projectId||!ticketId)return;
+    if(!confirm('Lepas Related WO dari project ini? WO, status, history, TTD, dan foto tidak akan dihapus atau diubah.'))return;
+    try{
+      await api('DELETE',`/projects/${encodeURIComponent(state.projectId)}/related-work-orders/${encodeURIComponent(ticketId)}`);
+      await refresh();
+    }catch(e){ alert(e.message||'Gagal melepas Related WO.'); }
   }
 
   function openTicketInList(woNumber){

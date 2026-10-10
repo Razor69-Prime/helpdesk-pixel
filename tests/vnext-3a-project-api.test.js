@@ -38,7 +38,7 @@ test('Primary WO APIs validate project and WO, enforce one-WO ownership, and nev
   assert.match(put,/getTicketById\(ticketId\)/);
   assert.match(put,/status\(404\)/);
   assert.match(put,/status\(409\)/);
-  assert.match(put,/getProjectPrimaryWorkOrder/);
+  assert.match(put,/getProjectWorkOrderOwner/);
   assert.match(put,/upsertProjectPrimaryWorkOrder/);
   assert.doesNotMatch(put,/updateTicket\(/,'linking must not update the WO');
   assert.match(del,/upsertProjectPrimaryWorkOrder\([^,]+,\s*null/);

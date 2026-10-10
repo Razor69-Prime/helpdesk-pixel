@@ -20,7 +20,11 @@ test('link and unlink use Phase 3A APIs only and refresh authoritative Project D
   assert.match(src,/api\('PUT',`\/projects\/\$\{encodeURIComponent\(state\.projectId\)\}\/primary-work-order`,\{ticket_id:/);
   assert.match(src,/api\('DELETE',`\/projects\/\$\{encodeURIComponent\(state\.projectId\)\}\/primary-work-order`\)/);
   assert.match(src,/await refresh\(\)/);
-  assert.doesNotMatch(src,/api\('POST',[^\n]*work-order/,'Primary WO UI must not create WO');
+  const start=src.indexOf('async function linkPrimaryWorkOrder');
+  const end=src.indexOf('async function linkRelatedWorkOrder',start);
+  assert.ok(start>=0&&end>start,'Primary link function must exist before Related link function');
+  const primaryLink=src.slice(start,end);
+  assert.doesNotMatch(primaryLink,/api\('POST'/,'Primary WO UI must not create a WO');
 });
 
 test('unlink requires explicit confirmation and unavailable linked WO is handled safely',()=>{
