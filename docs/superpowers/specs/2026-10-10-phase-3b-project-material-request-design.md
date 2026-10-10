@@ -42,9 +42,9 @@ This module is intentionally isolated from the existing/legacy MR Operasional fl
 ### Superadmin
 
 - Receives MR Project notifications and can monitor the records.
-- Phase 3B does not grant Superadmin a separate approval action unless the account also has an allowed Manager/Admin role under the existing role model.
+- Does not receive an Approve/Reject action in Phase 3B. Approval and rejection are restricted to Manager/Admin.
 
-### Warehouse / Material Pickup User
+### User Pengambil Material
 
 - Material pickup and return actions are recorded against the authenticated user handling the transaction.
 - The pickup user is included in relevant notifications/history.
@@ -282,4 +282,4 @@ Implementation is not considered ready until all relevant existing tests remain 
 
 ## 14. Completion Criteria
 
-Phase 3B is complete when a technician can create and submit an MR tied to a project; Manager/Admin can approve or reject without editing it; warehouse/pickup actions can issue and return material with correct Inventory movement; used/returned quantities reduce outstanding to zero; and the MR can then be finalized with complete audit/history and notifications, while all existing MR Operasional behavior remains intact.
+Phase 3B is complete when a technician can create and submit an MR tied to a project; Manager/Admin can approve or reject without editing it; user pengambil material can issue and return material with correct Inventory movement; used/returned quantities reduce outstanding to zero; and the MR can then be finalized with complete audit/history and notifications, while all existing MR Operasional behavior remains intact.
