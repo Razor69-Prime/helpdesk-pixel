@@ -84,10 +84,9 @@ test('legacy MR routes and inventory issue surface remain present',()=>{
   assert.match(db,/async function issueInventoryMaterialRequest/);
 });
 
-test('BOQ catalog resolves exact active Inventory match and submit blocks unmapped material',()=>{
+test('BOQ catalog does not auto-map names and submit still requires an explicitly selected Inventory item',()=>{
   const catalog=route('get','/api/projects/:projectId/material-request-catalog');
-  assert.match(catalog,/inventory_item_id/);
-  assert.match(catalog,/toLowerCase\(\).*trim\(\)|trim\(\).*toLowerCase\(\)/s);
+  assert.doesNotMatch(catalog,/inventory_match|exact_name|normalizeInventoryName/);
   const submit=route('post','/api/project-material-requests/:id/submit');
   assert.match(submit,/inventory_item_id/);
   assert.match(submit,/terhubung ke Inventory|Inventory.*wajib/i);

@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3B — Project Material Request */
+/* PXL-VNEXT-3B3 — Project Material Request */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3B2';
+  const REV='PXL-VNEXT-3B3';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,7 +23,7 @@
     if($('#pxl-v3b-mr-style'))return;
     const s=document.createElement('style');s.id='pxl-v3b-mr-style';s.textContent=`
       .pxl-v3b-mr-modal{display:none;position:fixed;inset:0;z-index:10070;background:rgba(15,23,42,.55);padding:20px;overflow:auto;align-items:flex-start;justify-content:center}.pxl-v3b-mr-modal.show{display:flex}
-      .pxl-v3b-mr-dialog{width:min(1180px,98vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.25)}.pxl-v3b-mr-head{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;justify-content:space-between}.pxl-v3b-mr-body{padding:18px}.pxl-v3b-mr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.pxl-v3b-mr-card{border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--surface2)}.pxl-v3b-mr-label{font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:800}.pxl-v3b-mr-value{font-size:13px;font-weight:800;margin-top:4px}.pxl-v3b-mr-muted{font-size:11px;color:var(--muted)}.pxl-v3b-mr-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-v3b-mr-list{display:grid;gap:8px}.pxl-v3b-mr-row{border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--surface);display:flex;gap:10px;justify-content:space-between;align-items:center}.pxl-v3b-mr-status{font-size:10px;border:1px solid var(--border);border-radius:99px;padding:3px 7px;font-weight:800}.pxl-v3b-mr-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-v3b-mr-table{width:100%;border-collapse:collapse;min-width:800px;font-size:11px}.pxl-v3b-mr-table th{background:var(--surface2);font-size:9px;text-transform:uppercase;color:var(--muted);padding:8px;text-align:left}.pxl-v3b-mr-table td{padding:8px;border-top:1px solid var(--border);vertical-align:top}.pxl-v3b-mr-error{background:var(--red-bg);color:var(--red);padding:9px;border-radius:8px;margin-bottom:10px}.pxl-v3b-mr-section{font-weight:800;font-size:13px;margin:16px 0 8px}.pxl-v3b-mr-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-v3b-mr-extra{background:var(--accent-light)}
+      .pxl-v3b-mr-dialog{width:min(1180px,98vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.25)}.pxl-v3b-mr-head{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;justify-content:space-between}.pxl-v3b-mr-body{padding:18px}.pxl-v3b-mr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.pxl-v3b-mr-card{border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--surface2)}.pxl-v3b-mr-label{font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:800}.pxl-v3b-mr-value{font-size:13px;font-weight:800;margin-top:4px}.pxl-v3b-mr-muted{font-size:11px;color:var(--muted)}.pxl-v3b-mr-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-v3b-mr-list{display:grid;gap:8px}.pxl-v3b-mr-row{border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--surface);display:flex;gap:10px;justify-content:space-between;align-items:center}.pxl-v3b-mr-status{font-size:10px;border:1px solid var(--border);border-radius:99px;padding:3px 7px;font-weight:800}.pxl-v3b-mr-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-v3b-mr-table{width:100%;border-collapse:collapse;min-width:800px;font-size:11px}.pxl-v3b-mr-table th{background:var(--surface2);font-size:9px;text-transform:uppercase;color:var(--muted);padding:8px;text-align:left}.pxl-v3b-mr-table td{padding:8px;border-top:1px solid var(--border);vertical-align:top}.pxl-v3b-mr-error{background:var(--red-bg);color:var(--red);padding:9px;border-radius:8px;margin-bottom:10px}.pxl-v3b-mr-section{font-weight:800;font-size:13px;margin:16px 0 8px}.pxl-v3b-mr-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-v3b-mr-extra{background:var(--accent-light)}.pxl-v3b-inv-search{position:relative;margin-top:6px}.pxl-v3b-inv-search input{width:100%;box-sizing:border-box}.pxl-v3b-inv-results{display:none;margin-top:4px;border:1px solid var(--border);border-radius:8px;background:var(--surface);max-height:220px;overflow:auto}.pxl-v3b-inv-results.show{display:block}.pxl-v3b-inv-result{display:block;width:100%;padding:8px 10px;border:0;border-bottom:1px solid var(--border);background:var(--surface);text-align:left;cursor:pointer;color:inherit}.pxl-v3b-inv-result:last-child{border-bottom:0}.pxl-v3b-inv-result:active{background:var(--surface2)}.pxl-v3b-inv-selected{margin-top:4px;font-size:10px;color:var(--muted)}
       @media(max-width:700px){.pxl-v3b-mr-modal{padding:7px}.pxl-v3b-mr-body{padding:12px}.pxl-v3b-mr-grid{grid-template-columns:1fr}}
     `;document.head.appendChild(s);
   }
@@ -49,12 +49,37 @@
     body.querySelectorAll('[data-v3b-mr-open]').forEach(b=>b.onclick=()=>open(state.projectId,b.dataset.v3bMrOpen));
   }
 
-  function boqOptions(){return (state.catalog?.boq_items||[]).map(i=>`<option value="${h(i.id)}">${h(i.item_name||'-')} · BOQ ${h(i.boq_qty||0)} ${h(i.unit||'')}</option>`).join('')}
+  function boqOptions(){return (state.catalog?.boq_items||[]).map(i=>`<option value="${h(i.id)}">${h(i.item_name||'-')}</option>`).join('')}
   function inventoryOptions(){return (state.catalog?.inventory_items||[]).map(i=>`<option value="${h(i.id)}">${h(i.name||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</option>`).join('')}
+  const normalizeInventorySearch=v=>String(v||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim();
+  function inventorySearchText(item){return normalizeInventorySearch([item?.name,item?.sku,item?.product_number,item?.barcode,item?.brand,item?.category].filter(Boolean).join(' '))}
+  function filterInventoryForQuery(query){
+    const q=normalizeInventorySearch(query);if(!q)return [];
+    const tokens=q.split(/\s+/).filter(Boolean);
+    return (state.catalog?.inventory_items||[]).map(item=>{const text=inventorySearchText(item),matched=tokens.reduce((n,t)=>n+(text.includes(t)?1:0),0),score=(text.includes(q)?100:0)+(matched*10);return {item,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||String(a.item?.name||'').localeCompare(String(b.item?.name||''),'id',{numeric:true})).slice(0,15).map(x=>x.item);
+  }
+  function inventoryById(id){return (state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(id))||null}
+  function inventorySearchBox(item,index){
+    const selected=inventoryById(item.inventory_item_id),query=item.inventory_search??selected?.name??item.item_name??'';
+    const selectedText=selected?`✓ Dipilih: ${h(selected.name||'-')}${selected.sku?` · SKU ${h(selected.sku)}`:''} · stok ${h(selected.stock||0)} ${h(selected.unit||'')}`:'Pilih barang Inventory yang sesuai dengan material BOQ.';
+    return `<div class="pxl-v3b-inv-search"><input data-v3b-inv-search="${index}" autocomplete="off" value="${h(query)}" placeholder="Cari barang Inventory / SKU..."><div class="pxl-v3b-inv-results" data-v3b-inv-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-inv-selected="${index}">${selectedText}</div></div>`;
+  }
+  function renderInventorySearchResults(index,query){
+    const box=document.querySelector(`[data-v3b-inv-results="${index}"]`);if(!box)return;
+    const q=String(query||'').trim();if(!q){box.innerHTML='';box.classList.remove('show');return}
+    const matches=filterInventoryForQuery(q);
+    box.innerHTML=matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-inv-result="${h(i.id)}"><b>${h(i.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.sku||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Barang Inventory tidak ditemukan. Ubah kata pencarian.</div>';
+    box.classList.add('show');
+    box.querySelectorAll('[data-v3b-inv-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectInventorySearchResult(index,btn.dataset.v3bInvResult)});
+  }
+  function selectInventorySearchResult(index,inventoryId){
+    const item=state.editorItems[index],row=inventoryById(inventoryId);if(!item||!row)return;
+    item.inventory_item_id=row.id;item.inventory_search=row.name||'';item.sku=row.sku||null;if(!item.unit)item.unit=row.unit||null;renderDetail();
+  }
 
   function editorRow(item,index){
     const extra=item.source_type==='inventory_extra';
-    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:`<select data-v3b-boq="${index}"><option value="">Pilih BOQ Project...</option>${boqOptions()}</select><div class="pxl-v3b-mr-muted" style="margin:4px 0">BOQ Project</div><select data-v3b-boq-inv="${index}"><option value="">Mapping Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Mapping Inventory</div>`}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
+    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:`<select data-v3b-boq="${index}"><option value="">Pilih BOQ Project...</option>${boqOptions()}</select><div class="pxl-v3b-mr-muted" style="margin:4px 0">BOQ Project</div>${item.project_boq_item_id?inventorySearchBox(item,index):'<div class="pxl-v3b-mr-muted">Pilih BOQ Project terlebih dahulu.</div>'}`}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
   }
 
   function readOnlyRows(items){
@@ -143,13 +168,13 @@
   }
 
   function bindEditor(){
-    document.querySelectorAll('[data-v3b-boq]').forEach(sel=>{const i=Number(sel.dataset.v3bBoq);sel.value=state.editorItems[i]?.project_boq_item_id||'';sel.onchange=()=>{state.editorItems[i].project_boq_item_id=sel.value||null;const row=(state.catalog?.boq_items||[]).find(x=>String(x.id)===String(sel.value));state.editorItems[i].inventory_item_id=row?.inventory_item_id||null;state.editorItems[i].item_name=row?.item_name||null;state.editorItems[i].unit=row?.unit||null;renderDetail();}});
-    document.querySelectorAll('[data-v3b-boq-inv]').forEach(sel=>{const i=Number(sel.dataset.v3bBoqInv);sel.value=state.editorItems[i]?.inventory_item_id||'';sel.onchange=()=>{state.editorItems[i].inventory_item_id=sel.value||null;const row=(state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(sel.value));state.editorItems[i].sku=row?.sku||null;if(!state.editorItems[i].unit)state.editorItems[i].unit=row?.unit||null;}});
+    document.querySelectorAll('[data-v3b-boq]').forEach(sel=>{const i=Number(sel.dataset.v3bBoq);sel.value=state.editorItems[i]?.project_boq_item_id||'';sel.onchange=()=>{const item=state.editorItems[i];item.project_boq_item_id=sel.value||null;const row=(state.catalog?.boq_items||[]).find(x=>String(x.id)===String(sel.value));item.inventory_item_id=null;item.inventory_search=row?.item_name||'';item.item_name=row?.item_name||null;item.sku=null;item.unit=row?.unit||null;renderDetail();if(row)setTimeout(()=>{const input=document.querySelector(`[data-v3b-inv-search="${i}"]`);if(input){input.focus();renderInventorySearchResults(i,input.value)}},0);}});
+    document.querySelectorAll('[data-v3b-inv-search]').forEach(input=>{const i=Number(input.dataset.v3bInvSearch);input.onfocus=()=>renderInventorySearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.inventory_search=input.value;item.inventory_item_id=null;item.sku=null;const selected=document.querySelector(`[data-v3b-inv-selected="${i}"]`);if(selected)selected.textContent='Pilih salah satu barang Inventory dari hasil pencarian.';renderInventorySearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-inv-results="${i}"]`)?.classList.remove('show'),180)});
     document.querySelectorAll('[data-v3b-inv]').forEach(sel=>{const i=Number(sel.dataset.v3bInv);sel.value=state.editorItems[i]?.inventory_item_id||'';sel.onchange=()=>{state.editorItems[i].inventory_item_id=sel.value||null;const row=(state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(sel.value));state.editorItems[i].item_name=row?.name||null;state.editorItems[i].sku=row?.sku||null;state.editorItems[i].unit=row?.unit||null;}});
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-reason]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bReason)].additional_reason=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
-    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,qty_requested:1,additional_reason:null});renderDetail()};
+    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,inventory_search:'',qty_requested:1,additional_reason:null});renderDetail()};
     $('#pxl-v3b-add-extra').onclick=()=>{state.editorItems.push({source_type:'inventory_extra',inventory_item_id:null,qty_requested:1,additional_reason:''});renderDetail()};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
@@ -160,7 +185,7 @@
     return state.editorItems.map((item,index)=>{
       const qty=Number(item.qty_requested);if(!Number.isFinite(qty)||qty<=0)throw new Error(`Qty item baris ${index+1} harus lebih dari 0.`);
       if(item.source_type==='boq'&&!item.project_boq_item_id)throw new Error(`Pilih BOQ Project pada baris ${index+1}.`);
-      if(requireInventory&&item.source_type==='boq'&&!item.inventory_item_id)throw new Error(`Mapping Inventory untuk BOQ baris ${index+1} wajib dipilih sebelum diajukan.`);
+      if(requireInventory&&item.source_type==='boq'&&!item.inventory_item_id)throw new Error(`Pilih barang Inventory untuk BOQ baris ${index+1} sebelum diajukan.`);
       if(item.source_type==='inventory_extra'&&!item.inventory_item_id)throw new Error(`Pilih Inventory pada baris ${index+1}.`);
       if(item.source_type==='inventory_extra'&&!String(item.additional_reason||'').trim())throw new Error(`Alasan material di luar BOQ baris ${index+1} wajib diisi.`);
       return {...item,qty_requested:qty,additional_reason:item.source_type==='inventory_extra'?String(item.additional_reason).trim():null};
@@ -189,7 +214,7 @@
   }
   async function loadDetail(requestId){
     const [mr]=await Promise.all([request('GET',`/project-material-requests/${encodeURIComponent(requestId)}`),state.catalog?Promise.resolve():loadCatalog()]);
-    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>({source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}));renderDetail();
+    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>{const inv=inventoryById(i.inventory_item_id);return {source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,inventory_search:inv?.name||i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}});renderDetail();
   }
 
   async function refresh(){
