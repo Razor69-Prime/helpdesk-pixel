@@ -39,7 +39,7 @@ test('Project MR routes are dedicated and include technician read/create without
   ]) route(method,url);
 });
 
-test('approval is Manager/Admin only and never accepts item mutation payload',()=>{
+test('approval defaults to Manager/Admin, supports explicit delegation, and never accepts item mutation payload',()=>{
   const approve=route('post','/api/project-material-requests/:id/approve');
   const reject=route('post','/api/project-material-requests/:id/reject');
   for(const body of [approve,reject]){
@@ -98,5 +98,6 @@ test('Project MR read roles inherit all existing Project roles and add Technicia
   assert.match(server,/const PROJECT_MR_READ_ROLES\s*=\s*\[\.\.\.new Set\(\[\.\.\.PROJECT_ROLES,'technician'\]\)\]/);
   const create=route('post','/api/projects/:projectId/material-requests');
   assert.match(create,/requireProjectMrCreate/);
-  assert.match(server,/if\(projectMrRole\(req\)!=='technician'\)/);
+  assert.match(server,/\['technician','superadmin'\]\.includes\(projectMrRole\(req\)\)/);
+  assert.match(server,/hasProjectMrPermission\(req,'project_mr_create'\)/);
 });

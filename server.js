@@ -1214,8 +1214,10 @@ function requireProjectVnextPermission(permission){
 
 const PROJECT_MR_READ_ROLES=[...new Set([...PROJECT_ROLES,'technician'])];
 function projectMrRole(req){return String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');}
+function projectMrCustomMenus(req){return Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];}
+function hasProjectMrPermission(req,permission){return projectMrCustomMenus(req).includes(permission);}
 function hasProjectMrLegacyPermission(req,permission){
-  const role=projectMrRole(req),custom=Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];
+  const role=projectMrRole(req),custom=projectMrCustomMenus(req);
   if(role==='superadmin') return true;
   const defaults={
     material_request_view:['technician','warehouse'],
@@ -1226,17 +1228,20 @@ function hasProjectMrLegacyPermission(req,permission){
 }
 function requireProjectMrRead(req,res,next){
   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
-  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view'))return res.status(403).json({error:'Akses MR Project ditolak.'});
+  const delegated=hasProjectMrPermission(req,'project_mr_create')||hasProjectMrPermission(req,'project_mr_approve');
+  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view')&&!delegated)return res.status(403).json({error:'Akses MR Project ditolak.'});
   next();
 }
 function requireProjectMrCreate(req,res,next){
   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
-  if(projectMrRole(req)!=='technician')return res.status(403).json({error:'MR Project dibuat oleh Teknisi.'});
+  if(!['technician','superadmin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_create'))return res.status(403).json({error:'Anda tidak memiliki permission Buat/Input MR Project.'});
   next();
 }
 function requireProjectMrApproval(req,res,next){
   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
-  if(!['manager','admin'].includes(projectMrRole(req)))return res.status(403).json({error:'Approve/Reject MR Project hanya untuk Manager/Admin.'});
+  // Superadmin tetap monitoring-only untuk approval; permission delegasi ditujukan ke akun non-Superadmin.
+  if(projectMrRole(req)==='superadmin')return res.status(403).json({error:'Superadmin monitoring MR Project dan tidak melakukan Approve/Reject.'});
+  if(!['manager','admin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_approve'))return res.status(403).json({error:'Anda tidak memiliki permission Approve/Reject MR Project.'});
   next();
 }
 function rejectProjectMrMutationPayload(req,res,next){

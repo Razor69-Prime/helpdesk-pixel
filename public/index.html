@@ -3566,7 +3566,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">PixelApps VNext — CRM Classification</div><div id="vnext-crm-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Default OFF untuk selain Super Admin.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Service Center</div><div id="service-center-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Semua akun role Teknisi selalu memiliki akses baca (read only) ke Service Center. Permission di bawah hanya menambah kewenangan seperti update status atau upload foto.</div>
+      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project MR</div><div id="project-mr-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Buat/Input default untuk Teknisi & Super Admin. Approve/Reject default untuk Manager/Admin; Super Admin tetap monitoring approval.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">PixelApps VNext — CRM Classification</div><div id="vnext-crm-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Default OFF untuk selain Super Admin.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Service Center</div><div id="service-center-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Semua akun role Teknisi selalu memiliki akses baca (read only) ke Service Center. Permission di bawah hanya menambah kewenangan seperti update status atau upload foto.</div>
     </div>
     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
     <hr class="divider"/>
@@ -5662,6 +5662,10 @@ const MATERIAL_REQUEST_PERMISSIONS=[
   {id:'material_request_edit',label:'✏️ Edit / Pengembalian'},
   {id:'material_request_barcode',label:'📷 Scan Barcode Material'}
 ];
+const PROJECT_MR_PERMISSIONS=[
+  {id:'project_mr_create',label:'➕ Buat / Input MR Project'},
+  {id:'project_mr_approve',label:'✅ Approve / Reject MR Project'}
+];
 const PROJECT_PERMISSIONS=[
   {id:'project_boq_manage',label:'📐 Input Total BOQ Project'},
   {id:'project_gantt_manage',label:'📅 Kelola Gantt Plan Project'},
@@ -5721,7 +5725,7 @@ function getEffectiveMenus(role, customMenus, exact=false){
 
 function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const box=document.getElementById('menu-checkboxes');
-  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id);
+  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id);
   if(forceSuperAdmin) currentMenus=allPermissionIds;
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
@@ -5747,6 +5751,8 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const mrBox=document.getElementById('material-request-permission-checkboxes');
   if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+  const projectMrBox=document.getElementById('project-mr-permission-checkboxes');
+  if(projectMrBox) projectMrBox.innerHTML=PROJECT_MR_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
   const projectBox=document.getElementById('project-permission-checkboxes');
   if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');  const vnextCrmBox=document.getElementById('vnext-crm-permission-checkboxes');
   if(vnextCrmBox) vnextCrmBox.innerHTML=VNEXT_CRM_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
@@ -5767,13 +5773,13 @@ function ensureCrmChecklist(){
 }
 
 function getCheckedMenus(){
-  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id).filter(id=>
+  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id).filter(id=>
     document.querySelector(`[data-menu="${id}"]`)?.checked
   );
 }
 
 function setAllMenus(val){
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
     if(el) el.checked=val;
   });
@@ -5784,6 +5790,7 @@ function resetMenuToRole(){
   const defaults=getDefaultMenus(role);
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
+  const projectMrDefaults=role==='technician'||role==='superadmin'?['project_mr_create']:['manager','admin'].includes(role)?['project_mr_approve']:[];
   const projectDefaults=role==='superadmin'?PROJECT_PERMISSIONS.map(x=>x.id):role==='manager'?['project_boq_manage']:[];
   const serviceDefaults={
     superadmin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
@@ -5791,9 +5798,9 @@ function resetMenuToRole(){
     manager:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
     operator:['service_view_all','service_create','service_assign','service_update','service_photo']
   }[role]||[];
-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
+  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
     const el=document.querySelector(`[data-menu="${m.id}"]`);
-    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id)||serviceDefaults.includes(m.id);
+    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectMrDefaults.includes(m.id)||projectDefaults.includes(m.id)||serviceDefaults.includes(m.id);
   });
 }
 
@@ -5825,6 +5832,8 @@ function openEditModal(userId){
   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
   // populate menu checkboxes
   const currentMenus=getEffectiveMenus(u.role,u.custom_menus,u.custom_menus_override===true);
+  const projectMrRoleDefaults=u.role==='technician'||u.role==='superadmin'?['project_mr_create']:['manager','admin'].includes(u.role)?['project_mr_approve']:[];
+  projectMrRoleDefaults.forEach(permission=>{if(!currentMenus.includes(permission))currentMenus.push(permission)});
   buildMenuCheckboxes(currentMenus, false);
   ensureCrmChecklist();
   // Semua permission adalah preset/default role dan tetap dapat dicustom.
@@ -13199,7 +13208,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B2"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 </body>
