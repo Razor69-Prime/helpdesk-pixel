@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3B3 — Project Material Request */
+/* PXL-VNEXT-3B4 — Project Material Request */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3B3';
+  const REV='PXL-VNEXT-3B4';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -49,37 +49,62 @@
     body.querySelectorAll('[data-v3b-mr-open]').forEach(b=>b.onclick=()=>open(state.projectId,b.dataset.v3bMrOpen));
   }
 
-  function boqOptions(){return (state.catalog?.boq_items||[]).map(i=>`<option value="${h(i.id)}">${h(i.item_name||'-')}</option>`).join('')}
   function inventoryOptions(){return (state.catalog?.inventory_items||[]).map(i=>`<option value="${h(i.id)}">${h(i.name||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</option>`).join('')}
-  const normalizeInventorySearch=v=>String(v||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim();
-  function inventorySearchText(item){return normalizeInventorySearch([item?.name,item?.sku,item?.product_number,item?.barcode,item?.brand,item?.category].filter(Boolean).join(' '))}
+  const normalizeMaterialSearch=v=>String(v||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim();
+  function boqById(id){return (state.catalog?.boq_items||[]).find(x=>String(x.id)===String(id))||null}
+  function inventoryById(id){return (state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(id))||null}
+  function filterBoqForQuery(query){
+    const q=normalizeMaterialSearch(query),rows=state.catalog?.boq_items||[];
+    if(!q)return rows.slice(0,20);
+    const tokens=q.split(/\s+/).filter(Boolean);
+    return rows.map(item=>{const text=normalizeMaterialSearch([item?.item_name,item?.unit].filter(Boolean).join(' ')),matched=tokens.reduce((n,t)=>n+(text.includes(t)?1:0),0),score=(text.includes(q)?100:0)+(matched*10);return {item,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||String(a.item?.item_name||'').localeCompare(String(b.item?.item_name||''),'id',{numeric:true})).slice(0,20).map(x=>x.item);
+  }
+  function inventorySearchText(item){return normalizeMaterialSearch([item?.name,item?.sku,item?.product_number,item?.barcode,item?.brand,item?.category].filter(Boolean).join(' '))}
   function filterInventoryForQuery(query){
-    const q=normalizeInventorySearch(query);if(!q)return [];
+    const q=normalizeMaterialSearch(query);if(!q)return [];
     const tokens=q.split(/\s+/).filter(Boolean);
     return (state.catalog?.inventory_items||[]).map(item=>{const text=inventorySearchText(item),matched=tokens.reduce((n,t)=>n+(text.includes(t)?1:0),0),score=(text.includes(q)?100:0)+(matched*10);return {item,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||String(a.item?.name||'').localeCompare(String(b.item?.name||''),'id',{numeric:true})).slice(0,15).map(x=>x.item);
   }
-  function inventoryById(id){return (state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(id))||null}
-  function inventorySearchBox(item,index){
-    const selected=inventoryById(item.inventory_item_id),query=item.inventory_search??selected?.name??item.item_name??'';
-    const selectedText=selected?`✓ Dipilih: ${h(selected.name||'-')}${selected.sku?` · SKU ${h(selected.sku)}`:''} · stok ${h(selected.stock||0)} ${h(selected.unit||'')}`:'Pilih barang Inventory yang sesuai dengan material BOQ.';
-    return `<div class="pxl-v3b-inv-search"><input data-v3b-inv-search="${index}" autocomplete="off" value="${h(query)}" placeholder="Cari barang Inventory / SKU..."><div class="pxl-v3b-inv-results" data-v3b-inv-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-inv-selected="${index}">${selectedText}</div></div>`;
+  function materialSearchBox(item,index){
+    const boq=boqById(item.project_boq_item_id),selected=inventoryById(item.inventory_item_id);
+    const query=item.material_search??selected?.name??boq?.item_name??item.item_name??'';
+    const selectedText=selected?`BOQ: ${h(boq?.item_name||item.item_name||'-')} · ✓ Inventory dipilih · stok ${h(selected.stock||0)} ${h(selected.unit||'')}`:boq?`BOQ terpilih: ${h(boq.item_name||'-')} · lanjut pilih barang Inventory pada field yang sama.`:'Cari lalu pilih material dari BOQ Project.';
+    return `<div class="pxl-v3b-inv-search"><input data-v3b-material-search="${index}" autocomplete="off" value="${h(query)}" placeholder="Cari BOQ / barang Inventory..."><div class="pxl-v3b-inv-results" data-v3b-material-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-material-selected="${index}">${selectedText}</div></div>`;
   }
-  function renderInventorySearchResults(index,query){
-    const box=document.querySelector(`[data-v3b-inv-results="${index}"]`);if(!box)return;
-    const q=String(query||'').trim();if(!q){box.innerHTML='';box.classList.remove('show');return}
-    const matches=filterInventoryForQuery(q);
-    box.innerHTML=matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-inv-result="${h(i.id)}"><b>${h(i.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.sku||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Barang Inventory tidak ditemukan. Ubah kata pencarian.</div>';
+  function renderMaterialSearchResults(index,query){
+    const item=state.editorItems[index],box=document.querySelector(`[data-v3b-material-results="${index}"]`);if(!item||!box)return;
+    if(!item.project_boq_item_id){
+      const matches=filterBoqForQuery(query);
+      box.innerHTML=matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-boq-result="${h(i.id)}"><b>${h(i.item_name||'-')}</b><div class="pxl-v3b-mr-muted">BOQ Project${i.unit?` · ${h(i.unit)}`:''}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Material BOQ tidak ditemukan.</div>';
+      box.classList.add('show');
+      box.querySelectorAll('[data-v3b-boq-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectBoqSearchResult(index,btn.dataset.v3bBoqResult)});
+      return;
+    }
+    const searchQuery=String(query||boqById(item.project_boq_item_id)?.item_name||'').trim();
+    const matches=filterInventoryForQuery(searchQuery);
+    box.innerHTML=`<button type="button" class="pxl-v3b-inv-result" data-v3b-reset-boq="${index}">↩ Ganti BOQ Project</button>`+(matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-inv-result="${h(i.id)}"><b>${h(i.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.sku||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Barang Inventory tidak ditemukan. Ubah kata pencarian.</div>');
     box.classList.add('show');
+    box.querySelector('[data-v3b-reset-boq]')?.addEventListener('mousedown',e=>{e.preventDefault();resetBoqSearch(index)});
     box.querySelectorAll('[data-v3b-inv-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectInventorySearchResult(index,btn.dataset.v3bInvResult)});
+  }
+  function selectBoqSearchResult(index,boqId){
+    const item=state.editorItems[index],row=boqById(boqId);if(!item||!row)return;
+    item.project_boq_item_id=row.id;item.inventory_item_id=null;item.item_name=row.item_name||null;item.sku=null;item.unit=row.unit||null;item.material_search=row.item_name||'';renderDetail();
+    setTimeout(()=>{const input=document.querySelector(`[data-v3b-material-search="${index}"]`);if(input){input.focus();renderMaterialSearchResults(index,row.item_name||'')}},0);
   }
   function selectInventorySearchResult(index,inventoryId){
     const item=state.editorItems[index],row=inventoryById(inventoryId);if(!item||!row)return;
-    item.inventory_item_id=row.id;item.inventory_search=row.name||'';item.sku=row.sku||null;if(!item.unit)item.unit=row.unit||null;renderDetail();
+    item.inventory_item_id=row.id;item.material_search=row.name||'';item.sku=row.sku||null;if(!item.unit)item.unit=row.unit||null;renderDetail();
+  }
+  function resetBoqSearch(index){
+    const item=state.editorItems[index];if(!item)return;
+    item.project_boq_item_id=null;item.inventory_item_id=null;item.item_name=null;item.sku=null;item.unit=null;item.material_search='';renderDetail();
+    setTimeout(()=>document.querySelector(`[data-v3b-material-search="${index}"]`)?.focus(),0);
   }
 
   function editorRow(item,index){
     const extra=item.source_type==='inventory_extra';
-    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:`<select data-v3b-boq="${index}"><option value="">Pilih BOQ Project...</option>${boqOptions()}</select><div class="pxl-v3b-mr-muted" style="margin:4px 0">BOQ Project</div>${item.project_boq_item_id?inventorySearchBox(item,index):'<div class="pxl-v3b-mr-muted">Pilih BOQ Project terlebih dahulu.</div>'}`}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
+    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:materialSearchBox(item,index)}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
   }
 
   function readOnlyRows(items){
@@ -168,13 +193,12 @@
   }
 
   function bindEditor(){
-    document.querySelectorAll('[data-v3b-boq]').forEach(sel=>{const i=Number(sel.dataset.v3bBoq);sel.value=state.editorItems[i]?.project_boq_item_id||'';sel.onchange=()=>{const item=state.editorItems[i];item.project_boq_item_id=sel.value||null;const row=(state.catalog?.boq_items||[]).find(x=>String(x.id)===String(sel.value));item.inventory_item_id=null;item.inventory_search=row?.item_name||'';item.item_name=row?.item_name||null;item.sku=null;item.unit=row?.unit||null;renderDetail();if(row)setTimeout(()=>{const input=document.querySelector(`[data-v3b-inv-search="${i}"]`);if(input){input.focus();renderInventorySearchResults(i,input.value)}},0);}});
-    document.querySelectorAll('[data-v3b-inv-search]').forEach(input=>{const i=Number(input.dataset.v3bInvSearch);input.onfocus=()=>renderInventorySearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.inventory_search=input.value;item.inventory_item_id=null;item.sku=null;const selected=document.querySelector(`[data-v3b-inv-selected="${i}"]`);if(selected)selected.textContent='Pilih salah satu barang Inventory dari hasil pencarian.';renderInventorySearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-inv-results="${i}"]`)?.classList.remove('show'),180)});
+    document.querySelectorAll('[data-v3b-material-search]').forEach(input=>{const i=Number(input.dataset.v3bMaterialSearch);input.onfocus=()=>renderMaterialSearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.material_search=input.value;if(item.project_boq_item_id){item.inventory_item_id=null;item.sku=null}renderMaterialSearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-material-results="${i}"]`)?.classList.remove('show'),180)});
     document.querySelectorAll('[data-v3b-inv]').forEach(sel=>{const i=Number(sel.dataset.v3bInv);sel.value=state.editorItems[i]?.inventory_item_id||'';sel.onchange=()=>{state.editorItems[i].inventory_item_id=sel.value||null;const row=(state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(sel.value));state.editorItems[i].item_name=row?.name||null;state.editorItems[i].sku=row?.sku||null;state.editorItems[i].unit=row?.unit||null;}});
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-reason]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bReason)].additional_reason=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
-    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,inventory_search:'',qty_requested:1,additional_reason:null});renderDetail()};
+    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,material_search:'',qty_requested:1,additional_reason:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-material-search="${state.editorItems.length-1}"]`)?.focus(),0)};
     $('#pxl-v3b-add-extra').onclick=()=>{state.editorItems.push({source_type:'inventory_extra',inventory_item_id:null,qty_requested:1,additional_reason:''});renderDetail()};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
@@ -214,7 +238,7 @@
   }
   async function loadDetail(requestId){
     const [mr]=await Promise.all([request('GET',`/project-material-requests/${encodeURIComponent(requestId)}`),state.catalog?Promise.resolve():loadCatalog()]);
-    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>{const inv=inventoryById(i.inventory_item_id);return {source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,inventory_search:inv?.name||i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}});renderDetail();
+    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>{const inv=inventoryById(i.inventory_item_id);return {source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,material_search:inv?.name||i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}});renderDetail();
   }
 
   async function refresh(){

@@ -9,17 +9,18 @@ test('BOQ selector shows material name only without embedding BOQ qty in option 
   assert.doesNotMatch(ui,/item_name\|\|'-'\)} · BOQ \$\{h\(i\.boq_qty/);
 });
 
-test('BOQ editor uses fast Inventory search instead of Mapping Inventory select',()=>{
+test('BOQ editor keeps fast search without Mapping Inventory and uses the unified material control',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory/);
   assert.doesNotMatch(ui,/data-v3b-boq-inv/);
-  assert.match(ui,/data-v3b-inv-search/);
-  assert.match(ui,/Cari barang Inventory/);
+  assert.match(ui,/data-v3b-material-search/);
+  assert.match(ui,/Cari BOQ \/ barang Inventory/);
   assert.match(ui,/filterInventoryForQuery/);
 });
 
-test('Inventory fast search seeds query from selected BOQ material name and stores selected inventory_item_id',()=>{
-  assert.match(ui,/inventory_search/);
-  assert.match(ui,/row\?\.item_name/);
+test('unified fast search retains BOQ and Inventory identifiers in one control',()=>{
+  assert.match(ui,/material_search/);
+  assert.match(ui,/selectBoqSearchResult/);
+  assert.match(ui,/selectInventorySearchResult/);
   assert.match(ui,/inventory_item_id/);
 });
 
