@@ -20,7 +20,6 @@ jobs:
           node-version: '22'
       - name: Apply verified patch
         run: |
-          printf '\n' >> .github/pxl-vnext-3b2a.patch
           git apply --check .github/pxl-vnext-3b2a.patch
           git apply .github/pxl-vnext-3b2a.patch
       - name: Verify full suite
