@@ -5,6 +5,7 @@ module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
   const hrRoles=new Set(['manager','admin','superadmin']);
   const user=req=>req.session.user;
   const canApproveLeave=async req=>{
+    if(norm(user(req)?.role)==='superadmin')return true;
     const users=await db.getUsers();
     const account=users.find(x=>String(x.id)===String(user(req).id));
     return Array.isArray(account?.pr_roles)&&account.pr_roles.includes('leave_approve');

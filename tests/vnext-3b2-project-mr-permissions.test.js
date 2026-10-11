@@ -24,10 +24,10 @@ test('Project MR create is allowed for Technician, Superadmin, or explicit proje
   assert.match(mrUi,/superadmin/);
 });
 
-test('Project MR approve remains role Manager Admin by default and may be delegated explicitly, but Superadmin stays monitoring-only by default',()=>{
+test('Project MR approve defaults to Manager Admin Superadmin and may be delegated explicitly',()=>{
   assert.match(server,/project_mr_approve/);
-  assert.match(server,/\['manager','admin'\]/);
-  assert.match(server,/Superadmin.*monitor|monitoring-only|superadmin.*approve/i);
+  assert.match(server,/\['superadmin','manager','admin'\]|\['manager','admin','superadmin'\]/);
+  assert.match(server,/\['superadmin','manager','admin'\]|\['manager','admin','superadmin'\]/);
   assert.match(mrUi,/project_mr_approve/);
 });
 

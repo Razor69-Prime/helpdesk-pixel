@@ -54,7 +54,7 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
 });
 
 test('Phase 3B script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2|3|4|5)?"/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2|3|4|5|6)?"/);
 });
 
 test('BOQ item uses BOQ fast search and defers Inventory selection until Take',()=>{

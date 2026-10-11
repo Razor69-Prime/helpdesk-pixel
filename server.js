@@ -1239,9 +1239,7 @@ function requireProjectMrCreate(req,res,next){
 }
 function requireProjectMrApproval(req,res,next){
   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
-  // Superadmin tetap monitoring-only untuk approval; permission delegasi ditujukan ke akun non-Superadmin.
-  if(projectMrRole(req)==='superadmin')return res.status(403).json({error:'Superadmin monitoring MR Project dan tidak melakukan Approve/Reject.'});
-  if(!['manager','admin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_approve'))return res.status(403).json({error:'Anda tidak memiliki permission Approve/Reject MR Project.'});
+  if(!['superadmin','manager','admin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_approve'))return res.status(403).json({error:'Anda tidak memiliki permission Approve/Reject MR Project.'});
   next();
 }
 function rejectProjectMrMutationPayload(req,res,next){
