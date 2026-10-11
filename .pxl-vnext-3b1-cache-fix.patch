@@ -1,0 +1,76 @@
+diff --git a/public/index.html b/public/index.html
+index 731902e..6fef87a 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -13199,7 +13199,7 @@ setInterval(()=>{
+   </div>
+ </div>
+ <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
+-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-STG-0016"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3A2"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
++<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+ <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
+ <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
+ </body>
+diff --git a/public/sw.js b/public/sw.js
+index 5cf7f23..839c76e 100644
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE='pixelapps-inv1-v105';
++const CACHE='pixelapps-inv1-v106';
+ const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js','/pxl-urg-0027-sales-visit-duplicate-alert.js','/pxl-sales-recon-0001-hotfix.js?v=PXL-SALES-RECON-0001C'];
+ 
+ self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));self.skipWaiting();});
+diff --git a/tests/pxl-urg-0112-gantt-remarks-ui.test.js b/tests/pxl-urg-0112-gantt-remarks-ui.test.js
+index 9649576..45ca774 100644
+--- a/tests/pxl-urg-0112-gantt-remarks-ui.test.js
++++ b/tests/pxl-urg-0112-gantt-remarks-ui.test.js
+@@ -35,6 +35,6 @@ test('legacy native remarks compatibility patch preserves compact markup instead
+ });
+ 
+ test('0112 fixes remain cache-busted while Project Detail may advance to a newer VNext revision',()=>{
+-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:URG-0112|VNEXT-3A\d+)/);
++  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:URG-0112|VNEXT-3A\d+|VNEXT-3B1)/);
+   assert.match(wrapper,/pxl-urg-0032a-remarks-button-fix\.js\?v=PXL-URG-0112/);
+ });
+diff --git a/tests/vnext-3a-project-ui.test.js b/tests/vnext-3a-project-ui.test.js
+index ff5f441..79b6dd7 100644
+--- a/tests/vnext-3a-project-ui.test.js
++++ b/tests/vnext-3a-project-ui.test.js
+@@ -52,5 +52,5 @@ test('existing Project Report exposes direct BOQ handoff helper',()=>{
+ });
+ 
+ test('Project Detail script remains explicitly cache-busted after Phase 3A1',()=>{
+-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A(?:1|2)|URG-\d+)/);
++  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A(?:1|2)|VNEXT-3B1|URG-\d+)/);
+ });
+diff --git a/tests/vnext-3b-project-mr-requester-ui.test.js b/tests/vnext-3b-project-mr-requester-ui.test.js
+index d51ed35..657fb43 100644
+--- a/tests/vnext-3b-project-mr-requester-ui.test.js
++++ b/tests/vnext-3b-project-mr-requester-ui.test.js
+@@ -54,7 +54,7 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
+ });
+ 
+ test('Phase 3B script is explicitly included after Project Detail',()=>{
+-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B"/);
++  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1)?"/);
+ });
+ 
+ test('BOQ item supports explicit Inventory mapping when exact auto-match is unavailable',()=>{
+diff --git a/tests/vnext-3b-regression.test.js b/tests/vnext-3b-regression.test.js
+index d1fd846..bb1f31a 100644
+--- a/tests/vnext-3b-regression.test.js
++++ b/tests/vnext-3b-regression.test.js
+@@ -50,3 +50,12 @@ test('Phase 3B migration is additive and safe for legacy schema',()=>{
+   assert.match(migration,/notify pgrst,'reload schema'/i);
+   assert.doesNotMatch(migration,/alter\s+table\s+public\.projects\s+drop|drop\s+column/i);
+ });
++
++test('Phase 3B UI integration cache keys force fresh Project Detail and Project Report assets',()=>{
++  const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
++  const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
++  assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3B1/);
++  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3B1/);
++  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B1/);
++  assert.match(sw,/const CACHE='pixelapps-inv1-v106'/);
++});
