@@ -1670,7 +1670,6 @@ app.post('/api/project-material-requests/:id/submit', requireAuth, requireProjec
   try{
     const mr=req.projectMr||await db.getProjectMaterialRequest(req.params.id);
     normalizeProjectMrItems(mr.items||[],{requireItems:true});
-    if((mr.items||[]).some(item=>!item.inventory_item_id))return res.status(400).json({error:'Semua material MR Project wajib terhubung ke Inventory sebelum diajukan.'});
     await db.transitionProjectMaterialRequest(req.params.id,'submit',req.session.user.name,req.session.user.id,null);
     const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
     const text=`<b>MR Project diajukan</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
@@ -1710,7 +1709,7 @@ app.post('/api/project-material-requests/:id/movements', requireAuth, async (req
     if(movement_type!=='take'&&!isOwner&&!hasProjectMrLegacyPermission(req,'material_request_edit'))return res.status(403).json({error:'Return/Use membutuhkan owner MR atau permission material_request_edit.'});
     const idempotency_key=String(req.body?.idempotency_key||'').trim();
     if(!idempotency_key)return res.status(400).json({error:'idempotency_key wajib diisi.'});
-    const items=(Array.isArray(req.body?.items)?req.body.items:[]).map((x,i)=>{const qty=Number(x?.qty);if(!x?.item_id||!Number.isFinite(qty)||qty<=0)throw new Error(`Item movement baris ${i+1} tidak valid.`);return {item_id:x.item_id,qty};});
+    const items=(Array.isArray(req.body?.items)?req.body.items:[]).map((x,i)=>{const qty=Number(x?.qty);if(!x?.item_id||!Number.isFinite(qty)||qty<=0)throw new Error(`Item movement baris ${i+1} tidak valid.`);const inventory_item_id=movement_type==='take'&&x?.inventory_item_id?String(x.inventory_item_id):null;return {item_id:x.item_id,qty,inventory_item_id};});
     const result=await db.applyProjectMaterialRequestMovement(req.params.id,movement_type,items,req.session.user.name,req.session.user.id,idempotency_key);
     const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
     const text=`<b>MR Project ${movement_type}</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
