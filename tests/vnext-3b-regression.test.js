@@ -56,6 +56,6 @@ test('Phase 3B UI integration cache keys force fresh Project Detail and Project 
   const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
   assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3B1/);
   assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3B1/);
-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B1/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v106'/);
+  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B2/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v107'/);
 });

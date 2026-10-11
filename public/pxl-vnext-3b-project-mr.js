@@ -1,7 +1,7 @@
 /* PXL-VNEXT-3B — Project Material Request */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3B';
+  const REV='PXL-VNEXT-3B2';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,7 +42,7 @@
 
   function renderList(){
     const body=$('#pxl-v3b-mr-body');if(!body)return;
-    const canCreate=role()==='technician';
+    const canCreate=['technician','superadmin'].includes(role())||customs().includes('project_mr_create');
     body.innerHTML=projectHeader()+`<div class="pxl-v3b-mr-toolbar"><div><b>Daftar MR Project</b><div class="pxl-v3b-mr-muted">Nomor MR dibuat server dan tidak dapat diedit manual.</div></div><div class="pxl-v3b-mr-actions"><button class="btn sm" id="pxl-v3b-mr-refresh">↻ Refresh</button>${canCreate?'<button class="btn primary sm" id="pxl-v3b-mr-create">＋ Buat MR Project</button>':''}</div></div><div class="pxl-v3b-mr-list">${state.list.length?state.list.map(m=>`<div class="pxl-v3b-mr-row"><div><b>${h(m.mr_number||'MR Project')}</b><div class="pxl-v3b-mr-muted">${h(m.created_by||'-')} · ${h(String(m.created_at||'').slice(0,16).replace('T',' '))}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[m.status]||m.status||'-')}</span><button class="btn sm" data-v3b-mr-open="${h(m.id)}">Buka</button></div></div>`).join(''):'<div class="pxl-v3b-mr-card pxl-v3b-mr-muted">Belum ada MR Project.</div>'}</div>`;
     $('#pxl-v3b-mr-refresh').onclick=refresh;
     $('#pxl-v3b-mr-create')?.addEventListener('click',createMr);
@@ -68,14 +68,14 @@
     return (defaults[permission]||[]).includes(role())||customs().includes(permission);
   }
   function isOwner(mr){return String(mr?.created_by_user_id||'')===String(user()?.id||'')}
-  function canApprove(mr){return String(mr?.status||'')==='submitted'&&['manager','admin'].includes(role())}
+  function canApprove(mr){return String(mr?.status||'')==='submitted'&&role()!=='superadmin'&&(['manager','admin'].includes(role())||customs().includes('project_mr_approve'))}
   function canTake(mr){const status=String(mr?.status||'');return (status==='approved'||status==='issued')&&hasLegacyPermission('material_request_issue')}
   function canReturnUse(mr){return String(mr?.status||'')==='issued'&&(isOwner(mr)||hasLegacyPermission('material_request_edit'))}
   function canFinalize(mr){const items=Array.isArray(mr?.items)?mr.items:[];return String(mr?.status||'')==='issued'&&items.length>0&&items.every(i=>Number(i.qty_outstanding||0)===0)&&canReturnUse(mr)}
 
   function renderApproval(mr){
     if(!canApprove(mr))return '';
-    return `<div class="pxl-v3b-mr-section">Approval Manager / Admin</div><div class="pxl-v3b-mr-card"><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Item dan Qty bersifat read-only. Jika perlu perubahan, Reject lalu Teknisi mengedit dan submit ulang.</div><div class="pxl-v3b-mr-actions"><button class="btn green sm" id="pxl-v3b-approve">Approve</button><button class="btn danger sm" id="pxl-v3b-reject">Reject</button><input id="pxl-v3b-reject-reason" placeholder="Alasan reject (opsional)" style="max-width:320px"></div></div>`;
+    return `<div class="pxl-v3b-mr-section">Approval MR Project</div><div class="pxl-v3b-mr-card"><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Item dan Qty bersifat read-only. Jika perlu perubahan, Reject lalu Teknisi mengedit dan submit ulang.</div><div class="pxl-v3b-mr-actions"><button class="btn green sm" id="pxl-v3b-approve">Approve</button><button class="btn danger sm" id="pxl-v3b-reject">Reject</button><input id="pxl-v3b-reject-reason" placeholder="Alasan reject (opsional)" style="max-width:320px"></div></div>`;
   }
 
   function movementButtons(mr,item,index){
