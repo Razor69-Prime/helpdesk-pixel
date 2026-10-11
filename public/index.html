@@ -4465,7 +4465,7 @@ function switchTab(tab,btn){
     if(frame && !frame.dataset.loaded){ frame.src='/inventory.html'; frame.dataset.loaded='1'; }
   }
   if(tab==='pr')        loadPurchaseRequests();
-  if(tab==='projects')  { if(window.pxlProjectReport?.refreshAccess) window.pxlProjectReport.refreshAccess(); if(String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='technician'){ if(window.pxlProjectReport?.open) window.pxlProjectReport.open('report'); } else { loadProjects(); updateImportButtonVisibility(); if(window.pxlProjectReport?.refreshSummaries) window.pxlProjectReport.refreshSummaries(); } }
+  if(tab==='projects')  { if(window.pxlProjectReport?.refreshAccess) window.pxlProjectReport.refreshAccess(); if(String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='technician'){ if(window.pxlProjectReport?.open) window.pxlProjectReport.open('report'); } else { loadProjects(); updateImportButtonVisibility(); } }
   if(tab==='supplier')  loadSuppliers();
 }
 
@@ -10302,24 +10302,33 @@ const PR_APPROVERS={
 let projectsData=[];
 window.pxlProjectReportSummaries=window.pxlProjectReportSummaries||{};
 
+let projectLoadSequence=0;
 async function loadProjects(){
+  const seq=++projectLoadSequence;
+  const projectsRequest=api('GET','/projects');
+  const summariesRequest=api('GET','/project-report-summaries');
   try{
-    projectsData=await api('GET','/projects')||[];
+    projectsData=await projectsRequest||[];
+    if(seq!==projectLoadSequence)return;
     dashProjectData=Array.isArray(projectsData)?projectsData:[];
-  }
-  catch(e){
+    populateProjectPicFilter();
+    renderProjectList();
+  }catch(e){
+    if(seq!==projectLoadSequence)return;
     projectsData=[];
     dashProjectData=[];
+    populateProjectPicFilter();
+    renderProjectList();
   }
   try{
-    const reports=await api('GET','/project-report-summaries');
+    const reports=await summariesRequest;
+    if(seq!==projectLoadSequence)return;
     window.pxlProjectReportSummaries={};
     (reports||[]).forEach(r=>{
       window.pxlProjectReportSummaries[String(r.id)]={material:r.material_summary||{},jasa:r.jasa_summary||{},progress:Number(r.progress)||0};
     });
+    renderProjectList();
   }catch(e){ window.pxlProjectReportSummaries=window.pxlProjectReportSummaries||{}; }
-  populateProjectPicFilter();
-  renderProjectList();
 }
 
 function populateProjectPicFilter(){
@@ -10399,6 +10408,8 @@ function renderProjectList(){
   setEl('ps-hold', onHold);
 
   renderProjectMobileCards(filtered);
+  const mobileOnly=window.matchMedia?.('(max-width: 760px)').matches===true;
+  if(mobileOnly){tbody.innerHTML=''; return;}
 
   if(!filtered.length){
     tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--muted)">📭 Belum ada project</td></tr>';
@@ -13208,7 +13219,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B3"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 <script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-VNEXT-3B2A"></script>
