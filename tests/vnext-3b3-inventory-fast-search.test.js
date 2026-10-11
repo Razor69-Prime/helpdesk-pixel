@@ -9,22 +9,22 @@ test('BOQ selector shows material name only without embedding BOQ qty in option 
   assert.doesNotMatch(ui,/item_name\|\|'-'\)} · BOQ \$\{h\(i\.boq_qty/);
 });
 
-test('BOQ editor keeps fast search without Mapping Inventory and uses the unified material control',()=>{
+test('BOQ editor fast-searches BOQ only and does not map Inventory during request entry',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory/);
   assert.doesNotMatch(ui,/data-v3b-boq-inv/);
-  assert.match(ui,/data-v3b-material-search/);
-  assert.match(ui,/Cari BOQ \/ barang Inventory/);
-  assert.match(ui,/filterInventoryForQuery/);
+  assert.match(ui,/data-v3b-boq-search/);
+  assert.match(ui,/Cari material BOQ Project/);
+  assert.match(ui,/filterBoqForQuery/);
 });
 
-test('unified fast search retains BOQ and Inventory identifiers in one control',()=>{
-  assert.match(ui,/material_search/);
-  assert.match(ui,/selectBoqSearchResult/);
-  assert.match(ui,/selectInventorySearchResult/);
+test('Inventory fast search is reserved for Take fulfillment',()=>{
+  assert.match(ui,/data-v3b-take-inventory-search/);
+  assert.match(ui,/selectTakeInventoryResult/);
   assert.match(ui,/inventory_item_id/);
 });
 
-test('submit validation asks user to choose Inventory item, not mapping terminology',()=>{
+test('submit validation does not require Inventory for BOQ items',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory untuk BOQ/);
-  assert.match(ui,/Pilih barang Inventory untuk BOQ baris/);
+  assert.doesNotMatch(ui,/Pilih barang Inventory untuk BOQ baris/);
+  assert.match(ui,/Pilih BOQ Project pada baris/);
 });

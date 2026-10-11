@@ -231,7 +231,7 @@ end; $$;
 
 create or replace function public.pxl_vnext_3b_apply_project_mr_movement(p_request_id uuid,p_movement_type text,p_items jsonb,p_actor text,p_actor_id text,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare v_mr public.project_material_requests%rowtype; v_type text:=lower(trim(coalesce(p_movement_type,''))); v_op public.project_material_request_operations%rowtype; r jsonb; v_item public.project_material_request_items%rowtype; v_inv public.inventory_items%rowtype; v_item_id uuid; v_qty numeric(14,2); v_out numeric(14,2); v_net numeric(14,2); v_count integer:=0; v_result jsonb;
+declare v_mr public.project_material_requests%rowtype; v_type text:=lower(trim(coalesce(p_movement_type,''))); v_op public.project_material_request_operations%rowtype; r jsonb; v_item public.project_material_request_items%rowtype; v_inv public.inventory_items%rowtype; v_item_id uuid; v_requested_inventory_id uuid; v_qty numeric(14,2); v_out numeric(14,2); v_net numeric(14,2); v_count integer:=0; v_result jsonb;
 begin
   if nullif(trim(coalesce(p_idempotency_key,'')),'') is null then raise exception 'Idempotency key wajib diisi.'; end if;
   if v_type not in ('take','return','use') then raise exception 'Tipe movement MR Project tidak valid.'; end if;
@@ -252,15 +252,23 @@ begin
   if v_type in ('return','use') and v_mr.status<>'issued' then raise exception 'Return/Use hanya dapat dicatat setelah material Diambil.'; end if;
   if p_items is null or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)<1 then raise exception 'Daftar movement material tidak valid.'; end if;
   for r in select value from jsonb_array_elements(p_items) loop
-    v_item_id:=nullif(r->>'item_id','')::uuid; v_qty:=coalesce(nullif(r->>'qty','')::numeric,0);
+    v_item_id:=nullif(r->>'item_id','')::uuid; v_requested_inventory_id:=nullif(r->>'inventory_item_id','')::uuid; v_qty:=coalesce(nullif(r->>'qty','')::numeric,0);
     if v_item_id is null or v_qty<=0 then raise exception 'Item atau qty movement tidak valid.'; end if;
     select * into v_item from public.project_material_request_items where id=v_item_id and project_material_request_id=p_request_id for update;
     if v_item.id is null then raise exception 'Item MR Project tidak ditemukan.'; end if;
     v_out:=v_item.qty_taken-v_item.qty_returned-v_item.qty_used;
     if v_type='take' then
-      if v_item.inventory_item_id is null then raise exception 'Item MR Project belum terhubung ke Inventory.'; end if;
-      select * into v_inv from public.inventory_items where id=v_item.inventory_item_id and is_active=true for update;
-      if v_inv.id is null then raise exception 'Item Inventory tidak ditemukan atau tidak aktif.'; end if;
+      if v_item.inventory_item_id is null then
+        if v_requested_inventory_id is null then raise exception 'Pilih Inventory saat Take.'; end if;
+        select * into v_inv from public.inventory_items where id=v_requested_inventory_id and is_active=true for update;
+        if v_inv.id is null then raise exception 'Item Inventory tidak ditemukan atau tidak aktif.'; end if;
+        update public.project_material_request_items set inventory_item_id=v_requested_inventory_id,sku_snapshot=coalesce(sku_snapshot,v_inv.sku),updated_at=now() where id=v_item.id;
+        v_item.inventory_item_id:=v_requested_inventory_id;
+      else
+        if v_requested_inventory_id is not null and v_item.inventory_item_id<>v_requested_inventory_id then raise exception 'Inventory untuk item MR Project yang sudah pernah Take tidak dapat diganti.'; end if;
+        select * into v_inv from public.inventory_items where id=v_item.inventory_item_id and is_active=true for update;
+        if v_inv.id is null then raise exception 'Item Inventory tidak ditemukan atau tidak aktif.'; end if;
+      end if;
       if coalesce(v_inv.tracking_mode,'quantity')='serial' then raise exception 'Item serial belum didukung untuk movement MR Project tanpa serial number.'; end if;
       v_net:=v_item.qty_taken-v_item.qty_returned;
       if v_net+v_qty>v_item.qty_requested then raise exception 'Qty pengambilan melebihi sisa qty request.'; end if;

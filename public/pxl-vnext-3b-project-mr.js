@@ -1,8 +1,8 @@
-/* PXL-VNEXT-3B4 — Project Material Request */
+/* PXL-VNEXT-3B5 — Project Material Request */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3B4';
-  const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null};
+  const REV='PXL-VNEXT-3B5';
+  const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null,takeInventorySelections:{}};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const user=()=>typeof currentUser!=='undefined'?(currentUser||{}):{};
@@ -65,46 +65,32 @@
     const tokens=q.split(/\s+/).filter(Boolean);
     return (state.catalog?.inventory_items||[]).map(item=>{const text=inventorySearchText(item),matched=tokens.reduce((n,t)=>n+(text.includes(t)?1:0),0),score=(text.includes(q)?100:0)+(matched*10);return {item,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||String(a.item?.name||'').localeCompare(String(b.item?.name||''),'id',{numeric:true})).slice(0,15).map(x=>x.item);
   }
-  function materialSearchBox(item,index){
-    const boq=boqById(item.project_boq_item_id),selected=inventoryById(item.inventory_item_id);
-    const query=item.material_search??selected?.name??boq?.item_name??item.item_name??'';
-    const selectedText=selected?`BOQ: ${h(boq?.item_name||item.item_name||'-')} · ✓ Inventory dipilih · stok ${h(selected.stock||0)} ${h(selected.unit||'')}`:boq?`BOQ terpilih: ${h(boq.item_name||'-')} · lanjut pilih barang Inventory pada field yang sama.`:'Cari lalu pilih material dari BOQ Project.';
-    return `<div class="pxl-v3b-inv-search"><input data-v3b-material-search="${index}" autocomplete="off" value="${h(query)}" placeholder="Cari BOQ / barang Inventory..."><div class="pxl-v3b-inv-results" data-v3b-material-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-material-selected="${index}">${selectedText}</div></div>`;
+  function boqSearchBox(item,index){
+    const boq=boqById(item.project_boq_item_id),query=item.boq_search??boq?.item_name??item.item_name??'';
+    const selectedText=boq?`BOQ: ${h(boq.item_name||'-')}`:'Cari lalu pilih material dari BOQ Project.';
+    return `<div class="pxl-v3b-inv-search"><input data-v3b-boq-search="${index}" autocomplete="off" value="${h(query)}" placeholder="Cari material BOQ Project..."><div class="pxl-v3b-inv-results" data-v3b-boq-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-boq-selected="${index}">${selectedText}</div></div>`;
   }
-  function renderMaterialSearchResults(index,query){
-    const item=state.editorItems[index],box=document.querySelector(`[data-v3b-material-results="${index}"]`);if(!item||!box)return;
-    if(!item.project_boq_item_id){
-      const matches=filterBoqForQuery(query);
-      box.innerHTML=matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-boq-result="${h(i.id)}"><b>${h(i.item_name||'-')}</b><div class="pxl-v3b-mr-muted">BOQ Project${i.unit?` · ${h(i.unit)}`:''}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Material BOQ tidak ditemukan.</div>';
-      box.classList.add('show');
-      box.querySelectorAll('[data-v3b-boq-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectBoqSearchResult(index,btn.dataset.v3bBoqResult)});
-      return;
-    }
-    const searchQuery=String(query||boqById(item.project_boq_item_id)?.item_name||'').trim();
-    const matches=filterInventoryForQuery(searchQuery);
-    box.innerHTML=`<button type="button" class="pxl-v3b-inv-result" data-v3b-reset-boq="${index}">↩ Ganti BOQ Project</button>`+(matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-inv-result="${h(i.id)}"><b>${h(i.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.sku||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Barang Inventory tidak ditemukan. Ubah kata pencarian.</div>');
+  function renderBoqSearchResults(index,query){
+    const item=state.editorItems[index],box=document.querySelector(`[data-v3b-boq-results="${index}"]`);if(!item||!box)return;
+    const matches=filterBoqForQuery(query);
+    box.innerHTML=(item.project_boq_item_id?`<button type="button" class="pxl-v3b-inv-result" data-v3b-reset-boq="${index}">↩ Ganti BOQ Project</button>`:'')+(matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-boq-result="${h(i.id)}"><b>${h(i.item_name||'-')}</b><div class="pxl-v3b-mr-muted">BOQ Project${i.unit?` · ${h(i.unit)}`:''}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Material BOQ tidak ditemukan.</div>');
     box.classList.add('show');
     box.querySelector('[data-v3b-reset-boq]')?.addEventListener('mousedown',e=>{e.preventDefault();resetBoqSearch(index)});
-    box.querySelectorAll('[data-v3b-inv-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectInventorySearchResult(index,btn.dataset.v3bInvResult)});
+    box.querySelectorAll('[data-v3b-boq-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectBoqSearchResult(index,btn.dataset.v3bBoqResult)});
   }
   function selectBoqSearchResult(index,boqId){
     const item=state.editorItems[index],row=boqById(boqId);if(!item||!row)return;
-    item.project_boq_item_id=row.id;item.inventory_item_id=null;item.item_name=row.item_name||null;item.sku=null;item.unit=row.unit||null;item.material_search=row.item_name||'';renderDetail();
-    setTimeout(()=>{const input=document.querySelector(`[data-v3b-material-search="${index}"]`);if(input){input.focus();renderMaterialSearchResults(index,row.item_name||'')}},0);
-  }
-  function selectInventorySearchResult(index,inventoryId){
-    const item=state.editorItems[index],row=inventoryById(inventoryId);if(!item||!row)return;
-    item.inventory_item_id=row.id;item.material_search=row.name||'';item.sku=row.sku||null;if(!item.unit)item.unit=row.unit||null;renderDetail();
+    item.project_boq_item_id=row.id;item.inventory_item_id=null;item.item_name=row.item_name||null;item.sku=null;item.unit=row.unit||null;item.boq_search=row.item_name||'';renderDetail();
   }
   function resetBoqSearch(index){
     const item=state.editorItems[index];if(!item)return;
-    item.project_boq_item_id=null;item.inventory_item_id=null;item.item_name=null;item.sku=null;item.unit=null;item.material_search='';renderDetail();
-    setTimeout(()=>document.querySelector(`[data-v3b-material-search="${index}"]`)?.focus(),0);
+    item.project_boq_item_id=null;item.inventory_item_id=null;item.item_name=null;item.sku=null;item.unit=null;item.boq_search='';renderDetail();
+    setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${index}"]`)?.focus(),0);
   }
 
   function editorRow(item,index){
     const extra=item.source_type==='inventory_extra';
-    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:materialSearchBox(item,index)}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
+    return `<tr class="${extra?'pxl-v3b-mr-extra':''}"><td>${index+1}</td><td>${extra?`<select data-v3b-inv="${index}"><option value="">Pilih Inventory...</option>${inventoryOptions()}</select><div class="pxl-v3b-mr-muted">Material di luar BOQ</div>`:boqSearchBox(item,index)}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td>${extra?`<input data-v3b-reason="${index}" value="${h(item.additional_reason||'')}" placeholder="Alasan wajib">`:'—'}</td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
   }
 
   function readOnlyRows(items){
@@ -128,6 +114,26 @@
     return `<div class="pxl-v3b-mr-section">Approval MR Project</div><div class="pxl-v3b-mr-card"><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Item dan Qty bersifat read-only. Jika perlu perubahan, Reject lalu Teknisi mengedit dan submit ulang.</div><div class="pxl-v3b-mr-actions"><button class="btn green sm" id="pxl-v3b-approve">Approve</button><button class="btn danger sm" id="pxl-v3b-reject">Reject</button><input id="pxl-v3b-reject-reason" placeholder="Alasan reject (opsional)" style="max-width:320px"></div></div>`;
   }
 
+  function takeInventorySearchBox(item,index){
+    const chosen=inventoryById(state.takeInventorySelections[item.id]),query=chosen?.name||item.item_name_snapshot||'';
+    return `<div class="pxl-v3b-inv-search" style="min-width:220px"><input data-v3b-take-inventory-search="${index}" data-item="${h(item.id)}" autocomplete="off" value="${h(query)}" placeholder="Pilih Inventory saat Take..."><div class="pxl-v3b-inv-results" data-v3b-take-inventory-results="${index}"></div><div class="pxl-v3b-inv-selected" data-v3b-take-inventory-selected="${index}">${chosen?`✓ ${h(chosen.name||'-')} · stok ${h(chosen.stock||0)} ${h(chosen.unit||'')}`:'Inventory belum dipilih. Jika barang belum tersedia, lakukan pembelian terlebih dahulu.'}</div></div>`;
+  }
+  function renderTakeInventoryResults(index,itemId,query){
+    const box=document.querySelector(`[data-v3b-take-inventory-results="${index}"]`);if(!box)return;
+    const matches=filterInventoryForQuery(query);
+    box.innerHTML=matches.length?matches.map(i=>`<button type="button" class="pxl-v3b-inv-result" data-v3b-take-inventory-result="${h(i.id)}"><b>${h(i.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.sku||'-')} · stok ${h(i.stock||0)} ${h(i.unit||'')}</div></button>`).join(''):'<div class="pxl-v3b-mr-muted" style="padding:9px">Inventory tidak ditemukan. Jika barang belum ada, pembelian dapat dilakukan terlebih dahulu.</div>';
+    box.classList.add('show');
+    box.querySelectorAll('[data-v3b-take-inventory-result]').forEach(btn=>btn.onmousedown=e=>{e.preventDefault();selectTakeInventoryResult(index,itemId,btn.dataset.v3bTakeInventoryResult)});
+  }
+  function selectTakeInventoryResult(index,itemId,inventoryId){
+    const row=inventoryById(inventoryId);if(!row)return;
+    state.takeInventorySelections[itemId]=row.id;
+    const input=document.querySelector(`[data-v3b-take-inventory-search="${index}"]`),selected=document.querySelector(`[data-v3b-take-inventory-selected="${index}"]`),results=document.querySelector(`[data-v3b-take-inventory-results="${index}"]`);
+    if(input)input.value=row.name||'';
+    if(selected)selected.textContent=`✓ ${row.name||'-'} · stok ${row.stock||0} ${row.unit||''}`;
+    results?.classList.remove('show');
+  }
+
   function movementButtons(mr,item,index){
     const out=Number(item.qty_outstanding||0);
     const actions=[];
@@ -140,9 +146,9 @@
     const status=String(mr?.status||'');
     if(status!=='approved'&&status!=='issued')return '';
     const items=Array.isArray(mr.items)?mr.items:[];
-    const rows=items.map((i,index)=>`<tr><td>${index+1}</td><td><b>${h(i.item_name_snapshot||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.unit_snapshot||'')}</div></td><td>${h(i.qty_requested||0)}</td><td>${h(i.qty_taken||0)}</td><td>${h(i.qty_returned||0)}</td><td>${h(i.qty_used||0)}</td><td><b>${h(i.qty_outstanding||0)}</b></td><td><input type="number" min="0.01" step="0.01" data-v3b-move-qty="${index}" placeholder="Qty" style="width:80px" ${(!canTake(mr)&&!canReturnUse(mr))?'disabled':''}><div class="pxl-v3b-mr-actions" style="margin-top:5px">${movementButtons(mr,i,index)}</div></td></tr>`).join('');
+    const rows=items.map((i,index)=>{const linked=inventoryById(i.inventory_item_id);const source=linked?`<b>${h(linked.name||'-')}</b><div class="pxl-v3b-mr-muted">${h(linked.sku||'-')} · stok ${h(linked.stock||0)} ${h(linked.unit||'')}</div>`:(canTake(mr)?takeInventorySearchBox(i,index):'<span class="pxl-v3b-mr-muted">Inventory dipilih saat Take.</span>');return `<tr><td>${index+1}</td><td><b>${h(i.item_name_snapshot||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.unit_snapshot||'')}</div></td><td>${h(i.qty_requested||0)}</td><td>${h(i.qty_taken||0)}</td><td>${h(i.qty_returned||0)}</td><td>${h(i.qty_used||0)}</td><td><b>${h(i.qty_outstanding||0)}</b></td><td>${source}</td><td><input type="number" min="0.01" step="0.01" data-v3b-move-qty="${index}" placeholder="Qty" style="width:80px" ${(!canTake(mr)&&!canReturnUse(mr))?'disabled':''}><div class="pxl-v3b-mr-actions" style="margin-top:5px">${movementButtons(mr,i,index)}</div></td></tr>`}).join('');
     const finalButton=canFinalize(mr)?'<button class="btn green sm" id="pxl-v3b-finalize">Final MR Project</button>':'';
-    return `<div class="pxl-v3b-mr-section">Material Lifecycle</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>Requested</th><th>Taken</th><th>Returned</th><th>Used</th><th>Outstanding</th><th>Aksi</th></tr></thead><tbody>${rows||'<tr><td colspan="8">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px">${finalButton}</div>`;
+    return `<div class="pxl-v3b-mr-section">Material Lifecycle</div><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">BOQ tidak wajib terhubung ke Inventory saat pengajuan. Inventory dipilih saat Take. Jika barang belum tersedia, lakukan pembelian terlebih dahulu.</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material BOQ</th><th>Requested</th><th>Taken</th><th>Returned</th><th>Used</th><th>Outstanding</th><th>Inventory Take</th><th>Aksi</th></tr></thead><tbody>${rows||'<tr><td colspan="9">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px">${finalButton}</div>`;
   }
 
   function renderAudit(mr){
@@ -160,20 +166,25 @@
     if(state.busy)return;
     const qty=Number(document.querySelector(`[data-v3b-move-qty="${index}"]`)?.value);
     if(!Number.isFinite(qty)||qty<=0){alert('Qty movement harus lebih dari 0.');return}
-    const signature=`${state.requestId}:${type}:${itemId}:${qty}`;
+    const mrItem=(state.detail?.items||[]).find(x=>String(x.id)===String(itemId));
+    const inventory_item_id=type==='take'?(mrItem?.inventory_item_id||state.takeInventorySelections[itemId]||null):null;
+    if(type==='take'&&!inventory_item_id){alert('Pilih Inventory saat Take. Jika barang belum tersedia, lakukan pembelian terlebih dahulu.');return}
+    const signature=`${state.requestId}:${type}:${itemId}:${qty}:${inventory_item_id||''}`;
     const idempotencyKey=state.pendingMovement?.signature===signature?state.pendingMovement.key:crypto.randomUUID();
     state.pendingMovement={signature,key:idempotencyKey};state.busy=true;if(button)button.disabled=true;
     try{
-      const result=await request('POST',`/project-material-requests/${encodeURIComponent(state.requestId)}/movements`,{movement_type:type,items:[{item_id:itemId,qty}],idempotency_key:idempotencyKey});
+      const result=await request('POST',`/project-material-requests/${encodeURIComponent(state.requestId)}/movements`,{movement_type:type,items:[{item_id:itemId,qty,inventory_item_id}],idempotency_key:idempotencyKey});
       if(result?.material_request)state.detail=result.material_request;else await loadDetail(state.requestId);
-      state.pendingMovement=null;renderDetail();
+      delete state.takeInventorySelections[itemId];state.pendingMovement=null;renderDetail();
     }catch(e){alert(e.message||'Movement MR Project gagal.');if(button)button.disabled=false}
     finally{state.busy=false}
   }
+
   async function finalizeMr(){if(state.busy)return;state.busy=true;try{state.detail=await request('POST',`/project-material-requests/${encodeURIComponent(state.requestId)}/finalize`,{});renderDetail()}catch(e){alert(e.message||'Finalisasi MR Project gagal.')}finally{state.busy=false}}
 
   function bindLifecycle(mr){
     $('#pxl-v3b-approve')?.addEventListener('click',approveMr);$('#pxl-v3b-reject')?.addEventListener('click',rejectMr);$('#pxl-v3b-finalize')?.addEventListener('click',finalizeMr);
+    document.querySelectorAll('[data-v3b-take-inventory-search]').forEach(input=>{const i=Number(input.dataset.v3bTakeInventorySearch),itemId=input.dataset.item;input.onfocus=()=>renderTakeInventoryResults(i,itemId,input.value);input.oninput=()=>{delete state.takeInventorySelections[itemId];renderTakeInventoryResults(i,itemId,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-take-inventory-results="${i}"]`)?.classList.remove('show'),180)});
     document.querySelectorAll('[data-v3b-move]').forEach(btn=>btn.onclick=()=>applyMovement(btn.dataset.v3bMove,btn.dataset.item,Number(btn.dataset.index),btn));
   }
 
@@ -183,7 +194,7 @@
     const rejectNote=mr.status==='rejected'?`<div class="pxl-v3b-mr-error"><b>Rejected</b>${mr.reject_reason?`: ${h(mr.reject_reason)}`:' — tanpa catatan.'}</div>`:'';
     let content=projectHeader()+rejectNote+`<div class="pxl-v3b-mr-toolbar"><div><div class="pxl-v3b-mr-muted">Nomor MR Project</div><div style="font-size:17px;font-weight:800">${h(mr.mr_number||'—')}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[mr.status]||mr.status||'-')}</span><button class="btn sm" id="pxl-v3b-mr-back">← Daftar MR</button></div></div>`;
     if(isEditable){
-      content+=`<div class="pxl-v3b-mr-section">Material Request</div><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Pilih material dari BOQ Project terlebih dahulu. Material di luar BOQ harus dipilih dari Inventory dan wajib memiliki Alasan.</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>Qty Requested</th><th>Alasan</th><th>Aksi</th></tr></thead><tbody>${state.editorItems.length?state.editorItems.map(editorRow).join(''):'<tr><td colspan="5" class="pxl-v3b-mr-muted">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px"><button class="btn sm" id="pxl-v3b-add-boq">＋ Tambah dari BOQ Project</button><button class="btn sm" id="pxl-v3b-add-extra">＋ Tambah Material di Luar BOQ</button><button class="btn primary sm" id="pxl-v3b-save">Simpan</button><button class="btn green sm" id="pxl-v3b-submit">Simpan &amp; Ajukan MR Project</button></div>`;
+      content+=`<div class="pxl-v3b-mr-section">Material Request</div><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Pilih kebutuhan material langsung dari BOQ Project dan isi Qty Requested. BOQ tidak perlu terhubung ke Inventory saat diajukan. Material di luar BOQ tetap wajib dipilih dari Inventory dan memiliki Alasan.</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>Qty Requested</th><th>Alasan</th><th>Aksi</th></tr></thead><tbody>${state.editorItems.length?state.editorItems.map(editorRow).join(''):'<tr><td colspan="5" class="pxl-v3b-mr-muted">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px"><button class="btn sm" id="pxl-v3b-add-boq">＋ Tambah dari BOQ Project</button><button class="btn sm" id="pxl-v3b-add-extra">＋ Tambah Material di Luar BOQ</button><button class="btn primary sm" id="pxl-v3b-save">Simpan</button><button class="btn green sm" id="pxl-v3b-submit">Simpan &amp; Ajukan MR Project</button></div>`;
     }else{
       content+=`<div class="pxl-v3b-mr-section">Item — Read Only</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>Requested</th><th>Taken</th><th>Returned</th><th>Used</th><th>Outstanding</th></tr></thead><tbody>${readOnlyRows(mr.items)||'<tr><td colspan="7">Belum ada item.</td></tr>'}</tbody></table></div>${renderApproval(mr)}${renderLifecycle(mr)}${renderAudit(mr)}`;
     }
@@ -193,32 +204,31 @@
   }
 
   function bindEditor(){
-    document.querySelectorAll('[data-v3b-material-search]').forEach(input=>{const i=Number(input.dataset.v3bMaterialSearch);input.onfocus=()=>renderMaterialSearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.material_search=input.value;if(item.project_boq_item_id){item.inventory_item_id=null;item.sku=null}renderMaterialSearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-material-results="${i}"]`)?.classList.remove('show'),180)});
+    document.querySelectorAll('[data-v3b-boq-search]').forEach(input=>{const i=Number(input.dataset.v3bBoqSearch);input.onfocus=()=>renderBoqSearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.boq_search=input.value;if(item.project_boq_item_id){item.project_boq_item_id=null;item.inventory_item_id=null;item.sku=null}renderBoqSearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-boq-results="${i}"]`)?.classList.remove('show'),180)});
     document.querySelectorAll('[data-v3b-inv]').forEach(sel=>{const i=Number(sel.dataset.v3bInv);sel.value=state.editorItems[i]?.inventory_item_id||'';sel.onchange=()=>{state.editorItems[i].inventory_item_id=sel.value||null;const row=(state.catalog?.inventory_items||[]).find(x=>String(x.id)===String(sel.value));state.editorItems[i].item_name=row?.name||null;state.editorItems[i].sku=row?.sku||null;state.editorItems[i].unit=row?.unit||null;}});
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-reason]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bReason)].additional_reason=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
-    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,material_search:'',qty_requested:1,additional_reason:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-material-search="${state.editorItems.length-1}"]`)?.focus(),0)};
+    $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,inventory_item_id:null,boq_search:'',qty_requested:1,additional_reason:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${state.editorItems.length-1}"]`)?.focus(),0)};
     $('#pxl-v3b-add-extra').onclick=()=>{state.editorItems.push({source_type:'inventory_extra',inventory_item_id:null,qty_requested:1,additional_reason:''});renderDetail()};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
   }
 
-  function validatedEditorItems(requireInventory=false){
+  function validatedEditorItems(){
     if(!state.editorItems.length)throw new Error('Minimal satu item MR Project wajib diisi.');
     return state.editorItems.map((item,index)=>{
       const qty=Number(item.qty_requested);if(!Number.isFinite(qty)||qty<=0)throw new Error(`Qty item baris ${index+1} harus lebih dari 0.`);
       if(item.source_type==='boq'&&!item.project_boq_item_id)throw new Error(`Pilih BOQ Project pada baris ${index+1}.`);
-      if(requireInventory&&item.source_type==='boq'&&!item.inventory_item_id)throw new Error(`Pilih barang Inventory untuk BOQ baris ${index+1} sebelum diajukan.`);
       if(item.source_type==='inventory_extra'&&!item.inventory_item_id)throw new Error(`Pilih Inventory pada baris ${index+1}.`);
       if(item.source_type==='inventory_extra'&&!String(item.additional_reason||'').trim())throw new Error(`Alasan material di luar BOQ baris ${index+1} wajib diisi.`);
-      return {...item,qty_requested:qty,additional_reason:item.source_type==='inventory_extra'?String(item.additional_reason).trim():null};
+      return {...item,inventory_item_id:item.source_type==='boq'?null:item.inventory_item_id,sku:item.source_type==='boq'?null:item.sku,qty_requested:qty,additional_reason:item.source_type==='inventory_extra'?String(item.additional_reason).trim():null};
     });
   }
 
   async function saveItems(andSubmit){
     if(state.busy)return;let items;
-    try{items=validatedEditorItems(andSubmit)}catch(e){alert(e.message);return}
+    try{items=validatedEditorItems()}catch(e){alert(e.message);return}
     state.busy=true;
     try{
       await request('PUT',`/project-material-requests/${encodeURIComponent(state.requestId)}/items`,{items});
@@ -238,7 +248,7 @@
   }
   async function loadDetail(requestId){
     const [mr]=await Promise.all([request('GET',`/project-material-requests/${encodeURIComponent(requestId)}`),state.catalog?Promise.resolve():loadCatalog()]);
-    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>{const inv=inventoryById(i.inventory_item_id);return {source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,material_search:inv?.name||i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}});renderDetail();
+    state.requestId=String(requestId);state.detail=mr;state.editorItems=(mr.items||[]).map(i=>{const inv=inventoryById(i.inventory_item_id);return {source_type:i.source_type,project_boq_item_id:i.project_boq_item_id||null,inventory_item_id:i.inventory_item_id||null,boq_search:i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,sku:i.sku_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested),additional_reason:i.additional_reason||''}});renderDetail();
   }
 
   async function refresh(){
@@ -252,7 +262,7 @@
   }
 
   async function open(projectId,requestId){
-    if(!projectId)return false;ensureShell();state.projectId=String(projectId);state.requestId=requestId?String(requestId):null;state.detail=null;state.catalog=null;state.project=null;state.list=[];state.editorItems=[];$('#pxl-v3b-mr-modal').classList.add('show');await refresh();return true;
+    if(!projectId)return false;ensureShell();state.projectId=String(projectId);state.requestId=requestId?String(requestId):null;state.detail=null;state.catalog=null;state.project=null;state.list=[];state.editorItems=[];state.takeInventorySelections={};$('#pxl-v3b-mr-modal').classList.add('show');await refresh();return true;
   }
   function close(){$('#pxl-v3b-mr-modal')?.classList.remove('show')}
   window.pxlProjectMr={revision:REV,open:open,refresh:refresh,close:close};
