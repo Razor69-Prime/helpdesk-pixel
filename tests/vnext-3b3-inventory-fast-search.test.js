@@ -17,10 +17,9 @@ test('BOQ editor fast-searches BOQ only and does not map Inventory during reques
   assert.match(ui,/filterBoqForQuery/);
 });
 
-test('Inventory fast search is reserved for Take fulfillment',()=>{
-  assert.match(ui,/data-v3b-take-inventory-search/);
-  assert.match(ui,/selectTakeInventoryResult/);
-  assert.match(ui,/inventory_item_id/);
+test('Phase 3C removes Inventory fast search from active Project MR browser',()=>{
+  assert.doesNotMatch(ui,/data-v3b-take-inventory-search|selectTakeInventoryResult|inventory_item_id/);
+  assert.match(ui,/data-v3b-boq-search/);
 });
 
 test('submit validation does not require Inventory for BOQ items',()=>{

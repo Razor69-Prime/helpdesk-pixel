@@ -22,11 +22,11 @@ test('draft BOQ editor fast-searches BOQ only and does not ask for Inventory',()
   assert.doesNotMatch(ui,/sebelum diajukan/);
 });
 
-test('approved BOQ item chooses Inventory only at Take time',()=>{
-  assert.match(ui,/data-v3b-take-inventory-search/);
-  assert.match(ui,/Pilih Inventory saat Take/);
-  assert.match(ui,/inventory_item_id/);
-  assert.match(ui,/movement_type:type,items:\[\{item_id:itemId,qty,inventory_item_id/);
+test('approved BOQ item is released directly and active UI no longer selects Inventory or Take',()=>{
+  assert.match(ui,/Material approved\/released for Project/);
+  assert.match(ui,/Qty Approved/);
+  assert.match(ui,/Input Today/);
+  assert.doesNotMatch(ui,/data-v3b-take-inventory-search|Pilih Inventory saat Take|movement_type:type|\/movements/);
 });
 
 test('movement API accepts optional inventory_item_id only as movement input',()=>{

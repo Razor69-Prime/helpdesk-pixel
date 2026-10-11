@@ -14,6 +14,7 @@ const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107
 const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy');
 const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./project-vnext-3a');
 const { normalizeProjectMrItems } = require('./project-vnext-3b');
+const { summarizeProjectMaterialLedger, normalizeProjectMaterialOverrideInput, checkProjectMaterialUsage } = require('./project-vnext-3c');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -1247,6 +1248,35 @@ function rejectProjectMrMutationPayload(req,res,next){
   if(forbidden.some(k=>Object.prototype.hasOwnProperty.call(req.body||{},k)))return res.status(400).json({error:'Approval hanya boleh Approve/Reject tanpa mengubah item atau qty.'});
   next();
 }
+async function getFreshProjectMaterialUsageState(item){
+  const [materialRequests,overrides,achievements]=await Promise.all([
+    db.getProjectMaterialRequests(item.project_id),
+    db.getProjectMaterialOverrides({itemId:item.id}),
+    db.getProjectReportItemAchievements(item.id)
+  ]);
+  const mrItems=await db.getProjectMaterialRequestItemsByRequestIds((materialRequests||[]).map(mr=>mr.id));
+  const byRequest=new Map();
+  (mrItems||[]).forEach(row=>{
+    const key=String(row.project_material_request_id||'');
+    if(!byRequest.has(key))byRequest.set(key,[]);
+    byRequest.get(key).push(row);
+  });
+  const hydrated=(materialRequests||[]).map(mr=>({...mr,items:byRequest.get(String(mr.id))||[]}));
+  const totalDone=(achievements||[]).reduce((sum,row)=>sum+Number(row.achievement||0),0);
+  const ledger=summarizeProjectMaterialLedger({boqItemId:item.id,materialRequests:hydrated,overrides,totalDone});
+  return {...ledger,total_done:totalDone,achievements:achievements||[]};
+}
+async function validateProjectMrBoqItems(projectId,items){
+  const boqRows=await db.getProjectReportItems(projectId);
+  const validIds=new Set((boqRows||[]).filter(row=>String(row.category||'').toLowerCase()==='material').map(row=>String(row.id)));
+  for(const item of (items||[])){
+    const boqId=String(item?.project_boq_item_id||'');
+    if(String(item?.source_type||'').toLowerCase()!=='boq'||!boqId||!validIds.has(boqId)){
+      throw new Error('Item BOQ Project harus Material dan berasal dari project yang sama.');
+    }
+  }
+  return true;
+}
 async function requireProjectMrOwner(req,res,next){
   try{
     const mr=await db.getProjectMaterialRequest(req.params.id);
@@ -1400,10 +1430,30 @@ app.delete('/api/projects/:id', requireRole('superadmin','admin'), async (req,re
 //  PXL-STG-0011 — PROJECT REPORT + DETAIL MATERIAL/JASA
 // ══════════════════════════════════════════
 async function buildProjectReportRows(){
-  const [projects,reports,legacyAchievements,items,itemAchievements]=await Promise.all([
+  const [projects,reports,legacyAchievements,items,itemAchievements,projectMaterialRequests,projectMaterialOverrides]=await Promise.all([
     db.getProjects(), db.getProjectReports(), db.getProjectReportAchievements(),
-    db.getProjectReportItems(), db.getProjectReportItemAchievements()
+    db.getProjectReportItems(), db.getProjectReportItemAchievements(),
+    db.getProjectMaterialRequests(), db.getProjectMaterialOverrides()
   ]);
+  const projectMrItems=await db.getProjectMaterialRequestItemsByRequestIds((projectMaterialRequests||[]).map(mr=>mr.id));
+  const mrItemsByRequest=new Map();
+  (projectMrItems||[]).forEach(item=>{
+    const k=String(item.project_material_request_id||'');
+    if(!mrItemsByRequest.has(k)) mrItemsByRequest.set(k,[]);
+    mrItemsByRequest.get(k).push(item);
+  });
+  const projectMrsByProject=new Map();
+  (projectMaterialRequests||[]).forEach(mr=>{
+    const k=String(mr.project_id||'');
+    if(!projectMrsByProject.has(k)) projectMrsByProject.set(k,[]);
+    projectMrsByProject.get(k).push({...mr,items:mrItemsByRequest.get(String(mr.id))||[]});
+  });
+  const overridesByProject=new Map();
+  (projectMaterialOverrides||[]).forEach(row=>{
+    const k=String(row.project_id||'');
+    if(!overridesByProject.has(k)) overridesByProject.set(k,[]);
+    overridesByProject.get(k).push(row);
+  });
   const reportByProject=new Map(reports.map(r=>[String(r.project_id),r]));
   const legacyByProject=new Map();
   legacyAchievements.forEach(a=>{
@@ -1428,7 +1478,18 @@ async function buildProjectReportRows(){
     const progress=boq>0?Math.min(100,Math.round(done/boq*10000)/100):0;
     let status=String(i.status_override||'').trim();
     if(!status) status=done<=0?'Not Started':remain<=0?'Done':'On Progress';
-    itemsByProject.get(k).push({...i,boq_qty:boq,total_done:done,remain,progress,status,achievements:hist});
+    if(String(i.category||'').toLowerCase()==='material'){
+      const ledger=summarizeProjectMaterialLedger({
+        boqItemId:i.id,
+        materialRequests:projectMrsByProject.get(k)||[],
+        overrides:overridesByProject.get(k)||[],
+        totalDone:done
+      });
+      itemsByProject.get(k).push({...i,boq_qty:boq,total_done:done,remain,progress,status,achievements:hist,
+        mr_approved_qty:ledger.mr_approved_qty,override_qty:ledger.override_qty,usage_limit:ledger.usage_limit,available_for_use:ledger.available_for_use});
+    }else{
+      itemsByProject.get(k).push({...i,boq_qty:boq,total_done:done,remain,progress,status,achievements:hist});
+    }
   });
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   return projects.map(p=>{
@@ -1636,12 +1697,11 @@ app.get('/api/project-material-requests/:id', requireProjectMrRead, async (req,r
 
 app.get('/api/projects/:projectId/material-request-catalog', requireProjectMrRead, async (req,res)=>{
   try{
-    const [projects,boq,inventory]=await Promise.all([db.getProjects(),db.getProjectReportItems(req.params.projectId),db.getInventoryItems()]);
+    const [projects,boq]=await Promise.all([db.getProjects(),db.getProjectReportItems(req.params.projectId)]);
     const project=projects.find(p=>String(p.id)===String(req.params.projectId));
     if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
-    const inventory_items=(inventory||[]).filter(x=>x&&x.is_active!==false);
     const boq_items=(boq||[]).filter(x=>String(x.category||'').toLowerCase()==='material');
-    res.json({project,boq_items,inventory_items});
+    res.json({project,boq_items});
   }catch(e){res.status(500).json({error:e.message});}
 });
 
@@ -1649,6 +1709,8 @@ app.post('/api/projects/:projectId/material-requests', requireProjectMrCreate, a
   try{
     const project=(await db.getProjects()).find(p=>String(p.id)===String(req.params.projectId));
     if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const primary=await db.getProjectPrimaryWorkOrder(project.id);
+    if(!primary?.ticket_id)return res.status(400).json({error:'Primary WO Project wajib ditetapkan sebelum membuat MR Project.'});
     const created=await db.createProjectMaterialRequest(project.id,req.session.user.name,req.session.user.id);
     const mr=await db.getProjectMaterialRequest(created.id);
     logActivity(req,'project_mr','BUAT MR PROJECT',projectMrLabel(project,mr||created));
@@ -1658,7 +1720,9 @@ app.post('/api/projects/:projectId/material-requests', requireProjectMrCreate, a
 
 app.put('/api/project-material-requests/:id/items', requireAuth, requireProjectMrOwner, async (req,res)=>{
   try{
+    const mr=req.projectMr||await db.getProjectMaterialRequest(req.params.id);
     const items=normalizeProjectMrItems(req.body?.items||[],{requireItems:false});
+    await validateProjectMrBoqItems(mr.project_id,items);
     await db.replaceProjectMaterialRequestItems(req.params.id,items,req.session.user.name,req.session.user.id);
     res.json(await db.getProjectMaterialRequest(req.params.id));
   }catch(e){res.status(400).json({error:e.message});}
@@ -1667,7 +1731,8 @@ app.put('/api/project-material-requests/:id/items', requireAuth, requireProjectM
 app.post('/api/project-material-requests/:id/submit', requireAuth, requireProjectMrOwner, async (req,res)=>{
   try{
     const mr=req.projectMr||await db.getProjectMaterialRequest(req.params.id);
-    normalizeProjectMrItems(mr.items||[],{requireItems:true});
+    const items=normalizeProjectMrItems(mr.items||[],{requireItems:true});
+    await validateProjectMrBoqItems(mr.project_id,items);
     await db.transitionProjectMaterialRequest(req.params.id,'submit',req.session.user.name,req.session.user.id,null);
     const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
     const text=`<b>MR Project diajukan</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
@@ -1893,6 +1958,52 @@ app.delete('/api/project-report-items/:id', requireProjectBoqAccess, async (req,
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.get('/api/project-report-items/:id/material-overrides', requireProjectReportRead, async (req,res)=>{
+  try{
+    const all=await db.getProjectReportItems();
+    const item=all.find(i=>String(i.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    res.json(await db.getProjectMaterialOverrides({itemId:item.id}));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/project-report-items/:id/material-overrides', requireRole('superadmin'), async (req,res)=>{
+  try{
+    const [allItems,projects]=await Promise.all([db.getProjectReportItems(),db.getProjects()]);
+    const item=allItems.find(i=>String(i.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    if(String(item.category||'').toLowerCase()!=='material')return res.status(400).json({error:'Override hanya berlaku untuk Material BOQ Project.'});
+    const project=projects.find(p=>String(p.id)===String(item.project_id));
+    if(!project)return res.status(400).json({error:'Project tidak ditemukan.'});
+    const input=normalizeProjectMaterialOverrideInput(req.body||{});
+    const primary=await db.getProjectPrimaryWorkOrder(item.project_id);
+    const override=await db.insertProjectMaterialOverride({
+      project_id:item.project_id,
+      project_boq_item_id:item.id,
+      primary_work_order_ticket_id:primary?.ticket_id||null,
+      item_name_snapshot:item.item_name,
+      qty:input.qty,
+      reason:input.reason,
+      created_by_user_id:req.session.user.id,
+      created_by:req.session.user.name,
+      created_at:new Date().toISOString()
+    });
+    logActivity(req,'project','OVERRIDE MATERIAL PROJECT',`${project.project_number||project.nama_project||project.id} · ${item.item_name} · +${input.qty} · ${input.reason}`);
+    const refreshedProject=(await buildProjectReportRows()).find(row=>String(row.id)===String(item.project_id));
+    const refreshedItem=(refreshedProject?.items||[]).find(row=>String(row.id)===String(item.id))||null;
+    const ledger=refreshedItem?{
+      mr_approved_qty:refreshedItem.mr_approved_qty,
+      override_qty:refreshedItem.override_qty,
+      usage_limit:refreshedItem.usage_limit,
+      available_for_use:refreshedItem.available_for_use
+    }:null;
+    res.status(201).json({override,item:refreshedItem,ledger});
+  }catch(e){
+    const message=String(e.message||e);
+    res.status(/override|alasan|qty/i.test(message)?400:500).json({error:message});
+  }
+});
+
 app.post('/api/project-report-items/:id/achievements', requireProjectAchievementInput, async (req,res)=>{
   try{
     const all=await db.getProjectReportItems();
@@ -1900,10 +2011,16 @@ app.post('/api/project-report-items/:id/achievements', requireProjectAchievement
     if(!item) return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
     const achievement=Number(req.body.achievement);
     if(!Number.isFinite(achievement)||achievement<=0)return res.status(400).json({error:'Achievement wajib lebih dari 0.'});
-    const hist=await db.getProjectReportItemAchievements(req.params.id);
-    const done=hist.reduce((n,a)=>n+Number(a.achievement||0),0);
+    const isMaterial=String(item.category||'').toLowerCase()==='material';
+    const usageState=isMaterial?await getFreshProjectMaterialUsageState(item):null;
+    const hist=isMaterial?usageState.achievements:await db.getProjectReportItemAchievements(req.params.id);
+    const done=isMaterial?usageState.total_done:hist.reduce((n,a)=>n+Number(a.achievement||0),0);
     const boq=Number(item.boq_qty)||0;
     if(done+achievement>boq)return res.status(400).json({error:`Achievement melebihi remain item. Maksimal ${Math.max(boq-done,0)}.`});
+    if(isMaterial){
+      const usage=checkProjectMaterialUsage({itemName:item.item_name,mrApprovedQty:usageState.mr_approved_qty,usageLimit:usageState.usage_limit,totalDone:done,requestedToday:achievement});
+      if(!usage.ok)return res.status(400).json({error:usage.message});
+    }
     await db.insertProjectReportItemAchievement({item_id:req.params.id,achievement_date:String(req.body.achievement_date||new Date().toISOString().slice(0,10)),achievement,notes:req.body.notes?String(req.body.notes).trim():null,created_by:req.session.user.name});
     logActivity(req,'project','TAMBAH ACHIEVEMENT ITEM',`${item.item_name}: +${achievement}`);
     res.status(201).json((await buildProjectReportRows()).find(r=>String(r.id)===String(item.project_id)));
@@ -1918,11 +2035,29 @@ app.patch('/api/project-report-item-achievements/:id', requireRole('superadmin')
     const allItems=await db.getProjectReportItems();
     const item=allItems.find(i=>String(i.id)===String(existing.item_id));
     if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
-    const hist=allAch.filter(a=>String(a.item_id)===String(item.id));
-    const otherDone=hist.filter(a=>String(a.id)!==String(existing.id)).reduce((n,a)=>n+Number(a.achievement||0),0);
     const achievement=req.body.achievement===undefined?Number(existing.achievement):Number(req.body.achievement);
     if(!Number.isFinite(achievement)||achievement<=0)return res.status(400).json({error:'Achievement wajib lebih dari 0.'});
-    if(otherDone+achievement>Number(item.boq_qty))return res.status(400).json({error:`Achievement melebihi BOQ item. Maksimal ${Math.max(Number(item.boq_qty)-otherDone,0)}.`});
+    const isMaterial=String(item.category||'').toLowerCase()==='material';
+    let otherDone,currentTotal,proposedTotal;
+    if(isMaterial){
+      const usageState=await getFreshProjectMaterialUsageState(item);
+      const freshExisting=(usageState.achievements||[]).find(a=>String(a.id)===String(existing.id));
+      if(!freshExisting)return res.status(404).json({error:'Achievement item tidak ditemukan.'});
+      const currentAchievement=Number(freshExisting.achievement)||0;
+      currentTotal=Number(usageState.total_done)||0;
+      otherDone=currentTotal-currentAchievement;
+      proposedTotal=otherDone+achievement;
+      if(proposedTotal>Number(item.boq_qty))return res.status(400).json({error:`Achievement melebihi BOQ item. Maksimal ${Math.max(Number(item.boq_qty)-otherDone,0)}.`});
+      if(proposedTotal>currentTotal){
+        const usage=checkProjectMaterialUsage({itemName:item.item_name,mrApprovedQty:usageState.mr_approved_qty,usageLimit:usageState.usage_limit,totalDone:currentTotal,requestedToday:proposedTotal-currentTotal});
+        if(!usage.ok)return res.status(400).json({error:usage.message});
+      }
+    }else{
+      const hist=allAch.filter(a=>String(a.item_id)===String(item.id));
+      otherDone=hist.filter(a=>String(a.id)!==String(existing.id)).reduce((n,a)=>n+Number(a.achievement||0),0);
+      proposedTotal=otherDone+achievement;
+      if(proposedTotal>Number(item.boq_qty))return res.status(400).json({error:`Achievement melebihi BOQ item. Maksimal ${Math.max(Number(item.boq_qty)-otherDone,0)}.`});
+    }
     const patch={achievement};
     if(req.body.achievement_date!==undefined)patch.achievement_date=String(req.body.achievement_date);
     if(req.body.notes!==undefined)patch.notes=req.body.notes?String(req.body.notes).trim():null;

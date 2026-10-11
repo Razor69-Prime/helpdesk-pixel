@@ -60,12 +60,11 @@ test('requester ownership and warehouse permissions are checked server-side',()=
   assert.match(movement,/take|return|use/);
 });
 
-test('catalog is project scoped and returns material BOQ plus active Inventory',()=>{
+test('catalog is project scoped and returns Project BOQ Material only in Phase 3C',()=>{
   const catalog=route('get','/api/projects/:projectId/material-request-catalog');
   assert.match(catalog,/getProjectReportItems/);
-  assert.match(catalog,/getInventoryItems/);
   assert.match(catalog,/category.*material/);
-  assert.match(catalog,/is_active/);
+  assert.doesNotMatch(catalog,/getInventoryItems|inventory_items|is_active/);
 });
 
 test('Project MR notifications use existing createNotification after successful transitions',()=>{

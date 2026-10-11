@@ -12,10 +12,10 @@ test('Project MR uses one BOQ fast-search control during Draft',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory/);
 });
 
-test('Inventory search is moved to Take lifecycle and remains separate from BOQ request entry',()=>{
+test('3C keeps BOQ search and removes active Inventory Take search from Project MR',()=>{
   assert.match(ui,/filterBoqForQuery/);
-  assert.match(ui,/filterInventoryForQuery/);
   assert.match(ui,/selectBoqSearchResult/);
-  assert.match(ui,/selectTakeInventoryResult/);
-  assert.match(ui,/data-v3b-take-inventory-search/);
+  assert.doesNotMatch(ui,/filterInventoryForQuery/);
+  assert.doesNotMatch(ui,/selectTakeInventoryResult/);
+  assert.doesNotMatch(ui,/data-v3b-take-inventory-search/);
 });

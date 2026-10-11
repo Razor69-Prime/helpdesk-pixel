@@ -4,52 +4,49 @@ const fs=require('node:fs');
 const path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'..','public','pxl-vnext-3b-project-mr.js'),'utf8');
 
-test('submitted Superadmin/Manager/Admin approval view is read-only and exposes only approve/reject state actions',()=>{
+function block(a,b){const s=src.indexOf(a);assert.notEqual(s,-1,`missing ${a}`);const e=src.indexOf(b,s+a.length);return src.slice(s,e<0?src.length:e)}
+
+test('submitted Superadmin/Manager/Admin approval view is read-only and exposes approve/reject only',()=>{
   assert.match(src,/canApprove/);
   assert.match(src,/\['superadmin','manager','admin'\]\.includes|\['manager','admin','superadmin'\]\.includes/);
   assert.match(src,/Approve/);assert.match(src,/Reject/);
   assert.match(src,/reject.*reason|reason.*reject/is);
   assert.match(src,/\/approve/);assert.match(src,/\/reject/);
-  const approvalBlock=src.slice(src.indexOf('function renderApproval'),src.indexOf('function renderLifecycle'));
-  assert.doesNotMatch(approvalBlock,/\/movements/);
-  assert.doesNotMatch(approvalBlock,/qty_requested.*input|data-v3b-qty/);
+  const approval=block('function renderApproval','function renderAudit');
+  assert.doesNotMatch(approval,/data-v3b-qty|\/movements|\/finalize/);
 });
 
-test('Approved/Issued lifecycle shows requested taken returned used outstanding',()=>{
-  for(const label of ['Requested','Taken','Returned','Used','Outstanding'])assert.match(src,new RegExp(label));
-  assert.match(src,/status==='approved'|status === 'approved'/);
-  assert.match(src,/status==='issued'|status === 'issued'/);
+test('approved and legacy issued/final are read-only released material states',()=>{
+  assert.match(src,/\['approved','issued','final'\]/);
+  assert.match(src,/Qty Approved/);
+  assert.match(src,/Material approved\/released for Project/i);
+  assert.match(src,/Input Today/);
 });
 
-test('Take permission uses material_request_issue and Return/Use uses requester or material_request_edit',()=>{
-  assert.match(src,/material_request_issue/);
-  assert.match(src,/material_request_edit/);
-  assert.match(src,/created_by_user_id/);
-  assert.match(src,/canTake/);assert.match(src,/canReturnUse/);
+test('Phase 3C browser contains no movement permission or action controls',()=>{
+  assert.doesNotMatch(src,/material_request_issue|material_request_edit|canTake|canReturnUse|canFinalize/);
+  assert.doesNotMatch(src,/data-v3b-move|\/movements|\/finalize|pendingMovement|idempotency_key/);
 });
 
-test('movement operation uses one idempotency key and disables duplicate submit while pending',()=>{
-  assert.match(src,/crypto\.randomUUID\(\)/);
-  assert.match(src,/idempotency_key/);
-  assert.match(src,/pendingMovement/);
-  assert.match(src,/disabled\s*=\s*true|state\.busy/);
-  assert.match(src,/\/movements/);
+test('historical movement rows remain renderable only inside audit history',()=>{
+  const audit=block('function renderAudit','async function approveMr');
+  assert.match(audit,/mr\?\.movements|mr\.movements/);
+  assert.match(audit,/movement_type/);
+  assert.match(audit,/History MR Project/);
+  assert.doesNotMatch(audit,/button[^>]*move|onclick[^\n]*movement/i);
 });
 
-test('movement refreshes server state and never calculates Inventory stock locally',()=>{
-  assert.match(src,/material_request/);
-  assert.match(src,/loadDetail\(state\.requestId\)|state\.detail=.*material_request/);
+test('browser never calculates or mutates Inventory stock locally',()=>{
   assert.doesNotMatch(src,/stock\s*[+\-]=|stock\s*=\s*stock\s*[+\-]/);
+  assert.doesNotMatch(src,/getInventory|inventory_items|inventory_item_id/);
 });
 
-test('Final is visible only for issued with all server outstanding zero',()=>{
-  assert.match(src,/canFinalize/);
-  assert.match(src,/qty_outstanding/);
-  assert.match(src,/every\([^)]*=>\s*Number\([^)]*qty_outstanding/);
-  assert.match(src,/\/finalize/);
+test('active finalization is absent while legacy final status stays readable',()=>{
+  assert.match(src,/final:'Approved \(Legacy\)'/);
+  assert.doesNotMatch(src,/canFinalize|Final MR Project|\/finalize/);
 });
 
-test('serial movement errors are surfaced without blind auto retry',()=>{
-  assert.match(src,/alert\(e\.message|showError/);
-  assert.doesNotMatch(src,/catch\([^)]*\)\s*\{[^}]*movement[^}]*movement/is);
+test('API errors are surfaced without blind retry',()=>{
+  assert.match(src,/alert\(e\.message/);
+  assert.doesNotMatch(src,/catch\([^)]*\)\s*\{[^}]*request\([^}]*request\(/is);
 });
