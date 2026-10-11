@@ -45,7 +45,7 @@ create table if not exists public.project_material_request_items(
   project_material_request_id uuid not null references public.project_material_requests(id) on delete cascade,
   source_type text not null check(source_type in ('boq','inventory_extra')),
   project_boq_item_id uuid references public.project_report_items(id) on delete set null,
-  inventory_item_id uuid references public.inventory_items(id) on delete restrict,
+  inventory_item_id uuid references public.inventory_items(id) on delete set null,
   item_name_snapshot text not null,
   sku_snapshot text,
   unit_snapshot text,
@@ -59,8 +59,7 @@ create table if not exists public.project_material_request_items(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_mr_item_outstanding_nonnegative check(qty_outstanding>=0),
-  constraint project_mr_extra_reason_check check(source_type<>'inventory_extra' or (inventory_item_id is not null and length(trim(coalesce(additional_reason,'')))>0)),
-  constraint project_mr_boq_source_check check(source_type<>'boq' or project_boq_item_id is not null)
+  constraint project_mr_extra_reason_check check(source_type<>'inventory_extra' or length(trim(coalesce(additional_reason,'')))>0)
 );
 create index if not exists idx_project_mr_items_request on public.project_material_request_items(project_material_request_id,sort_order);
 
@@ -78,7 +77,7 @@ create table if not exists public.project_material_request_operations(
 create table if not exists public.project_material_request_movements(
   id uuid primary key default gen_random_uuid(),
   project_material_request_id uuid not null references public.project_material_requests(id) on delete cascade,
-  project_material_request_item_id uuid not null references public.project_material_request_items(id) on delete restrict,
+  project_material_request_item_id uuid not null references public.project_material_request_items(id) on delete cascade,
   movement_type text not null check(movement_type in ('take','return','use')),
   qty numeric(14,2) not null check(qty>0),
   operation_id uuid not null references public.project_material_request_operations(id) on delete restrict,
@@ -121,7 +120,15 @@ declare v_project public.projects%rowtype; v_year integer; v_next integer; v_num
 begin
   select * into v_project from public.projects where id=p_project_id for update;
   if v_project.id is null then raise exception 'Project tidak ditemukan.'; end if;
-  if v_project.project_number ~ '^PRJ-[0-9]{2}-[0-9]{3,}$' then return v_project.project_number; end if;
+  if v_project.project_number ~ '^PRJ-[0-9]{2}-[0-9]{3,}$' then
+    v_year:=split_part(v_project.project_number,'-',2)::integer;
+    v_next:=split_part(v_project.project_number,'-',3)::integer;
+    insert into public.project_number_counters(project_year,last_number,updated_at)
+    values(v_year,v_next,now())
+    on conflict(project_year) do update
+      set last_number=greatest(project_number_counters.last_number,excluded.last_number),updated_at=now();
+    return v_project.project_number;
+  end if;
   v_year:=extract(year from coalesce(v_project.created_at,now()))::integer % 100;
   insert into public.project_number_counters(project_year,last_number) values(v_year,0) on conflict(project_year) do nothing;
   select last_number into v_next from public.project_number_counters where project_year=v_year for update;
@@ -133,7 +140,10 @@ begin
 end; $$;
 
 do $$ declare r record; begin
-  for r in select id from public.projects where project_number is null order by created_at,id loop
+  for r in select id from public.projects where project_number ~ '^PRJ-[0-9]{2}-[0-9]{3,}$' order by created_at,id loop
+    perform public.pxl_vnext_3b_ensure_project_number(r.id);
+  end loop;
+  for r in select id from public.projects where project_number is null or project_number !~ '^PRJ-[0-9]{2}-[0-9]{3,}$' order by created_at,id loop
     perform public.pxl_vnext_3b_ensure_project_number(r.id);
   end loop;
 end $$;

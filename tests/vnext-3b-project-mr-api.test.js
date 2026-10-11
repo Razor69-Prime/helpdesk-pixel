@@ -93,9 +93,10 @@ test('BOQ catalog resolves exact active Inventory match and submit blocks unmapp
   assert.match(submit,/terhubung ke Inventory|Inventory.*wajib/i);
 });
 
-test('Project MR read roles exclude Sales unless explicit legacy MR permission grants access',()=>{
-  const match=server.match(/const PROJECT_MR_READ_ROLES\s*=\s*\[([^\]]+)\]/);
-  assert.ok(match,'PROJECT_MR_READ_ROLES missing');
-  assert.doesNotMatch(match[1],/'sales'/);
-  assert.match(match[1],/'technician'/);assert.match(match[1],/'manager'/);assert.match(match[1],/'admin'/);assert.match(match[1],/'superadmin'/);
+test('Project MR read roles inherit all existing Project roles and add Technician',()=>{
+  assert.match(server,/const PROJECT_ROLES\s*=\s*\['superadmin','manager','admin','sales'\]/);
+  assert.match(server,/const PROJECT_MR_READ_ROLES\s*=\s*\[\.\.\.new Set\(\[\.\.\.PROJECT_ROLES,'technician'\]\)\]/);
+  const create=route('post','/api/projects/:projectId/material-requests');
+  assert.match(create,/requireProjectMrCreate/);
+  assert.match(server,/if\(projectMrRole\(req\)!=='technician'\)/);
 });

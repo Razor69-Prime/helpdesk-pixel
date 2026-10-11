@@ -1212,7 +1212,7 @@ function requireProjectVnextPermission(permission){
   };
 }
 
-const PROJECT_MR_READ_ROLES=['technician','manager','admin','superadmin'];
+const PROJECT_MR_READ_ROLES=[...new Set([...PROJECT_ROLES,'technician'])];
 function projectMrRole(req){return String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');}
 function hasProjectMrLegacyPermission(req,permission){
   const role=projectMrRole(req),custom=Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];
