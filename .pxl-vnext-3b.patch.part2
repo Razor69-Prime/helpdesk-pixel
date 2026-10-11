@@ -1,0 +1,663 @@
+index 5ce3e7f..721f277 100644
+--- a/server.js
++++ b/server.js
+@@ -13,6 +13,7 @@ const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
+ const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
+ const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy');
+ const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./project-vnext-3a');
++const { normalizeProjectMrItems } = require('./project-vnext-3b');
+ const os       = require('os');
+ const { execFileSync } = require('child_process');
+ 
+@@ -1211,6 +1212,51 @@ function requireProjectVnextPermission(permission){
+   };
+ }
+ 
++const PROJECT_MR_READ_ROLES=['technician','manager','admin','superadmin'];
++function projectMrRole(req){return String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');}
++function hasProjectMrLegacyPermission(req,permission){
++  const role=projectMrRole(req),custom=Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];
++  if(role==='superadmin') return true;
++  const defaults={
++    material_request_view:['technician','warehouse'],
++    material_request_edit:['technician','warehouse'],
++    material_request_issue:['warehouse']
++  };
++  return (defaults[permission]||[]).includes(role)||custom.includes(permission);
++}
++function requireProjectMrRead(req,res,next){
++  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
++  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view'))return res.status(403).json({error:'Akses MR Project ditolak.'});
++  next();
++}
++function requireProjectMrCreate(req,res,next){
++  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
++  if(projectMrRole(req)!=='technician')return res.status(403).json({error:'MR Project dibuat oleh Teknisi.'});
++  next();
++}
++function requireProjectMrApproval(req,res,next){
++  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
++  if(!['manager','admin'].includes(projectMrRole(req)))return res.status(403).json({error:'Approve/Reject MR Project hanya untuk Manager/Admin.'});
++  next();
++}
++function rejectProjectMrMutationPayload(req,res,next){
++  const forbidden=['items','qty','qty_requested','qty_taken','qty_returned','qty_used','inventory_item_id','project_boq_item_id'];
++  if(forbidden.some(k=>Object.prototype.hasOwnProperty.call(req.body||{},k)))return res.status(400).json({error:'Approval hanya boleh Approve/Reject tanpa mengubah item atau qty.'});
++  next();
++}
++async function requireProjectMrOwner(req,res,next){
++  try{
++    const mr=await db.getProjectMaterialRequest(req.params.id);
++    if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
++    if(String(mr.created_by_user_id||'')!==String(req.session?.user?.id||''))return res.status(403).json({error:'MR Project hanya dapat diubah oleh pembuatnya.'});
++    req.projectMr=mr;next();
++  }catch(e){res.status(500).json({error:e.message});}
++}
++function notifyProjectMrRoles(mr,text,actor){
++  for(const target_role of ['manager','admin','superadmin']) createNotification({type:'project_mr',text,target_role,ref_id:mr.id,created_by:actor});
++}
++function projectMrLabel(project,mr){return `${project?.project_number||'PRJ'} · ${project?.nama_project||'Project'} · ${mr?.mr_number||'MRP'}`;}
++
+ app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
+   try{ res.json(await db.getProjects()); }
+   catch(e){ res.status(500).json({error:e.message}); }
+@@ -1576,6 +1622,121 @@ app.put('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), requirePr
+   }
+ });
+ 
++// PXL-VNEXT-3B — Project Material Request APIs
++app.get('/api/projects/:projectId/material-requests', requireProjectMrRead, async (req,res)=>{
++  try{res.json(await db.getProjectMaterialRequests(req.params.projectId));}catch(e){res.status(500).json({error:e.message});}
++});
++
++app.get('/api/project-material-requests/:id', requireProjectMrRead, async (req,res)=>{
++  try{const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});res.json(mr);}catch(e){res.status(500).json({error:e.message});}
++});
++
++app.get('/api/projects/:projectId/material-request-catalog', requireProjectMrRead, async (req,res)=>{
++  try{
++    const [projects,boq,inventory]=await Promise.all([db.getProjects(),db.getProjectReportItems(req.params.projectId),db.getInventoryItems()]);
++    const project=projects.find(p=>String(p.id)===String(req.params.projectId));
++    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
++    const inventory_items=(inventory||[]).filter(x=>x&&x.is_active!==false);
++    const normalizeInventoryName=v=>String(v||'').trim().toLowerCase();
++    const boq_items=(boq||[]).filter(x=>String(x.category||'').toLowerCase()==='material').map(row=>{
++      const exact=inventory_items.filter(item=>normalizeInventoryName(item.name)===normalizeInventoryName(row.item_name));
++      return {...row,inventory_item_id:exact.length===1?exact[0].id:null,inventory_match:exact.length===1?'exact_name':exact.length>1?'ambiguous':null};
++    });
++    res.json({project,boq_items,inventory_items});
++  }catch(e){res.status(500).json({error:e.message});}
++});
++
++app.post('/api/projects/:projectId/material-requests', requireProjectMrCreate, async (req,res)=>{
++  try{
++    const project=(await db.getProjects()).find(p=>String(p.id)===String(req.params.projectId));
++    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
++    const created=await db.createProjectMaterialRequest(project.id,req.session.user.name,req.session.user.id);
++    const mr=await db.getProjectMaterialRequest(created.id);
++    logActivity(req,'project_mr','BUAT MR PROJECT',projectMrLabel(project,mr||created));
++    res.status(201).json(mr||created);
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.put('/api/project-material-requests/:id/items', requireAuth, requireProjectMrOwner, async (req,res)=>{
++  try{
++    const items=normalizeProjectMrItems(req.body?.items||[],{requireItems:false});
++    await db.replaceProjectMaterialRequestItems(req.params.id,items,req.session.user.name,req.session.user.id);
++    res.json(await db.getProjectMaterialRequest(req.params.id));
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.post('/api/project-material-requests/:id/submit', requireAuth, requireProjectMrOwner, async (req,res)=>{
++  try{
++    const mr=req.projectMr||await db.getProjectMaterialRequest(req.params.id);
++    normalizeProjectMrItems(mr.items||[],{requireItems:true});
++    if((mr.items||[]).some(item=>!item.inventory_item_id))return res.status(400).json({error:'Semua material MR Project wajib terhubung ke Inventory sebelum diajukan.'});
++    await db.transitionProjectMaterialRequest(req.params.id,'submit',req.session.user.name,req.session.user.id,null);
++    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
++    const text=`<b>MR Project diajukan</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
++    notifyProjectMrRoles(fresh,text,req.session.user.name);
++    logActivity(req,'project_mr','AJUKAN MR PROJECT',projectMrLabel(project,fresh));
++    res.json(fresh);
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.post('/api/project-material-requests/:id/approve', requireProjectMrApproval, rejectProjectMrMutationPayload, async (req,res)=>{
++  try{
++    await db.transitionProjectMaterialRequest(req.params.id,'approve',req.session.user.name,req.session.user.id,null);
++    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
++    createNotification({type:'project_mr',text:`<b>MR Project Approved</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
++    logActivity(req,'project_mr','APPROVE MR PROJECT',projectMrLabel(project,fresh));
++    res.json(fresh);
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.post('/api/project-material-requests/:id/reject', requireProjectMrApproval, rejectProjectMrMutationPayload, async (req,res)=>{
++  try{
++    await db.transitionProjectMaterialRequest(req.params.id,'reject',req.session.user.name,req.session.user.id,String(req.body?.reason||'').trim()||null);
++    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
++    createNotification({type:'project_mr',text:`<b>MR Project Rejected</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
++    logActivity(req,'project_mr','REJECT MR PROJECT',projectMrLabel(project,fresh));
++    res.json(fresh);
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.post('/api/project-material-requests/:id/movements', requireAuth, async (req,res)=>{
++  try{
++    const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
++    const movement_type=String(req.body?.movement_type||'').toLowerCase();
++    if(!['take','return','use'].includes(movement_type))return res.status(400).json({error:'Movement harus take, return, atau use.'});
++    if(movement_type==='take'&&!hasProjectMrLegacyPermission(req,'material_request_issue'))return res.status(403).json({error:'Pengambilan material membutuhkan permission material_request_issue.'});
++    const isOwner=String(mr.created_by_user_id||'')===String(req.session.user.id||'');
++    if(movement_type!=='take'&&!isOwner&&!hasProjectMrLegacyPermission(req,'material_request_edit'))return res.status(403).json({error:'Return/Use membutuhkan owner MR atau permission material_request_edit.'});
++    const idempotency_key=String(req.body?.idempotency_key||'').trim();
++    if(!idempotency_key)return res.status(400).json({error:'idempotency_key wajib diisi.'});
++    const items=(Array.isArray(req.body?.items)?req.body.items:[]).map((x,i)=>{const qty=Number(x?.qty);if(!x?.item_id||!Number.isFinite(qty)||qty<=0)throw new Error(`Item movement baris ${i+1} tidak valid.`);return {item_id:x.item_id,qty};});
++    const result=await db.applyProjectMaterialRequestMovement(req.params.id,movement_type,items,req.session.user.name,req.session.user.id,idempotency_key);
++    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
++    const text=`<b>MR Project ${movement_type}</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
++    if(!result?.already_applied){
++      notifyProjectMrRoles(fresh,text,req.session.user.name);
++      createNotification({type:'project_mr',text,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
++      logActivity(req,'project_mr',`MOVEMENT ${movement_type.toUpperCase()}`,projectMrLabel(project,fresh));
++    }
++    res.json({material_request:fresh,result});
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
++app.post('/api/project-material-requests/:id/finalize', requireAuth, async (req,res)=>{
++  try{
++    const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
++    const owner=String(mr.created_by_user_id||'')===String(req.session.user.id||'');
++    if(!owner&&!hasProjectMrLegacyPermission(req,'material_request_edit'))return res.status(403).json({error:'Finalisasi membutuhkan owner MR atau permission material_request_edit.'});
++    await db.transitionProjectMaterialRequest(req.params.id,'finalize',req.session.user.name,req.session.user.id,null);
++    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
++    const text=`<b>MR Project Final</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
++    notifyProjectMrRoles(fresh,text,req.session.user.name);
++    createNotification({type:'project_mr',text,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
++    logActivity(req,'project_mr','FINAL MR PROJECT',projectMrLabel(project,fresh));
++    res.json(fresh);
++  }catch(e){res.status(400).json({error:e.message});}
++});
++
+ app.get('/api/project-reports', requireProjectReportRead, async (req,res)=>{
+   try{ res.json(await buildProjectReportRows()); }
+   catch(e){ res.status(500).json({error:e.message}); }
+diff --git a/tests/vnext-3a-project-ui.test.js b/tests/vnext-3a-project-ui.test.js
+index e3d762c..ff5f441 100644
+--- a/tests/vnext-3a-project-ui.test.js
++++ b/tests/vnext-3a-project-ui.test.js
+@@ -24,9 +24,9 @@ test('Project Tracker rows expose native Detail action and keep Edit Delete acti
+   assert.match(index,/deleteProject\('\$\{p\.id\}'\)/);
+ });
+ 
+-test('Project Detail exposes only approved Phase 3A tabs',()=>{
++test('Project Detail retains Phase 3A tabs and adds approved Phase 3B Material Request tab',()=>{
+   const src=detailSource();
+-  for(const pattern of [/Overview/,/BOQ &(?:amp;)? Report/,/Gantt Chart/,/Work Order/]) assert.match(src,pattern);
++  for(const pattern of [/Overview/,/BOQ &(?:amp;)? Report/,/Gantt Chart/,/Work Order/,/Material Request/]) assert.match(src,pattern);
+   for(const future of ['Documents','SPJ']) assert.doesNotMatch(src,new RegExp(`>${future}<`));
+   assert.match(src,/window\.pxlProjectVnext3A/);
+   assert.match(src,/open:open/);
+diff --git a/tests/vnext-3b-project-mr-api.test.js b/tests/vnext-3b-project-mr-api.test.js
+new file mode 100644
+index 0000000..e845b41
+--- /dev/null
++++ b/tests/vnext-3b-project-mr-api.test.js
+@@ -0,0 +1,101 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
++const db=fs.readFileSync(path.join(root,'db-core.js'),'utf8');
++
++function route(method,url){
++  const start=server.indexOf(`app.${method}('${url}'`);
++  assert.notEqual(start,-1,`${method.toUpperCase()} ${url} missing`);
++  const next=server.indexOf('\napp.',start+10);
++  return server.slice(start,next<0?server.length:next);
++}
++
++test('db-core exposes dedicated Project MR adapters without legacy MR reuse',()=>{
++  for(const fn of ['getProjectMaterialRequests','getProjectMaterialRequest','createProjectMaterialRequest','replaceProjectMaterialRequestItems','transitionProjectMaterialRequest','applyProjectMaterialRequestMovement']){
++    assert.match(db,new RegExp(`async function ${fn}\\(`));
++    assert.match(db,new RegExp(`\\b${fn}\\b[\\s\\S]*module\\.exports|module\\.exports[\\s\\S]*\\b${fn}\\b`));
++  }
++  const block=db.slice(db.indexOf('async function getProjectMaterialRequests'),db.indexOf('// PXL-STG-0010'));
++  assert.doesNotMatch(block,/getMRForms|insertMRForm|getCrmMaterialRequests|issueInventoryMaterialRequest/);
++});
++
++test('Project MR routes are dedicated and include technician read/create without widening PROJECT_ROLES',()=>{
++  assert.match(server,/const PROJECT_MR_READ_ROLES\s*=\s*\[[^\]]*'technician'/);
++  assert.doesNotMatch(server,/const PROJECT_ROLES\s*=\s*\[[^\]]*'technician'/);
++  for(const [method,url] of [
++    ['get','/api/projects/:projectId/material-requests'],
++    ['get','/api/project-material-requests/:id'],
++    ['post','/api/projects/:projectId/material-requests'],
++    ['put','/api/project-material-requests/:id/items'],
++    ['post','/api/project-material-requests/:id/submit'],
++    ['post','/api/project-material-requests/:id/approve'],
++    ['post','/api/project-material-requests/:id/reject'],
++    ['post','/api/project-material-requests/:id/movements'],
++    ['post','/api/project-material-requests/:id/finalize'],
++    ['get','/api/projects/:projectId/material-request-catalog']
++  ]) route(method,url);
++});
++
++test('approval is Manager/Admin only and never accepts item mutation payload',()=>{
++  const approve=route('post','/api/project-material-requests/:id/approve');
++  const reject=route('post','/api/project-material-requests/:id/reject');
++  for(const body of [approve,reject]){
++    assert.match(body,/requireProjectMrApproval/);
++    assert.match(body,/rejectProjectMrMutationPayload/);
++  }
++  assert.match(server,/function requireProjectMrApproval/);
++  assert.match(server,/\['manager','admin'\]/);
++});
++
++test('requester ownership and warehouse permissions are checked server-side',()=>{
++  assert.match(server,/function requireProjectMrOwner/);
++  assert.match(server,/created_by_user_id/);
++  const movement=route('post','/api/project-material-requests/:id/movements');
++  assert.match(movement,/idempotency_key/);
++  assert.match(movement,/material_request_issue/);
++  assert.match(movement,/material_request_edit/);
++  assert.match(movement,/take|return|use/);
++});
++
++test('catalog is project scoped and returns material BOQ plus active Inventory',()=>{
++  const catalog=route('get','/api/projects/:projectId/material-request-catalog');
++  assert.match(catalog,/getProjectReportItems/);
++  assert.match(catalog,/getInventoryItems/);
++  assert.match(catalog,/category.*material/);
++  assert.match(catalog,/is_active/);
++});
++
++test('Project MR notifications use existing createNotification after successful transitions',()=>{
++  for(const url of ['/api/project-material-requests/:id/submit','/api/project-material-requests/:id/approve','/api/project-material-requests/:id/reject','/api/project-material-requests/:id/movements','/api/project-material-requests/:id/finalize']){
++    const body=route('post',url);
++    assert.match(body,/createNotification|notifyProjectMrRoles/);
++  }
++  assert.match(server,/function notifyProjectMrRoles/);
++  assert.match(server,/target_role:\s*'manager'|\['manager','admin','superadmin'\]/);
++  assert.match(server,/\['manager','admin','superadmin'\]/);
++});
++
++test('legacy MR routes and inventory issue surface remain present',()=>{
++  assert.match(server,/\/api\/material-requests-form/);
++  assert.match(server,/\/api\/crm\/material-requests/);
++  assert.match(db,/async function issueInventoryMaterialRequest/);
++});
++
++test('BOQ catalog resolves exact active Inventory match and submit blocks unmapped material',()=>{
++  const catalog=route('get','/api/projects/:projectId/material-request-catalog');
++  assert.match(catalog,/inventory_item_id/);
++  assert.match(catalog,/toLowerCase\(\).*trim\(\)|trim\(\).*toLowerCase\(\)/s);
++  const submit=route('post','/api/project-material-requests/:id/submit');
++  assert.match(submit,/inventory_item_id/);
++  assert.match(submit,/terhubung ke Inventory|Inventory.*wajib/i);
++});
++
++test('Project MR read roles exclude Sales unless explicit legacy MR permission grants access',()=>{
++  const match=server.match(/const PROJECT_MR_READ_ROLES\s*=\s*\[([^\]]+)\]/);
++  assert.ok(match,'PROJECT_MR_READ_ROLES missing');
++  assert.doesNotMatch(match[1],/'sales'/);
++  assert.match(match[1],/'technician'/);assert.match(match[1],/'manager'/);assert.match(match[1],/'admin'/);assert.match(match[1],/'superadmin'/);
++});
+diff --git a/tests/vnext-3b-project-mr-core.test.js b/tests/vnext-3b-project-mr-core.test.js
+new file mode 100644
+index 0000000..b5dd9bf
+--- /dev/null
++++ b/tests/vnext-3b-project-mr-core.test.js
+@@ -0,0 +1,77 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const migrationPath=path.join(root,'PXL-VNEXT-3B-MIGRATION.sql');
++const domainPath=path.join(root,'project-vnext-3b.js');
++
++function migration(){
++  assert.equal(fs.existsSync(migrationPath),true,'Phase 3B migration must exist');
++  return fs.readFileSync(migrationPath,'utf8');
++}
++function domain(){
++  assert.equal(fs.existsSync(domainPath),true,'Phase 3B domain module must exist');
++  delete require.cache[require.resolve(domainPath)];
++  return require(domainPath);
++}
++
++test('3B migration is additive and creates isolated Project MR persistence',()=>{
++  const sql=migration();
++  for(const token of [
++    'add column if not exists project_number text',
++    'project_number_counters','project_material_request_counters',
++    'project_material_requests','project_material_request_items',
++    'project_material_request_movements','project_material_request_operations',
++    'project_material_request_history'
++  ]) assert.match(sql,new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i'));
++  assert.match(sql,/create unique index[^;]+project_number/i);
++  assert.match(sql,/status[^;]+draft[^;]+submitted[^;]+approved[^;]+rejected[^;]+issued[^;]+final/i);
++  assert.match(sql,/source_type[^;]+boq[^;]+inventory_extra/i);
++  assert.match(sql,/qty_requested[^;]+>\s*0/i);
++  assert.match(sql,/qty_outstanding/i);
++  assert.match(sql,/additional_reason/i);
++  assert.match(sql,/idempotency_key[^\n]+unique/i);
++});
++
++test('3B migration exposes locked concurrency-safe RPCs',()=>{
++  const sql=migration();
++  for(const fn of [
++    'pxl_vnext_3b_create_project_mr',
++    'pxl_vnext_3b_replace_project_mr_items',
++    'pxl_vnext_3b_transition_project_mr',
++    'pxl_vnext_3b_apply_project_mr_movement'
++  ]) assert.match(sql,new RegExp(`function\\s+public\\.${fn}`,'i'));
++  assert.ok((sql.match(/for\s+update/ig)||[]).length>=4,'counter/state/stock paths must use row locks');
++  assert.match(sql,/PROJECT_MR_TAKE/);
++  assert.match(sql,/PROJECT_MR_RETURN/);
++});
++
++test('normalizeProjectMrItems validates draft/submit and item sources',()=>{
++  const {normalizeProjectMrItems}=domain();
++  assert.deepEqual(normalizeProjectMrItems([],{requireItems:false}),[]);
++  assert.throws(()=>normalizeProjectMrItems([],{requireItems:true}),/item/i);
++  assert.throws(()=>normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'x',qty_requested:0}],{requireItems:true}),/qty|jumlah/i);
++  assert.throws(()=>normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'x',qty_requested:'abc'}],{requireItems:true}),/qty|jumlah/i);
++  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',inventory_item_id:'x',qty_requested:1}],{requireItems:true}),/alasan|reason/i);
++  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',additional_reason:'Darurat',qty_requested:1}],{requireItems:true}),/inventory/i);
++  const rows=normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'boq-1',inventory_item_id:'inv-1',item_name:'Kabel',unit:'m',qty_requested:5}],{requireItems:true});
++  assert.equal(rows[0].project_boq_item_id,'boq-1');
++  assert.equal(rows[0].qty_requested,5);
++});
++
++test('calculateProjectMrOutstanding enforces non-negative invariant',()=>{
++  const {calculateProjectMrOutstanding}=domain();
++  assert.equal(calculateProjectMrOutstanding({qty_taken:10,qty_returned:2,qty_used:3}),5);
++  assert.throws(()=>calculateProjectMrOutstanding({qty_taken:1,qty_returned:2,qty_used:0}),/outstanding|negatif/i);
++  assert.throws(()=>calculateProjectMrOutstanding({qty_taken:'abc',qty_returned:0,qty_used:0}),/angka|number|valid/i);
++});
++
++test('project number backfill does not rewrite project updated_at',()=>{
++  const sql=migration();
++  const fnStart=sql.search(/function public\.pxl_vnext_3b_ensure_project_number/i);
++  const fnEnd=sql.indexOf('end; $$;',fnStart);
++  const block=sql.slice(fnStart,fnEnd);
++  assert.match(block,/update public\.projects set project_number=v_number where id=p_project_id/i);
++  assert.doesNotMatch(block,/update public\.projects set project_number=v_number\s*,\s*updated_at/i);
++});
+diff --git a/tests/vnext-3b-project-mr-inventory.test.js b/tests/vnext-3b-project-mr-inventory.test.js
+new file mode 100644
+index 0000000..056c39d
+--- /dev/null
++++ b/tests/vnext-3b-project-mr-inventory.test.js
+@@ -0,0 +1,76 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const sql=fs.readFileSync(path.join(root,'PXL-VNEXT-3B-MIGRATION.sql'),'utf8');
++const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
++function functionBlock(name){const start=sql.search(new RegExp(`create or replace function public\\.${name}`,'i'));assert.notEqual(start,-1,`${name} missing`);const next=sql.indexOf('create or replace function public.',start+30);return sql.slice(start,next<0?sql.length:next)}
++function route(method,url){const start=server.indexOf(`app.${method}('${url}'`);assert.notEqual(start,-1);const next=server.indexOf('\napp.',start+10);return server.slice(start,next<0?server.length:next)}
++
++test('approval/reject transition never mutates Inventory',()=>{
++  const block=functionBlock('pxl_vnext_3b_transition_project_mr');
++  assert.doesNotMatch(block,/update\s+public\.inventory_items|insert\s+into\s+public\.inventory_transactions/i);
++});
++
++test('take locks stock, checks availability, logs stock and transitions Approved to Issued',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/inventory_items[^;]+for update/is);
++  assert.match(block,/stock\s*<\s*v_qty|v_inv\.stock\s*<\s*v_qty/i);
++  assert.match(block,/set stock=stock-v_qty/i);
++  assert.match(block,/PROJECT_MR_TAKE/);
++  assert.match(block,/status='issued'/);
++});
++
++test('movement operation is idempotent and repeated key reports already_applied',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/idempotency_key=p_idempotency_key[^;]+for update/is);
++  assert.match(block,/already_applied['\"]?\s*,\s*true/i);
++  const api=route('post','/api/project-material-requests/:id/movements');
++  assert.match(api,/already_applied/);
++  assert.match(api,/if\s*\(!?result\?\.already_applied|if\s*\(result\?\.already_applied/s);
++});
++
++test('return increases stock and use never changes stock',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/set stock=stock\+v_qty/i);
++  assert.match(block,/PROJECT_MR_RETURN/);
++  const useBranch=block.slice(block.indexOf("else\n      if v_qty>v_out"));
++  assert.match(useBranch,/qty_used=qty_used\+v_qty/);
++  assert.doesNotMatch(useBranch,/stock=stock[-+]v_qty/);
++});
++
++test('outstanding guards support return use and re-take while net issued cannot exceed requested',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/v_out:=v_item\.qty_taken-v_item\.qty_returned-v_item\.qty_used/);
++  assert.match(block,/v_net:=v_item\.qty_taken-v_item\.qty_returned/);
++  assert.match(block,/v_net\+v_qty>v_item\.qty_requested/);
++  assert.ok((block.match(/v_qty>v_out/g)||[]).length>=2,'return and use must both guard outstanding');
++});
++
++test('finalization requires issued status and zero outstanding',()=>{
++  const block=functionBlock('pxl_vnext_3b_transition_project_mr');
++  assert.match(block,/v_mr\.status<>'issued'/);
++  assert.match(block,/sum\(qty_outstanding\)/i);
++  assert.match(block,/if v_out>0 then raise exception/i);
++});
++
++test('quantity items work but serial physical movement is explicitly rejected',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/tracking_mode[^;]+='serial'/is);
++  assert.match(block,/Item serial belum didukung/);
++  assert.match(block,/coalesce\(v_inv\.tracking_mode,'quantity'\)/);
++});
++
++test('idempotency claim uses conflict-safe insert for simultaneous retries',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/on conflict\s*\(idempotency_key\)\s*do nothing/is);
++  assert.match(block,/if v_op\.id is null then[\s\S]*idempotency_key=p_idempotency_key[\s\S]*for update/is);
++});
++
++test('reusing idempotency key for a different request or movement is rejected',()=>{
++  const block=functionBlock('pxl_vnext_3b_apply_project_mr_movement');
++  assert.match(block,/v_op\.project_material_request_id\s*<>\s*p_request_id|v_op\.project_material_request_id\s*!=\s*p_request_id/i);
++  assert.match(block,/v_op\.movement_type\s*<>\s*v_type|v_op\.movement_type\s*!=\s*v_type/i);
++  assert.match(block,/Idempotency key.*berbeda|idempotency.*different/i);
++});
+diff --git a/tests/vnext-3b-project-mr-lifecycle-ui.test.js b/tests/vnext-3b-project-mr-lifecycle-ui.test.js
+new file mode 100644
+index 0000000..6415160
+--- /dev/null
++++ b/tests/vnext-3b-project-mr-lifecycle-ui.test.js
+@@ -0,0 +1,55 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const src=fs.readFileSync(path.join(__dirname,'..','public','pxl-vnext-3b-project-mr.js'),'utf8');
++
++test('submitted Manager/Admin approval view is read-only and exposes only approve/reject state actions',()=>{
++  assert.match(src,/canApprove/);
++  assert.match(src,/\['manager','admin'\]\.includes/);
++  assert.match(src,/Approve/);assert.match(src,/Reject/);
++  assert.match(src,/reject.*reason|reason.*reject/is);
++  assert.match(src,/\/approve/);assert.match(src,/\/reject/);
++  const approvalBlock=src.slice(src.indexOf('function renderApproval'),src.indexOf('function renderLifecycle'));
++  assert.doesNotMatch(approvalBlock,/\/movements/);
++  assert.doesNotMatch(approvalBlock,/qty_requested.*input|data-v3b-qty/);
++});
++
++test('Approved/Issued lifecycle shows requested taken returned used outstanding',()=>{
++  for(const label of ['Requested','Taken','Returned','Used','Outstanding'])assert.match(src,new RegExp(label));
++  assert.match(src,/status==='approved'|status === 'approved'/);
++  assert.match(src,/status==='issued'|status === 'issued'/);
++});
++
++test('Take permission uses material_request_issue and Return/Use uses requester or material_request_edit',()=>{
++  assert.match(src,/material_request_issue/);
++  assert.match(src,/material_request_edit/);
++  assert.match(src,/created_by_user_id/);
++  assert.match(src,/canTake/);assert.match(src,/canReturnUse/);
++});
++
++test('movement operation uses one idempotency key and disables duplicate submit while pending',()=>{
++  assert.match(src,/crypto\.randomUUID\(\)/);
++  assert.match(src,/idempotency_key/);
++  assert.match(src,/pendingMovement/);
++  assert.match(src,/disabled\s*=\s*true|state\.busy/);
++  assert.match(src,/\/movements/);
++});
++
++test('movement refreshes server state and never calculates Inventory stock locally',()=>{
++  assert.match(src,/material_request/);
++  assert.match(src,/loadDetail\(state\.requestId\)|state\.detail=.*material_request/);
++  assert.doesNotMatch(src,/stock\s*[+\-]=|stock\s*=\s*stock\s*[+\-]/);
++});
++
++test('Final is visible only for issued with all server outstanding zero',()=>{
++  assert.match(src,/canFinalize/);
++  assert.match(src,/qty_outstanding/);
++  assert.match(src,/every\([^)]*=>\s*Number\([^)]*qty_outstanding/);
++  assert.match(src,/\/finalize/);
++});
++
++test('serial movement errors are surfaced without blind auto retry',()=>{
++  assert.match(src,/alert\(e\.message|showError/);
++  assert.doesNotMatch(src,/catch\([^)]*\)\s*\{[^}]*movement[^}]*movement/is);
++});
+diff --git a/tests/vnext-3b-project-mr-requester-ui.test.js b/tests/vnext-3b-project-mr-requester-ui.test.js
+new file mode 100644
+index 0000000..d51ed35
+--- /dev/null
++++ b/tests/vnext-3b-project-mr-requester-ui.test.js
+@@ -0,0 +1,65 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const modulePath=path.join(root,'public/pxl-vnext-3b-project-mr.js');
++const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
++const detail=fs.readFileSync(path.join(root,'public/pxl-vnext-3a-project-detail.js'),'utf8');
++const report=fs.readFileSync(path.join(root,'public/pxl-stg-0016-project-report.js'),'utf8');
++function src(){assert.equal(fs.existsSync(modulePath),true,'Project MR UI module must exist');return fs.readFileSync(modulePath,'utf8');}
++
++test('Project MR module exposes open/refresh and dedicated Project MR APIs',()=>{
++  const s=src();
++  assert.match(s,/window\.pxlProjectMr/);
++  assert.match(s,/open:open/);assert.match(s,/refresh:refresh/);
++  assert.match(s,/\/projects\/\$\{encodeURIComponent\(state\.projectId\)\}\/material-requests/);
++  assert.match(s,/material-request-catalog/);
++  assert.match(s,/\/project-material-requests\/\$\{encodeURIComponent/);
++});
++
++test('project identity and MR number come from API and browser never invents MRP sequence',()=>{
++  const s=src();
++  assert.match(s,/project_number/);assert.match(s,/nama_project/);assert.match(s,/mr_number/);
++  assert.doesNotMatch(s,/MRP-PRJ-[^'"`]*padStart|nextMr|mrSequence/i);
++});
++
++test('Draft/Rejected editor is BOQ first and extra Inventory requires reason and positive qty',()=>{
++  const s=src();
++  assert.match(s,/BOQ Project/);
++  assert.match(s,/Tambah Material di Luar BOQ/);
++  assert.match(s,/inventory_extra/);
++  assert.match(s,/additional_reason/);
++  assert.match(s,/Alasan/);
++  assert.match(s,/qty_requested/);
++  assert.match(s,/Number\.isFinite\(qty\).*qty<=0/s);
++});
++
++test('submitted approved issued final are read-only while rejected can edit and resubmit',()=>{
++  const s=src();
++  assert.match(s,/\['draft','rejected'\]\.includes/);
++  for(const status of ['submitted','approved','issued','final'])assert.match(s,new RegExp(status));
++  assert.match(s,/reject_reason/);
++  assert.match(s,/submit/);
++  assert.match(s,/Simpan.*Ajukan|Ajukan.*MR Project/s);
++});
++
++test('Project Detail and Project Report integrate Project MR without widening Project Tracker CRUD',()=>{
++  assert.match(detail,/data-v3a-tab="material-request"/);
++  assert.match(detail,/window\.pxlProjectMr\.open\(state\.projectId/);
++  assert.match(report,/openProjectMaterialRequest/);
++  assert.match(report,/window\.pxlProjectMr\.open\(projectId/);
++  assert.match(report,/Material Request Project/);
++  assert.doesNotMatch(detail,/>Documents</);assert.doesNotMatch(detail,/>SPJ</);
++});
++
++test('Phase 3B script is explicitly included after Project Detail',()=>{
++  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B"/);
++});
++
++test('BOQ item supports explicit Inventory mapping when exact auto-match is unavailable',()=>{
++  const s=src();
++  assert.match(s,/data-v3b-boq-inv/);
++  assert.match(s,/Mapping Inventory|Inventory Mapping/);
++  assert.match(s,/inventory_item_id/);
++});
+diff --git a/tests/vnext-3b-regression.test.js b/tests/vnext-3b-regression.test.js
+new file mode 100644
+index 0000000..d1fd846
+--- /dev/null
++++ b/tests/vnext-3b-regression.test.js
+@@ -0,0 +1,52 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
++const db=fs.readFileSync(path.join(root,'db-core.js'),'utf8');
++const domain=fs.readFileSync(path.join(root,'project-vnext-3b.js'),'utf8');
++const migration=fs.readFileSync(path.join(root,'PXL-VNEXT-3B-MIGRATION.sql'),'utf8');
++
++test('legacy Material Request and inventory issue interfaces remain present',()=>{
++  assert.match(server,/\/api\/material-requests-form/);
++  assert.match(server,/\/api\/crm\/material-requests/);
++  assert.match(db,/async function getMRForms/);
++  assert.match(db,/async function issueInventoryMaterialRequest/);
++  assert.match(db,/inventory_issue_material_request/);
++});
++
++test('SO to WO, WO to MR Operasional, and ticket completion markers remain present',()=>{
++  assert.match(server,/\/api\/crm\/sales-orders\/[^'"`]*work-order|\/work-order/);
++  assert.match(server,/BUAT MR DARI SO|crm\/material-requests\/from-so/);
++  assert.match(server,/complete|selesai|PENYELESAIAN/i);
++});
++
++test('Phase 3A 3A1 3A2 Project Detail surfaces remain present',()=>{
++  for(const file of ['PXL-VNEXT-3A-MIGRATION.sql','PXL-VNEXT-3A2-MIGRATION.sql','public/pxl-vnext-3a-project-detail.js']) assert.equal(fs.existsSync(path.join(root,file)),true,file+' missing');
++  assert.match(server,/\/api\/projects\/:id\/detail/);
++  assert.match(server,/\/gantt-plan/);
++  assert.match(server,/project-gantt-templates/);
++  assert.match(server,/primary-work-order/);
++  assert.match(server,/related-work-orders/);
++});
++
++test('Phase 3B implementation never writes to legacy material_request_forms',()=>{
++  assert.doesNotMatch(domain,/material_request_forms/);
++  assert.doesNotMatch(migration,/(insert\s+into|update|delete\s+from)\s+(public\.)?material_request_forms/i);
++  const dbStart=db.indexOf('// PXL-VNEXT-3B — PROJECT MATERIAL REQUEST');
++  const dbEnd=db.indexOf('// PXL-STG-0010',dbStart);
++  assert.ok(dbStart>=0&&dbEnd>dbStart);
++  assert.doesNotMatch(db.slice(dbStart,dbEnd),/material_request_forms/);
++  const apiStart=server.indexOf('// PXL-VNEXT-3B — Project Material Request APIs');
++  const apiEnd=server.indexOf("app.get('/api/project-reports'",apiStart);
++  assert.ok(apiStart>=0&&apiEnd>apiStart);
++  assert.doesNotMatch(server.slice(apiStart,apiEnd),/material_request_forms/);
++});
++
++test('Phase 3B migration is additive and safe for legacy schema',()=>{
++  assert.doesNotMatch(migration,/\b(drop\s+table|truncate|delete\s+from\s+public\.material_request_forms|alter\s+table\s+public\.material_request_forms)\b/i);
++  assert.match(migration,/alter table public\.projects add column if not exists project_number text/i);
++  assert.match(migration,/notify pgrst,'reload schema'/i);
++  assert.doesNotMatch(migration,/alter\s+table\s+public\.projects\s+drop|drop\s+column/i);
++});
