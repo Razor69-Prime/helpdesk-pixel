@@ -13,6 +13,7 @@ const { assertVpsOnlyDatabase } = require('./pxl-urg-0107d-vps-guard');
 const { ATTACH_EXPIRE_DAYS, isExpiredLocalAttachment } = require('./pxl-urg-0107f1-attachment-cleanup');
 const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy');
 const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./project-vnext-3a');
+const { normalizeProjectMrItems } = require('./project-vnext-3b');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -1211,6 +1212,51 @@ function requireProjectVnextPermission(permission){
   };
 }
 
+const PROJECT_MR_READ_ROLES=['technician','manager','admin','superadmin'];
+function projectMrRole(req){return String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');}
+function hasProjectMrLegacyPermission(req,permission){
+  const role=projectMrRole(req),custom=Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];
+  if(role==='superadmin') return true;
+  const defaults={
+    material_request_view:['technician','warehouse'],
+    material_request_edit:['technician','warehouse'],
+    material_request_issue:['warehouse']
+  };
+  return (defaults[permission]||[]).includes(role)||custom.includes(permission);
+}
+function requireProjectMrRead(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view'))return res.status(403).json({error:'Akses MR Project ditolak.'});
+  next();
+}
+function requireProjectMrCreate(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(projectMrRole(req)!=='technician')return res.status(403).json({error:'MR Project dibuat oleh Teknisi.'});
+  next();
+}
+function requireProjectMrApproval(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(!['manager','admin'].includes(projectMrRole(req)))return res.status(403).json({error:'Approve/Reject MR Project hanya untuk Manager/Admin.'});
+  next();
+}
+function rejectProjectMrMutationPayload(req,res,next){
+  const forbidden=['items','qty','qty_requested','qty_taken','qty_returned','qty_used','inventory_item_id','project_boq_item_id'];
+  if(forbidden.some(k=>Object.prototype.hasOwnProperty.call(req.body||{},k)))return res.status(400).json({error:'Approval hanya boleh Approve/Reject tanpa mengubah item atau qty.'});
+  next();
+}
+async function requireProjectMrOwner(req,res,next){
+  try{
+    const mr=await db.getProjectMaterialRequest(req.params.id);
+    if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
+    if(String(mr.created_by_user_id||'')!==String(req.session?.user?.id||''))return res.status(403).json({error:'MR Project hanya dapat diubah oleh pembuatnya.'});
+    req.projectMr=mr;next();
+  }catch(e){res.status(500).json({error:e.message});}
+}
+function notifyProjectMrRoles(mr,text,actor){
+  for(const target_role of ['manager','admin','superadmin']) createNotification({type:'project_mr',text,target_role,ref_id:mr.id,created_by:actor});
+}
+function projectMrLabel(project,mr){return `${project?.project_number||'PRJ'} · ${project?.nama_project||'Project'} · ${mr?.mr_number||'MRP'}`;}
+
 app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
   try{ res.json(await db.getProjects()); }
   catch(e){ res.status(500).json({error:e.message}); }
@@ -1574,6 +1620,121 @@ app.put('/api/projects/:id/gantt-plan', requireRole(...PROJECT_ROLES), requirePr
     const status=/tanggal|tahap|durasi|100/i.test(message)?400:500;
     res.status(status).json({error:message});
   }
+});
+
+// PXL-VNEXT-3B — Project Material Request APIs
+app.get('/api/projects/:projectId/material-requests', requireProjectMrRead, async (req,res)=>{
+  try{res.json(await db.getProjectMaterialRequests(req.params.projectId));}catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/project-material-requests/:id', requireProjectMrRead, async (req,res)=>{
+  try{const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});res.json(mr);}catch(e){res.status(500).json({error:e.message});}
+});
+
+app.get('/api/projects/:projectId/material-request-catalog', requireProjectMrRead, async (req,res)=>{
+  try{
+    const [projects,boq,inventory]=await Promise.all([db.getProjects(),db.getProjectReportItems(req.params.projectId),db.getInventoryItems()]);
+    const project=projects.find(p=>String(p.id)===String(req.params.projectId));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const inventory_items=(inventory||[]).filter(x=>x&&x.is_active!==false);
+    const normalizeInventoryName=v=>String(v||'').trim().toLowerCase();
+    const boq_items=(boq||[]).filter(x=>String(x.category||'').toLowerCase()==='material').map(row=>{
+      const exact=inventory_items.filter(item=>normalizeInventoryName(item.name)===normalizeInventoryName(row.item_name));
+      return {...row,inventory_item_id:exact.length===1?exact[0].id:null,inventory_match:exact.length===1?'exact_name':exact.length>1?'ambiguous':null};
+    });
+    res.json({project,boq_items,inventory_items});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/projects/:projectId/material-requests', requireProjectMrCreate, async (req,res)=>{
+  try{
+    const project=(await db.getProjects()).find(p=>String(p.id)===String(req.params.projectId));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const created=await db.createProjectMaterialRequest(project.id,req.session.user.name,req.session.user.id);
+    const mr=await db.getProjectMaterialRequest(created.id);
+    logActivity(req,'project_mr','BUAT MR PROJECT',projectMrLabel(project,mr||created));
+    res.status(201).json(mr||created);
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.put('/api/project-material-requests/:id/items', requireAuth, requireProjectMrOwner, async (req,res)=>{
+  try{
+    const items=normalizeProjectMrItems(req.body?.items||[],{requireItems:false});
+    await db.replaceProjectMaterialRequestItems(req.params.id,items,req.session.user.name,req.session.user.id);
+    res.json(await db.getProjectMaterialRequest(req.params.id));
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.post('/api/project-material-requests/:id/submit', requireAuth, requireProjectMrOwner, async (req,res)=>{
+  try{
+    const mr=req.projectMr||await db.getProjectMaterialRequest(req.params.id);
+    normalizeProjectMrItems(mr.items||[],{requireItems:true});
+    if((mr.items||[]).some(item=>!item.inventory_item_id))return res.status(400).json({error:'Semua material MR Project wajib terhubung ke Inventory sebelum diajukan.'});
+    await db.transitionProjectMaterialRequest(req.params.id,'submit',req.session.user.name,req.session.user.id,null);
+    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
+    const text=`<b>MR Project diajukan</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
+    notifyProjectMrRoles(fresh,text,req.session.user.name);
+    logActivity(req,'project_mr','AJUKAN MR PROJECT',projectMrLabel(project,fresh));
+    res.json(fresh);
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.post('/api/project-material-requests/:id/approve', requireProjectMrApproval, rejectProjectMrMutationPayload, async (req,res)=>{
+  try{
+    await db.transitionProjectMaterialRequest(req.params.id,'approve',req.session.user.name,req.session.user.id,null);
+    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
+    createNotification({type:'project_mr',text:`<b>MR Project Approved</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
+    logActivity(req,'project_mr','APPROVE MR PROJECT',projectMrLabel(project,fresh));
+    res.json(fresh);
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.post('/api/project-material-requests/:id/reject', requireProjectMrApproval, rejectProjectMrMutationPayload, async (req,res)=>{
+  try{
+    await db.transitionProjectMaterialRequest(req.params.id,'reject',req.session.user.name,req.session.user.id,String(req.body?.reason||'').trim()||null);
+    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
+    createNotification({type:'project_mr',text:`<b>MR Project Rejected</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
+    logActivity(req,'project_mr','REJECT MR PROJECT',projectMrLabel(project,fresh));
+    res.json(fresh);
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.post('/api/project-material-requests/:id/movements', requireAuth, async (req,res)=>{
+  try{
+    const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
+    const movement_type=String(req.body?.movement_type||'').toLowerCase();
+    if(!['take','return','use'].includes(movement_type))return res.status(400).json({error:'Movement harus take, return, atau use.'});
+    if(movement_type==='take'&&!hasProjectMrLegacyPermission(req,'material_request_issue'))return res.status(403).json({error:'Pengambilan material membutuhkan permission material_request_issue.'});
+    const isOwner=String(mr.created_by_user_id||'')===String(req.session.user.id||'');
+    if(movement_type!=='take'&&!isOwner&&!hasProjectMrLegacyPermission(req,'material_request_edit'))return res.status(403).json({error:'Return/Use membutuhkan owner MR atau permission material_request_edit.'});
+    const idempotency_key=String(req.body?.idempotency_key||'').trim();
+    if(!idempotency_key)return res.status(400).json({error:'idempotency_key wajib diisi.'});
+    const items=(Array.isArray(req.body?.items)?req.body.items:[]).map((x,i)=>{const qty=Number(x?.qty);if(!x?.item_id||!Number.isFinite(qty)||qty<=0)throw new Error(`Item movement baris ${i+1} tidak valid.`);return {item_id:x.item_id,qty};});
+    const result=await db.applyProjectMaterialRequestMovement(req.params.id,movement_type,items,req.session.user.name,req.session.user.id,idempotency_key);
+    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
+    const text=`<b>MR Project ${movement_type}</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
+    if(!result?.already_applied){
+      notifyProjectMrRoles(fresh,text,req.session.user.name);
+      createNotification({type:'project_mr',text,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
+      logActivity(req,'project_mr',`MOVEMENT ${movement_type.toUpperCase()}`,projectMrLabel(project,fresh));
+    }
+    res.json({material_request:fresh,result});
+  }catch(e){res.status(400).json({error:e.message});}
+});
+
+app.post('/api/project-material-requests/:id/finalize', requireAuth, async (req,res)=>{
+  try{
+    const mr=await db.getProjectMaterialRequest(req.params.id);if(!mr)return res.status(404).json({error:'MR Project tidak ditemukan.'});
+    const owner=String(mr.created_by_user_id||'')===String(req.session.user.id||'');
+    if(!owner&&!hasProjectMrLegacyPermission(req,'material_request_edit'))return res.status(403).json({error:'Finalisasi membutuhkan owner MR atau permission material_request_edit.'});
+    await db.transitionProjectMaterialRequest(req.params.id,'finalize',req.session.user.name,req.session.user.id,null);
+    const fresh=await db.getProjectMaterialRequest(req.params.id),project=(await db.getProjects()).find(p=>String(p.id)===String(fresh.project_id));
+    const text=`<b>MR Project Final</b> ${projectMrLabel(project,fresh)} oleh ${req.session.user.name}`;
+    notifyProjectMrRoles(fresh,text,req.session.user.name);
+    createNotification({type:'project_mr',text,target_user_id:fresh.created_by_user_id,ref_id:fresh.id,created_by:req.session.user.name});
+    logActivity(req,'project_mr','FINAL MR PROJECT',projectMrLabel(project,fresh));
+    res.json(fresh);
+  }catch(e){res.status(400).json({error:e.message});}
 });
 
 app.get('/api/project-reports', requireProjectReportRead, async (req,res)=>{

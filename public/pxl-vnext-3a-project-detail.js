@@ -45,6 +45,7 @@
             <button class="pxl-v3a-tab" data-v3a-tab="boq">BOQ &amp; Report</button>
             <button class="pxl-v3a-tab" data-v3a-tab="gantt">Gantt Chart</button>
             <button class="pxl-v3a-tab" data-v3a-tab="work-order">Work Order</button>
+            <button class="pxl-v3a-tab" data-v3a-tab="material-request">Material Request</button>
           </div>
           <div class="pxl-v3a-body" id="pxl-v3a-body"></div>
         </div>
@@ -517,6 +518,12 @@
     if(typeof resetTicketListPage==='function')resetTicketListPage();
   }
 
+
+  function renderMaterialRequest(){
+    setTimeout(()=>{const b=$('#pxl-v3a-open-project-mr');if(b)b.onclick=()=>{if(window.pxlProjectMr)window.pxlProjectMr.open(state.projectId)}},0);
+    return `<div class="pxl-v3a-toolbar"><div><b>Material Request Project</b><div class="pxl-v3a-muted">MR Project terpisah dari MR Operasional dan terhubung langsung ke project ini.</div></div><button class="btn primary sm" id="pxl-v3a-open-project-mr">Buka Material Request</button></div><div class="pxl-v3a-placeholder">Kelola Draft, approval, pengambilan, pengembalian dan outstanding melalui modul MR Project.</div>`;
+  }
+
   function render(){
     if(!state.data)return;
     const project=state.data.project||{};
@@ -524,7 +531,7 @@
     $('#pxl-v3a-sub').textContent=`${project.prioritas||'P2'} · ${project.status||'-'} · ${REV}`;
     document.querySelectorAll('[data-v3a-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.v3aTab===state.activeTab));
     const body=$('#pxl-v3a-body');
-    body.innerHTML=state.activeTab==='overview'?renderOverview():state.activeTab==='boq'?renderBoq():state.activeTab==='gantt'?renderGantt():renderWorkOrder();
+    body.innerHTML=state.activeTab==='overview'?renderOverview():state.activeTab==='boq'?renderBoq():state.activeTab==='gantt'?renderGantt():state.activeTab==='material-request'?renderMaterialRequest():renderWorkOrder();
   }
 
   async function refresh(){
