@@ -1,0 +1,282 @@
+From 405bae9c044d06c85c1832fd635a83376ae4578b Mon Sep 17 00:00:00 2001
+From: Razor69-Prime <ekahendrayana1986@gmail.com>
+Date: Sun, 11 Oct 2026 04:14:11 +0000
+Subject: [PATCH] PXL-VNEXT-3B2 add Project MR account permissions
+
+
+diff --git a/public/index.html b/public/index.html
+index 6fef87a..b265106 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -3566,7 +3566,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
+         </div>
+       </div>
+       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Jika dikosongkan semua → mengikuti default role. Jika ada yang dicentang → override role.</div>
+-      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">PixelApps VNext — CRM Classification</div><div id="vnext-crm-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Default OFF untuk selain Super Admin.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Service Center</div><div id="service-center-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Semua akun role Teknisi selalu memiliki akses baca (read only) ke Service Center. Permission di bawah hanya menambah kewenangan seperti update status atau upload foto.</div>
++      <div id="menu-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Inventory</div><div id="inventory-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Inventory tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Material Request</div><div id="material-request-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Hapus Material Request tetap khusus Super Admin dan tidak dapat diberikan ke role lain.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project MR</div><div id="project-mr-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Buat/Input default untuk Teknisi & Super Admin. Approve/Reject default untuk Manager/Admin; Super Admin tetap monitoring approval.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Project Tracker</div><div id="project-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Input Total BOQ default untuk Manager. Akun lain hanya dapat mengakses bila permission dicentang.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">PixelApps VNext — CRM Classification</div><div id="vnext-crm-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Default OFF untuk selain Super Admin.</div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Sales Order</div><div id="sales-order-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Custom Fitur Service Center</div><div id="service-center-permission-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div><div style="font-size:11px;color:var(--muted);margin-top:6px">Semua akun role Teknisi selalu memiliki akses baca (read only) ke Service Center. Permission di bawah hanya menambah kewenangan seperti update status atau upload foto.</div>
+     </div>
+     <div id="edit-error" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
+     <hr class="divider"/>
+@@ -5662,6 +5662,10 @@ const MATERIAL_REQUEST_PERMISSIONS=[
+   {id:'material_request_edit',label:'✏️ Edit / Pengembalian'},
+   {id:'material_request_barcode',label:'📷 Scan Barcode Material'}
+ ];
++const PROJECT_MR_PERMISSIONS=[
++  {id:'project_mr_create',label:'➕ Buat / Input MR Project'},
++  {id:'project_mr_approve',label:'✅ Approve / Reject MR Project'}
++];
+ const PROJECT_PERMISSIONS=[
+   {id:'project_boq_manage',label:'📐 Input Total BOQ Project'},
+   {id:'project_gantt_manage',label:'📅 Kelola Gantt Plan Project'},
+@@ -5721,7 +5725,7 @@ function getEffectiveMenus(role, customMenus, exact=false){
+ 
+ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
+   const box=document.getElementById('menu-checkboxes');
+-  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id);
++  const allPermissionIds=[...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id);
+   if(forceSuperAdmin) currentMenus=allPermissionIds;
+   const groups=[
+     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
+@@ -5747,6 +5751,8 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
+   if(invBox) invBox.innerHTML=INVENTORY_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+   const mrBox=document.getElementById('material-request-permission-checkboxes');
+   if(mrBox) mrBox.innerHTML=MATERIAL_REQUEST_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
++  const projectMrBox=document.getElementById('project-mr-permission-checkboxes');
++  if(projectMrBox) projectMrBox.innerHTML=PROJECT_MR_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+   const projectBox=document.getElementById('project-permission-checkboxes');
+   if(projectBox) projectBox.innerHTML=PROJECT_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');  const vnextCrmBox=document.getElementById('vnext-crm-permission-checkboxes');
+   if(vnextCrmBox) vnextCrmBox.innerHTML=VNEXT_CRM_PERMISSIONS.map(m=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)"><input type="checkbox" data-menu="${m.id}" ${currentMenus.includes(m.id)?'checked':''} ${forceSuperAdmin?'disabled':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"/>${m.label}</label>`).join('');
+@@ -5767,13 +5773,13 @@ function ensureCrmChecklist(){
+ }
+ 
+ function getCheckedMenus(){
+-  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id).filter(id=>
++  return [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].map(m=>m.id).filter(id=>
+     document.querySelector(`[data-menu="${id}"]`)?.checked
+   );
+ }
+ 
+ function setAllMenus(val){
+-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
++  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
+     const el=document.querySelector(`[data-menu="${m.id}"]`);
+     if(el) el.checked=val;
+   });
+@@ -5784,6 +5790,7 @@ function resetMenuToRole(){
+   const defaults=getDefaultMenus(role);
+   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
+   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
++  const projectMrDefaults=role==='technician'||role==='superadmin'?['project_mr_create']:['manager','admin'].includes(role)?['project_mr_approve']:[];
+   const projectDefaults=role==='superadmin'?PROJECT_PERMISSIONS.map(x=>x.id):role==='manager'?['project_boq_manage']:[];
+   const serviceDefaults={
+     superadmin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
+@@ -5791,9 +5798,9 @@ function resetMenuToRole(){
+     manager:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
+     operator:['service_view_all','service_create','service_assign','service_update','service_photo']
+   }[role]||[];
+-  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
++  [...ALL_MENUS,...INVENTORY_PERMISSIONS,...MATERIAL_REQUEST_PERMISSIONS,...PROJECT_MR_PERMISSIONS,...PROJECT_PERMISSIONS,...VNEXT_CRM_PERMISSIONS,...SALES_ORDER_PERMISSIONS,...SERVICE_CENTER_PERMISSIONS].forEach(m=>{
+     const el=document.querySelector(`[data-menu="${m.id}"]`);
+-    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectDefaults.includes(m.id)||serviceDefaults.includes(m.id);
++    if(el) el.checked=defaults.includes(m.id)||invDefaults.includes(m.id)||mrDefaults.includes(m.id)||projectMrDefaults.includes(m.id)||projectDefaults.includes(m.id)||serviceDefaults.includes(m.id);
+   });
+ }
+ 
+@@ -5825,6 +5832,8 @@ function openEditModal(userId){
+   if(superOpt) superOpt.style.display=currentUser.role==='superadmin'?'':'none';
+   // populate menu checkboxes
+   const currentMenus=getEffectiveMenus(u.role,u.custom_menus,u.custom_menus_override===true);
++  const projectMrRoleDefaults=u.role==='technician'||u.role==='superadmin'?['project_mr_create']:['manager','admin'].includes(u.role)?['project_mr_approve']:[];
++  projectMrRoleDefaults.forEach(permission=>{if(!currentMenus.includes(permission))currentMenus.push(permission)});
+   buildMenuCheckboxes(currentMenus, false);
+   ensureCrmChecklist();
+   // Semua permission adalah preset/default role dan tetap dapat dicustom.
+@@ -13199,7 +13208,7 @@ setInterval(()=>{
+   </div>
+ </div>
+ <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
+-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
++<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3B2"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+ <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
+ <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
+ </body>
+diff --git a/public/pxl-vnext-3b-project-mr.js b/public/pxl-vnext-3b-project-mr.js
+index 684d6e0..907c0f5 100644
+--- a/public/pxl-vnext-3b-project-mr.js
++++ b/public/pxl-vnext-3b-project-mr.js
+@@ -1,7 +1,7 @@
+ /* PXL-VNEXT-3B — Project Material Request */
+ (function(){
+   'use strict';
+-  const REV='PXL-VNEXT-3B';
++  const REV='PXL-VNEXT-3B2';
+   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null};
+   const $=s=>document.querySelector(s);
+   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+@@ -42,7 +42,7 @@
+ 
+   function renderList(){
+     const body=$('#pxl-v3b-mr-body');if(!body)return;
+-    const canCreate=role()==='technician';
++    const canCreate=['technician','superadmin'].includes(role())||customs().includes('project_mr_create');
+     body.innerHTML=projectHeader()+`<div class="pxl-v3b-mr-toolbar"><div><b>Daftar MR Project</b><div class="pxl-v3b-mr-muted">Nomor MR dibuat server dan tidak dapat diedit manual.</div></div><div class="pxl-v3b-mr-actions"><button class="btn sm" id="pxl-v3b-mr-refresh">↻ Refresh</button>${canCreate?'<button class="btn primary sm" id="pxl-v3b-mr-create">＋ Buat MR Project</button>':''}</div></div><div class="pxl-v3b-mr-list">${state.list.length?state.list.map(m=>`<div class="pxl-v3b-mr-row"><div><b>${h(m.mr_number||'MR Project')}</b><div class="pxl-v3b-mr-muted">${h(m.created_by||'-')} · ${h(String(m.created_at||'').slice(0,16).replace('T',' '))}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[m.status]||m.status||'-')}</span><button class="btn sm" data-v3b-mr-open="${h(m.id)}">Buka</button></div></div>`).join(''):'<div class="pxl-v3b-mr-card pxl-v3b-mr-muted">Belum ada MR Project.</div>'}</div>`;
+     $('#pxl-v3b-mr-refresh').onclick=refresh;
+     $('#pxl-v3b-mr-create')?.addEventListener('click',createMr);
+@@ -68,14 +68,14 @@
+     return (defaults[permission]||[]).includes(role())||customs().includes(permission);
+   }
+   function isOwner(mr){return String(mr?.created_by_user_id||'')===String(user()?.id||'')}
+-  function canApprove(mr){return String(mr?.status||'')==='submitted'&&['manager','admin'].includes(role())}
++  function canApprove(mr){return String(mr?.status||'')==='submitted'&&role()!=='superadmin'&&(['manager','admin'].includes(role())||customs().includes('project_mr_approve'))}
+   function canTake(mr){const status=String(mr?.status||'');return (status==='approved'||status==='issued')&&hasLegacyPermission('material_request_issue')}
+   function canReturnUse(mr){return String(mr?.status||'')==='issued'&&(isOwner(mr)||hasLegacyPermission('material_request_edit'))}
+   function canFinalize(mr){const items=Array.isArray(mr?.items)?mr.items:[];return String(mr?.status||'')==='issued'&&items.length>0&&items.every(i=>Number(i.qty_outstanding||0)===0)&&canReturnUse(mr)}
+ 
+   function renderApproval(mr){
+     if(!canApprove(mr))return '';
+-    return `<div class="pxl-v3b-mr-section">Approval Manager / Admin</div><div class="pxl-v3b-mr-card"><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Item dan Qty bersifat read-only. Jika perlu perubahan, Reject lalu Teknisi mengedit dan submit ulang.</div><div class="pxl-v3b-mr-actions"><button class="btn green sm" id="pxl-v3b-approve">Approve</button><button class="btn danger sm" id="pxl-v3b-reject">Reject</button><input id="pxl-v3b-reject-reason" placeholder="Alasan reject (opsional)" style="max-width:320px"></div></div>`;
++    return `<div class="pxl-v3b-mr-section">Approval MR Project</div><div class="pxl-v3b-mr-card"><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Item dan Qty bersifat read-only. Jika perlu perubahan, Reject lalu Teknisi mengedit dan submit ulang.</div><div class="pxl-v3b-mr-actions"><button class="btn green sm" id="pxl-v3b-approve">Approve</button><button class="btn danger sm" id="pxl-v3b-reject">Reject</button><input id="pxl-v3b-reject-reason" placeholder="Alasan reject (opsional)" style="max-width:320px"></div></div>`;
+   }
+ 
+   function movementButtons(mr,item,index){
+diff --git a/public/sw.js b/public/sw.js
+index 839c76e..1e278a0 100644
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE='pixelapps-inv1-v106';
++const CACHE='pixelapps-inv1-v107';
+ const CORE=['/','/index.html','/track.html','/manifest.json','/pixel-solusindo-logo.png','/icons/icon-192.png','/icons/icon-512.png','/pxl-ui-0022-mobile-cleanup.css','/pxl-ui-0023-kanban-mobile-compact.css','/pxl-urg-0010-wo-autonumber.js','/pxl-urg-0024-dashboard-kpi-role-access.js','/pxl-urg-0025-kanban-wa-report.js','/pxl-urg-0027-sales-visit-duplicate-alert.js','/pxl-sales-recon-0001-hotfix.js?v=PXL-SALES-RECON-0001C'];
+ 
+ self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)));self.skipWaiting();});
+diff --git a/server.js b/server.js
+index c196650..5144a8d 100644
+--- a/server.js
++++ b/server.js
+@@ -1214,8 +1214,10 @@ function requireProjectVnextPermission(permission){
+ 
+ const PROJECT_MR_READ_ROLES=[...new Set([...PROJECT_ROLES,'technician'])];
+ function projectMrRole(req){return String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');}
++function projectMrCustomMenus(req){return Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];}
++function hasProjectMrPermission(req,permission){return projectMrCustomMenus(req).includes(permission);}
+ function hasProjectMrLegacyPermission(req,permission){
+-  const role=projectMrRole(req),custom=Array.isArray(req.session?.user?.custom_menus)?req.session.user.custom_menus:[];
++  const role=projectMrRole(req),custom=projectMrCustomMenus(req);
+   if(role==='superadmin') return true;
+   const defaults={
+     material_request_view:['technician','warehouse'],
+@@ -1226,17 +1228,20 @@ function hasProjectMrLegacyPermission(req,permission){
+ }
+ function requireProjectMrRead(req,res,next){
+   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+-  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view'))return res.status(403).json({error:'Akses MR Project ditolak.'});
++  const delegated=hasProjectMrPermission(req,'project_mr_create')||hasProjectMrPermission(req,'project_mr_approve');
++  if(!PROJECT_MR_READ_ROLES.includes(projectMrRole(req))&&!hasProjectMrLegacyPermission(req,'material_request_view')&&!delegated)return res.status(403).json({error:'Akses MR Project ditolak.'});
+   next();
+ }
+ function requireProjectMrCreate(req,res,next){
+   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+-  if(projectMrRole(req)!=='technician')return res.status(403).json({error:'MR Project dibuat oleh Teknisi.'});
++  if(!['technician','superadmin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_create'))return res.status(403).json({error:'Anda tidak memiliki permission Buat/Input MR Project.'});
+   next();
+ }
+ function requireProjectMrApproval(req,res,next){
+   if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+-  if(!['manager','admin'].includes(projectMrRole(req)))return res.status(403).json({error:'Approve/Reject MR Project hanya untuk Manager/Admin.'});
++  // Superadmin tetap monitoring-only untuk approval; permission delegasi ditujukan ke akun non-Superadmin.
++  if(projectMrRole(req)==='superadmin')return res.status(403).json({error:'Superadmin monitoring MR Project dan tidak melakukan Approve/Reject.'});
++  if(!['manager','admin'].includes(projectMrRole(req))&&!hasProjectMrPermission(req,'project_mr_approve'))return res.status(403).json({error:'Anda tidak memiliki permission Approve/Reject MR Project.'});
+   next();
+ }
+ function rejectProjectMrMutationPayload(req,res,next){
+diff --git a/tests/vnext-3b-project-mr-api.test.js b/tests/vnext-3b-project-mr-api.test.js
+index ff7eec3..8905648 100644
+--- a/tests/vnext-3b-project-mr-api.test.js
++++ b/tests/vnext-3b-project-mr-api.test.js
+@@ -39,7 +39,7 @@ test('Project MR routes are dedicated and include technician read/create without
+   ]) route(method,url);
+ });
+ 
+-test('approval is Manager/Admin only and never accepts item mutation payload',()=>{
++test('approval defaults to Manager/Admin, supports explicit delegation, and never accepts item mutation payload',()=>{
+   const approve=route('post','/api/project-material-requests/:id/approve');
+   const reject=route('post','/api/project-material-requests/:id/reject');
+   for(const body of [approve,reject]){
+@@ -98,5 +98,6 @@ test('Project MR read roles inherit all existing Project roles and add Technicia
+   assert.match(server,/const PROJECT_MR_READ_ROLES\s*=\s*\[\.\.\.new Set\(\[\.\.\.PROJECT_ROLES,'technician'\]\)\]/);
+   const create=route('post','/api/projects/:projectId/material-requests');
+   assert.match(create,/requireProjectMrCreate/);
+-  assert.match(server,/if\(projectMrRole\(req\)!=='technician'\)/);
++  assert.match(server,/\['technician','superadmin'\]\.includes\(projectMrRole\(req\)\)/);
++  assert.match(server,/hasProjectMrPermission\(req,'project_mr_create'\)/);
+ });
+diff --git a/tests/vnext-3b-project-mr-requester-ui.test.js b/tests/vnext-3b-project-mr-requester-ui.test.js
+index 657fb43..940c5fe 100644
+--- a/tests/vnext-3b-project-mr-requester-ui.test.js
++++ b/tests/vnext-3b-project-mr-requester-ui.test.js
+@@ -54,7 +54,7 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
+ });
+ 
+ test('Phase 3B script is explicitly included after Project Detail',()=>{
+-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1)?"/);
++  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2)?"/);
+ });
+ 
+ test('BOQ item supports explicit Inventory mapping when exact auto-match is unavailable',()=>{
+diff --git a/tests/vnext-3b-regression.test.js b/tests/vnext-3b-regression.test.js
+index bb1f31a..f575baf 100644
+--- a/tests/vnext-3b-regression.test.js
++++ b/tests/vnext-3b-regression.test.js
+@@ -56,6 +56,6 @@ test('Phase 3B UI integration cache keys force fresh Project Detail and Project
+   const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
+   assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3B1/);
+   assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3B1/);
+-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B1/);
+-  assert.match(sw,/const CACHE='pixelapps-inv1-v106'/);
++  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B2/);
++  assert.match(sw,/const CACHE='pixelapps-inv1-v107'/);
+ });
+diff --git a/tests/vnext-3b2-project-mr-permissions.test.js b/tests/vnext-3b2-project-mr-permissions.test.js
+new file mode 100644
+index 0000000..4a637f4
+--- /dev/null
++++ b/tests/vnext-3b2-project-mr-permissions.test.js
+@@ -0,0 +1,38 @@
++const test=require('node:test');
++const assert=require('node:assert/strict');
++const fs=require('node:fs');
++const path=require('node:path');
++const root=path.resolve(__dirname,'..');
++const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
++const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
++const mrUi=fs.readFileSync(path.join(root,'public/pxl-vnext-3b-project-mr.js'),'utf8');
++
++test('Account Management exposes dedicated Project MR create and approve permissions',()=>{
++  assert.match(index,/Custom Fitur Project MR/);
++  assert.match(index,/project_mr_create/);
++  assert.match(index,/Buat \/ Input MR Project/);
++  assert.match(index,/project_mr_approve/);
++  assert.match(index,/Approve \/ Reject MR Project/);
++});
++
++test('Project MR create is allowed for Technician, Superadmin, or explicit project_mr_create permission',()=>{
++  assert.match(server,/project_mr_create/);
++  assert.match(server,/\['technician','superadmin'\]/);
++  assert.match(server,/requireProjectMrCreate/);
++  assert.match(mrUi,/project_mr_create/);
++  assert.match(mrUi,/technician/);
++  assert.match(mrUi,/superadmin/);
++});
++
++test('Project MR approve remains role Manager Admin by default and may be delegated explicitly, but Superadmin stays monitoring-only by default',()=>{
++  assert.match(server,/project_mr_approve/);
++  assert.match(server,/\['manager','admin'\]/);
++  assert.match(server,/Superadmin.*monitor|monitoring-only|superadmin.*approve/i);
++  assert.match(mrUi,/project_mr_approve/);
++});
++
++test('Project MR permissions participate in account checkbox save reset and collection flows',()=>{
++  assert.match(index,/PROJECT_MR_PERMISSIONS/);
++  assert.match(index,/project-mr-permission-checkboxes/);
++  assert.match(index,/\.\.\.PROJECT_MR_PERMISSIONS/);
++});
