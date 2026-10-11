@@ -1,0 +1,58 @@
+name: PXL VNext 3B2 Project MR Permissions
+
+on:
+  push:
+    branches:
+      - pxl-vnext-3b2
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3b2
+          fetch-depth: 0
+
+      - name: Apply Phase 3B2 patch
+        run: |
+          git apply --check .pxl-vnext-3b2.patch
+          git apply .pxl-vnext-3b2.patch
+
+      - name: Verify Phase 3B2
+        run: |
+          node --test tests/*.test.js
+          node --check server.js
+          node --check public/pxl-vnext-3b-project-mr.js
+          node --check public/pxl-vnext-3a-project-detail.js
+          node --check public/pxl-stg-0016-project-report.js
+          python3 - <<'PY'
+          import re, subprocess, tempfile, pathlib
+          s=pathlib.Path('public/index.html').read_text()
+          blocks=re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>',s,re.I)
+          count=0
+          for b in blocks:
+              if not b.strip(): continue
+              count+=1
+              with tempfile.NamedTemporaryFile('w',suffix='.js',delete=False) as f:
+                  f.write(b); name=f.name
+              r=subprocess.run(['node','--check',name],capture_output=True,text=True)
+              pathlib.Path(name).unlink(missing_ok=True)
+              if r.returncode:
+                  print(r.stderr); raise SystemExit(r.returncode)
+          print(f'INLINE_JS_PASS blocks={count}')
+          PY
+          git diff --check
+
+      - name: Commit verified Phase 3B2 and remove staging files
+        run: |
+          git config user.name "PixelApps Deployment"
+          git config user.email "actions@users.noreply.github.com"
+          git add server.js public/index.html public/pxl-vnext-3b-project-mr.js public/sw.js tests/vnext-3b-project-mr-api.test.js tests/vnext-3b-project-mr-requester-ui.test.js tests/vnext-3b-regression.test.js tests/vnext-3b2-project-mr-permissions.test.js
+          git rm .pxl-vnext-3b2.patch .github/workflows/pxl-vnext-3b2.yml
+          git commit -m "PXL-VNEXT-3B2 add Project MR account permissions"
+          git push origin HEAD:pxl-vnext-3b2
