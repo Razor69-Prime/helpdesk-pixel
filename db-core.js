@@ -783,6 +783,47 @@ async function replaceProjectGanttPlan(projectId,startDate,stages,actor){
   return getProjectGanttPlan(projectId);
 }
 
+// PXL-VNEXT-3B — PROJECT MATERIAL REQUEST (isolated from legacy MR)
+async function getProjectMaterialRequests(projectId){
+  if(!USE_POSTGREST) return [];
+  let q='/project_material_requests?order=created_at.desc';
+  if(projectId) q+=`&project_id=eq.${encodeURIComponent(projectId)}`;
+  return await restFetch('GET',q)||[];
+}
+async function getProjectMaterialRequest(id){
+  if(!id||!USE_POSTGREST) return null;
+  const enc=encodeURIComponent(id);
+  const headers=await restFetch('GET',`/project_material_requests?id=eq.${enc}&limit=1`);
+  if(!headers?.length) return null;
+  const [items,movements,history]=await Promise.all([
+    restFetch('GET',`/project_material_request_items?project_material_request_id=eq.${enc}&order=sort_order.asc,created_at.asc`),
+    restFetch('GET',`/project_material_request_movements?project_material_request_id=eq.${enc}&order=performed_at.asc`),
+    restFetch('GET',`/project_material_request_history?project_material_request_id=eq.${enc}&order=created_at.asc`)
+  ]);
+  const normalizedItems=(items||[]).map(row=>({...row,qty_outstanding:Number(row.qty_outstanding??(Number(row.qty_taken||0)-Number(row.qty_returned||0)-Number(row.qty_used||0)))}));
+  return {...headers[0],items:normalizedItems,movements:movements||[],history:history||[]};
+}
+async function createProjectMaterialRequest(projectId,actor,actorId){
+  if(!USE_POSTGREST) return null;
+  const out=await restFetch('POST','/rpc/pxl_vnext_3b_create_project_mr',{p_project_id:projectId,p_actor:actor||'System',p_actor_id:actorId||null});
+  return Array.isArray(out)?out[0]:out;
+}
+async function replaceProjectMaterialRequestItems(id,items,actor,actorId){
+  if(!USE_POSTGREST) return null;
+  const out=await restFetch('POST','/rpc/pxl_vnext_3b_replace_project_mr_items',{p_request_id:id,p_items:items,p_actor:actor||'System',p_actor_id:actorId||null});
+  return Array.isArray(out)?out[0]:out;
+}
+async function transitionProjectMaterialRequest(id,action,actor,actorId,reason=null){
+  if(!USE_POSTGREST) return null;
+  const out=await restFetch('POST','/rpc/pxl_vnext_3b_transition_project_mr',{p_request_id:id,p_action:action,p_actor:actor||'System',p_actor_id:actorId||null,p_reason:reason||null});
+  return Array.isArray(out)?out[0]:out;
+}
+async function applyProjectMaterialRequestMovement(id,type,items,actor,actorId,idempotencyKey){
+  if(!USE_POSTGREST) return null;
+  const out=await restFetch('POST','/rpc/pxl_vnext_3b_apply_project_mr_movement',{p_request_id:id,p_movement_type:type,p_items:items,p_actor:actor||'System',p_actor_id:actorId||null,p_idempotency_key:idempotencyKey});
+  return Array.isArray(out)?out[0]:out;
+}
+
 // PXL-STG-0010 — PROJECT REPORT
 async function getProjectReports(){
   if(!USE_POSTGREST) return [];
@@ -1439,6 +1480,7 @@ module.exports = {
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectRelatedWorkOrders, linkProjectRelatedWorkOrder, unlinkProjectRelatedWorkOrder, getProjectWorkOrderOwner, getProjectLinkedWorkOrderIds, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
+  getProjectMaterialRequests, getProjectMaterialRequest, createProjectMaterialRequest, replaceProjectMaterialRequestItems, transitionProjectMaterialRequest, applyProjectMaterialRequestMovement,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
