@@ -54,12 +54,14 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
 });
 
 test('Phase 3B script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2)?"/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2|3)?"/);
 });
 
-test('BOQ item supports explicit Inventory mapping when exact auto-match is unavailable',()=>{
+test('BOQ item uses Inventory fast search and no mapping selector',()=>{
   const s=src();
-  assert.match(s,/data-v3b-boq-inv/);
-  assert.match(s,/Mapping Inventory|Inventory Mapping/);
+  assert.match(s,/data-v3b-inv-search/);
+  assert.match(s,/filterInventoryForQuery/);
+  assert.doesNotMatch(s,/data-v3b-boq-inv/);
+  assert.doesNotMatch(s,/Mapping Inventory/);
   assert.match(s,/inventory_item_id/);
 });

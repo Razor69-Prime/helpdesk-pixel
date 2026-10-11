@@ -1642,11 +1642,7 @@ app.get('/api/projects/:projectId/material-request-catalog', requireProjectMrRea
     const project=projects.find(p=>String(p.id)===String(req.params.projectId));
     if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
     const inventory_items=(inventory||[]).filter(x=>x&&x.is_active!==false);
-    const normalizeInventoryName=v=>String(v||'').trim().toLowerCase();
-    const boq_items=(boq||[]).filter(x=>String(x.category||'').toLowerCase()==='material').map(row=>{
-      const exact=inventory_items.filter(item=>normalizeInventoryName(item.name)===normalizeInventoryName(row.item_name));
-      return {...row,inventory_item_id:exact.length===1?exact[0].id:null,inventory_match:exact.length===1?'exact_name':exact.length>1?'ambiguous':null};
-    });
+    const boq_items=(boq||[]).filter(x=>String(x.category||'').toLowerCase()==='material');
     res.json({project,boq_items,inventory_items});
   }catch(e){res.status(500).json({error:e.message});}
 });
