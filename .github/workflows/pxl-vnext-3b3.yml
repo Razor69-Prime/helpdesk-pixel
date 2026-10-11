@@ -1,0 +1,53 @@
+name: PXL VNext 3B3 Project MR Fast Search
+
+on:
+  push:
+    branches: [pxl-vnext-3b3]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3b3
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply verified patch
+        run: |
+          base64 -d .github/pxl-vnext-3b3.patch.b64 > /tmp/pxl-vnext-3b3.patch
+          git apply --check /tmp/pxl-vnext-3b3.patch
+          git apply /tmp/pxl-vnext-3b3.patch
+      - name: Verify full suite
+        run: |
+          node --test tests/*.test.js
+          node --check server.js
+          node --check project-vnext-3b.js
+          node --check public/pxl-vnext-3b-project-mr.js
+          node --check public/pxl-vnext-3a-project-detail.js
+          node --check public/pxl-stg-0016-project-report.js
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const html=fs.readFileSync('public/index.html','utf8');
+          let n=0;
+          for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)){
+            if(!m[1].trim())continue;
+            new vm.Script(m[1]);
+            n++;
+          }
+          console.log('INLINE_JS_PASS blocks='+n);
+          NODE
+          git diff --check
+      - name: Commit clean result
+        run: |
+          git config user.name 'PixelApps Deployment'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm -f .github/pxl-vnext-3b3.patch.b64 .github/workflows/pxl-vnext-3b3.yml
+          git add -A
+          git commit -m 'PXL-VNEXT-3B3 replace BOQ inventory mapping with fast search'
+          git push origin HEAD:pxl-vnext-3b3
