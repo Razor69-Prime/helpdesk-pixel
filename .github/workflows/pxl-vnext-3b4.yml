@@ -13,10 +13,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply patch
+      - name: Download and verify patch
         run: |
-          git apply --check PXL-VNEXT-3B4.patch
-          git apply PXL-VNEXT-3B4.patch
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/PXL-VNEXT-3B4-837a3de3.patch' -o /tmp/PXL-VNEXT-3B4.patch
+          echo '837a3de3107e603da6fc99402c592a598587162731ff249f31bf063aa4102e33  /tmp/PXL-VNEXT-3B4.patch' | sha256sum -c -
+          git apply --check /tmp/PXL-VNEXT-3B4.patch
+          git apply /tmp/PXL-VNEXT-3B4.patch
       - name: Verify
         run: |
           node --test tests/*.test.js
