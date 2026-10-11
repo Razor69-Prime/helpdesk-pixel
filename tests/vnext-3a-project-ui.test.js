@@ -24,9 +24,9 @@ test('Project Tracker rows expose native Detail action and keep Edit Delete acti
   assert.match(index,/deleteProject\('\$\{p\.id\}'\)/);
 });
 
-test('Project Detail exposes only approved Phase 3A tabs',()=>{
+test('Project Detail retains Phase 3A tabs and adds approved Phase 3B Material Request tab',()=>{
   const src=detailSource();
-  for(const pattern of [/Overview/,/BOQ &(?:amp;)? Report/,/Gantt Chart/,/Work Order/]) assert.match(src,pattern);
+  for(const pattern of [/Overview/,/BOQ &(?:amp;)? Report/,/Gantt Chart/,/Work Order/,/Material Request/]) assert.match(src,pattern);
   for(const future of ['Documents','SPJ']) assert.doesNotMatch(src,new RegExp(`>${future}<`));
   assert.match(src,/window\.pxlProjectVnext3A/);
   assert.match(src,/open:open/);

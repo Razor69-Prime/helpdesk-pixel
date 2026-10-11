@@ -117,8 +117,9 @@
     const totalBoq=list.reduce((s,r)=>s+n(r.total_boq),0),totalDone=list.reduce((s,r)=>s+n(r.total_done),0),overall=totalBoq?totalDone/totalBoq*100:0;
     if($('#pr12-total-project'))$('#pr12-total-project').textContent=list.length;if($('#pr12-total-boq'))$('#pr12-total-boq').textContent=fmt(totalBoq);if($('#pr12-total-done'))$('#pr12-total-done').textContent=fmt(totalDone);if($('#pr12-progress'))$('#pr12-progress').textContent=pct(overall);
     const body=$('#pr12-body');if(!body)return;if(!list.length){body.innerHTML='<tr><td colspan="9" class="pr12-empty">Belum ada project / BOQ belum diinput.</td></tr>';return}
-    body.innerHTML=list.map(r=>`<tr><td><div class="pr12-project">${h(r.nama_project||'-')}</div><div class="pr12-muted">PIC: ${h(r.pic||'-')} · ${(r.items||[]).length} detail</div></td><td class="pr12-num">${fmt(r.total_boq)}</td><td class="pr12-num">${fmt(r.today_achievement)}</td><td class="pr12-num">${fmt(r.total_done)}</td><td class="pr12-num">${fmt(r.remain)}</td><td>${bar(r.material_summary?.progress,'material')}</td><td>${bar(r.jasa_summary?.progress,'jasa')}</td><td>${bar(r.progress)}</td><td><button class="btn sm" data-pr12-open="${h(r.id)}">Input Today</button></td></tr>`).join('');
+    body.innerHTML=list.map(r=>`<tr><td><div class="pr12-project">${h(r.nama_project||'-')}</div><div class="pr12-muted">PIC: ${h(r.pic||'-')} · ${(r.items||[]).length} detail</div></td><td class="pr12-num">${fmt(r.total_boq)}</td><td class="pr12-num">${fmt(r.today_achievement)}</td><td class="pr12-num">${fmt(r.total_done)}</td><td class="pr12-num">${fmt(r.remain)}</td><td>${bar(r.material_summary?.progress,'material')}</td><td>${bar(r.jasa_summary?.progress,'jasa')}</td><td>${bar(r.progress)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn sm" data-pr12-open="${h(r.id)}">Input Today</button><button class="btn sm" data-pr12-mr="${h(r.id)}">Material Request Project</button></div></td></tr>`).join('');
     body.querySelectorAll('[data-pr12-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.pr12Open));
+    body.querySelectorAll('[data-pr12-mr]').forEach(b=>b.onclick=()=>openProjectMaterialRequest(b.dataset.pr12Mr));
   }
   function openReport(id){activeProjectId=id;const r=current();if(!r)return;$('#pr12-modal-title').textContent=r.nama_project||'Project Report';$('#pr12-modal-sub').textContent=`Total BOQ ${fmt(r.total_boq)} · read only · Done ${fmt(r.total_done)} · Remain ${fmt(r.remain)}`;setError('#pr12-error','');renderReportDetail();$('#pr12-modal').classList.add('show')}
   function closeReport(){$('#pr12-modal')?.classList.remove('show');activeProjectId=null}
@@ -196,6 +197,8 @@
 
   function replace(u){const i=rows.findIndex(r=>String(r.id)===String(u.id));if(i>=0)rows[i]=u;else rows.push(u)}
 
+  function openProjectMaterialRequest(projectId){if(window.pxlProjectMr)return window.pxlProjectMr.open(projectId);return false}
+
   async function openBoqProject(projectId){
     if(!canBoq())return false;
     refreshAccess();
@@ -227,6 +230,7 @@
     refresh:loadFull,
     refreshSummaries,
     refreshAccess,
-    openBoqProject
+    openBoqProject,
+    openProjectMaterialRequest
   };
 })();
