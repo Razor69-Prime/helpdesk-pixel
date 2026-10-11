@@ -4,9 +4,9 @@ const fs=require('node:fs');
 const path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'..','public','pxl-vnext-3b-project-mr.js'),'utf8');
 
-test('submitted Manager/Admin approval view is read-only and exposes only approve/reject state actions',()=>{
+test('submitted Superadmin/Manager/Admin approval view is read-only and exposes only approve/reject state actions',()=>{
   assert.match(src,/canApprove/);
-  assert.match(src,/\['manager','admin'\]\.includes/);
+  assert.match(src,/\['superadmin','manager','admin'\]\.includes|\['manager','admin','superadmin'\]\.includes/);
   assert.match(src,/Approve/);assert.match(src,/Reject/);
   assert.match(src,/reject.*reason|reason.*reject/is);
   assert.match(src,/\/approve/);assert.match(src,/\/reject/);

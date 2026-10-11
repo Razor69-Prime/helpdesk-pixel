@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3B5 — Project Material Request */
+/* PXL-VNEXT-3B6 — Project Material Request */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3B5';
+  const REV='PXL-VNEXT-3B6';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false,pendingMovement:null,takeInventorySelections:{}};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -104,7 +104,7 @@
     return (defaults[permission]||[]).includes(role())||customs().includes(permission);
   }
   function isOwner(mr){return String(mr?.created_by_user_id||'')===String(user()?.id||'')}
-  function canApprove(mr){return String(mr?.status||'')==='submitted'&&role()!=='superadmin'&&(['manager','admin'].includes(role())||customs().includes('project_mr_approve'))}
+  function canApprove(mr){return String(mr?.status||'')==='submitted'&&(['superadmin','manager','admin'].includes(role())||customs().includes('project_mr_approve'))}
   function canTake(mr){const status=String(mr?.status||'');return (status==='approved'||status==='issued')&&hasLegacyPermission('material_request_issue')}
   function canReturnUse(mr){return String(mr?.status||'')==='issued'&&(isOwner(mr)||hasLegacyPermission('material_request_edit'))}
   function canFinalize(mr){const items=Array.isArray(mr?.items)?mr.items:[];return String(mr?.status||'')==='issued'&&items.length>0&&items.every(i=>Number(i.qty_outstanding||0)===0)&&canReturnUse(mr)}

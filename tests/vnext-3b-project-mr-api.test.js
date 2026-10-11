@@ -39,7 +39,7 @@ test('Project MR routes are dedicated and include technician read/create without
   ]) route(method,url);
 });
 
-test('approval defaults to Manager/Admin, supports explicit delegation, and never accepts item mutation payload',()=>{
+test('approval defaults to Superadmin/Manager/Admin, supports explicit delegation, and never accepts item mutation payload',()=>{
   const approve=route('post','/api/project-material-requests/:id/approve');
   const reject=route('post','/api/project-material-requests/:id/reject');
   for(const body of [approve,reject]){
@@ -47,7 +47,7 @@ test('approval defaults to Manager/Admin, supports explicit delegation, and neve
     assert.match(body,/rejectProjectMrMutationPayload/);
   }
   assert.match(server,/function requireProjectMrApproval/);
-  assert.match(server,/\['manager','admin'\]/);
+  assert.match(server,/\['superadmin','manager','admin'\]|\['manager','admin','superadmin'\]/);
 });
 
 test('requester ownership and warehouse permissions are checked server-side',()=>{
