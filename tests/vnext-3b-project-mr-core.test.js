@@ -58,8 +58,8 @@ test('normalizeProjectMrItems validates draft/submit and item sources',()=>{
   assert.throws(()=>normalizeProjectMrItems([],{requireItems:true}),/item/i);
   assert.throws(()=>normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'x',qty_requested:0}],{requireItems:true}),/qty|jumlah/i);
   assert.throws(()=>normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'x',qty_requested:'abc'}],{requireItems:true}),/qty|jumlah/i);
-  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',inventory_item_id:'x',qty_requested:1}],{requireItems:true}),/alasan|reason/i);
-  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',additional_reason:'Darurat',qty_requested:1}],{requireItems:true}),/inventory/i);
+  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',inventory_item_id:'x',qty_requested:1}],{requireItems:true}),/BOQ|sumber/i);
+  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',additional_reason:'Darurat',qty_requested:1}],{requireItems:true}),/BOQ|sumber/i);
   const rows=normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'boq-1',inventory_item_id:'inv-1',item_name:'Kabel',unit:'m',qty_requested:5}],{requireItems:true});
   assert.equal(rows[0].project_boq_item_id,'boq-1');
   assert.equal(rows[0].qty_requested,5);

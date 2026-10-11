@@ -51,11 +51,11 @@ test('Phase 3B migration is additive and safe for legacy schema',()=>{
   assert.doesNotMatch(migration,/alter\s+table\s+public\.projects\s+drop|drop\s+column/i);
 });
 
-test('Phase 3B UI integration cache keys force fresh Project Detail and Project Report assets',()=>{
+test('Phase 3C MR UI cache key forces fresh approval-only browser asset',()=>{
   const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
   const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
-  assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3B1/);
+  assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3C/);
   assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-VNEXT-3B1/);
-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B6/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v112'/);
+  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3C/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v113'/);
 });

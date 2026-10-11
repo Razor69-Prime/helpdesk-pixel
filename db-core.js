@@ -823,6 +823,32 @@ async function applyProjectMaterialRequestMovement(id,type,items,actor,actorId,i
   const out=await restFetch('POST','/rpc/pxl_vnext_3b_apply_project_mr_movement',{p_request_id:id,p_movement_type:type,p_items:items,p_actor:actor||'System',p_actor_id:actorId||null,p_idempotency_key:idempotencyKey});
   return Array.isArray(out)?out[0]:out;
 }
+async function getProjectMaterialRequestItemsByRequestIds(requestIds=[]){
+  if(!USE_POSTGREST) return [];
+  const ids=[...new Set((requestIds||[]).filter(Boolean).map(String))];
+  if(!ids.length) return [];
+  const BATCH_SIZE=50;
+  const rows=[];
+  for(let i=0;i<ids.length;i+=BATCH_SIZE){
+    const batch=ids.slice(i,i+BATCH_SIZE);
+    const inFilter=batch.map(id=>encodeURIComponent(id)).join(',');
+    const chunk=await restFetch('GET',`/project_material_request_items?project_material_request_id=in.(${inFilter})&order=sort_order.asc,created_at.asc`);
+    if(Array.isArray(chunk)) rows.push(...chunk);
+  }
+  return rows;
+}
+async function getProjectMaterialOverrides({projectId=null,itemId=null}={}){
+  if(!USE_POSTGREST) return [];
+  let q='/project_material_usage_overrides?order=created_at.asc';
+  if(projectId) q+=`&project_id=eq.${encodeURIComponent(projectId)}`;
+  if(itemId) q+=`&project_boq_item_id=eq.${encodeURIComponent(itemId)}`;
+  return await restFetch('GET',q)||[];
+}
+async function insertProjectMaterialOverride(data){
+  if(!USE_POSTGREST) return {id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString()};
+  const rows=await restFetch('POST','/project_material_usage_overrides',data);
+  return rows?.[0]||data;
+}
 
 // PXL-STG-0010 — PROJECT REPORT
 async function getProjectReports(){
@@ -1480,7 +1506,7 @@ module.exports = {
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
   getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectRelatedWorkOrders, linkProjectRelatedWorkOrder, unlinkProjectRelatedWorkOrder, getProjectWorkOrderOwner, getProjectLinkedWorkOrderIds, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
-  getProjectMaterialRequests, getProjectMaterialRequest, createProjectMaterialRequest, replaceProjectMaterialRequestItems, transitionProjectMaterialRequest, applyProjectMaterialRequestMovement,
+  getProjectMaterialRequests, getProjectMaterialRequest, createProjectMaterialRequest, replaceProjectMaterialRequestItems, transitionProjectMaterialRequest, applyProjectMaterialRequestMovement, getProjectMaterialRequestItemsByRequestIds, getProjectMaterialOverrides, insertProjectMaterialOverride,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,

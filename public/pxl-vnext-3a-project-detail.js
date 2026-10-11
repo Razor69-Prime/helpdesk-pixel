@@ -521,7 +521,7 @@
 
   function renderMaterialRequest(){
     setTimeout(()=>{const b=$('#pxl-v3a-open-project-mr');if(b)b.onclick=()=>{if(window.pxlProjectMr)window.pxlProjectMr.open(state.projectId)}},0);
-    return `<div class="pxl-v3a-toolbar"><div><b>Material Request Project</b><div class="pxl-v3a-muted">MR Project terpisah dari MR Operasional dan terhubung langsung ke project ini.</div></div><button class="btn primary sm" id="pxl-v3a-open-project-mr">Buka Material Request</button></div><div class="pxl-v3a-placeholder">Kelola Draft, approval, pengambilan, pengembalian dan outstanding melalui modul MR Project.</div>`;
+    return `<div class="pxl-v3a-toolbar"><div><b>Material Request Project</b><div class="pxl-v3a-muted">MR Project terpisah dari MR Operasional dan terhubung langsung ke project ini.</div></div><button class="btn primary sm" id="pxl-v3a-open-project-mr">Buka Material Request</button></div><div class="pxl-v3a-placeholder">Kelola Draft, pengajuan, approval, dan material approved/released untuk Project melalui modul MR Project.</div>`;
   }
 
   function render(){

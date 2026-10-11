@@ -24,15 +24,13 @@ test('project identity and MR number come from API and browser never invents MRP
   assert.doesNotMatch(s,/MRP-PRJ-[^'"`]*padStart|nextMr|mrSequence/i);
 });
 
-test('Draft/Rejected editor is BOQ first and extra Inventory requires reason and positive qty',()=>{
+test('Draft/Rejected editor is BOQ Material only with positive qty',()=>{
   const s=src();
   assert.match(s,/BOQ Project/);
-  assert.match(s,/Tambah Material di Luar BOQ/);
-  assert.match(s,/inventory_extra/);
-  assert.match(s,/additional_reason/);
-  assert.match(s,/Alasan/);
+  assert.match(s,/Tambah dari BOQ Project/);
   assert.match(s,/qty_requested/);
   assert.match(s,/Number\.isFinite\(qty\).*qty<=0/s);
+  assert.doesNotMatch(s,/inventory_extra|additional_reason|Tambah Material di Luar BOQ/);
 });
 
 test('submitted approved issued final are read-only while rejected can edit and resubmit',()=>{
@@ -53,16 +51,13 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
   assert.doesNotMatch(detail,/>Documents</);assert.doesNotMatch(detail,/>SPJ</);
 });
 
-test('Phase 3B script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1|2|3|4|5|6)?"/);
+test('Phase 3C MR script is explicitly included after Project Detail',()=>{
+  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3C"/);
 });
 
-test('BOQ item uses BOQ fast search and defers Inventory selection until Take',()=>{
+test('BOQ item uses BOQ fast search with no Inventory selection in active flow',()=>{
   const s=src();
   assert.match(s,/data-v3b-boq-search/);
   assert.match(s,/filterBoqForQuery/);
-  assert.match(s,/data-v3b-take-inventory-search/);
-  assert.match(s,/filterInventoryForQuery/);
-  assert.doesNotMatch(s,/data-v3b-boq-inv/);
-  assert.doesNotMatch(s,/Mapping Inventory/);
+  assert.doesNotMatch(s,/data-v3b-take-inventory-search|filterInventoryForQuery|data-v3b-boq-inv|Mapping Inventory/);
 });
