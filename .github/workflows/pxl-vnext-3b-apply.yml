@@ -15,6 +15,7 @@ jobs:
       - name: Apply Phase 3B patch
         run: |
           cat .pxl-vnext-3b.patch.part1 .pxl-vnext-3b.patch.part2 > .pxl-vnext-3b.patch
+          printf '\n' >> .pxl-vnext-3b.patch
           git apply --check .pxl-vnext-3b.patch
           git apply .pxl-vnext-3b.patch
       - name: Verify Phase 3B
