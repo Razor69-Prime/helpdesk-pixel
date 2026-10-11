@@ -1,0 +1,31 @@
+name: PXL VNext 3B1 Cache Fix
+on:
+  push:
+    branches: [pxl-vnext-3b1-cache-fix]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3b1-cache-fix
+          fetch-depth: 0
+      - name: Apply cache fix
+        run: |
+          git apply --check .pxl-vnext-3b1-cache-fix.patch
+          git apply .pxl-vnext-3b1-cache-fix.patch
+      - name: Verify
+        run: |
+          node --test tests/*.test.js
+          node --check public/sw.js
+          git diff --check
+      - name: Commit cache fix
+        run: |
+          rm -f .pxl-vnext-3b1-cache-fix.patch .github/workflows/pxl-vnext-3b1-cache-fix.yml
+          git config user.name 'PixelApps Deployment'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'PXL-VNEXT-3B1 fix Project MR stale UI cache'
+          git push origin HEAD:pxl-vnext-3b1-cache-fix
