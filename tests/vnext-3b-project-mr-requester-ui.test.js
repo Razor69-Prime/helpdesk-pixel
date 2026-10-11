@@ -54,7 +54,7 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
 });
 
 test('Phase 3B script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B"/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3B(?:1)?"/);
 });
 
 test('BOQ item supports explicit Inventory mapping when exact auto-match is unavailable',()=>{
