@@ -18,7 +18,7 @@ test('3D photo client owns GPS resize watermark camera gallery and sequential up
   assert.match(src,/Lokasi\/Waktu Upload/);
   assert.match(src,/\/assets\/pxl-vnext-3d-watermark-logo\.png/);
   assert.match(src,/for\s*\(const file of files\)[\s\S]*await processAndUpload/);
-  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-VNEXT-3D'/);
+  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-VNEXT-3D1'/);
 });
 test('watermark content excludes project name and BOQ item name',()=>{
   const src=fs.readFileSync(jsPath,'utf8');

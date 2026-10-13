@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3C — Project Material Request */
+/* PXL-VNEXT-3D1 — Project Material Request manual-item hotfix */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3C';
+  const REV='PXL-VNEXT-3D1';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -44,7 +44,7 @@
   function renderList(){
     const body=$('#pxl-v3b-mr-body');if(!body)return;
     const canCreate=['technician','superadmin'].includes(role())||customs().includes('project_mr_create');
-    body.innerHTML=projectHeader()+`<div class="pxl-v3b-mr-toolbar"><div><b>Daftar MR Project</b><div class="pxl-v3b-mr-muted">MR Project hanya untuk material BOQ pada Primary WO Project.</div></div><div class="pxl-v3b-mr-actions"><button class="btn sm" id="pxl-v3b-mr-refresh">↻ Refresh</button>${canCreate?'<button class="btn primary sm" id="pxl-v3b-mr-create">＋ Buat MR Project</button>':''}</div></div><div class="pxl-v3b-mr-list">${state.list.length?state.list.map(m=>`<div class="pxl-v3b-mr-row"><div><b>${h(m.mr_number||'MR Project')}</b><div class="pxl-v3b-mr-muted">${h(m.created_by||'-')} · ${h(String(m.created_at||'').slice(0,16).replace('T',' '))}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[m.status]||m.status||'-')}</span><button class="btn sm" data-v3b-mr-open="${h(m.id)}">Buka</button></div></div>`).join(''):'<div class="pxl-v3b-mr-card pxl-v3b-mr-muted">Belum ada MR Project.</div>'}</div>`;
+    body.innerHTML=projectHeader()+`<div class="pxl-v3b-mr-toolbar"><div><b>Daftar MR Project</b><div class="pxl-v3b-mr-muted">MR Project untuk material BOQ atau item manual pada Primary WO Project.</div></div><div class="pxl-v3b-mr-actions"><button class="btn sm" id="pxl-v3b-mr-refresh">↻ Refresh</button>${canCreate?'<button class="btn primary sm" id="pxl-v3b-mr-create">＋ Buat MR Project</button>':''}</div></div><div class="pxl-v3b-mr-list">${state.list.length?state.list.map(m=>`<div class="pxl-v3b-mr-row"><div><b>${h(m.mr_number||'MR Project')}</b><div class="pxl-v3b-mr-muted">${h(m.created_by||'-')} · ${h(String(m.created_at||'').slice(0,16).replace('T',' '))}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[m.status]||m.status||'-')}</span><button class="btn sm" data-v3b-mr-open="${h(m.id)}">Buka</button></div></div>`).join(''):'<div class="pxl-v3b-mr-card pxl-v3b-mr-muted">Belum ada MR Project.</div>'}</div>`;
     $('#pxl-v3b-mr-refresh').onclick=refresh;
     $('#pxl-v3b-mr-create')?.addEventListener('click',createMr);
     body.querySelectorAll('[data-v3b-mr-open]').forEach(b=>b.onclick=()=>open(state.projectId,b.dataset.v3bMrOpen));
@@ -82,10 +82,13 @@
   }
 
   function editorRow(item,index){
-    return `<tr><td>${index+1}</td><td>${boqSearchBox(item,index)}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
+    const materialCell=item.source_type==='manual'
+      ?`<div><input data-v3b-manual-name="${index}" value="${h(item.item_name||'')}" placeholder="Nama material manual"><input data-v3b-manual-unit="${index}" value="${h(item.unit||'')}" placeholder="Satuan (opsional)" style="margin-top:5px"><div class="pxl-v3b-selected">Manual · tidak menambah ledger Input Today sampai material memiliki BOQ Project.</div></div>`
+      :boqSearchBox(item,index);
+    return `<tr><td>${index+1}</td><td>${materialCell}</td><td><input type="number" min="0.01" step="0.01" data-v3b-qty="${index}" value="${h(item.qty_requested||'')}"></td><td><button class="btn danger sm" data-v3b-remove="${index}">Hapus</button></td></tr>`;
   }
   function readOnlyRows(items){
-    return (items||[]).map((i,index)=>`<tr><td>${index+1}</td><td><b>${h(i.item_name_snapshot||i.item_name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.source_type==='boq'?'BOQ Project':'Legacy Material')} · ${h(i.unit_snapshot||i.unit||'')}</div></td><td><b>${h(i.qty_requested||0)}</b></td></tr>`).join('');
+    return (items||[]).map((i,index)=>`<tr><td>${index+1}</td><td><b>${h(i.item_name_snapshot||i.item_name||'-')}</b><div class="pxl-v3b-mr-muted">${h(i.source_type==='boq'?'BOQ Project':i.source_type==='manual'?'Manual':'Legacy Material')} · ${h(i.unit_snapshot||i.unit||'')}</div></td><td><b>${h(i.qty_requested||0)}</b></td></tr>`).join('');
   }
 
   function canApprove(mr){return String(mr?.status||'')==='submitted'&&(['superadmin','manager','admin'].includes(role())||customs().includes('project_mr_approve'))}
@@ -114,7 +117,7 @@
     const rejectNote=mr.status==='rejected'?`<div class="pxl-v3b-mr-error"><b>Rejected</b>${mr.reject_reason?`: ${h(mr.reject_reason)}`:' — tanpa catatan.'}</div>`:'';
     let content=projectHeader()+rejectNote+`<div class="pxl-v3b-mr-toolbar"><div><div class="pxl-v3b-mr-muted">Nomor MR Project</div><div style="font-size:17px;font-weight:800">${h(mr.mr_number||'—')}</div></div><div class="pxl-v3b-mr-actions"><span class="pxl-v3b-mr-status">${h(statusLabels[mr.status]||mr.status||'-')}</span><button class="btn sm" id="pxl-v3b-mr-back">← Daftar MR</button></div></div>`;
     if(isEditable){
-      content+=`<div class="pxl-v3b-mr-section">Material Request</div><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Pilih kebutuhan material langsung dari BOQ Project dan isi Qty Requested. Material baru harus ditambahkan ke BOQ Project terlebih dahulu.</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material BOQ</th><th>Qty Requested</th><th>Aksi</th></tr></thead><tbody>${state.editorItems.length?state.editorItems.map(editorRow).join(''):'<tr><td colspan="4" class="pxl-v3b-mr-muted">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px"><button class="btn sm" id="pxl-v3b-add-boq">＋ Tambah dari BOQ Project</button><button class="btn primary sm" id="pxl-v3b-save">Simpan</button><button class="btn green sm" id="pxl-v3b-submit">Simpan &amp; Ajukan MR Project</button></div>`;
+      content+=`<div class="pxl-v3b-mr-section">Material Request</div><div class="pxl-v3b-mr-muted" style="margin-bottom:8px">Pilih material dari BOQ Project atau tambahkan item manual. Item manual tercatat di MR/approval, namun tidak menambah allowance ledger Input Today sebelum material tersebut memiliki BOQ Project.</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>Qty Requested</th><th>Aksi</th></tr></thead><tbody>${state.editorItems.length?state.editorItems.map(editorRow).join(''):'<tr><td colspan="4" class="pxl-v3b-mr-muted">Belum ada item.</td></tr>'}</tbody></table></div><div class="pxl-v3b-mr-actions" style="margin-top:10px"><button class="btn sm" id="pxl-v3b-add-boq">＋ Tambah dari BOQ Project</button><button class="btn sm" id="pxl-v3b-add-manual">＋ Tambah Item Manual</button><button class="btn primary sm" id="pxl-v3b-save">Simpan</button><button class="btn green sm" id="pxl-v3b-submit">Simpan &amp; Ajukan MR Project</button></div>`;
     }else{
       const releasedInfo=released?'<div class="pxl-v3b-mr-card" style="margin-bottom:10px"><b>Material approved/released for Project</b><div class="pxl-v3b-mr-muted" style="margin-top:4px">Qty Approved sama dengan Qty Requested. Pemakaian real material dicatat melalui Project Report → Input Today.</div></div>':'';
       content+=`${releasedInfo}<div class="pxl-v3b-mr-section">Item — Read Only</div><div class="pxl-v3b-mr-table-wrap"><table class="pxl-v3b-mr-table"><thead><tr><th>No</th><th>Material</th><th>${released?'Qty Approved':'Qty Requested'}</th></tr></thead><tbody>${readOnlyRows(mr.items)||'<tr><td colspan="3">Belum ada item.</td></tr>'}</tbody></table></div>${renderApproval(mr)}${renderAudit(mr)}`;
@@ -126,9 +129,12 @@
 
   function bindEditor(){
     document.querySelectorAll('[data-v3b-boq-search]').forEach(input=>{const i=Number(input.dataset.v3bBoqSearch);input.onfocus=()=>renderBoqSearchResults(i,input.value);input.oninput=()=>{const item=state.editorItems[i];item.boq_search=input.value;if(item.project_boq_item_id){item.project_boq_item_id=null;item.item_name=null;item.unit=null}renderBoqSearchResults(i,input.value)};input.onblur=()=>setTimeout(()=>document.querySelector(`[data-v3b-boq-results="${i}"]`)?.classList.remove('show'),180)});
+    document.querySelectorAll('[data-v3b-manual-name]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bManualName)].item_name=inp.value);
+    document.querySelectorAll('[data-v3b-manual-unit]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bManualUnit)].unit=inp.value);
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
     $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,boq_search:'',qty_requested:1,item_name:null,unit:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${state.editorItems.length-1}"]`)?.focus(),0)};
+    $('#pxl-v3b-add-manual').onclick=()=>{state.editorItems.push({source_type:'manual',project_boq_item_id:null,qty_requested:1,item_name:'',unit:''});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-manual-name="${state.editorItems.length-1}"]`)?.focus(),0)};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
   }
@@ -137,6 +143,10 @@
     if(!state.editorItems.length)throw new Error('Minimal satu item MR Project wajib diisi.');
     return state.editorItems.map((item,index)=>{
       const qty=Number(item.qty_requested);if(!Number.isFinite(qty)||qty<=0)throw new Error(`Qty item baris ${index+1} harus lebih dari 0.`);
+      if(item.source_type==='manual'){
+        const name=String(item.item_name||'').trim();if(!name)throw new Error(`Nama material manual baris ${index+1} wajib diisi.`);
+        return {source_type:'manual',project_boq_item_id:null,item_name:name,unit:String(item.unit||'').trim()||null,qty_requested:qty,sort_order:index};
+      }
       if(!item.project_boq_item_id)throw new Error(`Pilih BOQ Project pada baris ${index+1}.`);
       return {source_type:'boq',project_boq_item_id:item.project_boq_item_id,item_name:item.item_name||null,unit:item.unit||null,qty_requested:qty,sort_order:index};
     });
@@ -164,7 +174,9 @@
   async function loadDetail(requestId){
     const [mr]=await Promise.all([request('GET',`/project-material-requests/${encodeURIComponent(requestId)}`),state.catalog?Promise.resolve():loadCatalog()]);
     state.requestId=String(requestId);state.detail=mr;
-    state.editorItems=(mr.items||[]).map(i=>({source_type:'boq',project_boq_item_id:i.source_type==='boq'?(i.project_boq_item_id||null):null,boq_search:i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested)}));
+    state.editorItems=(mr.items||[]).map(i=>i.source_type==='boq'
+      ?{source_type:'boq',project_boq_item_id:i.project_boq_item_id||null,boq_search:i.item_name_snapshot||'',item_name:i.item_name_snapshot||null,unit:i.unit_snapshot||null,qty_requested:Number(i.qty_requested)}
+      :{source_type:'manual',project_boq_item_id:null,item_name:i.item_name_snapshot||'',unit:i.unit_snapshot||'',qty_requested:Number(i.qty_requested)});
     renderDetail();
   }
   async function refresh(){

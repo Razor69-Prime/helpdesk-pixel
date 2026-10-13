@@ -1299,8 +1299,13 @@ async function validateProjectMrBoqItems(projectId,items){
   const boqRows=await db.getProjectReportItems(projectId);
   const validIds=new Set((boqRows||[]).filter(row=>String(row.category||'').toLowerCase()==='material').map(row=>String(row.id)));
   for(const item of (items||[])){
+    const source=String(item?.source_type||'').toLowerCase();
+    if(source==='manual'){
+      if(!String(item?.item_name||'').trim())throw new Error('Nama material manual wajib diisi.');
+      continue;
+    }
     const boqId=String(item?.project_boq_item_id||'');
-    if(String(item?.source_type||'').toLowerCase()!=='boq'||!boqId||!validIds.has(boqId)){
+    if(source!=='boq'||!boqId||!validIds.has(boqId)){
       throw new Error('Item BOQ Project harus Material dan berasal dari project yang sama.');
     }
   }
