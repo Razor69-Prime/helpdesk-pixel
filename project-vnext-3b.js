@@ -23,8 +23,9 @@ function normalizeProjectMrItems(rawItems,{requireItems=false}={}){
     if(!['boq','manual'].includes(source))throw new Error(`Sumber item baris ${index+1} harus BOQ Project atau Manual.`);
     const qty=Number(raw?.qty_requested);
     if(!Number.isFinite(qty)||qty<=0)throw new Error(`Qty/jumlah baris ${index+1} harus lebih dari 0.`);
-    const itemName=String(raw?.item_name||raw?.name||'').trim();
-    const unit=raw?.unit?String(raw.unit).trim():null;
+    const itemName=String(raw?.item_name||raw?.name||raw?.item_name_snapshot||'').trim();
+    const unitValue=raw?.unit||raw?.unit_snapshot||null;
+    const unit=unitValue?String(unitValue).trim():null;
     if(source==='manual'){
       if(!itemName)throw new Error(`Nama material manual baris ${index+1} wajib diisi.`);
       return {source_type:'manual',project_boq_item_id:null,item_name:itemName,unit,qty_requested:qty,sort_order:index};
