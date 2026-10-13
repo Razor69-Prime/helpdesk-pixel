@@ -13,9 +13,9 @@ function block(startText,endText){
   return ui.slice(start,end<0?ui.length:end);
 }
 
-test('active Project Report asset is cache-busted for PXL-VNEXT-3C while SW remains v113',()=>{
-  assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3C/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v113'/);
+test('active Project Report asset remains cache-busted after 3D while 3C behavior stays covered',()=>{
+  assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3D/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v114'/);
 });
 
 test('existing Project Report Input Today and daily report controls remain present',()=>{

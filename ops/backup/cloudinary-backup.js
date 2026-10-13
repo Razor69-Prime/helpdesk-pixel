@@ -8,7 +8,7 @@ const {pipeline}=require('stream/promises');
 const fetch=require('node-fetch');
 const PDFDocument=require('pdfkit');
 const db=require('../../db');
-const {periodKey,safeName,recordDate,inPeriod,woRelativePath,serviceRelativePath}=require('./cloudinary-backup-lib');
+const {periodKey,safeName,recordDate,inPeriod,woRelativePath,serviceRelativePath,projectRelativePath}=require('./cloudinary-backup-lib');
 
 const APP_ROOT=path.resolve(__dirname,'../..');
 const BACKUP_ROOT=process.env.BACKUP_ROOT||'/home/deploy/pixelapps-backups';
@@ -132,10 +132,12 @@ async function backupPhotos(targetDir,photos,manifest,parent){
   return out;
 }
 async function main(){
-  const [tickets,salesOrders,services]=await Promise.all([db.getTickets(null,true),db.getSalesOrders(),db.getServiceOrders()]);
+  const [tickets,salesOrders,services,projects,projectItems,projectPhotos]=await Promise.all([db.getTickets(null,true),db.getSalesOrders(),db.getServiceOrders(),db.getProjects(),db.getProjectReportItems(),db.getProjectReportItemPhotos({includeDeleted:true})]);
   const soById=new Map(salesOrders.map(x=>[String(x.id),x]));
   const soByNo=new Map(salesOrders.map(x=>[String(x.so_number||''),x]));
-  const manifest={revision:'PXL-SYS-0001A',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,completed,dry_run:dryRun,work_orders:0,services:0,files:[],errors:[]};
+  const projectById=new Map(projects.map(x=>[String(x.id),x]));
+  const projectItemById=new Map(projectItems.map(x=>[String(x.id),x]));
+  const manifest={revision:'PXL-SYS-0001A',created_at:new Date().toISOString(),period_mode:mode,anchor:anchor.toISOString(),backfill,completed,dry_run:dryRun,work_orders:0,services:0,projects:0,project_items:0,files:[],errors:[]};
   log('Mulai Cloudinary backup mode='+mode+' backfill='+backfill+' dry_run='+dryRun);
   for(const t0 of tickets){
     if(!selected(t0))continue;
@@ -155,10 +157,32 @@ async function main(){
     const files=await backupPhotos(base,photos,manifest,svc.service_number||svc.id);
     if(!dryRun)await writeServicePdf(path.join(base,'report',safeName(svc.service_number||svc.id)+'-REPORT.pdf'),svc,files);
   }
+  const projectGroups=new Map();
+  for(const photo of projectPhotos){
+    if(!selected(photo))continue;
+    const item=projectItemById.get(String(photo.project_report_item_id||''));if(!item)continue;
+    const project=projectById.get(String(item.project_id||photo.project_id||''));if(!project)continue;
+    const bucket=bucketFor(photo);const key=bucket+'|'+String(item.id);
+    if(!projectGroups.has(key))projectGroups.set(key,{bucket,project,item,photos:[]});
+    projectGroups.get(key).photos.push(photo);
+  }
+  const projectSeen=new Set();
+  for(const group of projectGroups.values()){
+    const {bucket,project,item,photos}=group;
+    const base=path.join(CLOUD_ROOT,mode,bucket,projectRelativePath(project,item));
+    manifest.project_items++;
+    if(!projectSeen.has(String(project.id))){projectSeen.add(String(project.id));manifest.projects++}
+    if(!dryRun){
+      fs.mkdirSync(base,{recursive:true});
+      fs.writeFileSync(path.join(base,'project.json'),JSON.stringify(project,null,2),{mode:0o600});
+      fs.writeFileSync(path.join(base,'project-item.json'),JSON.stringify(item,null,2),{mode:0o600});
+    }
+    await backupPhotos(base,photos,manifest,(project.project_number||project.id)+' / '+item.id);
+  }
   const manifestDir=path.join(CLOUD_ROOT,'manifests');fs.mkdirSync(manifestDir,{recursive:true});
   const name='cloudinary-'+mode+'-'+(backfill?'backfill-':'')+runStamp+'.json';
   if(!dryRun)fs.writeFileSync(path.join(manifestDir,name),JSON.stringify(manifest,null,2),{mode:0o600});
-  log('Selesai: WO='+manifest.work_orders+' Service='+manifest.services+' files='+manifest.files.length+' errors='+manifest.errors.length);
+  log('Selesai: WO='+manifest.work_orders+' Service='+manifest.services+' Project='+manifest.projects+' files='+manifest.files.length+' errors='+manifest.errors.length);
   if(manifest.errors.length)process.exitCode=2;
 }
 main().catch(e=>{console.error(e);process.exit(1)});

@@ -35,7 +35,7 @@ function woFolderName(row={}){
 }
 
 function recordDate(row={}){
-  const raw=row.worked_at||row.scheduled_date||row.received_at||row.created_at||row.uploaded_at;
+  const raw=row.evidence_time||row.worked_at||row.scheduled_date||row.received_at||row.created_at||row.uploaded_at;
   const d=new Date(raw||0);
   return Number.isFinite(d.getTime())?d:null;
 }
@@ -56,4 +56,10 @@ function serviceRelativePath(row={}){
   return path.join('SERVICE',safeName(row.service_number||row.id||'SERVICE'));
 }
 
-module.exports={periodKey,safeName,woFolderName,recordDate,inPeriod,woRelativePath,serviceRelativePath};
+function projectRelativePath(project={},item={}){
+  const projectId=safeName(project.project_number||project.id||'PROJECT');
+  const itemId=safeName(item.id||'ITEM');
+  return path.join('PROJECT',projectId,'ITEM',itemId);
+}
+
+module.exports={periodKey,safeName,woFolderName,recordDate,inPeriod,woRelativePath,serviceRelativePath,projectRelativePath};
