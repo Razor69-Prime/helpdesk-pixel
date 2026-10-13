@@ -1,0 +1,43 @@
+name: PXL-VNEXT-3D3 verified patch
+
+on:
+  push:
+    branches:
+      - pxl-vnext-3d3-hotfix
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3d3-hotfix
+          fetch-depth: 0
+
+      - name: Download verified patch
+        run: |
+          curl -fsSL https://internal.pixelsolusindo.com/downloads/PXL-VNEXT-3D3.patch -o /tmp/PXL-VNEXT-3D3.patch
+          test "$(wc -c < /tmp/PXL-VNEXT-3D3.patch | tr -d ' ')" = "13244"
+          echo "7ed6f7f624978476ae4d0b641355e6b4f17685ba48f00014193ee5f16f23d6be  /tmp/PXL-VNEXT-3D3.patch" | sha256sum -c -
+
+      - name: Verify hotfix
+        run: |
+          git apply --check /tmp/PXL-VNEXT-3D3.patch
+          git apply /tmp/PXL-VNEXT-3D3.patch
+          node --check public/pxl-vnext-3b-project-mr.js
+          node --test tests/vnext-3d3-hotfix.test.js
+          node --test tests/*.test.js
+          rm .github/workflows/pxl-vnext-3d3-apply.yml
+          git diff --check
+
+      - name: Commit verified hotfix
+        run: |
+          git config user.name "PixelApps Verified Patch"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "fix: PXL-VNEXT-3D3 manual MR mode"
+          git push origin HEAD:pxl-vnext-3d3-hotfix
