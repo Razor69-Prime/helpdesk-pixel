@@ -1,0 +1,41 @@
+name: PXL-VNEXT-3D2 verified patch
+
+on:
+  push:
+    branches:
+      - pxl-vnext-3d2-hotfix
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3d2-hotfix
+          fetch-depth: 0
+      - name: Download verified patch
+        run: |
+          curl -fsSL "https://internal.pixelsolusindo.com/downloads/PXL-VNEXT-3D2.patch" -o /tmp/PXL-VNEXT-3D2.patch
+          echo "05477de6f2ebf4cc079d2f4e29fb3384d878ce90198ed83ca380df4046d0cd5b  /tmp/PXL-VNEXT-3D2.patch" | sha256sum -c -
+          test "$(wc -c < /tmp/PXL-VNEXT-3D2.patch)" -eq 22966
+      - name: Verify hotfix
+        run: |
+          git apply --check /tmp/PXL-VNEXT-3D2.patch
+          git apply /tmp/PXL-VNEXT-3D2.patch
+          node --check public/pxl-vnext-3b-project-mr.js
+          node --check public/pxl-vnext-3d-project-photos.js
+          node --check public/sw.js
+          node --test tests/vnext-3d2-hotfix.test.js
+          node --test tests/*.test.js
+      - name: Commit verified hotfix
+        run: |
+          rm -f .github/workflows/pxl-vnext-3d2-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: PXL-VNEXT-3D2 manual MR and footer watermark"
+          git push origin HEAD:pxl-vnext-3d2-hotfix
