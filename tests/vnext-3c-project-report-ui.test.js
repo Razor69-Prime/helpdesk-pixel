@@ -15,7 +15,7 @@ function block(startText,endText){
 
 test('active Project Report asset remains cache-busted after 3D while 3C behavior stays covered',()=>{
   assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3D/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v116'/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v117'/);
 });
 
 test('existing Project Report Input Today and daily report controls remain present',()=>{

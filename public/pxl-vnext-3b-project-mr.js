@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3D2 — Project Material Request manual placeholder hotfix */
+/* PXL-VNEXT-3D3 — Project Material Request manual mode hotfix */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3D2';
+  const REV='PXL-VNEXT-3D3';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -87,6 +87,10 @@
       && !String(item?.item_name||'').trim()
       && !String(item?.unit||'').trim();
   }
+  function isIncompleteBoqRow(item){
+    return String(item?.source_type||'').toLowerCase()==='boq'
+      && !item?.project_boq_item_id;
+  }
 
   function editorRow(item,index){
     const materialCell=item.source_type==='manual'
@@ -141,7 +145,7 @@
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
     $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,boq_search:'',qty_requested:1,item_name:null,unit:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${state.editorItems.length-1}"]`)?.focus(),0)};
-    $('#pxl-v3b-add-manual').onclick=()=>{const emptyIndex=state.editorItems.findIndex(isEmptyBoqPlaceholder);const manual={source_type:'manual',project_boq_item_id:null,qty_requested:1,item_name:'',unit:''};const focusIndex=emptyIndex>=0?emptyIndex:state.editorItems.length;if(emptyIndex>=0)state.editorItems[emptyIndex]=manual;else state.editorItems.push(manual);renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-manual-name="${focusIndex}"]`)?.focus(),0)};
+    $('#pxl-v3b-add-manual').onclick=()=>{const manual={source_type:'manual',project_boq_item_id:null,qty_requested:1,item_name:'',unit:''};state.editorItems=state.editorItems.filter(item=>!isIncompleteBoqRow(item));state.editorItems.push(manual);const focusIndex=state.editorItems.length-1;renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-manual-name="${focusIndex}"]`)?.focus(),0)};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
   }
