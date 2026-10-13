@@ -12,7 +12,7 @@ test('Project MR browser revision is PXL-VNEXT-3C and cache is bumped',()=>{
   assert.match(ui,/PXL-VNEXT-3C/);
   assert.match(ui,/const REV='PXL-VNEXT-3C'/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3C/);
-  assert.match(sw,/pixelapps-inv1-v113/);
+  assert.match(sw,/pixelapps-inv1-v114/);
 });
 
 test('Draft and Rejected editor is BOQ Material + Qty only with no outside-BOQ or Inventory flow',()=>{

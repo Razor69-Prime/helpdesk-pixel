@@ -1,8 +1,9 @@
 /* PXL-STG-0016 — Daily Project Report header metadata. STAGING ONLY. */
 (function(){
   'use strict';
-  const REV='PXL-STG-0016';
+  const REV='PXL-VNEXT-3D';
   let rows=[], activeProjectId=null, boqProjectId=null;
+  const selectedPhotoIdsByItem=new Map();
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const n=v=>Number(v)||0;
@@ -10,7 +11,8 @@
   const pct=v=>`${n(v).toFixed(1)}%`;
   const role=()=>String((typeof currentUser!=='undefined'&&currentUser?.role)||'').toLowerCase().replace(/[ _-]/g,'');
   const customs=()=>Array.isArray(typeof currentUser!=='undefined'&&currentUser?.custom_menus)?currentUser.custom_menus:[];
-  const canReport=()=>['technician','superadmin'].includes(role());
+  const canReport=()=>['technician','manager','admin','superadmin'].includes(role());
+  const canAchievement=()=>['technician','superadmin'].includes(role());
   const canBoq=()=>['manager','superadmin'].includes(role())||customs().includes('project_boq_manage');
   const canTracker=()=>role()!=='technician';
   const localDate=()=>{const d=new Date(),p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
@@ -31,7 +33,7 @@
   }
 
   let builtAccessSignature='';
-  function accessSignature(){return [role(),canTracker()?'1':'0',canReport()?'1':'0',canBoq()?'1':'0'].join('|')}
+  function accessSignature(){return [role(),canTracker()?'1':'0',canReport()?'1':'0',canAchievement()?'1':'0',canBoq()?'1':'0'].join('|')}
   function clearProjectSubnav(){
     $('#pxl-pr12-subnav')?.remove();
     $('#pxl-project-report')?.remove();
@@ -53,7 +55,7 @@
 
     const report=document.createElement('div');report.id='pxl-project-report';report.innerHTML=`
       <div class="pr12-grid"><div class="pr12-card"><div class="pr12-label">TOTAL PROJECT</div><div class="pr12-value" id="pr12-total-project">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL BOQ</div><div class="pr12-value" id="pr12-total-boq">0</div></div><div class="pr12-card"><div class="pr12-label">TOTAL DONE</div><div class="pr12-value" id="pr12-total-done">0</div></div><div class="pr12-card"><div class="pr12-label">OVERALL PROGRESS</div><div class="pr12-value" id="pr12-progress">0%</div></div></div>
-      <div class="pr12-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800">📊 Project Report</div><div class="pr12-muted">Khusus teknisi. Total BOQ read only; teknisi hanya menginput Today Achievement per item/jasa.</div></div><span class="pr12-status">${REV}</span></div><div class="pr12-toolbar"><input id="pr12-search" placeholder="Cari project atau PIC..."><button class="btn sm" id="pr12-refresh">↻ Refresh</button></div><div class="pr12-table-wrap"><table class="pr12-table"><thead><tr><th>Project</th><th>Total BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Material</th><th>Jasa</th><th>Overall</th><th>Aksi</th></tr></thead><tbody id="pr12-body"></tbody></table></div></div>`;
+      <div class="pr12-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800">📊 Project Report</div><div class="pr12-muted">Total BOQ read only. Input Today khusus Teknisi/Superadmin; Manager/Admin dapat melihat report dan mengelola dokumentasi foto.</div></div><span class="pr12-status">${REV}</span></div><div class="pr12-toolbar"><input id="pr12-search" placeholder="Cari project atau PIC..."><button class="btn sm" id="pr12-refresh">↻ Refresh</button></div><div class="pr12-table-wrap"><table class="pr12-table"><thead><tr><th>Project</th><th>Total BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Material</th><th>Jasa</th><th>Overall</th><th>Aksi</th></tr></thead><tbody id="pr12-body"></tbody></table></div></div>`;
     sub.insertAdjacentElement('afterend',report);
 
     const boq=document.createElement('div');boq.id='pxl-project-boq';boq.innerHTML=`
@@ -117,24 +119,25 @@
     const totalBoq=list.reduce((s,r)=>s+n(r.total_boq),0),totalDone=list.reduce((s,r)=>s+n(r.total_done),0),overall=totalBoq?totalDone/totalBoq*100:0;
     if($('#pr12-total-project'))$('#pr12-total-project').textContent=list.length;if($('#pr12-total-boq'))$('#pr12-total-boq').textContent=fmt(totalBoq);if($('#pr12-total-done'))$('#pr12-total-done').textContent=fmt(totalDone);if($('#pr12-progress'))$('#pr12-progress').textContent=pct(overall);
     const body=$('#pr12-body');if(!body)return;if(!list.length){body.innerHTML='<tr><td colspan="9" class="pr12-empty">Belum ada project / BOQ belum diinput.</td></tr>';return}
-    body.innerHTML=list.map(r=>`<tr><td><div class="pr12-project">${h(r.nama_project||'-')}</div><div class="pr12-muted">PIC: ${h(r.pic||'-')} · ${(r.items||[]).length} detail</div></td><td class="pr12-num">${fmt(r.total_boq)}</td><td class="pr12-num">${fmt(r.today_achievement)}</td><td class="pr12-num">${fmt(r.total_done)}</td><td class="pr12-num">${fmt(r.remain)}</td><td>${bar(r.material_summary?.progress,'material')}</td><td>${bar(r.jasa_summary?.progress,'jasa')}</td><td>${bar(r.progress)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn sm" data-pr12-open="${h(r.id)}">Input Today</button><button class="btn sm" data-pr12-mr="${h(r.id)}">Material Request Project</button></div></td></tr>`).join('');
+    body.innerHTML=list.map(r=>`<tr><td><div class="pr12-project">${h(r.nama_project||'-')}</div><div class="pr12-muted">PIC: ${h(r.pic||'-')} · ${(r.items||[]).length} detail</div></td><td class="pr12-num">${fmt(r.total_boq)}</td><td class="pr12-num">${fmt(r.today_achievement)}</td><td class="pr12-num">${fmt(r.total_done)}</td><td class="pr12-num">${fmt(r.remain)}</td><td>${bar(r.material_summary?.progress,'material')}</td><td>${bar(r.jasa_summary?.progress,'jasa')}</td><td>${bar(r.progress)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn sm" data-pr12-open="${h(r.id)}">${canAchievement()?'Input Today':'Buka Report / Foto'}</button><button class="btn sm" data-pr12-mr="${h(r.id)}">Material Request Project</button></div></td></tr>`).join('');
     body.querySelectorAll('[data-pr12-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.pr12Open));
     body.querySelectorAll('[data-pr12-mr]').forEach(b=>b.onclick=()=>openProjectMaterialRequest(b.dataset.pr12Mr));
   }
-  function openReport(id){activeProjectId=id;const r=current();if(!r)return;$('#pr12-modal-title').textContent=r.nama_project||'Project Report';$('#pr12-modal-sub').textContent=`Total BOQ ${fmt(r.total_boq)} · read only · Done ${fmt(r.total_done)} · Remain ${fmt(r.remain)}`;setError('#pr12-error','');renderReportDetail();$('#pr12-modal').classList.add('show')}
-  function closeReport(){$('#pr12-modal')?.classList.remove('show');activeProjectId=null}
+  function openReport(id){activeProjectId=id;selectedPhotoIdsByItem.clear();const r=current();if(!r)return;$('#pr12-modal-title').textContent=r.nama_project||'Project Report';$('#pr12-modal-sub').textContent=`Total BOQ ${fmt(r.total_boq)} · read only · Done ${fmt(r.total_done)} · Remain ${fmt(r.remain)}`;setError('#pr12-error','');renderReportDetail();$('#pr12-modal').classList.add('show')}
+  function closeReport(){$('#pr12-modal')?.classList.remove('show');activeProjectId=null;selectedPhotoIdsByItem.clear()}
   function renderReportDetail(){
     const r=current();if(!r)return;$('#pr12-sum-mat').textContent=pct(r.material_summary?.progress);$('#pr12-sum-mat-sub').textContent=summaryText(r.material_summary);$('#pr12-sum-jasa').textContent=pct(r.jasa_summary?.progress);$('#pr12-sum-jasa-sub').textContent=summaryText(r.jasa_summary);$('#pr12-sum-all').textContent=pct(r.progress);$('#pr12-sum-all-sub').textContent=`${fmt(r.total_done)}/${fmt(r.total_boq)} · Remain ${fmt(r.remain)}`;
-    const items=r.items||[],wrap=$('#pr12-detail-wrap');const group=(cat,label)=>{const list=items.filter(i=>String(i.category).toLowerCase()===cat);return `<div class="pr12-section-title"><span>${label} <span class="pr12-muted">(${list.length})</span></span></div><div class="pr12-table-wrap"><table class="pr12-detail"><thead><tr><th>No</th><th>Nama</th><th>BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Progress</th><th>Status</th><th>Today Achievement</th><th>History</th></tr></thead><tbody>${list.length?list.map((i,idx)=>reportItemRow(i,idx,cat)).join(''):`<tr><td colspan="10" class="pr12-empty">BOQ ${label} belum diinput Manager.</td></tr>`}</tbody></table></div>${list.length?`<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:10px 0 18px"><span class="pr12-muted" id="pr12-dirty-${cat}"></span><button class="btn primary" data-pr12-save-group="${cat}">Simpan ${label}</button></div>`:''}`};wrap.innerHTML=group('material','Material')+group('jasa','Jasa')+`<div class="pr12-card" style="margin-top:14px"><div style="font-weight:800;margin-bottom:4px">Report Hari Ini</div><div class="pr12-muted" style="margin-bottom:10px">Semua Material dan Jasa tetap masuk ke report, termasuk item dengan Today = 0.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="pr15-copy-report">Copy Report WhatsApp</button><button class="btn" id="pr15-pdf-report">Download PDF</button></div></div>`;
+    const items=r.items||[],wrap=$('#pr12-detail-wrap');const group=(cat,label)=>{const list=items.filter(i=>String(i.category).toLowerCase()===cat);return `<div class="pr12-section-title"><span>${label} <span class="pr12-muted">(${list.length})</span></span></div><div class="pr12-table-wrap"><table class="pr12-detail"><thead><tr><th>No</th><th>Nama</th><th>BOQ</th><th>Today</th><th>Total Done</th><th>Remain</th><th>Progress</th><th>Status</th><th>Today Achievement</th><th>Foto</th><th>History</th></tr></thead><tbody>${list.length?list.map((i,idx)=>reportItemRow(i,idx,cat)).join(''):`<tr><td colspan="11" class="pr12-empty">BOQ ${label} belum diinput Manager.</td></tr>`}</tbody></table></div>${list.length&&canAchievement()?`<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:10px 0 18px"><span class="pr12-muted" id="pr12-dirty-${cat}"></span><button class="btn primary" data-pr12-save-group="${cat}">Simpan ${label}</button></div>`:''}`};wrap.innerHTML=group('material','Material')+group('jasa','Jasa')+`<div class="pr12-card" style="margin-top:14px"><div style="font-weight:800;margin-bottom:4px">Report Hari Ini</div><div class="pr12-muted" style="margin-bottom:10px">Semua Material dan Jasa tetap masuk ke report, termasuk item dengan Today = 0.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="pr15-copy-report">Copy Report WhatsApp</button><button class="btn" id="pr15-pdf-report">Download PDF</button></div></div>`;
     $('#pr15-copy-report').onclick=copyDailyReport;
     $('#pr15-pdf-report').onclick=downloadDailyReportPdf;
     wrap.querySelectorAll('.pr12-today').forEach(input=>input.addEventListener('input',()=>markDirty(input.dataset.pr12Category)));
-    wrap.querySelectorAll('[data-pr12-save-group]').forEach(b=>b.onclick=()=>saveAchievementGroup(b.dataset.pr12SaveGroup,b));wrap.querySelectorAll('[data-pr12-hist]').forEach(b=>b.onclick=()=>toggleHistory(b.dataset.pr12Hist));wrap.querySelectorAll('[data-pr12-override]').forEach(b=>b.onclick=()=>overrideMaterial(b.dataset.pr12Override));
+    wrap.querySelectorAll('[data-pr12-save-group]').forEach(b=>b.onclick=()=>saveAchievementGroup(b.dataset.pr12SaveGroup,b));wrap.querySelectorAll('[data-pr12-hist]').forEach(b=>b.onclick=()=>toggleHistory(b.dataset.pr12Hist));wrap.querySelectorAll('[data-pr12-photo]').forEach(b=>b.onclick=()=>openItemPhotos(b.dataset.pr12Photo));wrap.querySelectorAll('[data-pr12-override]').forEach(b=>b.onclick=()=>overrideMaterial(b.dataset.pr12Override));
   }
   function reportItemRow(i,idx,cat){
     const today=(i.achievements||[]).filter(a=>String(a.achievement_date).slice(0,10)===localDate()).reduce((s,a)=>s+n(a.achievement),0),material=cat==='material',remain=n(i.remain),available=n(i.available_for_use),max=material?Math.min(remain,available):remain,blocked=material&&available<=0;
     const ledger=material?`<div class="pr12-muted" style="margin-top:4px">MR Approved: <b>${fmt(i.mr_approved_qty)}</b> · Override: <b>${fmt(i.override_qty)}</b> · Available: <b>${fmt(available)}</b></div>${blocked?'<div class="pr12-muted" style="color:#b45309">Input Today Material diblok: belum ada sisa material MR Approved/Override.</div>':''}${role()==='superadmin'?`<button class="btn ghost sm" data-pr12-override="${h(i.id)}" style="margin-top:5px">Override Material</button>`:''}`:'';
-    return `<tr><td>${idx+1}</td><td><b>${h(i.item_name)}</b>${i.unit?`<div class="pr12-muted">Satuan: ${h(i.unit)}</div>`:''}${i.notes?`<div class="pr12-muted">${h(i.notes)}</div>`:''}${ledger}<div id="pr12-hist-${h(i.id)}"></div></td><td class="pr12-num pr12-readonly">${fmt(i.boq_qty)}</td><td class="pr12-num">${fmt(today)}</td><td class="pr12-num">${fmt(i.total_done)}</td><td class="pr12-num">${fmt(i.remain)}</td><td>${bar(i.progress,i.category==='material'?'material':'jasa')}</td><td><span class="pr12-status ${statusClass(i.status)}">${h(i.status)}</span></td><td><input class="pr12-today" data-pr12-category="${h(cat)}" data-pr12-item="${h(i.id)}" type="number" min="0" step="0.01" max="${max}" placeholder="0" ${max<=0?'disabled':''}></td><td><button class="btn ghost sm" data-pr12-hist="${h(i.id)}">Lihat</button></td></tr>`
+    const achievementInput=canAchievement()?`<input class="pr12-today" data-pr12-category="${h(cat)}" data-pr12-item="${h(i.id)}" type="number" min="0" step="0.01" max="${max}" placeholder="0" ${max<=0?'disabled':''}>`:'<span class="pr12-muted">—</span>';
+    return `<tr><td>${idx+1}</td><td><b>${h(i.item_name)}</b>${i.unit?`<div class="pr12-muted">Satuan: ${h(i.unit)}</div>`:''}${i.notes?`<div class="pr12-muted">${h(i.notes)}</div>`:''}${ledger}<div id="pr12-hist-${h(i.id)}"></div></td><td class="pr12-num pr12-readonly">${fmt(i.boq_qty)}</td><td class="pr12-num">${fmt(today)}</td><td class="pr12-num">${fmt(i.total_done)}</td><td class="pr12-num">${fmt(i.remain)}</td><td>${bar(i.progress,i.category==='material'?'material':'jasa')}</td><td><span class="pr12-status ${statusClass(i.status)}">${h(i.status)}</span></td><td>${achievementInput}</td><td><button class="btn ghost sm" data-pr12-photo="${h(i.id)}">📷 Foto${selectedPhotoIdsByItem.get(String(i.id))?.length?` (${selectedPhotoIdsByItem.get(String(i.id)).length})`:''}</button></td><td><button class="btn ghost sm" data-pr12-hist="${h(i.id)}">Lihat</button></td></tr>`
   }
   async function overrideMaterial(id){
     if(role()!=='superadmin')return;
@@ -149,8 +152,43 @@
       renderReportDetail();
     }catch(e){setError('#pr12-error',e.message||'Gagal menyimpan override material.')}
   }
+  function openItemPhotos(id){
+    const r=current();if(!r)return;
+    const item=(r.items||[]).find(x=>String(x.id)===String(id));if(!item)return;
+    if(!window.PXLProjectPhotos?.open){setError('#pr12-error','Modul foto Project belum siap. Refresh halaman lalu coba lagi.');return}
+    window.PXLProjectPhotos.open({
+      project:r,
+      item,
+      user:typeof currentUser!=='undefined'?currentUser:null,
+      selectedPhotoIds:[...(selectedPhotoIdsByItem.get(String(id))||[])],
+      onSelectionChange(ids){selectedPhotoIdsByItem.set(String(id),Array.isArray(ids)?ids.map(String):[]);renderReportDetail();}
+    });
+  }
   function markDirty(cat){const el=$(`#pr12-dirty-${CSS.escape(String(cat))}`);if(el){el.textContent='● Perubahan belum disimpan';el.style.color='#b45309'}}
-  async function saveAchievementGroup(cat,button){const inputs=[...document.querySelectorAll(`.pr12-today[data-pr12-category="${CSS.escape(String(cat))}"]`)].filter(x=>!x.disabled&&String(x.value).trim()!=='');if(!inputs.length){setError('#pr12-error',`Tidak ada Today Achievement ${cat==='material'?'Material':'Jasa'} yang perlu disimpan.`);return}const valid=[],invalid=[];for(const input of inputs){const value=Number(input.value),max=Number(input.max),id=input.dataset.pr12Item;if(!Number.isFinite(value)||value<=0||value>max){invalid.push(input);input.style.borderColor='#dc2626'}else{valid.push({input,id,value});input.style.borderColor=''}}if(!valid.length){setError('#pr12-error','Tidak ada nilai valid untuk disimpan. Pastikan achievement > 0 dan tidak melebihi Remain.');return}const original=button.textContent;button.disabled=true;button.textContent='Menyimpan...';let ok=0,failed=invalid.length;for(const row of valid){try{const u=await api('POST',`/project-report-items/${encodeURIComponent(row.id)}/achievements`,{achievement:row.value,achievement_date:localDate()});replace(u);ok++;row.input.value=''}catch(e){failed++;row.input.style.borderColor='#dc2626'}}button.disabled=false;button.textContent=original;renderReport();renderReportDetail();syncTrackerFromRows();if(failed){setError('#pr12-error',`${ok} data berhasil disimpan, ${failed} data gagal/invalid. Periksa baris yang ditandai.`)}else{setError('#pr12-error','');const el=$(`#pr12-dirty-${CSS.escape(String(cat))}`);if(el){el.textContent='✓ Semua perubahan berhasil disimpan';el.style.color='#15803d'}}}
+  async function saveAchievementGroup(cat,button){
+    if(!canAchievement()){setError('#pr12-error','Input Today hanya dapat dilakukan oleh Teknisi/Superadmin.');return}
+    const inputs=[...document.querySelectorAll(`.pr12-today[data-pr12-category="${CSS.escape(String(cat))}"]`)].filter(x=>!x.disabled&&String(x.value).trim()!=='');
+    if(!inputs.length){setError('#pr12-error',`Tidak ada Today Achievement ${cat==='material'?'Material':'Jasa'} yang perlu disimpan.`);return}
+    const valid=[],invalid=[];
+    for(const input of inputs){
+      const value=Number(input.value),max=Number(input.max),id=input.dataset.pr12Item;
+      const photoIds=selectedPhotoIdsByItem.get(String(id))||[];
+      const photoBtn=document.querySelector(`[data-pr12-photo="${CSS.escape(String(id))}"]`);
+      if(!Number.isFinite(value)||value<=0||value>max||!photoIds.length){invalid.push(input);input.style.borderColor='#dc2626';if(photoBtn&&!photoIds.length)photoBtn.style.borderColor='#dc2626'}
+      else{valid.push({input,id,value,photoIds:[...photoIds]});input.style.borderColor='';if(photoBtn)photoBtn.style.borderColor=''}
+    }
+    if(!valid.length){setError('#pr12-error','Tidak ada nilai valid untuk disimpan. Pastikan achievement > 0, tidak melebihi Remain, dan setiap item memiliki minimal 1 foto.');return}
+    const original=button.textContent;button.disabled=true;button.textContent='Menyimpan...';let ok=0,failed=invalid.length;
+    for(const row of valid){
+      try{
+        const u=await api('POST',`/project-report-items/${encodeURIComponent(row.id)}/achievements`,{achievement:row.value,achievement_date:localDate(),photo_ids:row.photoIds});
+        replace(u);ok++;row.input.value='';selectedPhotoIdsByItem.delete(String(row.id));
+      }catch(e){failed++;row.input.style.borderColor='#dc2626'}
+    }
+    button.disabled=false;button.textContent=original;renderReport();renderReportDetail();syncTrackerFromRows();
+    if(failed){setError('#pr12-error',`${ok} data berhasil disimpan, ${failed} data gagal/invalid. Pastikan setiap item memiliki foto dan periksa baris yang ditandai.`)}
+    else{setError('#pr12-error','');const el=$(`#pr12-dirty-${CSS.escape(String(cat))}`);if(el){el.textContent='✓ Semua perubahan berhasil disimpan';el.style.color='#15803d'}}
+  }
   function reportLastAchievement(r){
     const all=(r.items||[]).flatMap(i=>(i.achievements||[]).map(a=>({...a,item_id:i.id})));
     all.sort((a,b)=>String(b.created_at||b.achievement_date||'').localeCompare(String(a.created_at||a.achievement_date||'')));

@@ -3,8 +3,10 @@ const multer   = require('multer');
 const fs       = require('fs');
 const path     = require('path');
 const crypto   = require('crypto');
+const fetch    = require('node-fetch');
 const ExcelJS  = require('exceljs');
 const JSZip    = require('jszip');
+const archiver = require('archiver');
 const cfg      = require('./config');
 const db       = require('./db');
 const reportSvc = require('./report-service');
@@ -15,6 +17,7 @@ const { assessMaterialRequestStock } = require('./pxl-urg-0108-mr-stock-policy')
 const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./project-vnext-3a');
 const { normalizeProjectMrItems } = require('./project-vnext-3b');
 const { summarizeProjectMaterialLedger, normalizeProjectMaterialOverrideInput, checkProjectMaterialUsage } = require('./project-vnext-3c');
+const { normalizePhotoIds, validateProjectPhotoEvidence, isProjectPhotoUploadRole, isProjectPhotoDeleteRole, safeProjectPhotoFilename, projectPhotoDownloadFilename, projectPhotoZipFilename, projectPhotoZipEntryName } = require('./project-vnext-3d');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -56,6 +59,16 @@ function safeDocPart(value){ return String(value||'WO').normalize('NFKD').replac
 function cloudinarySignature(params){
   const raw=Object.keys(params).sort().map(k=>`${k}=${params[k]}`).join('&')+CLOUDINARY_API_SECRET;
   return crypto.createHash('sha1').update(raw).digest('hex');
+}
+async function destroyCloudinaryImage(publicId){
+  if(!cloudinaryReady()||!publicId)return false;
+  const timestamp=Math.floor(Date.now()/1000);
+  const params={public_id:String(publicId),timestamp};
+  const body=new URLSearchParams({public_id:String(publicId),timestamp:String(timestamp),api_key:CLOUDINARY_API_KEY,signature:cloudinarySignature(params)});
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/image/destroy`,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString(),timeout:30000});
+  if(!r.ok)throw new Error('Cloudinary cleanup HTTP '+r.status);
+  const data=await r.json();
+  return ['ok','not found'].includes(String(data.result||'').toLowerCase());
 }
 
 
@@ -1182,8 +1195,18 @@ function requireProjectBoqAccess(req,res,next){
 function canReadProjectReport(req){
   const user=req.session?.user||{};
   const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
-  return role==='technician'||role==='superadmin'||hasProjectBoqAccess(req);
+  return ['technician','manager','admin','superadmin'].includes(role)||hasProjectBoqAccess(req);
 }
+function canReadProjectPhotos(req){
+  const role=String(req.session?.user?.role||'').toLowerCase().replace(/[ _-]/g,'');
+  return ['technician','manager','admin','superadmin','sales'].includes(role)||hasProjectBoqAccess(req);
+}
+function requireProjectPhotoRead(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(!canReadProjectPhotos(req))return res.status(403).json({error:'Akses foto Project ditolak.'});
+  next();
+}
+
 function requireProjectReportRead(req,res,next){
   if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
   if(!canReadProjectReport(req)) return res.status(403).json({error:'Project Report hanya untuk Teknisi atau akun pengelola BOQ.'});
@@ -1195,6 +1218,12 @@ function requireProjectAchievementInput(req,res,next){
   if(!['technician','superadmin'].includes(role)) return res.status(403).json({error:'Today Achievement hanya dapat diinput oleh Teknisi.'});
   next();
 }
+function requireProjectPhotoUpload(req,res,next){
+  if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+  if(!isProjectPhotoUploadRole(req.session.user.role))return res.status(403).json({error:'Anda tidak memiliki izin upload foto Project.'});
+  next();
+}
+
 
 
 // PXL-VNEXT-3A — new Project management permissions default OFF for non-Superadmin.
@@ -1958,6 +1987,127 @@ app.delete('/api/project-report-items/:id', requireProjectBoqAccess, async (req,
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
+// PXL-VNEXT-3D — Project photo downloads
+app.get('/api/project-report-item-photos/:photoId/download', requireProjectPhotoRead, async (req,res)=>{
+  try{
+    const photo=await db.getProjectReportItemPhoto(req.params.photoId);
+    if(!photo)return res.status(404).json({error:'Foto Project tidak ditemukan.'});
+    const remote=await fetch(photo.secure_url,{timeout:45000});
+    if(!remote.ok)return res.status(502).json({error:'File foto Project tidak dapat diambil.'});
+    res.setHeader('Content-Type',remote.headers.get('content-type')||'image/jpeg');
+    res.setHeader('Content-Disposition',`attachment; filename="${projectPhotoDownloadFilename(photo)}"`);
+    remote.body.pipe(res);
+  }catch(e){if(!res.headersSent)res.status(500).json({error:e.message});else res.end();}
+});
+
+app.get('/api/project-report-items/:id/photos/download-all', requireProjectPhotoRead, async (req,res)=>{
+  try{
+    const [items,projects]=await Promise.all([db.getProjectReportItems(),db.getProjects()]);
+    const item=items.find(x=>String(x.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    const project=projects.find(x=>String(x.id)===String(item.project_id));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const photos=await db.getProjectReportItemPhotos({itemId:item.id});
+    if(!photos.length)return res.status(404).json({error:'Belum ada foto aktif untuk item ini.'});
+    const archive=archiver('zip',{zlib:{level:6}});
+    res.setHeader('Content-Type','application/zip');
+    res.setHeader('Content-Disposition',`attachment; filename="${projectPhotoZipFilename({projectNumber:project.project_number||project.id,itemId:item.id})}"`);
+    archive.pipe(res);
+    for(let i=0;i<photos.length;i++){
+      const photo=photos[i];
+      const remote=await fetch(photo.secure_url,{timeout:45000});
+      if(!remote.ok)throw new Error('Gagal mengambil foto '+photo.id);
+      archive.append(remote.body,{name:projectPhotoZipEntryName(photo,i)});
+    }
+    await archive.finalize();
+  }catch(e){if(!res.headersSent)res.status(500).json({error:e.message});else res.end();}
+});
+
+// PXL-VNEXT-3D — Project item photos
+app.get('/api/project-report-items/:id/photos', requireProjectPhotoRead, async (req,res)=>{
+  try{
+    const items=await db.getProjectReportItems();
+    const item=items.find(x=>String(x.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    const photos=await db.getProjectReportItemPhotos({itemId:item.id});
+    const links=photos.length?await db.getProjectReportAchievementPhotoLinks({photoIds:photos.map(x=>x.id)}):[];
+    const byPhoto=new Map();for(const l of links){const k=String(l.photo_id);if(!byPhoto.has(k))byPhoto.set(k,[]);byPhoto.get(k).push(l.achievement_id)}
+    res.json(photos.map(p=>({...p,achievement_ids:byPhoto.get(String(p.id))||[],evidence_count:(byPhoto.get(String(p.id))||[]).length})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/project-report-items/:id/photos/signature', requireProjectPhotoUpload, async (req,res)=>{
+  try{
+    if(!cloudinaryReady())return res.status(503).json({error:'Cloudinary belum dikonfigurasi.'});
+    const [items,projects]=await Promise.all([db.getProjectReportItems(),db.getProjects()]);
+    const item=items.find(x=>String(x.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    const project=projects.find(x=>String(x.id)===String(item.project_id));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const timestamp=Math.floor(Date.now()/1000);
+    const projectKey=safeProjectPhotoFilename(project.project_number||project.id);
+    const public_id=`pixelapps/project/${projectKey}/${item.id}/${timestamp}-${crypto.randomBytes(5).toString('hex')}`;
+    const params={public_id,timestamp};
+    res.json({cloud_name:CLOUDINARY_CLOUD_NAME,api_key:CLOUDINARY_API_KEY,timestamp,public_id,signature:cloudinarySignature(params),generated_filename:public_id.split('/').pop()});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
+app.post('/api/project-report-items/:id/photos', requireProjectPhotoUpload, async (req,res)=>{
+  let cleanupPublicId=null;
+  try{
+    const [items,projects]=await Promise.all([db.getProjectReportItems(),db.getProjects()]);
+    const item=items.find(x=>String(x.id)===String(req.params.id));
+    if(!item)return res.status(404).json({error:'Detail BOQ tidak ditemukan.'});
+    const project=projects.find(x=>String(x.id)===String(item.project_id));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    if(!req.body.secure_url||!req.body.cloudinary_public_id)return res.status(400).json({error:'Data upload Cloudinary tidak lengkap.'});
+    const projectKey=safeProjectPhotoFilename(project.project_number||project.id);
+    const expectedPrefix=`pixelapps/project/${projectKey}/${item.id}/`;
+    const publicId=String(req.body.cloudinary_public_id||'').trim();
+    if(!publicId.startsWith(expectedPrefix))return res.status(400).json({error:'Public ID Cloudinary tidak sesuai item Project.'});
+    let secureUrl;
+    try{secureUrl=new URL(String(req.body.secure_url));}catch(_){return res.status(400).json({error:'URL Cloudinary tidak valid.'});}
+    const expectedCloudPath=`/${CLOUDINARY_CLOUD_NAME}/image/upload/`;
+    if(secureUrl.protocol!=='https:'||secureUrl.hostname!=='res.cloudinary.com'||!secureUrl.pathname.startsWith(expectedCloudPath)||!decodeURIComponent(secureUrl.pathname).includes('/'+publicId+'.')) return res.status(400).json({error:'URL Cloudinary tidak sesuai akun/item Project.'});
+    cleanupPublicId=publicId;
+    const invalid=(message)=>{const err=new Error(message);err.statusCode=400;throw err;};
+    const latitude=Number(req.body.latitude),longitude=Number(req.body.longitude);
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude))invalid('GPS foto Project wajib valid.');
+    const source=String(req.body.source_type||'').toLowerCase();
+    if(!['camera','gallery'].includes(source))invalid('Sumber foto Project tidak valid.');
+    const semantics=String(req.body.time_semantics||'').toLowerCase();
+    const expected=source==='camera'?'documentation':'upload';
+    if(!['documentation','upload'].includes(semantics)||semantics!==expected)invalid('Semantik waktu foto tidak sesuai sumber.');
+    const evidenceDate=new Date(req.body.evidence_time||Date.now());
+    if(Number.isNaN(evidenceDate.getTime()))invalid('Waktu foto Project tidak valid.');
+    const saved=await db.insertProjectReportItemPhoto({
+      project_id:item.project_id,project_report_item_id:item.id,secure_url:secureUrl.toString(),cloudinary_public_id:cleanupPublicId,
+      original_filename:req.body.original_filename?String(req.body.original_filename):null,generated_filename:req.body.generated_filename?String(req.body.generated_filename):null,
+      source_type:source,project_number_snapshot:String(project.project_number||project.id),latitude,longitude,address_text:String(req.body.address_text||'Alamat tidak tersedia'),
+      location_label:req.body.location_label?String(req.body.location_label):null,evidence_time:evidenceDate.toISOString(),time_semantics:semantics,
+      uploaded_by_user_id:String(req.session.user.id||''),uploaded_by:req.session.user.name,uploaded_at:new Date().toISOString()
+    });
+    cleanupPublicId=null;
+    logActivity(req,'project','UPLOAD FOTO PROJECT',`${project.project_number||project.id} · ${item.id}`);
+    res.status(201).json(saved);
+  }catch(e){
+    if(cleanupPublicId){try{await destroyCloudinaryImage(cleanupPublicId)}catch(cleanErr){db.insertLog({category:'project',action:'CLOUDINARY CLEANUP GAGAL',user:req.session?.user?.name||'System',detail:cleanupPublicId+' · '+cleanErr.message,ip:req.ip||''}).catch(()=>{})}}
+    res.status(e.statusCode||e.status||500).json({error:e.message});
+  }
+});
+
+app.delete('/api/project-report-items/:id/photos/:photoId', requireProjectPhotoRead, async (req,res)=>{
+  try{
+    if(!isProjectPhotoDeleteRole(req.session?.user?.role))return res.status(403).json({error:'Hapus foto Project hanya untuk Admin/Superadmin.'});
+    const photo=await db.getProjectReportItemPhoto(req.params.photoId,{includeDeleted:true});
+    if(!photo||String(photo.project_report_item_id)!==String(req.params.id))return res.status(404).json({error:'Foto Project tidak ditemukan.'});
+    if(photo.deleted_at)return res.json({ok:true,already_deleted:true});
+    const saved=await db.softDeleteProjectReportItemPhoto(photo.id,{deleted_at:new Date().toISOString(),deleted_by_user_id:String(req.session.user.id||''),deleted_by:req.session.user.name});
+    logActivity(req,'project','HAPUS FOTO PROJECT',`${photo.project_number_snapshot||photo.project_id} · ${photo.id}`);
+    res.json({ok:true,photo:saved});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get('/api/project-report-items/:id/material-overrides', requireProjectReportRead, async (req,res)=>{
   try{
     const all=await db.getProjectReportItems();
@@ -2021,8 +2171,21 @@ app.post('/api/project-report-items/:id/achievements', requireProjectAchievement
       const usage=checkProjectMaterialUsage({itemName:item.item_name,mrApprovedQty:usageState.mr_approved_qty,usageLimit:usageState.usage_limit,totalDone:done,requestedToday:achievement});
       if(!usage.ok)return res.status(400).json({error:usage.message});
     }
-    await db.insertProjectReportItemAchievement({item_id:req.params.id,achievement_date:String(req.body.achievement_date||new Date().toISOString().slice(0,10)),achievement,notes:req.body.notes?String(req.body.notes).trim():null,created_by:req.session.user.name});
-    logActivity(req,'project','TAMBAH ACHIEVEMENT ITEM',`${item.item_name}: +${achievement}`);
+    const photoIds=normalizePhotoIds(req.body.photo_ids);
+    if(!photoIds.length)return res.status(400).json({error:'Minimal 1 foto Project wajib dipilih untuk Input Today.'});
+    const photos=await db.getProjectReportItemPhotos({itemId:item.id});
+    const evidence=validateProjectPhotoEvidence({itemId:item.id,photoIds,photos});
+    if(!evidence.ok)return res.status(400).json({error:evidence.error});
+    await db.createProjectReportItemAchievementWithPhotos({
+      itemId:item.id,
+      achievementDate:String(req.body.achievement_date||new Date().toISOString().slice(0,10)),
+      achievement,
+      notes:req.body.notes?String(req.body.notes).trim():null,
+      actor:req.session.user.name,
+      actorId:String(req.session.user.id||''),
+      photoIds:evidence.photoIds
+    });
+    logActivity(req,'project','TAMBAH ACHIEVEMENT ITEM',`${item.item_name}: +${achievement} · ${evidence.photoIds.length} foto`);
     res.status(201).json((await buildProjectReportRows()).find(r=>String(r.id)===String(item.project_id)));
   }catch(e){ res.status(500).json({error:e.message}); }
 });

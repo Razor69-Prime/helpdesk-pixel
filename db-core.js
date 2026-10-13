@@ -936,6 +936,57 @@ async function deleteProjectReportItemAchievement(id){
   await restFetch('DELETE',`/project_report_item_achievements?id=eq.${encodeURIComponent(id)}`);
 }
 
+
+// PXL-VNEXT-3D — PROJECT ITEM PHOTOS
+async function getProjectReportItemPhotos({projectId=null,itemId=null,includeDeleted=false}={}){
+  if(!USE_POSTGREST) return [];
+  let q='/project_report_item_photos?order=uploaded_at.desc,created_at.desc';
+  if(projectId) q+=`&project_id=eq.${encodeURIComponent(projectId)}`;
+  if(itemId) q+=`&project_report_item_id=eq.${encodeURIComponent(itemId)}`;
+  if(!includeDeleted) q+='&deleted_at=is.null';
+  return await restFetch('GET',q)||[];
+}
+async function getProjectReportItemPhoto(id,{includeDeleted=false}={}){
+  if(!USE_POSTGREST) return null;
+  let q=`/project_report_item_photos?id=eq.${encodeURIComponent(id)}&limit=1`;
+  if(!includeDeleted) q+='&deleted_at=is.null';
+  const rows=await restFetch('GET',q)||[];
+  return rows[0]||null;
+}
+async function insertProjectReportItemPhoto(data){
+  const entry={id:require('crypto').randomUUID(),...data,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(!USE_POSTGREST) return entry;
+  const rows=await restFetch('POST','/project_report_item_photos',entry);
+  return rows?.[0]||entry;
+}
+async function softDeleteProjectReportItemPhoto(id,patch){
+  const data={...patch,updated_at:new Date().toISOString()};
+  if(!USE_POSTGREST) return {id,...data};
+  const rows=await restFetch('PATCH',`/project_report_item_photos?id=eq.${encodeURIComponent(id)}`,data);
+  return rows?.[0]||{id,...data};
+}
+async function getProjectReportAchievementPhotoLinks({achievementId=null,photoIds=[]}={}){
+  if(!USE_POSTGREST) return [];
+  let q='/project_report_achievement_photos?order=created_at.asc';
+  if(achievementId) q+=`&achievement_id=eq.${encodeURIComponent(achievementId)}`;
+  const ids=(Array.isArray(photoIds)?photoIds:[]).map(x=>String(x||'').trim()).filter(Boolean);
+  if(ids.length) q+=`&photo_id=in.(${ids.map(encodeURIComponent).join(',')})`;
+  return await restFetch('GET',q)||[];
+}
+async function createProjectReportItemAchievementWithPhotos({itemId,achievementDate,achievement,notes,actor,actorId,photoIds}){
+  if(!USE_POSTGREST) return {id:require('crypto').randomUUID(),item_id:itemId,achievement_date:achievementDate,achievement,notes,created_by:actor,photo_ids:photoIds};
+  const out=await restFetch('POST','/rpc/pxl_vnext_3d_create_project_achievement_with_photos',{
+    p_item_id:itemId,
+    p_achievement:achievement,
+    p_achievement_date:achievementDate,
+    p_notes:notes||null,
+    p_actor:actor||'System',
+    p_actor_id:actorId||null,
+    p_photo_ids:photoIds
+  });
+  return Array.isArray(out)?(out[0]??null):out;
+}
+
 // ─────────────────────────────────────────
 //  SUPPLIERS
 // ─────────────────────────────────────────
@@ -1509,6 +1560,7 @@ module.exports = {
   getProjectMaterialRequests, getProjectMaterialRequest, createProjectMaterialRequest, replaceProjectMaterialRequestItems, transitionProjectMaterialRequest, applyProjectMaterialRequestMovement, getProjectMaterialRequestItemsByRequestIds, getProjectMaterialOverrides, insertProjectMaterialOverride,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,
   getProjectReportItems, insertProjectReportItem, updateProjectReportItem, deleteProjectReportItem, getProjectReportItemAchievements, insertProjectReportItemAchievement, updateProjectReportItemAchievement, deleteProjectReportItemAchievement,
+  getProjectReportItemPhotos, getProjectReportItemPhoto, insertProjectReportItemPhoto, softDeleteProjectReportItemPhoto, getProjectReportAchievementPhotoLinks, createProjectReportItemAchievementWithPhotos,
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
   getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem, mergeInventoryDuplicatesBulk,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
