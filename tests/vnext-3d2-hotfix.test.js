@@ -18,9 +18,9 @@ function mrInternals(){
   return sandbox.window.__pxlMrTest;
 }
 
-test('manual MR reuses an empty BOQ placeholder instead of leaving a blocking row',()=>{
-  assert.match(mr,/function isEmptyBoqPlaceholder\(/);
-  assert.match(mr,/findIndex\(isEmptyBoqPlaceholder\)/);
+test('manual MR removes incomplete BOQ rows before adding manual material',()=>{
+  assert.match(mr,/function isIncompleteBoqRow\(/);
+  assert.match(mr,/state\.editorItems=state\.editorItems\.filter\(item=>!isIncompleteBoqRow\(item\)\)/);
   assert.match(mr,/source_type:'manual'/);
 });
 
@@ -58,9 +58,9 @@ test('Project photo watermark renders as a lighter footer overlay',()=>{
 });
 
 test('3D2 browser assets are cache-busted',()=>{
-  assert.match(mr,/PXL-VNEXT-3D2/);
+  assert.match(mr,/PXL-VNEXT-3D3/);
   assert.match(photos,/PXL-VNEXT-3D2/);
   assert.match(index,/pxl-vnext-3d-project-photos\.js\?v=PXL-VNEXT-3D2/);
-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D2/);
-  assert.match(sw,/pixelapps-inv1-v116/);
+  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D3/);
+  assert.match(sw,/pixelapps-inv1-v117/);
 });
