@@ -12,18 +12,19 @@ test('BOQ selector shows material name only without embedding BOQ qty in option 
 test('BOQ editor fast-searches BOQ only and does not map Inventory during request entry',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory/);
   assert.doesNotMatch(ui,/data-v3b-boq-inv/);
-  assert.match(ui,/data-v3b-boq-search/);
-  assert.match(ui,/Cari material BOQ Project/);
+  assert.match(ui,/data-v3b-material-search/);
+  assert.match(ui,/Cari BOQ atau ketik material manual/);
   assert.match(ui,/filterBoqForQuery/);
 });
 
 test('Phase 3C removes Inventory fast search from active Project MR browser',()=>{
   assert.doesNotMatch(ui,/data-v3b-take-inventory-search|selectTakeInventoryResult|inventory_item_id/);
-  assert.match(ui,/data-v3b-boq-search/);
+  assert.match(ui,/data-v3b-material-search/);
 });
 
 test('submit validation does not require Inventory for BOQ items',()=>{
   assert.doesNotMatch(ui,/Mapping Inventory untuk BOQ/);
   assert.doesNotMatch(ui,/Pilih barang Inventory untuk BOQ baris/);
-  assert.match(ui,/Pilih BOQ Project pada baris/);
+  assert.match(ui,/project_boq_item_id/);
+  assert.match(ui,/source_type:'manual'/);
 });

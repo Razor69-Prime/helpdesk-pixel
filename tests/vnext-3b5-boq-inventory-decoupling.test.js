@@ -16,8 +16,8 @@ test('BOQ MR can be submitted without inventory_item_id',()=>{
 });
 
 test('draft BOQ editor fast-searches BOQ only and does not ask for Inventory',()=>{
-  assert.match(ui,/data-v3b-boq-search/);
-  assert.match(ui,/Cari material BOQ Project/);
+  assert.match(ui,/data-v3b-material-search/);
+  assert.match(ui,/Cari BOQ atau ketik material manual/);
   assert.doesNotMatch(ui,/Cari BOQ \/ barang Inventory/);
   assert.doesNotMatch(ui,/sebelum diajukan/);
 });

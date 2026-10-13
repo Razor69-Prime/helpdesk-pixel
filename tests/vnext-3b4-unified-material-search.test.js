@@ -5,10 +5,10 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const ui=fs.readFileSync(path.join(root,'public/pxl-vnext-3b-project-mr.js'),'utf8');
 
-test('Project MR uses one BOQ fast-search control during Draft',()=>{
-  assert.match(ui,/data-v3b-boq-search/);
-  assert.match(ui,/Cari material BOQ Project/i);
-  assert.doesNotMatch(ui,/data-v3b-material-search/);
+test('Project MR uses one material fast-search control with BOQ suggestions and manual fallback',()=>{
+  assert.match(ui,/data-v3b-material-search/);
+  assert.match(ui,/Cari BOQ atau ketik material manual/i);
+  assert.doesNotMatch(ui,/data-v3b-add-manual|data-v3b-add-boq/);
   assert.doesNotMatch(ui,/Mapping Inventory/);
 });
 

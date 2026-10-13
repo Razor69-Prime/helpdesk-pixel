@@ -9,19 +9,19 @@ const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
 
 test('Project MR browser revision is current 3D1 hotfix and cache is bumped',()=>{
-  assert.match(ui,/PXL-VNEXT-3D3/);
-  assert.match(ui,/const REV='PXL-VNEXT-3D3'/);
-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D3/);
-  assert.match(sw,/pixelapps-inv1-v117/);
+  assert.match(ui,/PXL-VNEXT-3D4/);
+  assert.match(ui,/const REV='PXL-VNEXT-3D4'/);
+  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
+  assert.match(sw,/pixelapps-inv1-v118/);
 });
 
 test('Draft and Rejected editor supports BOQ or manual material without Inventory flow',()=>{
-  assert.match(ui,/data-v3b-boq-search/);
-  assert.match(ui,/Cari material BOQ Project/);
-  assert.match(ui,/Tambah Item Manual/);
+  assert.match(ui,/data-v3b-material-search/);
+  assert.match(ui,/Cari BOQ atau ketik material manual/);
+  assert.match(ui,/＋ Tambah Item/);
   assert.match(ui,/source_type:'manual'/);
   assert.match(ui,/Qty Requested/);
-  assert.match(ui,/Tambah dari BOQ Project/);
+  assert.doesNotMatch(ui,/Tambah dari BOQ Project|Tambah Item Manual/);
   assert.doesNotMatch(ui,/inventory_extra|Tambah Material di Luar BOQ|data-v3b-inv=|Pilih Inventory/);
 });
 

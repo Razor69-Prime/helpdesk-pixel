@@ -24,10 +24,11 @@ test('project identity and MR number come from API and browser never invents MRP
   assert.doesNotMatch(s,/MRP-PRJ-[^'"`]*padStart|nextMr|mrSequence/i);
 });
 
-test('Draft/Rejected editor is BOQ Material only with positive qty',()=>{
+test('Draft/Rejected editor supports unified BOQ search with manual fallback and positive qty',()=>{
   const s=src();
   assert.match(s,/BOQ Project/);
-  assert.match(s,/Tambah dari BOQ Project/);
+  assert.match(s,/Cari BOQ atau ketik material manual/);
+  assert.match(s,/＋ Tambah Item/);
   assert.match(s,/qty_requested/);
   assert.match(s,/Number\.isFinite\(qty\).*qty<=0/s);
   assert.doesNotMatch(s,/inventory_extra|additional_reason|Tambah Material di Luar BOQ/);
@@ -52,12 +53,12 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
 });
 
 test('current Project MR script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D3"/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4"/);
 });
 
 test('BOQ item uses BOQ fast search with no Inventory selection in active flow',()=>{
   const s=src();
-  assert.match(s,/data-v3b-boq-search/);
+  assert.match(s,/data-v3b-material-search/);
   assert.match(s,/filterBoqForQuery/);
   assert.doesNotMatch(s,/data-v3b-take-inventory-search|filterInventoryForQuery|data-v3b-boq-inv|Mapping Inventory/);
 });
