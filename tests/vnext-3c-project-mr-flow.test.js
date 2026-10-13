@@ -12,11 +12,12 @@ function route(method,url){
   const next=server.indexOf('\napp.',start+10); return server.slice(start,next<0?server.length:next);
 }
 
-test('Phase 3C MR normalizer accepts BOQ material payload only and rejects inventory_extra',()=>{
+test('current MR normalizer accepts BOQ and manual material while rejecting inventory_extra',()=>{
   assert.deepEqual(normalizeProjectMrItems([{source_type:'boq',project_boq_item_id:'boq-1',qty_requested:'2',item_name:'Kamera',unit:'pcs'}],{requireItems:true}),[
     {source_type:'boq',project_boq_item_id:'boq-1',item_name:'Kamera',unit:'pcs',qty_requested:2,sort_order:0}
   ]);
-  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',inventory_item_id:'inv-1',qty_requested:1,additional_reason:'tambahan'}]),/BOQ|sumber/i);
+  assert.deepEqual(normalizeProjectMrItems([{source_type:'manual',item_name:'Material Manual',unit:'pcs',qty_requested:2}]),[{source_type:'manual',project_boq_item_id:null,item_name:'Material Manual',unit:'pcs',qty_requested:2,sort_order:0}]);
+  assert.throws(()=>normalizeProjectMrItems([{source_type:'inventory_extra',inventory_item_id:'inv-1',qty_requested:1,additional_reason:'tambahan'}]),/BOQ|Manual|sumber/i);
   assert.throws(()=>normalizeProjectMrItems([{source_type:'boq',qty_requested:1}]),/BOQ/i);
 });
 
