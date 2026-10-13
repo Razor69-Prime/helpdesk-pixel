@@ -27,14 +27,15 @@ test('Project MR normalizer accepts explicit manual material without BOQ identit
   assert.throws(()=>normalizeProjectMrItems([{source_type:'manual',item_name:'',qty_requested:1}],{requireItems:true}),/nama material manual/i);
 });
 
-test('Project MR UI exposes manual material row and keeps it when reopening draft',()=>{
-  assert.match(mrUi,/Tambah Item Manual/);
+test('Project MR UI keeps manual material support through the unified picker and draft reload',()=>{
+  assert.match(mrUi,/data-v3b-material-search/);
   assert.match(mrUi,/source_type:'manual'/);
-  assert.match(mrUi,/data-v3b-manual-name/);
-  assert.match(mrUi,/data-v3b-manual-unit/);
-  assert.match(mrUi,/Manual · tidak menambah ledger Input Today/i);
+  assert.match(mrUi,/data-v3b-unit/);
+  assert.match(mrUi,/nama material manual|material manual/i);
+  assert.doesNotMatch(mrUi,/Tambah Item Manual|data-v3b-manual-name/);
   const load=block(mrUi,'async function loadDetail(requestId){','async function refresh(){');
-  assert.match(load,/i\.source_type==='boq'[\s\S]*source_type:'manual'/);
+  assert.match(load,/source_type:i\.source_type==='boq'\?'boq':'manual'/);
+  assert.match(load,/boq_search:i\.item_name_snapshot/);
 });
 
 test('Project MR server validation allows manual rows while BOQ rows remain exact-project validated',()=>{
