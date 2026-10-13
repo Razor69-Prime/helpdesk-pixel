@@ -1,7 +1,7 @@
-/* PXL-VNEXT-3D1 — Project Material Request manual-item hotfix */
+/* PXL-VNEXT-3D2 — Project Material Request manual placeholder hotfix */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3D1';
+  const REV='PXL-VNEXT-3D2';
   const state={projectId:null,requestId:null,project:null,catalog:null,list:[],detail:null,editorItems:[],busy:false};
   const $=s=>document.querySelector(s);
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -80,6 +80,13 @@
     item.project_boq_item_id=null;item.item_name=null;item.unit=null;item.boq_search='';renderDetail();
     setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${index}"]`)?.focus(),0);
   }
+  function isEmptyBoqPlaceholder(item){
+    return String(item?.source_type||'').toLowerCase()==='boq'
+      && !item?.project_boq_item_id
+      && !String(item?.boq_search||'').trim()
+      && !String(item?.item_name||'').trim()
+      && !String(item?.unit||'').trim();
+  }
 
   function editorRow(item,index){
     const materialCell=item.source_type==='manual'
@@ -134,14 +141,15 @@
     document.querySelectorAll('[data-v3b-qty]').forEach(inp=>inp.oninput=()=>state.editorItems[Number(inp.dataset.v3bQty)].qty_requested=inp.value);
     document.querySelectorAll('[data-v3b-remove]').forEach(btn=>btn.onclick=()=>{state.editorItems.splice(Number(btn.dataset.v3bRemove),1);renderDetail()});
     $('#pxl-v3b-add-boq').onclick=()=>{state.editorItems.push({source_type:'boq',project_boq_item_id:null,boq_search:'',qty_requested:1,item_name:null,unit:null});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-boq-search="${state.editorItems.length-1}"]`)?.focus(),0)};
-    $('#pxl-v3b-add-manual').onclick=()=>{state.editorItems.push({source_type:'manual',project_boq_item_id:null,qty_requested:1,item_name:'',unit:''});renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-manual-name="${state.editorItems.length-1}"]`)?.focus(),0)};
+    $('#pxl-v3b-add-manual').onclick=()=>{const emptyIndex=state.editorItems.findIndex(isEmptyBoqPlaceholder);const manual={source_type:'manual',project_boq_item_id:null,qty_requested:1,item_name:'',unit:''};const focusIndex=emptyIndex>=0?emptyIndex:state.editorItems.length;if(emptyIndex>=0)state.editorItems[emptyIndex]=manual;else state.editorItems.push(manual);renderDetail();setTimeout(()=>document.querySelector(`[data-v3b-manual-name="${focusIndex}"]`)?.focus(),0)};
     $('#pxl-v3b-save').onclick=()=>saveItems(false);
     $('#pxl-v3b-submit').onclick=()=>saveItems(true);
   }
 
   function validatedEditorItems(){
-    if(!state.editorItems.length)throw new Error('Minimal satu item MR Project wajib diisi.');
-    return state.editorItems.map((item,index)=>{
+    const rows=state.editorItems.filter(item=>!isEmptyBoqPlaceholder(item));
+    if(!rows.length)throw new Error('Minimal satu item MR Project wajib diisi.');
+    return rows.map((item,index)=>{
       const qty=Number(item.qty_requested);if(!Number.isFinite(qty)||qty<=0)throw new Error(`Qty item baris ${index+1} harus lebih dari 0.`);
       if(item.source_type==='manual'){
         const name=String(item.item_name||'').trim();if(!name)throw new Error(`Nama material manual baris ${index+1} wajib diisi.`);
