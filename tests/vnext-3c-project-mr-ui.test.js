@@ -9,10 +9,10 @@ const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
 
 test('Project MR browser revision is current 3D1 hotfix and cache is bumped',()=>{
-  assert.match(ui,/PXL-VNEXT-3D1/);
-  assert.match(ui,/const REV='PXL-VNEXT-3D1'/);
-  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D1/);
-  assert.match(sw,/pixelapps-inv1-v115/);
+  assert.match(ui,/PXL-VNEXT-3D2/);
+  assert.match(ui,/const REV='PXL-VNEXT-3D2'/);
+  assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D2/);
+  assert.match(sw,/pixelapps-inv1-v116/);
 });
 
 test('Draft and Rejected editor supports BOQ or manual material without Inventory flow',()=>{
