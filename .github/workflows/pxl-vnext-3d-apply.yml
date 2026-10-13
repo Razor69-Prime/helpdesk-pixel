@@ -1,0 +1,67 @@
+name: Apply PXL-VNEXT-3D verified source
+
+on:
+  push:
+    branches: [pxl-vnext-3d]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verified-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: pxl-vnext-3d
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Download verified patch
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --connect-timeout 15 \
+            'https://internal.pixelsolusindo.com/downloads/PXL-VNEXT-3D-c8c0317adac6.patch' \
+            -o /tmp/PXL-VNEXT-3D.patch
+          test "$(stat -c %s /tmp/PXL-VNEXT-3D.patch)" = "176051"
+          echo '16da4424129c8758ac0ea6ab268a59d1ac5adc0d60fea3d31b3729f61c38a496  /tmp/PXL-VNEXT-3D.patch' | sha256sum -c -
+
+      - name: Apply source patch
+        run: |
+          set -euo pipefail
+          git apply --check --binary /tmp/PXL-VNEXT-3D.patch
+          git apply --binary /tmp/PXL-VNEXT-3D.patch
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Full regression
+        run: node --test tests/*.test.js
+
+      - name: Syntax and asset checks
+        run: |
+          set -euo pipefail
+          node --check project-vnext-3d.js
+          node --check db-core.js
+          node --check server.js
+          node --check public/pxl-vnext-3d-project-photos.js
+          node --check public/pxl-stg-0016-project-report.js
+          node --check ops/backup/cloudinary-backup.js
+          node --check ops/backup/cloudinary-backup-lib.js
+          echo '028b5260ce1dfbee6a42fc9e4e9a984333cb12e0f7798f7193c805bf804488db  public/assets/pxl-vnext-3d-watermark-logo.png' | sha256sum -c -
+          git diff --check
+
+      - name: Commit verified source and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/pxl-vnext-3d-apply.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: PXL-VNEXT-3D project item photos'
+          git push origin HEAD:pxl-vnext-3d
