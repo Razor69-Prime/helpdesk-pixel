@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports=function installLeaveApi(app,{db,requireAuth,logActivity}){
+  // API extension phase: lightweight PR detail is registered separately to keep server.js untouched.
+  require('./pxl-perf-prjt1-api')(app,{db,requireAuth});
   const norm=v=>String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   const hrRoles=new Set(['manager','admin','superadmin']);
   const user=req=>req.session.user;
