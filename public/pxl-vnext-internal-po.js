@@ -150,7 +150,7 @@
   }
   function openPurchaseRequestPicker(){
     if(state.data?.can_manage!==true)return;
-    const modal=createSourceModal('Pilih Purchase Request','PR Number · requester/outlet · status. Semua item baru dari PR terpilih akan diautofill dan tetap editable.');
+    const modal=createSourceModal('Pilih Purchase Request','PR Number · ringkasan pengadaan · requester/outlet · status. Semua item baru dari PR terpilih akan diautofill dan tetap editable.');
     const input=modal.querySelector('#pxl-ipo-source-search'),results=modal.querySelector('#pxl-ipo-source-results'),error=modal.querySelector('#pxl-ipo-source-error');
     input.placeholder='Cari nomor PR, requester, atau outlet...';let timer=null,seq=0,rows=[];
     async function searchPurchaseRequests(query){
@@ -158,7 +158,7 @@
       try{
         const out=await api('GET',`/projects/${encodeURIComponent(state.projectId)}/internal-po/purchase-requests?q=${encodeURIComponent(String(query||'').trim())}&limit=30`);
         if(my!==seq)return;rows=Array.isArray(out)?out:[];
-        results.innerHTML=rows.length?rows.map((pr,i)=>`<button type="button" class="pxl-ipo-source-option" data-ipo-pr-option="${i}"><b>${h(pr.pr_number||'PR')}</b><div class="pxl-ipo-note">${h(pr.pr_date||'-')} · ${h(pr.requester||pr.outlet||'-')} · ${h(pr.status||'-')} · ${(Array.isArray(pr.items)?pr.items.length:0)} item</div></button>`).join(''):'<div class="pxl-ipo-note">Purchase Request tidak ditemukan.</div>';
+        results.innerHTML=rows.length?rows.map((pr,i)=>{const items=Array.isArray(pr.items)?pr.items:[];const first=items[0]||{};const label=String(first.desc??first.item_name??first.name??'').trim();return `<button type="button" class="pxl-ipo-source-option" data-ipo-pr-option="${i}"><b>${h(pr.pr_number||'PR')}</b><div style="font-weight:600;margin-top:2px">${h(label?`Pengadaan ${label}`:'Pengadaan barang')}</div><div class="pxl-ipo-note">${h(pr.pr_date||'-')} · ${h(pr.requester||pr.outlet||'-')} · ${h(pr.status||'-')} · ${items.length} item</div></button>`}).join(''):'<div class="pxl-ipo-note">Purchase Request tidak ditemukan.</div>';
         results.querySelectorAll('[data-ipo-pr-option]').forEach(btn=>btn.onclick=()=>{const pr=rows[Number(btn.dataset.ipoPrOption)];const added=importPurchaseRequest(pr);closeSourceModal();if(!added)alert('Semua item dari PR ini sudah ada di Internal PO. Edit yang sudah ada tetap dipertahankan.');});
       }catch(e){if(my===seq){results.innerHTML='';error.innerHTML=`<div class="pxl-ipo-error">${h(e.message||'Gagal mencari Purchase Request.')}</div>`;}}
     }
