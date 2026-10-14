@@ -90,8 +90,14 @@
 
   async function directExportPRPDF(id){
     try{
-      const p=(typeof prData!=='undefined'&&Array.isArray(prData))?prData.find(x=>x.id===id):null;
+      let p=(typeof prData!=='undefined'&&Array.isArray(prData))?prData.find(x=>x.id===id):null;
       if(!p){alert('PR tidak ditemukan.');return;}
+      // PXL-PERF-PRJT1 — list PR intentionally excludes large signature blobs.
+      // Fetch the full single row only when a signed PDF is actually requested.
+      try{
+        const full=await api('GET','/purchase-requests/'+encodeURIComponent(id));
+        if(full){p=full;const idx=prData.findIndex(x=>x.id===id);if(idx>=0)prData[idx]=full;}
+      }catch(e){alert('Gagal memuat detail PR untuk PDF: '+(e?.message||e));return;}
       const jsPDF=window.jspdf?.jsPDF;if(!jsPDF){alert('Library PDF belum siap. Silakan refresh halaman.');return;}
       if(!logoData) await preloadLogo();
       const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
