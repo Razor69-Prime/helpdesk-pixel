@@ -8,6 +8,7 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 const cfg    = require('./config');
+const {deriveInternalPoItemStatus,deriveInternalPoOverallStatus,calculateInternalPoTotals}=require('./project-internal-po');
 
 const USE_POSTGREST = cfg.POSTGREST_URL && !cfg.POSTGREST_URL.includes('GANTI');
 
@@ -667,6 +668,73 @@ async function updateProject(id,data){
 async function deleteProject(id){
   if(!USE_POSTGREST) return;
   await restFetch('DELETE',`/projects?id=eq.${id}`);
+}
+
+// PXL-VNEXT-IPO1 — Project Internal PO monitoring adapters
+async function getProjectInternalPo(projectId){
+  if(!projectId) return {header:null,items:[],overall_status:'Belum Ada Item',totals:{line_totals:[],grand_total:0,priced_item_count:0},counts:{total_items:0,arrived:0,partial_pending:0,issues:0}};
+  if(!USE_POSTGREST) return {header:null,items:[],overall_status:'Belum Ada Item',totals:{line_totals:[],grand_total:0,priced_item_count:0},counts:{total_items:0,arrived:0,partial_pending:0,issues:0}};
+  const enc=encodeURIComponent(projectId);
+  const [headers,rows]=await Promise.all([
+    restFetch('GET',`/project_internal_po?project_id=eq.${enc}&limit=1`),
+    restFetch('GET',`/project_internal_po_items?project_id=eq.${enc}&deleted_at=is.null&order=sort_order.asc,created_at.asc`)
+  ]);
+  const items=(rows||[]).map((row,index)=>{
+    const display_status=deriveInternalPoItemStatus(row);
+    const total=calculateInternalPoTotals([row]).line_totals[0];
+    return {...row,display_status,line_total:total,sort_order:Number(row.sort_order??index)};
+  });
+  const totals=calculateInternalPoTotals(items);
+  const statuses=items.map(x=>x.display_status);
+  return {
+    header:headers?.[0]||null,
+    items,
+    overall_status:deriveInternalPoOverallStatus(items),
+    totals,
+    counts:{
+      total_items:items.length,
+      arrived:statuses.filter(x=>x==='Arrived').length,
+      partial_pending:statuses.filter(x=>!['Arrived','Cancelled'].includes(x)).length,
+      issues:items.filter(x=>String(x.issue||'').trim()).length
+    }
+  };
+}
+async function getProjectInternalPoHistory(projectId){
+  if(!projectId||!USE_POSTGREST) return [];
+  return await restFetch('GET',`/project_internal_po_history?project_id=eq.${encodeURIComponent(projectId)}&order=created_at.desc`)||[];
+}
+async function saveProjectInternalPo(projectId,generalIssue,items,actorId,actorName){
+  if(!USE_POSTGREST) return getProjectInternalPo(projectId);
+  await restFetch('POST','/rpc/pxl_vnext_internal_po_save',{
+    p_project_id:projectId,
+    p_general_issue:generalIssue||null,
+    p_items:Array.isArray(items)?items:[],
+    p_actor_id:actorId||null,
+    p_actor_name:actorName||'System'
+  });
+  return getProjectInternalPo(projectId);
+}
+async function searchProjectInternalPoPurchaseRequests(query='',limit=20){
+  if(!USE_POSTGREST) return [];
+  const capped=Math.max(1,Math.min(50,Number(limit)||20));
+  const q=String(query||'').trim();
+  let path=`/purchase_requests?select=id,pr_number,pr_date,outlet,requester,status,items&order=created_at.desc&limit=${capped}`;
+  if(q){
+    const term=encodeURIComponent(`*${q.replace(/[(),]/g,' ')}*`);
+    path+=`&or=(pr_number.ilike.${term},requester.ilike.${term},outlet.ilike.${term})`;
+  }
+  return await restFetch('GET',path)||[];
+}
+async function getProjectInternalPoBoqOptions(projectId,query='',limit=20){
+  if(!projectId||!USE_POSTGREST) return [];
+  const capped=Math.max(1,Math.min(50,Number(limit)||20));
+  const q=String(query||'').trim();
+  let path=`/project_report_items?select=id,project_id,category,item_name,boq_qty,unit,sort_order&project_id=eq.${encodeURIComponent(projectId)}&category=eq.material&order=sort_order.asc,created_at.asc&limit=${capped}`;
+  if(q){
+    const term=encodeURIComponent(`*${q.replace(/[(),]/g,' ')}*`);
+    path+=`&item_name=ilike.${term}`;
+  }
+  return await restFetch('GET',path)||[];
 }
 
 
@@ -1556,6 +1624,7 @@ module.exports = {
   getMRForms, insertMRForm, updateMRForm, deleteMRForm,
   getPurchaseRequests, insertPurchaseRequest, updatePurchaseRequest, deletePurchaseRequest,
   getProjects, insertProject, updateProject, deleteProject,
+  getProjectInternalPo, getProjectInternalPoHistory, saveProjectInternalPo, searchProjectInternalPoPurchaseRequests, getProjectInternalPoBoqOptions,
   getProjectPrimaryWorkOrder, upsertProjectPrimaryWorkOrder, getProjectRelatedWorkOrders, linkProjectRelatedWorkOrder, unlinkProjectRelatedWorkOrder, getProjectWorkOrderOwner, getProjectLinkedWorkOrderIds, getProjectGanttPlan, replaceProjectGanttPlan, getProjectGanttTemplates, getProjectGanttTemplate, createProjectGanttTemplate, getTicketById, searchTicketsCompact,
   getProjectMaterialRequests, getProjectMaterialRequest, createProjectMaterialRequest, replaceProjectMaterialRequestItems, transitionProjectMaterialRequest, applyProjectMaterialRequestMovement, getProjectMaterialRequestItemsByRequestIds, getProjectMaterialOverrides, insertProjectMaterialOverride,
   getProjectReports, upsertProjectReport, getProjectReportAchievements, insertProjectReportAchievement, updateProjectReportAchievement, deleteProjectReportAchievement,

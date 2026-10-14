@@ -52,8 +52,10 @@ test('Project Detail and Project Report integrate Project MR without widening Pr
   assert.doesNotMatch(detail,/>Documents</);assert.doesNotMatch(detail,/>SPJ</);
 });
 
-test('current Project MR script is explicitly included after Project Detail',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js[^<]*<\/script><script src="\/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4"/);
+test('current Project MR script remains included after Project Detail with its 3D4 cache key',()=>{
+  const detailPos=index.indexOf('/pxl-vnext-3a-project-detail.js');
+  const mrPos=index.indexOf('/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4');
+  assert.ok(detailPos>=0&&mrPos>detailPos,'Project MR must remain loaded after Project Detail');
 });
 
 test('BOQ item uses BOQ fast search with no Inventory selection in active flow',()=>{

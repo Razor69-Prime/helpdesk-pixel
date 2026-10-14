@@ -15,7 +15,7 @@ function detailSource(){
 test('Project permissions add Gantt and Primary WO management without changing Manager BOQ default',()=>{
   assert.match(index,/project_gantt_manage/);
   assert.match(index,/project_primary_wo_manage/);
-  assert.match(index,/const projectDefaults=role==='superadmin'\?PROJECT_PERMISSIONS\.map\(x=>x\.id\):role==='manager'\?\['project_boq_manage'\]:\[\]/);
+  assert.match(index,/role==='manager'\?\['project_boq_manage','project_internal_po_manage'\]/);
 });
 
 test('Project Tracker rows expose native Detail action and keep Edit Delete actions',()=>{
@@ -52,5 +52,5 @@ test('existing Project Report exposes direct BOQ handoff helper',()=>{
 });
 
 test('Project Detail script remains explicitly cache-busted after Phase 3A1',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A(?:1|2)|VNEXT-3B1|URG-\d+)/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3A(?:1|2)|VNEXT-3B1|VNEXT-IPO1|URG-\d+)/);
 });

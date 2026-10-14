@@ -35,6 +35,6 @@ test('legacy native remarks compatibility patch preserves compact markup instead
 });
 
 test('0112 fixes remain cache-busted while Project Detail may advance to a newer VNext revision',()=>{
-  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:URG-0112|VNEXT-3A\d+|VNEXT-3B1)/);
+  assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:URG-0112|VNEXT-3A\d+|VNEXT-3B1|VNEXT-IPO1)/);
   assert.match(wrapper,/pxl-urg-0032a-remarks-button-fix\.js\?v=PXL-URG-0112/);
 });

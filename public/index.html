@@ -2081,7 +2081,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
               <option value="On Progress">On Progress</option>
               <option value="Hold">Hold</option>
             </select>
-            <input type="text" id="proj-search" placeholder="Cari nama project..." oninput="renderProjectList()" class="proj-filter-select" style="flex:1;min-width:160px"/>
+            <input type="text" id="proj-search" placeholder="Cari nama project / Project ID..." oninput="renderProjectList()" class="proj-filter-select" style="flex:1;min-width:160px"/>
             <button class="btn blue sm" onclick="exportProjectPDF()" style="margin-left:auto">📄 Export PDF</button>
           </div>
 
@@ -5669,7 +5669,8 @@ const PROJECT_MR_PERMISSIONS=[
 const PROJECT_PERMISSIONS=[
   {id:'project_boq_manage',label:'📐 Input Total BOQ Project'},
   {id:'project_gantt_manage',label:'📅 Kelola Gantt Plan Project'},
-  {id:'project_primary_wo_manage',label:'🛠️ Link Primary WO Project'}
+  {id:'project_primary_wo_manage',label:'🛠️ Link Primary WO Project'},
+  {id:'project_internal_po_manage',label:'🧾 Kelola Internal PO Project'}
 ];
 const VNEXT_CRM_PERMISSIONS=[
   {id:'customer_segment_read',label:'🏷️ Lihat Segmentasi Customer'},
@@ -5791,7 +5792,7 @@ function resetMenuToRole(){
   const invDefaults=['admin','manager','superadmin'].includes(role)?INVENTORY_PERMISSIONS.map(x=>x.id):[];
   const mrDefaults=MATERIAL_REQUEST_PERMISSIONS.map(x=>x.id);
   const projectMrDefaults=role==='superadmin'?['project_mr_create','project_mr_approve']:role==='technician'?['project_mr_create']:['manager','admin'].includes(role)?['project_mr_approve']:[];
-  const projectDefaults=role==='superadmin'?PROJECT_PERMISSIONS.map(x=>x.id):role==='manager'?['project_boq_manage']:[];
+  const projectDefaults=role==='superadmin'?PROJECT_PERMISSIONS.map(x=>x.id):role==='manager'?['project_boq_manage','project_internal_po_manage']:['admin','accounting'].includes(role)?['project_internal_po_manage']:[];
   const serviceDefaults={
     superadmin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
     admin:SERVICE_CENTER_PERMISSIONS.map(x=>x.id),
@@ -10346,7 +10347,7 @@ function filterProjects(){
   const prioritas=document.getElementById('proj-filter-prioritas')?.value||'';
   const status=document.getElementById('proj-filter-status')?.value||'';
   return projectsData.filter(p=>{
-    if(search && !(p.nama_project||'').toLowerCase().includes(search)) return false;
+    if(search && !(p.nama_project||'').toLowerCase().includes(search) && !(p.project_number||'').toLowerCase().includes(search)) return false;
     if(pic && p.pic!==pic) return false;
     if(prioritas && p.prioritas!==prioritas) return false;
     if(status && p.status!==status) return false;
@@ -10371,7 +10372,7 @@ function renderProjectMobileCards(filtered){
     const material=Number(summary.material?.progress)||0;
     const jasa=Number(summary.jasa?.progress)||0;
     return `<div class="proj-mobile-card">
-      <div class="proj-mobile-head"><div class="proj-mobile-title"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${projectMobileEsc(p.prioritas||'P2')}</span><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${projectMobileEsc(p.status||'On Plan')}</span></div><div class="proj-mobile-name" style="margin-top:7px">${projectMobileEsc(p.nama_project||'—')}</div><div class="proj-mobile-meta">PIC: ${projectMobileEsc(p.pic||'—')} · Target: ${projectMobileEsc(p.target_week||'—')}</div></div></div>
+      <div class="proj-mobile-head"><div class="proj-mobile-title"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${projectMobileEsc(p.prioritas||'P2')}</span><span class="proj-status-badge ${statusClass[p.status]||'plan'}">${projectMobileEsc(p.status||'On Plan')}</span></div><div class="proj-mobile-name" style="margin-top:7px">${projectMobileEsc(p.nama_project||'—')}</div><div class="proj-mobile-meta">Project ID: ${projectMobileEsc(p.project_number||'—')}</div><div class="proj-mobile-meta">PIC: ${projectMobileEsc(p.pic||'—')} · Target: ${projectMobileEsc(p.target_week||'—')}</div></div></div>
       <div class="proj-mobile-progress"><div><span class="proj-mobile-label">Material</span><b>${material.toFixed(1)}%</b></div><div><span class="proj-mobile-label">Jasa</span><b>${jasa.toFixed(1)}%</b></div></div>
       <div class="proj-mobile-copy"><div><span class="proj-mobile-label">Issue</span><div class="proj-mobile-clamp">${projectMobileEsc(p.issue||'—')}</div></div><div><span class="proj-mobile-label">Action Plan</span><div class="proj-mobile-clamp">${projectMobileEsc(p.action_plan||'—')}</div></div></div>
       <div class="proj-mobile-actions"><button class="btn blue sm" onclick="window.pxlProjectVnext3A&&window.pxlProjectVnext3A.open('${p.id}')">Detail</button>${canEdit?`<button class="btn ghost sm" onclick="editProject('${p.id}')">✏️ Edit</button>`:''}${canDelete?`<button class="btn ghost sm" onclick="deleteProject('${p.id}')">🗑️</button>`:''}</div>
@@ -10431,6 +10432,7 @@ function renderProjectList(){
       <td><span class="proj-prior-badge ${priorClass[p.prioritas]||'p2'}">${p.prioritas||'P2'}</span></td>
       <td>
         <div class="proj-name">${p.nama_project}</div>
+        <div class="proj-mobile-meta">Project ID: ${projectMobileEsc(p.project_number||'—')}</div>
         ${(()=>{const s=(window.pxlProjectReportSummaries||{})[String(p.id)]||{};const m=Number(s.material?.progress)||0,j=Number(s.jasa?.progress)||0;return `<div class="proj-report-mini"><span class="proj-report-pill mat">Material ${m.toFixed(1)}%</span><span class="proj-report-pill jasa">Jasa ${j.toFixed(1)}%</span></div>`})()}
         ${histToggle}
       </td>
@@ -13219,7 +13221,7 @@ setInterval(()=>{
   </div>
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-vnext-3d-project-photos.js?v=PXL-VNEXT-3D2"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3D"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-3B1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-vnext-3d-project-photos.js?v=PXL-VNEXT-3D2"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3D"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-internal-po.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0001B1"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-URG-0085"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 <script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-VNEXT-3B2A"></script>

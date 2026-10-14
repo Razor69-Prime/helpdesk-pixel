@@ -1,7 +1,7 @@
 /* PXL-VNEXT-3A — Project Detail Core. */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-3A2';
+  const REV='PXL-VNEXT-IPO1';
   const DAY_MS=24*60*60*1000;
   const GANTT_STAGE_COLORS=[[37,99,235],[5,150,105],[217,119,6],[220,38,38],[124,58,237],[8,145,178],[190,24,93],[79,70,229],[101,163,13]];
   function ganttStageColor(index){return GANTT_STAGE_COLORS[index%GANTT_STAGE_COLORS.length];}
@@ -46,6 +46,7 @@
             <button class="pxl-v3a-tab" data-v3a-tab="gantt">Gantt Chart</button>
             <button class="pxl-v3a-tab" data-v3a-tab="work-order">Work Order</button>
             <button class="pxl-v3a-tab" data-v3a-tab="material-request">Material Request</button>
+            <button class="pxl-v3a-tab" data-v3a-tab="internal-po">Internal PO</button>
           </div>
           <div class="pxl-v3a-body" id="pxl-v3a-body"></div>
         </div>
@@ -70,7 +71,7 @@
       if(g&&g.pointerId===e.pointerId&&!g.moved&&e.target===modal)close();
     });
     modal.addEventListener('pointercancel',()=>{backdropGesture=null;});
-    document.querySelectorAll('[data-v3a-tab]').forEach(btn=>btn.onclick=()=>{state.activeTab=btn.dataset.v3aTab;render()});
+    document.querySelectorAll('[data-v3a-tab]').forEach(btn=>btn.onclick=()=>{const next=btn.dataset.v3aTab;if(next===state.activeTab)return;if(state.activeTab==='internal-po'&&window.pxlProjectInternalPo?.canLeave&&!window.pxlProjectInternalPo?.canLeave())return;if(state.activeTab==='internal-po')window.pxlProjectInternalPo?.destroy?.();state.activeTab=next;render()});
   }
 
   function progressCard(label,value,sub){
@@ -519,6 +520,11 @@
   }
 
 
+  function renderInternalPo(){
+    setTimeout(()=>{const host=$('#pxl-v3a-internal-po-host');if(host&&window.pxlProjectInternalPo)window.pxlProjectInternalPo.open(state.projectId,host)},0);
+    return `<div id="pxl-v3a-internal-po-host"><div class="pxl-v3a-placeholder">Memuat Internal PO...</div></div>`;
+  }
+
   function renderMaterialRequest(){
     setTimeout(()=>{const b=$('#pxl-v3a-open-project-mr');if(b)b.onclick=()=>{if(window.pxlProjectMr)window.pxlProjectMr.open(state.projectId)}},0);
     return `<div class="pxl-v3a-toolbar"><div><b>Material Request Project</b><div class="pxl-v3a-muted">MR Project terpisah dari MR Operasional dan terhubung langsung ke project ini.</div></div><button class="btn primary sm" id="pxl-v3a-open-project-mr">Buka Material Request</button></div><div class="pxl-v3a-placeholder">Kelola Draft, pengajuan, approval, dan material approved/released untuk Project melalui modul MR Project.</div>`;
@@ -531,7 +537,7 @@
     $('#pxl-v3a-sub').textContent=`${project.prioritas||'P2'} · ${project.status||'-'} · ${REV}`;
     document.querySelectorAll('[data-v3a-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.v3aTab===state.activeTab));
     const body=$('#pxl-v3a-body');
-    body.innerHTML=state.activeTab==='overview'?renderOverview():state.activeTab==='boq'?renderBoq():state.activeTab==='gantt'?renderGantt():state.activeTab==='material-request'?renderMaterialRequest():renderWorkOrder();
+    body.innerHTML=state.activeTab==='overview'?renderOverview():state.activeTab==='boq'?renderBoq():state.activeTab==='gantt'?renderGantt():state.activeTab==='material-request'?renderMaterialRequest():state.activeTab==='internal-po'?renderInternalPo():renderWorkOrder();
   }
 
   async function refresh(){
@@ -558,7 +564,10 @@
   }
 
   function close(){
+    if(state.activeTab==='internal-po'&&window.pxlProjectInternalPo?.canLeave&&!window.pxlProjectInternalPo?.canLeave())return false;
+    if(state.activeTab==='internal-po')window.pxlProjectInternalPo?.destroy?.();
     $('#pxl-v3a-modal')?.classList.remove('show');
+    return true;
   }
 
   async function openBoqProject(){

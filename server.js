@@ -18,6 +18,7 @@ const { DEFAULT_PROJECT_GANTT_STAGES, buildSequentialGanttPlan } = require('./pr
 const { normalizeProjectMrItems } = require('./project-vnext-3b');
 const { summarizeProjectMaterialLedger, normalizeProjectMaterialOverrideInput, checkProjectMaterialUsage } = require('./project-vnext-3c');
 const { normalizePhotoIds, validateProjectPhotoEvidence, isProjectPhotoUploadRole, isProjectPhotoDeleteRole, safeProjectPhotoFilename, projectPhotoDownloadFilename, projectPhotoZipFilename, projectPhotoZipEntryName } = require('./project-vnext-3d');
+const { normalizeInternalPoDraft } = require('./project-internal-po');
 const os       = require('os');
 const { execFileSync } = require('child_process');
 
@@ -1178,6 +1179,19 @@ app.delete('/api/purchase-requests/:id', requireRole('superadmin'), async (req,r
 // ══════════════════════════════════════════
 const PROJECT_ROLES = ['superadmin','manager','admin','sales'];
 
+function hasProjectTrackerRead(req){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(PROJECT_ROLES.includes(role)) return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  return custom.includes('projects');
+}
+function requireProjectTrackerRead(req,res,next){
+  if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+  if(!hasProjectTrackerRead(req)) return res.status(403).json({error:'Akses Project Tracker ditolak.'});
+  next();
+}
+
 // PXL-STG-0012 — pemisahan akses Project Report (teknisi) dan Input BOQ (manager/permission khusus)
 function hasProjectBoqAccess(req) {
   const user=req.session?.user||{};
@@ -1225,6 +1239,80 @@ function requireProjectPhotoUpload(req,res,next){
 }
 
 
+
+// PXL-VNEXT-IPO1 — Internal PO monitoring permissions and Project-scoped API.
+function hasProjectInternalPoManage(req){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  if(role==='superadmin') return true;
+  const custom=Array.isArray(user.custom_menus)?user.custom_menus:[];
+  if(user.custom_menus_override===true) return custom.includes('project_internal_po_manage');
+  if(['manager','admin','accounting'].includes(role)) return true;
+  return custom.includes('project_internal_po_manage');
+}
+function requireProjectInternalPoManage(req,res,next){
+  if(!req.session?.user) return res.status(401).json({error:'Unauthorized'});
+  if(!hasProjectInternalPoManage(req)) return res.status(403).json({error:'Anda tidak memiliki izin Kelola Internal PO Project.'});
+  next();
+}
+async function getInternalPoProject(projectId){
+  const rows=await db.getProjects();
+  return (rows||[]).find(p=>String(p.id)===String(projectId))||null;
+}
+function internalPoProjectSummary(project){
+  return {id:project.id,project_number:project.project_number||null,nama_project:project.nama_project||null,status:project.status||null};
+}
+
+app.get('/api/projects/:projectId/internal-po', requireProjectTrackerRead, async (req,res)=>{
+  try{
+    const project=await getInternalPoProject(req.params.projectId);
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const data=await db.getProjectInternalPo(req.params.projectId);
+    res.json({...data,project:internalPoProjectSummary(project),can_manage:hasProjectInternalPoManage(req)});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/projects/:projectId/internal-po/history', requireProjectTrackerRead, async (req,res)=>{
+  try{
+    const project=await getInternalPoProject(req.params.projectId);
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    res.json(await db.getProjectInternalPoHistory(req.params.projectId));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/projects/:projectId/internal-po/purchase-requests', requireProjectTrackerRead, requireProjectInternalPoManage, async (req,res)=>{
+  try{
+    const project=await getInternalPoProject(req.params.projectId);
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    res.json(await db.searchProjectInternalPoPurchaseRequests(req.query.q||'',req.query.limit||20));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/projects/:projectId/internal-po/boq-options', requireProjectTrackerRead, requireProjectInternalPoManage, async (req,res)=>{
+  try{
+    const project=await getInternalPoProject(req.params.projectId);
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const rows=await db.getProjectInternalPoBoqOptions(req.params.projectId,req.query.q||'',req.query.limit||20);
+    res.json((rows||[]).filter(row=>String(row.project_id)===String(req.params.projectId)&&String(row.category||'').toLowerCase()==='material'));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.put('/api/projects/:projectId/internal-po', requireProjectTrackerRead, requireProjectInternalPoManage, async (req,res)=>{
+  const projectId=req.params.projectId;
+  try{
+    const project=await getInternalPoProject(projectId);
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    let draft;
+    try{draft=normalizeInternalPoDraft({general_issue:req.body?.general_issue,items:req.body?.items});}
+    catch(e){return res.status(400).json({error:e.message});}
+    const boqRows=await db.getProjectReportItems(projectId);
+    const validBoqIds=new Set((boqRows||[]).filter(row=>String(row.category||'').toLowerCase()==='material').map(row=>String(row.id)));
+    for(const row of draft.items){
+      if(row.source_type==='boq'&&!row.id&&(!row.source_boq_item_id||!validBoqIds.has(String(row.source_boq_item_id)))){
+        return res.status(400).json({error:'Item BOQ harus Material dari Project yang sama.'});
+      }
+    }
+    const saved=await db.saveProjectInternalPo(projectId,draft.general_issue,draft.items,req.session.user.id,req.session.user.name);
+    logActivity(req,'project','SIMPAN INTERNAL PO',`${project.project_number||project.id} · ${project.nama_project||'Project'} · ${draft.items.length} item`);
+    res.json({...saved,project:internalPoProjectSummary(project),can_manage:hasProjectInternalPoManage(req)});
+  }catch(e){res.status(500).json({error:e.message});}
+});
 
 // PXL-VNEXT-3A — new Project management permissions default OFF for non-Superadmin.
 function hasProjectVnextPermission(req, permission){
@@ -1324,7 +1412,7 @@ function notifyProjectMrRoles(mr,text,actor){
 }
 function projectMrLabel(project,mr){return `${project?.project_number||'PRJ'} · ${project?.nama_project||'Project'} · ${mr?.mr_number||'MRP'}`;}
 
-app.get('/api/projects', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.get('/api/projects', requireProjectTrackerRead, async (req,res)=>{
   try{ res.json(await db.getProjects()); }
   catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -1557,7 +1645,7 @@ async function buildProjectReportRows(){
 }
 
 // PXL-VNEXT-3A — Project Detail aggregation + Primary WO + Gantt Plan
-app.get('/api/projects/:id/detail', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.get('/api/projects/:id/detail', requireProjectTrackerRead, async (req,res)=>{
   try{
     const projects=await db.getProjects();
     const project=projects.find(p=>String(p.id)===String(req.params.id));
@@ -1841,7 +1929,7 @@ app.get('/api/project-reports', requireProjectReportRead, async (req,res)=>{
 
 
 // Ringkasan progress untuk badge di Project Tracker; tidak membuka detail BOQ/history.
-app.get('/api/project-report-summaries', requireRole(...PROJECT_ROLES), async (req,res)=>{
+app.get('/api/project-report-summaries', requireProjectTrackerRead, async (req,res)=>{
   try{
     const rows=await buildProjectReportRows();
     res.json(rows.map(r=>({

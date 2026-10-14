@@ -16,7 +16,8 @@ test('Phase 3A Project Detail and search GET routes reuse Project Tracker read p
   const detail=route('get','/api/projects/:id/detail');
   const options=route('get','/api/projects/:id/work-order-options');
   const gantt=route('get','/api/projects/:id/gantt-plan');
-  for(const body of [detail,options,gantt]) assert.match(body,/requireRole\(\.\.\.PROJECT_ROLES\)/);
+  assert.match(detail,/requireProjectTrackerRead/);
+  for(const body of [options,gantt]) assert.match(body,/requireRole\(\.\.\.PROJECT_ROLES\)/);
   assert.match(detail,/buildProjectReportRows\(\)/);
   assert.match(detail,/getProjectPrimaryWorkOrder/);
   assert.match(detail,/getProjectGanttPlan/);

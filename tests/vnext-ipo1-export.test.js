@@ -1,0 +1,59 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'..','public','pxl-vnext-internal-po.js'),'utf8');
+function fn(name,next){const a=src.indexOf(`function ${name}(`);assert.ok(a>=0,`${name} must exist`);const b=next?src.indexOf(`function ${next}(`,a+1):-1;return src.slice(a,b>a?b:src.length)}
+
+test('Internal PO toolbar exposes Excel and PDF export to monitoring viewers',()=>{
+  assert.match(src,/Export Excel/);
+  assert.match(src,/Export PDF/);
+  assert.match(src,/pxl-ipo-export-excel/);
+  assert.match(src,/pxl-ipo-export-pdf/);
+  assert.match(src,/history\.onclick=openHistory[\s\S]{0,500}exportExcel/);
+});
+
+test('Excel exporter contains project metadata visible columns numeric cells and grand total',()=>{
+  const s=fn('exportExcel','exportPdf');
+  assert.match(s,/XLSX\.utils\.aoa_to_sheet/);
+  assert.match(s,/XLSX\.utils\.book_new/);
+  assert.match(s,/Project ID/);assert.match(s,/Nama Project/);assert.match(s,/Overall Status/);assert.match(s,/Generated/);assert.match(s,/Issue Umum/);
+  for(const label of ['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Aktual','Total','Supplier','Status','Issue']) assert.match(s,new RegExp(label));
+  assert.match(s,/TOTAL HARGA BELI/);
+  assert.match(s,/actual_unit_price===null|priceValue/);
+  assert.match(s,/XLSX\.writeFile/);
+  assert.match(s,/Internal-PO-/);
+  assert.match(s,/\.xlsx/);
+  assert.doesNotMatch(s,/PPN|pajak|discount|diskon/i);
+});
+
+test('Excel blank price remains blank while explicit zero stays numeric',()=>{
+  const s=fn('exportExcel','exportPdf');
+  assert.match(s,/price===null\?''\:price/);
+  assert.match(s,/total===null\?''\:total/);
+  assert.match(s,/qty_po/);
+  assert.match(s,/qty_arrived/);
+});
+
+test('PDF exporter is landscape A4 monitoring report with same table and no formal PO language',()=>{
+  const s=fn('exportPdf','openHistory');
+  assert.match(s,/window\.jspdf\?\.jsPDF/);
+  assert.match(s,/orientation:'landscape'/);
+  assert.match(s,/format:'a4'/);
+  assert.match(s,/INTERNAL PO — PROJECT MONITORING/);
+  assert.match(s,/Project ID/);assert.match(s,/Nama Project/);assert.match(s,/Status/);assert.match(s,/Generated/);assert.match(s,/Issue Umum/);
+  assert.match(s,/doc\.autoTable/);
+  assert.match(s,/TOTAL HARGA BELI/);
+  assert.match(s,/splitTextToSize/,'general issue should wrap instead of being truncated');
+  assert.doesNotMatch(s,/general_issue[^\n]+slice\(/,'general issue export must not truncate monitoring notes');
+  assert.match(s,/Internal-PO-/);
+  assert.match(s,/\.pdf/);
+  assert.doesNotMatch(s,/payment terms|signature|PO To Supplier|approval signature/i);
+});
+
+test('export filenames use human Project ID plus YYYYMMDD safe form',()=>{
+  assert.match(src,/function exportDateStamp\(/);
+  assert.match(src,/project_number/);
+  assert.match(src,/replace\(\/\[\^a-zA-Z0-9_-\]/);
+  assert.match(src,/Internal-PO-\$\{projectId\}-\$\{exportDateStamp\(\)\}/);
+});
