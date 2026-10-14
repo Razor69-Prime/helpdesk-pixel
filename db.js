@@ -110,6 +110,16 @@ async function getPurchaseRequest(id){
   return rows?.[0]||null;
 }
 
+// PXL-VNEXT-IPO1B — Internal PO PR picker must search the same compact PR payload
+// as the main Purchase Request menu, including reason/remarks/item descriptions.
+async function searchProjectInternalPoPurchaseRequests(query='',limit=20){
+  const capped=Math.max(1,Math.min(50,Number(limit)||20));
+  const q=String(query||'').trim().toLowerCase();
+  const rows=await getPurchaseRequests();
+  if(!q) return rows.slice(0,capped);
+  return rows.filter(row=>JSON.stringify(row).toLowerCase().includes(q)).slice(0,capped);
+}
+
 async function getInventoryTransactions() {
   if (!USE_POSTGREST) return core.getInventoryTransactions();
   const now = Date.now();
@@ -226,7 +236,7 @@ module.exports = {
   ...core,
   getInventoryItems,
   getInventoryTransactions,
-  getPurchaseRequests, getPurchaseRequest,
+  getPurchaseRequests, getPurchaseRequest, searchProjectInternalPoPurchaseRequests,
   getTickets,
   getTicketRelationsBatch,
   ...(insertTicket ? { insertTicket } : {}),
