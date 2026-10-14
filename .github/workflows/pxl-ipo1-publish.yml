@@ -1,0 +1,45 @@
+name: Publish PXL-VNEXT-IPO1
+
+on:
+  push:
+    branches:
+      - pxl-ipo1-publish-6495f90e
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download verified deployment patch
+        run: |
+          curl --fail --silent --show-error --location \
+            'https://internal.pixelsolusindo.com/downloads/pxl-ipo1-6495f90e9c9efb3a188706b7.patch' \
+            --output /tmp/PXL-VNEXT-IPO1.patch
+          echo 'a8e8f7cc23156a369e8a9dd774a1d58901feee56df6610f7e76509cf1ae4b779  /tmp/PXL-VNEXT-IPO1.patch' | sha256sum -c -
+
+      - name: Apply exact reviewed patch
+        run: |
+          test "$(git rev-parse HEAD)" = '2aedba790d112e388bae17db6eb1e6860ff2c16a'
+          git apply --check /tmp/PXL-VNEXT-IPO1.patch
+          git apply /tmp/PXL-VNEXT-IPO1.patch
+          git diff --check
+          git add -A
+          test "$(git write-tree)" = '79283b37c6a327b3e1e55bd437ba49831c6476a7'
+
+      - name: Run full regression suite
+        run: node --test tests/*.test.js
+
+      - name: Publish main
+        run: |
+          git config user.name 'OpenAI Deployment'
+          git config user.email 'noreply@openai.com'
+          git commit -m 'PXL-VNEXT-IPO1 — Project Internal PO monitoring'
+          git push origin HEAD:main
