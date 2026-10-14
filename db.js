@@ -97,6 +97,19 @@ async function getInventoryItems() {
   return itemPending.then(clone);
 }
 
+// PXL-PERF-PRJT1 — keep the Purchase Request list lightweight.
+// Signature data-URLs are only fetched for a single PR when the PDF/detail needs them.
+async function getPurchaseRequests(){
+  if(!USE_POSTGREST) return core.getPurchaseRequests();
+  return await readPostgrest('/purchase_requests?select=id,pr_number,pr_date,outlet,requester,requester_title,department,reason,remarks,items,status,approved_by,approved_at,rejected_by,rejected_at,reject_reason,created_at,approved1_by,approved1_at&order=created_at.desc')||[];
+}
+
+async function getPurchaseRequest(id){
+  if(!USE_POSTGREST||!id) return null;
+  const rows=await readPostgrest(`/purchase_requests?id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows?.[0]||null;
+}
+
 async function getInventoryTransactions() {
   if (!USE_POSTGREST) return core.getInventoryTransactions();
   const now = Date.now();
@@ -213,6 +226,7 @@ module.exports = {
   ...core,
   getInventoryItems,
   getInventoryTransactions,
+  getPurchaseRequests, getPurchaseRequest,
   getTickets,
   getTicketRelationsBatch,
   ...(insertTicket ? { insertTicket } : {}),
