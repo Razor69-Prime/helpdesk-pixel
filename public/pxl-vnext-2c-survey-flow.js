@@ -5,7 +5,7 @@
   let catalogLoaded=false;
   let rowSeq=0;
 
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   function tickets(){try{return Array.isArray(allTickets)?allTickets:[]}catch(_){return[]}}
   function ticketById(id){return tickets().find(t=>String(t.id)===String(id))||null}
   function isManualSurvey(t){return !!t&&String(t.source_type||'manual').toLowerCase()==='manual'&&String(t.work_order_type||'')==='Survey'&&!t.sales_order_id&&!t.so_number}
@@ -24,11 +24,12 @@
     if(catalogLoaded)return catalog;
     try{
       const data=await api('GET','/material-catalog');
-      const rows=Array.isArray(data)?data:(data?.items||[]);
+      let rows=Array.isArray(data)?data:(data?.items||[]);
+      try{if(window.PXL_MASTER_SKU_MAP)rows=await window.PXL_MASTER_SKU_MAP.enrich(rows)}catch(_){}
       catalog=rows.filter(x=>x?.inventory_available!==false).map(x=>({
         id:x.inventory_item_id||x.id||null,
         name:String(x.name||x.item_name||'').trim(),
-        sku:String(x.sku||'').trim(),
+        sku:String(x.master_sku||x.sku||'').trim(),
         unit:String(x.unit||'pcs').trim()||'pcs',
         stock:Number(x.stock||0),
         barcode:String(x.barcode||'').trim(),
