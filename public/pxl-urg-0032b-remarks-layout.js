@@ -247,6 +247,6 @@
   document.querySelectorAll('script[data-pxl-ticket-wa-customer]').forEach(el=>el.remove());
   const script=document.createElement('script');
   script.dataset.pxlTicketWaCustomer='0047';
-  script.src='/pxl-urg-0038c-wa-customer.js?v=PXL-URG-0047';
+  script.src='/pxl-urg-0038c-wa-customer.js?v=PXL-MP-FIX-0001B';
   document.head.appendChild(script);
 })();
