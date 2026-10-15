@@ -59,3 +59,22 @@ test('export filenames use human Project ID plus YYYYMMDD safe form',()=>{
   assert.match(src,/replace\(\/\[\^a-zA-Z0-9_-\]/);
   assert.match(src,/Internal-PO-\$\{projectId\}-\$\{exportDateStamp\(\)\}/);
 });
+
+test('Excel export uses style-capable XLSX build and draws borders around the report table',()=>{
+  assert.match(src,/xlsx-js-style@1\.2\.0\/dist\/xlsx(?:\.bundle)?\.js/,'styled XLSX browser build must be loaded by the Internal PO module');
+  assert.match(src,/ensureStyledXlsx/,'Excel export must load the style-capable XLSX build');
+  assert.match(src,/await ensureStyledXlsx\(\)/,'Excel export must wait for the styled XLSX build before writing');
+  const s=fn('exportExcel','exportPdf');
+  assert.match(s,/border/,'Excel export must assign cell borders');
+  assert.match(s,/style:\s*'thin'/,'Excel table border should use thin lines');
+  assert.match(s,/headerRow|firstDataRow/,'Excel styling should target the table region');
+});
+
+test('PDF total price is rendered as the final aligned table row',()=>{
+  const s=fn('exportPdf','openHistory');
+  assert.match(s,/const foot=/,'PDF total row must be prepared for autoTable');
+  assert.match(s,/doc\.autoTable\(\{[\s\S]*\bfoot\b/,'PDF total must be part of autoTable instead of floating text');
+  assert.match(s,/showFoot:\s*'lastPage'/,'PDF total row should appear once on the last page');
+  assert.match(s,/TOTAL HARGA BELI/);
+  assert.doesNotMatch(s,/doc\.text\(`TOTAL HARGA BELI:/,'PDF should not draw the total as detached page text');
+});

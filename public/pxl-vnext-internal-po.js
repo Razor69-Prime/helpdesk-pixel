@@ -1,18 +1,31 @@
-/* PXL-VNEXT-IPO1E — Project Internal PO monitoring UI. Monitoring only; no Inventory/accounting writes. */
+/* PXL-VNEXT-IPO1F — Compact Internal PO layout and cleaner exports. Monitoring only; no Inventory/accounting writes. */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-IPO1E';
+  const REV='PXL-VNEXT-IPO1F';
   const state={projectId:null,host:null,data:null,draft:{general_issue:null,items:[]},dirty:false,loading:false};
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=v=>v===null||v===undefined||v===''?'—':Number(v).toLocaleString('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const priceValue=v=>v===null||v===undefined||v===''?null:Number(v);
   const PPN_RATE=0.11;
+  const XLSX_STYLE_URL='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+  let xlsxStylePromise=null;
   const finalUnitPrice=row=>{const base=priceValue(row?.actual_unit_price);return base===null?null:(row?.is_ppn?Number((base*(1+PPN_RATE)).toFixed(6)):base)};
+  function ensureStyledXlsx(){
+    if(window.XLSX?.__pxlIpoStyleReady)return Promise.resolve(window.XLSX);
+    if(xlsxStylePromise)return xlsxStylePromise;
+    xlsxStylePromise=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');script.src=XLSX_STYLE_URL;script.async=true;
+      script.onload=()=>{if(!window.XLSX){xlsxStylePromise=null;reject(new Error('Library Excel tidak tersedia.'));return}window.XLSX.__pxlIpoStyleReady=true;resolve(window.XLSX)};
+      script.onerror=()=>{xlsxStylePromise=null;reject(new Error('Gagal memuat library Excel dengan styling.'))};
+      document.head.appendChild(script);
+    });
+    return xlsxStylePromise;
+  }
   function ensureStyle(){
     if(document.getElementById('pxl-ipo-style'))return;
     const el=document.createElement('style');el.id='pxl-ipo-style';el.textContent=`
-      .pxl-ipo-toolbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-ipo-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-ipo-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}.pxl-ipo-kpi{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px}.pxl-ipo-kpi span{display:block;color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase}.pxl-ipo-kpi b{display:block;margin-top:4px;font-size:14px}.pxl-ipo-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-ipo-table{width:100%;min-width:1830px;border-collapse:collapse;font-size:11px}.pxl-ipo-table th{padding:8px;background:var(--surface2);color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left;white-space:nowrap}.pxl-ipo-table td{padding:7px;border-top:1px solid var(--border);vertical-align:top}.pxl-ipo-table th:nth-child(1),.pxl-ipo-table td:nth-child(1){width:58px;min-width:58px;text-align:center}.pxl-ipo-table th:nth-child(2),.pxl-ipo-table td:nth-child(2){width:300px;min-width:260px}.pxl-ipo-table th:nth-child(3),.pxl-ipo-table td:nth-child(3),.pxl-ipo-table th:nth-child(4),.pxl-ipo-table td:nth-child(4){min-width:120px}.pxl-ipo-table th:nth-child(5),.pxl-ipo-table td:nth-child(5){min-width:95px}.pxl-ipo-table th:nth-child(6),.pxl-ipo-table td:nth-child(6){min-width:155px}.pxl-ipo-table th:nth-child(7),.pxl-ipo-table td:nth-child(7){min-width:90px;text-align:center}.pxl-ipo-table th:nth-child(8),.pxl-ipo-table td:nth-child(8),.pxl-ipo-table th:nth-child(9),.pxl-ipo-table td:nth-child(9){min-width:135px}.pxl-ipo-table th:nth-child(10),.pxl-ipo-table td:nth-child(10){min-width:190px}.pxl-ipo-table th:nth-child(11),.pxl-ipo-table td:nth-child(11){min-width:155px}.pxl-ipo-table th:nth-child(12),.pxl-ipo-table td:nth-child(12){min-width:230px}.pxl-ipo-table input,.pxl-ipo-table select,.pxl-ipo-table textarea{box-sizing:border-box;font-size:11px;padding:6px;min-width:70px}.pxl-ipo-table textarea{min-height:52px;width:100%}.pxl-ipo-row-no{display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:700;line-height:1}.pxl-ipo-delete{width:30px;height:30px;min-width:30px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}.pxl-ipo-item-name{width:100%;min-width:260px}.pxl-ipo-ppn{display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}.pxl-ipo-ppn input{width:16px;height:16px;min-width:16px;margin:0}.pxl-ipo-has-issue{background:#fff8f1}.pxl-ipo-badge{display:inline-flex;padding:3px 7px;border-radius:99px;font-size:9px;font-weight:800;white-space:nowrap}.pxl-ipo-status-arrived{background:var(--green-bg);color:var(--green)}.pxl-ipo-status-partial{background:var(--amber-bg);color:var(--amber)}.pxl-ipo-status-hold{background:#fff0e5;color:#b54708}.pxl-ipo-status-cancelled{background:var(--red-bg);color:var(--red)}.pxl-ipo-status-ordered{background:var(--blue-bg);color:var(--blue)}.pxl-ipo-status-not-ordered{background:var(--surface2);color:var(--muted)}.pxl-ipo-error{padding:9px 11px;border-radius:8px;background:var(--red-bg);color:var(--red);margin-bottom:10px}.pxl-ipo-note{font-size:10px;color:var(--muted)}.pxl-ipo-history-modal{position:fixed;inset:0;z-index:10070;background:rgba(15,23,42,.58);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}.pxl-ipo-history-box{width:min(760px,96vw);background:var(--surface);border-radius:14px;border:1px solid var(--border);padding:16px}.pxl-ipo-history-row{padding:9px 0;border-top:1px solid var(--border)}.pxl-ipo-source-results{margin-top:9px;display:grid;gap:6px;max-height:420px;overflow:auto}.pxl-ipo-source-option{width:100%;text-align:left;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:9px;cursor:pointer;color:var(--text)}.pxl-ipo-source-option:hover,.pxl-ipo-source-option.active{background:var(--accent-light);border-color:var(--accent)}
+      .pxl-ipo-toolbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-ipo-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-ipo-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}.pxl-ipo-kpi{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px}.pxl-ipo-kpi span{display:block;color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase}.pxl-ipo-kpi b{display:block;margin-top:4px;font-size:14px}.pxl-ipo-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-ipo-table{width:100%;min-width:1450px;border-collapse:collapse;table-layout:fixed;font-size:10.5px}.pxl-ipo-table th{padding:6px;background:var(--surface2);color:var(--muted);font-size:8.5px;text-transform:uppercase;text-align:left;white-space:nowrap}.pxl-ipo-table td{padding:6px;border-top:1px solid var(--border);vertical-align:top}.pxl-ipo-table th:nth-child(1),.pxl-ipo-table td:nth-child(1){width:50px;min-width:50px;text-align:center}.pxl-ipo-table th:nth-child(2),.pxl-ipo-table td:nth-child(2){width:260px;min-width:260px}.pxl-ipo-table th:nth-child(3),.pxl-ipo-table td:nth-child(3),.pxl-ipo-table th:nth-child(4),.pxl-ipo-table td:nth-child(4){width:82px;min-width:82px}.pxl-ipo-table th:nth-child(5),.pxl-ipo-table td:nth-child(5){width:72px;min-width:72px}.pxl-ipo-table th:nth-child(6),.pxl-ipo-table td:nth-child(6){width:130px;min-width:130px}.pxl-ipo-table th:nth-child(7),.pxl-ipo-table td:nth-child(7){width:70px;min-width:70px;text-align:center}.pxl-ipo-table th:nth-child(8),.pxl-ipo-table td:nth-child(8){width:120px;min-width:120px}.pxl-ipo-table th:nth-child(9),.pxl-ipo-table td:nth-child(9){width:125px;min-width:125px}.pxl-ipo-table th:nth-child(10),.pxl-ipo-table td:nth-child(10){width:145px;min-width:145px}.pxl-ipo-table th:nth-child(11),.pxl-ipo-table td:nth-child(11){width:120px;min-width:120px}.pxl-ipo-table th:nth-child(12),.pxl-ipo-table td:nth-child(12){width:165px;min-width:165px}.pxl-ipo-table input,.pxl-ipo-table select,.pxl-ipo-table textarea{box-sizing:border-box;font-size:10.5px;padding:5px 6px;min-width:0;width:100%}.pxl-ipo-table textarea{min-height:44px;width:100%}.pxl-ipo-row-no{display:flex;flex-direction:column;align-items:center;gap:5px;font-weight:700;line-height:1}.pxl-ipo-delete{width:28px;height:28px;min-width:28px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}.pxl-ipo-item-name{width:100%;min-width:260px}.pxl-ipo-ppn{display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}.pxl-ipo-ppn input{width:16px;height:16px;min-width:16px;margin:0}.pxl-ipo-has-issue{background:#fff8f1}.pxl-ipo-badge{display:inline-flex;padding:3px 7px;border-radius:99px;font-size:9px;font-weight:800;white-space:nowrap}.pxl-ipo-status-arrived{background:var(--green-bg);color:var(--green)}.pxl-ipo-status-partial{background:var(--amber-bg);color:var(--amber)}.pxl-ipo-status-hold{background:#fff0e5;color:#b54708}.pxl-ipo-status-cancelled{background:var(--red-bg);color:var(--red)}.pxl-ipo-status-ordered{background:var(--blue-bg);color:var(--blue)}.pxl-ipo-status-not-ordered{background:var(--surface2);color:var(--muted)}.pxl-ipo-error{padding:9px 11px;border-radius:8px;background:var(--red-bg);color:var(--red);margin-bottom:10px}.pxl-ipo-note{font-size:10px;color:var(--muted)}.pxl-ipo-history-modal{position:fixed;inset:0;z-index:10070;background:rgba(15,23,42,.58);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}.pxl-ipo-history-box{width:min(760px,96vw);background:var(--surface);border-radius:14px;border:1px solid var(--border);padding:16px}.pxl-ipo-history-row{padding:9px 0;border-top:1px solid var(--border)}.pxl-ipo-source-results{margin-top:9px;display:grid;gap:6px;max-height:420px;overflow:auto}.pxl-ipo-source-option{width:100%;text-align:left;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:9px;cursor:pointer;color:var(--text)}.pxl-ipo-source-option:hover,.pxl-ipo-source-option.active{background:var(--accent-light);border-color:var(--accent)}
       @media(max-width:800px){.pxl-ipo-grid{grid-template-columns:1fr 1fr}.pxl-ipo-toolbar{align-items:flex-start}}
     `;document.head.appendChild(el);
   }
@@ -221,8 +234,8 @@
   }
   function exportDateStamp(){return new Date().toISOString().slice(0,10).replace(/-/g,'');}
   function safeExportProjectId(){return String(state.data?.project?.project_number||'Project').replace(/[^a-zA-Z0-9_-]/g,'-').replace(/^-+|-+$/g,'')||'Project';}
-  function exportExcel(){
-    if(!window.XLSX){alert('Library Excel belum tersedia. Muat ulang halaman dan coba kembali.');return;}
+  async function exportExcel(){
+    let XLSX;try{XLSX=await ensureStyledXlsx()}catch(e){alert(e.message||'Library Excel belum tersedia. Muat ulang halaman dan coba kembali.');return}
     const project=state.data?.project||{},pv=preview(),overall=state.dirty?pv.overall:(state.data?.overall_status||pv.overall),generated=new Date().toLocaleString('id-ID');
     const headers=['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Non-PPN','PPN 11%','Harga Final','Total','Supplier','Status','Issue'];
     const body=(state.draft.items||[]).map((row,index)=>{
@@ -232,17 +245,26 @@
     const rows=[
       ['PIXEL SOLUSINDO'],['INTERNAL PO — PROJECT MONITORING'],
       ['Project ID',project.project_number||'—'],['Nama Project',project.nama_project||'—'],['Overall Status',overall],['Generated',generated],['Issue Umum',state.draft.general_issue||'—'],[],headers,
-      ...body,[],['TOTAL HARGA BELI','','','','','','','',pv.grand_total]
+      ...body,[],['','','','','','','','TOTAL HARGA BELI',pv.grand_total,'','','']
     ];
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:6},{wch:38},{wch:12},{wch:13},{wch:12},{wch:20},{wch:10},{wch:20},{wch:20},{wch:24},{wch:18},{wch:34}];
-    const headerRow=9,firstDataRow=headerRow+1;
+    ws['!cols']=[{wch:6},{wch:38},{wch:11},{wch:12},{wch:10},{wch:20},{wch:10},{wch:18},{wch:18},{wch:22},{wch:17},{wch:30}];
+    const headerRow=9,firstDataRow=headerRow+1,totalRow=firstDataRow+body.length+1;
+    const thin={style:'thin',color:{rgb:'B7C0CC'}};
+    const border={top:thin,bottom:thin,left:thin,right:thin};
+    const applyStyle=(ref,style)=>{const cell=ws[ref];if(cell)cell.s={...(cell.s||{}),...style}};
+    for(let c=0;c<headers.length;c++){
+      const ref=XLSX.utils.encode_cell({r:headerRow-1,c});
+      applyStyle(ref,{border,fill:{fgColor:{rgb:'E9EDF2'}},font:{bold:true},alignment:{vertical:'center',horizontal:'center',wrapText:true}});
+    }
     for(let i=0;i<body.length;i++){
+      for(let c=0;c<headers.length;c++) applyStyle(XLSX.utils.encode_cell({r:firstDataRow+i-1,c}),{border,alignment:{vertical:'top',wrapText:true}});
       for(const col of ['C','D','F','H','I']){
         const cell=ws[`${col}${firstDataRow+i}`];if(cell&&typeof cell.v==='number')cell.z='#,##0.##';
       }
     }
-    const totalCell=ws[`I${firstDataRow+body.length+1}`];if(totalCell)totalCell.z='#,##0.##';
+    for(let c=0;c<headers.length;c++) applyStyle(XLSX.utils.encode_cell({r:totalRow-1,c}),{border,fill:{fgColor:{rgb:'F4F6F8'}},font:{bold:true},alignment:{vertical:'center',horizontal:c===7?'right':undefined}});
+    const totalCell=ws[`I${totalRow}`];if(totalCell)totalCell.z='#,##0.##';
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Internal PO');
     const projectId=safeExportProjectId();
     XLSX.writeFile(wb,`Internal-PO-${projectId}-${exportDateStamp()}.xlsx`);
@@ -266,9 +288,8 @@
       return [index+1,row.item_name||'',num(row.qty_po),num(row.qty_arrived),row.unit||'',price===null?'—':money(price),row.is_ppn?'Ya':'Tidak',final===null?'—':money(final),total===null?'—':money(total),row.supplier_name||'',statusOf(row),row.issue||''];
     });
     if(typeof doc.autoTable!=='function'){alert('Komponen tabel PDF belum tersedia. Muat ulang halaman dan coba kembali.');return;}
-    doc.autoTable({startY:tableStartY,head,body,theme:'grid',styles:{fontSize:6.5,cellPadding:1.4,valign:'middle',overflow:'linebreak'},headStyles:{fillColor:[235,237,240],textColor:[20,20,20]},columnStyles:{0:{cellWidth:7},1:{cellWidth:48},2:{cellWidth:12},3:{cellWidth:14},4:{cellWidth:11},5:{cellWidth:24},6:{cellWidth:13},7:{cellWidth:24},8:{cellWidth:24},9:{cellWidth:25},10:{cellWidth:20},11:{cellWidth:30}},showHead:'everyPage',rowPageBreak:'avoid'});
-    const y=Math.min(doc.internal.pageSize.getHeight()-9,(doc.lastAutoTable?.finalY||tableStartY)+7);
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(`TOTAL HARGA BELI: ${money(pv.grand_total)}`,doc.internal.pageSize.getWidth()-10,y,{align:'right'});
+    const foot=[[{content:'TOTAL HARGA BELI',colSpan:8,styles:{halign:'right',fontStyle:'bold'}},{content:money(pv.grand_total),styles:{halign:'right',fontStyle:'bold'}},{content:'',colSpan:3}]];
+    doc.autoTable({startY:tableStartY,head,body,foot,theme:'grid',styles:{fontSize:6.5,cellPadding:1.4,valign:'middle',overflow:'linebreak'},headStyles:{fillColor:[235,237,240],textColor:[20,20,20]},footStyles:{fillColor:[244,246,248],textColor:[20,20,20],fontStyle:'bold'},columnStyles:{0:{cellWidth:7},1:{cellWidth:48},2:{cellWidth:12},3:{cellWidth:14},4:{cellWidth:11},5:{cellWidth:24},6:{cellWidth:13},7:{cellWidth:24},8:{cellWidth:24},9:{cellWidth:25},10:{cellWidth:20},11:{cellWidth:30}},showHead:'everyPage',showFoot:'lastPage',rowPageBreak:'avoid'});
     const projectId=safeExportProjectId();
     doc.save(`Internal-PO-${projectId}-${exportDateStamp()}.pdf`);
   }
