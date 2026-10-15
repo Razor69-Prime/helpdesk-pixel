@@ -13,3 +13,10 @@ test('Internal PO PR search matches the same searchable PR content as the main P
   assert.match(body,/JSON\.stringify\(row\).*includes/,'picker search must cover reason, remarks, item descriptions and other compact PR fields');
   assert.match(body,/slice\(0,capped\)/,'result count must remain bounded');
 });
+
+
+test('Internal PO PR picker displays PR reason or remarks instead of the first item name',()=>{
+  assert.match(ui,/const summary=String\(pr\.reason\?\?pr\.remarks\?\?''\)/,'PR reason/remarks must drive the visible title');
+  assert.match(ui,/\$\{h\(summary\)\}/,'visible PR card must render the PR summary');
+  assert.match(ui,/Cari nomor PR, keterangan, requester, atau outlet/,'search hint must explain that PR description is searchable');
+});
