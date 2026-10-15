@@ -33,6 +33,7 @@ test('selecting PR appends every not-yet-imported item snapshot and preserves lo
   assert.match(src,/source_supplier_id/);
   assert.match(src,/supplier_name/);
   assert.match(src,/manual_state\s*:\s*['"]not_ordered['"]/);
+  assert.match(src,/is_ppn\s*:\s*false/);
   assert.match(src,/markDirty\(\)/);
 });
 

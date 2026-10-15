@@ -18,13 +18,15 @@ test('Excel exporter contains project metadata visible columns numeric cells and
   assert.match(s,/XLSX\.utils\.aoa_to_sheet/);
   assert.match(s,/XLSX\.utils\.book_new/);
   assert.match(s,/Project ID/);assert.match(s,/Nama Project/);assert.match(s,/Overall Status/);assert.match(s,/Generated/);assert.match(s,/Issue Umum/);
-  for(const label of ['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Aktual','Total','Supplier','Status','Issue']) assert.match(s,new RegExp(label));
+  for(const label of ['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Non-PPN','PPN 11%','Harga Final','Total','Supplier','Status','Issue']) assert.match(s,new RegExp(label));
   assert.match(s,/TOTAL HARGA BELI/);
   assert.match(s,/actual_unit_price===null|priceValue/);
   assert.match(s,/XLSX\.writeFile/);
   assert.match(s,/Internal-PO-/);
   assert.match(s,/\.xlsx/);
-  assert.doesNotMatch(s,/PPN|pajak|discount|diskon/i);
+  assert.match(s,/is_ppn/);
+  assert.match(s,/Harga Final/);
+  assert.doesNotMatch(s,/discount|diskon/i);
 });
 
 test('Excel blank price remains blank while explicit zero stays numeric',()=>{

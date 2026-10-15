@@ -1,6 +1,8 @@
 'use strict';
 
 const MANUAL_STATES=['not_ordered','ordered','hold','cancelled'];
+const PPN_RATE=0.11;
+const ppnPrice=value=>Number((Number(value)*(1+PPN_RATE)).toFixed(6));
 
 function textOrNull(value){
   const s=String(value??'').trim();
@@ -14,8 +16,12 @@ function numberRequired(value,label){
 function normalizePrice(value){
   if(value===null||value===undefined||String(value).trim()==='') return null;
   const n=Number(value);
-  if(!Number.isFinite(n)||n<0) throw new Error('Harga Beli Aktual tidak valid.');
+  if(!Number.isFinite(n)||n<0) throw new Error('Harga Beli Non-PPN tidak valid.');
   return n;
+}
+function normalizeBoolean(value){
+  if(value===true||value===1) return true;
+  return ['true','1','yes','on'].includes(String(value??'').trim().toLowerCase());
 }
 function normalizeInternalPoItem(item={}){
   const sourceType=String(item.source_type||'').trim().toLowerCase();
@@ -41,6 +47,7 @@ function normalizeInternalPoItem(item={}){
     qty_arrived:qtyArrived,
     unit:textOrNull(item.unit),
     actual_unit_price:normalizePrice(item.actual_unit_price),
+    is_ppn:normalizeBoolean(item.is_ppn),
     source_supplier_id:item.source_supplier_id||null,
     supplier_name:textOrNull(item.supplier_name),
     manual_state:manualState,
@@ -72,8 +79,10 @@ function deriveInternalPoOverallStatus(items=[]){
 }
 function calculateInternalPoTotals(items=[]){
   const rows=(items||[]).map(normalizeInternalPoItem);
-  const lineTotals=rows.map(row=>row.actual_unit_price===null?null:row.qty_po*row.actual_unit_price);
+  const finalUnitPrices=rows.map(row=>row.actual_unit_price===null?null:row.is_ppn?ppnPrice(row.actual_unit_price):row.actual_unit_price);
+  const lineTotals=rows.map((row,index)=>finalUnitPrices[index]===null?null:row.qty_po*finalUnitPrices[index]);
   return {
+    final_unit_prices:finalUnitPrices,
     line_totals:lineTotals,
     grand_total:lineTotals.reduce((sum,v)=>sum+(v===null?0:v),0),
     priced_item_count:lineTotals.filter(v=>v!==null).length
@@ -92,6 +101,7 @@ function mapPurchaseRequestItem(item={},index,pr={}){
     qty_arrived:0,
     unit:item.unit||null,
     actual_unit_price:Number.isFinite(price)&&price>0?price:null,
+    is_ppn:false,
     source_supplier_id:item.supplier_id||null,
     supplier_name:item.supplier_name??item.supplier??null,
     manual_state:'not_ordered',
@@ -116,7 +126,7 @@ function normalizeInternalPoDraft({general_issue=null,items=[]}={}){
 }
 
 module.exports={
-  MANUAL_STATES,
+  MANUAL_STATES,PPN_RATE,
   normalizeInternalPoItem,
   deriveInternalPoItemStatus,
   deriveInternalPoOverallStatus,

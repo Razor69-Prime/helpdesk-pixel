@@ -19,7 +19,7 @@ test('Project Detail adds Internal PO as final tab and mounts isolated module',(
 
 test('Internal PO renders approved monitoring table columns and project summary controls',()=>{
   const s=mod();
-  for(const label of ['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Aktual','Total','Supplier','Status','Issue']) assert.match(s,new RegExp(`>${label}<`));
+  for(const label of ['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Non-PPN','PPN 11%','Harga Final','Total','Supplier','Status','Issue']) assert.match(s,new RegExp(`>${label}<`));
   for(const label of ['Project ID','Nama Project','Total Harga Beli','Issue Umum','Simpan Perubahan','Riwayat Perubahan']) assert.match(s,new RegExp(label));
   assert.match(s,/overall_status/);
   assert.match(s,/counts/);

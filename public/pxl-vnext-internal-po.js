@@ -1,16 +1,18 @@
-/* PXL-VNEXT-IPO1D — Project Internal PO monitoring UI. Monitoring only; no Inventory/accounting writes. */
+/* PXL-VNEXT-IPO1E — Project Internal PO monitoring UI. Monitoring only; no Inventory/accounting writes. */
 (function(){
   'use strict';
-  const REV='PXL-VNEXT-IPO1D';
+  const REV='PXL-VNEXT-IPO1E';
   const state={projectId:null,host:null,data:null,draft:{general_issue:null,items:[]},dirty:false,loading:false};
   const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=v=>v===null||v===undefined||v===''?'—':Number(v).toLocaleString('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const priceValue=v=>v===null||v===undefined||v===''?null:Number(v);
+  const PPN_RATE=0.11;
+  const finalUnitPrice=row=>{const base=priceValue(row?.actual_unit_price);return base===null?null:(row?.is_ppn?Number((base*(1+PPN_RATE)).toFixed(6)):base)};
   function ensureStyle(){
     if(document.getElementById('pxl-ipo-style'))return;
     const el=document.createElement('style');el.id='pxl-ipo-style';el.textContent=`
-      .pxl-ipo-toolbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-ipo-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-ipo-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}.pxl-ipo-kpi{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px}.pxl-ipo-kpi span{display:block;color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase}.pxl-ipo-kpi b{display:block;margin-top:4px;font-size:14px}.pxl-ipo-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-ipo-table{width:100%;min-width:1560px;border-collapse:collapse;font-size:11px}.pxl-ipo-table th{padding:8px;background:var(--surface2);color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left;white-space:nowrap}.pxl-ipo-table td{padding:7px;border-top:1px solid var(--border);vertical-align:top}.pxl-ipo-table th:nth-child(1),.pxl-ipo-table td:nth-child(1){width:58px;min-width:58px;text-align:center}.pxl-ipo-table th:nth-child(2),.pxl-ipo-table td:nth-child(2){width:300px;min-width:260px}.pxl-ipo-table th:nth-child(3),.pxl-ipo-table td:nth-child(3),.pxl-ipo-table th:nth-child(4),.pxl-ipo-table td:nth-child(4){min-width:120px}.pxl-ipo-table th:nth-child(5),.pxl-ipo-table td:nth-child(5){min-width:95px}.pxl-ipo-table th:nth-child(6),.pxl-ipo-table td:nth-child(6){min-width:145px}.pxl-ipo-table th:nth-child(7),.pxl-ipo-table td:nth-child(7){min-width:125px}.pxl-ipo-table th:nth-child(8),.pxl-ipo-table td:nth-child(8){min-width:190px}.pxl-ipo-table th:nth-child(9),.pxl-ipo-table td:nth-child(9){min-width:155px}.pxl-ipo-table th:nth-child(10),.pxl-ipo-table td:nth-child(10){min-width:230px}.pxl-ipo-table input,.pxl-ipo-table select,.pxl-ipo-table textarea{box-sizing:border-box;font-size:11px;padding:6px;min-width:7ppx}.pxl-ipo-table textarea{min-height:52px;width:100%}.pxl-ipo-row-no{display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:700;line-height:1}.pxl-ipo-delete{width:30px;height:30px;min-width:30px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}.pxl-ipo-item-name{width:100%;min-width:260px}.pxl-ipo-has-issue{background:#fff8f1}.pxl-ipo-badge{display:inline-flex;padding:3px 7px;border-radius:99px;font-size:9px;font-weight:800;white-space:nowrap}.pxl-ipo-status-arrived{background:var(--green-bg);color:var(--green)}.pxl-ipo-status-partial{background:var(--amber-bg);color:var(--amber)}.pxl-ipo-status-hold{background:#fff0e5;color:#b54708}.pxl-ipo-status-cancelled{background:var(--red-bg);color:var(--red)}.pxl-ipo-status-ordered{background:var(--blue-bg);color:var(--blue)}.pxl-ipo-status-not-ordered{background:var(--surface2);color:var(--muted)}.pxl-ipo-error{padding:9px 11px;border-radius:8px;background:var(--red-bg);color:var(--red);margin-bottom:10px}.pxl-ipo-note{font-size:10px;color:var(--muted)}.pxl-ipo-history-modal{position:fixed;inset:0;z-index:10070;background:rgba(15,23,42,.58);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}.pxl-ipo-history-box{width:min(760px,96vw);background:var(--surface);border-radius:14px;border:1px solid var(--border);padding:16px}.pxl-ipo-history-row{padding:9px 0;border-top:1px solid var(--border)}.pxl-ipo-source-results{margin-top:9px;display:grid;gap:6px;max-height:420px;overflow:auto}.pxl-ipo-source-option{width:100%;text-align:left;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:9px;cursor:pointer;color:var(--text)}.pxl-ipo-source-option:hover,.pxl-ipo-source-option.active{background:var(--accent-light);border-color:var(--accent)}
+      .pxl-ipo-toolbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.pxl-ipo-actions{display:flex;gap:7px;flex-wrap:wrap}.pxl-ipo-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}.pxl-ipo-kpi{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px}.pxl-ipo-kpi span{display:block;color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase}.pxl-ipo-kpi b{display:block;margin-top:4px;font-size:14px}.pxl-ipo-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}.pxl-ipo-table{width:100%;min-width:1830px;border-collapse:collapse;font-size:11px}.pxl-ipo-table th{padding:8px;background:var(--surface2);color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left;white-space:nowrap}.pxl-ipo-table td{padding:7px;border-top:1px solid var(--border);vertical-align:top}.pxl-ipo-table th:nth-child(1),.pxl-ipo-table td:nth-child(1){width:58px;min-width:58px;text-align:center}.pxl-ipo-table th:nth-child(2),.pxl-ipo-table td:nth-child(2){width:300px;min-width:260px}.pxl-ipo-table th:nth-child(3),.pxl-ipo-table td:nth-child(3),.pxl-ipo-table th:nth-child(4),.pxl-ipo-table td:nth-child(4){min-width:120px}.pxl-ipo-table th:nth-child(5),.pxl-ipo-table td:nth-child(5){min-width:95px}.pxl-ipo-table th:nth-child(6),.pxl-ipo-table td:nth-child(6){min-width:155px}.pxl-ipo-table th:nth-child(7),.pxl-ipo-table td:nth-child(7){min-width:90px;text-align:center}.pxl-ipo-table th:nth-child(8),.pxl-ipo-table td:nth-child(8),.pxl-ipo-table th:nth-child(9),.pxl-ipo-table td:nth-child(9){min-width:135px}.pxl-ipo-table th:nth-child(10),.pxl-ipo-table td:nth-child(10){min-width:190px}.pxl-ipo-table th:nth-child(11),.pxl-ipo-table td:nth-child(11){min-width:155px}.pxl-ipo-table th:nth-child(12),.pxl-ipo-table td:nth-child(12){min-width:230px}.pxl-ipo-table input,.pxl-ipo-table select,.pxl-ipo-table textarea{box-sizing:border-box;font-size:11px;padding:6px;min-width:70px}.pxl-ipo-table textarea{min-height:52px;width:100%}.pxl-ipo-row-no{display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:700;line-height:1}.pxl-ipo-delete{width:30px;height:30px;min-width:30px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}.pxl-ipo-item-name{width:100%;min-width:260px}.pxl-ipo-ppn{display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}.pxl-ipo-ppn input{width:16px;height:16px;min-width:16px;margin:0}.pxl-ipo-has-issue{background:#fff8f1}.pxl-ipo-badge{display:inline-flex;padding:3px 7px;border-radius:99px;font-size:9px;font-weight:800;white-space:nowrap}.pxl-ipo-status-arrived{background:var(--green-bg);color:var(--green)}.pxl-ipo-status-partial{background:var(--amber-bg);color:var(--amber)}.pxl-ipo-status-hold{background:#fff0e5;color:#b54708}.pxl-ipo-status-cancelled{background:var(--red-bg);color:var(--red)}.pxl-ipo-status-ordered{background:var(--blue-bg);color:var(--blue)}.pxl-ipo-status-not-ordered{background:var(--surface2);color:var(--muted)}.pxl-ipo-error{padding:9px 11px;border-radius:8px;background:var(--red-bg);color:var(--red);margin-bottom:10px}.pxl-ipo-note{font-size:10px;color:var(--muted)}.pxl-ipo-history-modal{position:fixed;inset:0;z-index:10070;background:rgba(15,23,42,.58);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}.pxl-ipo-history-box{width:min(760px,96vw);background:var(--surface);border-radius:14px;border:1px solid var(--border);padding:16px}.pxl-ipo-history-row{padding:9px 0;border-top:1px solid var(--border)}.pxl-ipo-source-results{margin-top:9px;display:grid;gap:6px;max-height:420px;overflow:auto}.pxl-ipo-source-option{width:100%;text-align:left;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:9px;cursor:pointer;color:var(--text)}.pxl-ipo-source-option:hover,.pxl-ipo-source-option.active{background:var(--accent-light);border-color:var(--accent)}
       @media(max-width:800px){.pxl-ipo-grid{grid-template-columns:1fr 1fr}.pxl-ipo-toolbar{align-items:flex-start}}
     `;document.head.appendChild(el);
   }
@@ -34,8 +36,9 @@
       else if(active.some(x=>x==='Ordered'||x==='Hold'))overall='In Progress';
       else overall='Belum Dipesan';
     }
-    const totals=items.map(x=>priceValue(x.actual_unit_price)===null?null:num(x.qty_po)*priceValue(x.actual_unit_price));
-    return {overall,totals,grand_total:totals.reduce((s,x)=>s+(x===null?0:x),0),counts:{total_items:items.length,arrived:statuses.filter(x=>x==='Arrived').length,partial_pending:statuses.filter(x=>!['Arrived','Cancelled'].includes(x)).length,issues:items.filter(x=>String(x.issue||'').trim()).length}};
+    const finalPrices=items.map(finalUnitPrice);
+    const totals=items.map((x,i)=>finalPrices[i]===null?null:num(x.qty_po)*finalPrices[i]);
+    return {overall,finalPrices,totals,grand_total:totals.reduce((s,x)=>s+(x===null?0:x),0),counts:{total_items:items.length,arrived:statuses.filter(x=>x==='Arrived').length,partial_pending:statuses.filter(x=>!['Arrived','Cancelled'].includes(x)).length,issues:items.filter(x=>String(x.issue||'').trim()).length}};
   }
   function markDirty(){state.dirty=true;}
   function canLeave(){
@@ -50,7 +53,7 @@
     return '';
   }
   window.addEventListener('beforeunload',onBeforeUnload);
-  function rowHtml(row,index,editable,total){
+  function rowHtml(row,index,editable,finalPrice,total){
     const st=statusOf(row),issue=String(row.issue||'').trim();
     const field=(name,value,type='text',extra='')=>editable?`<input ${type==='number'?'type="number"':''} class="${name==='item_name'?'pxl-ipo-item-name':''}" data-ipo-field="${name}" data-row-index="${index}" value="${h(value??'')}" ${name==='item_name'?`title="${h(value??'')}"`:''} ${extra}>`:h(value??'—');
     return `<tr class="${issue?'pxl-ipo-has-issue':''}" data-ipo-row="${index}">
@@ -60,6 +63,8 @@
       <td>${field('qty_arrived',row.qty_arrived,'number','min="0" step="any"')}</td>
       <td>${field('unit',row.unit||'')}</td>
       <td>${field('actual_unit_price',row.actual_unit_price??'','number','min="0" step="any"')}</td>
+      <td>${editable?`<label class="pxl-ipo-ppn"><input type="checkbox" data-ipo-field="is_ppn" data-row-index="${index}" ${row.is_ppn?'checked':''}><span>11%</span></label>`:(row.is_ppn?'Ya':'Tidak')}</td>
+      <td id="pxl-ipo-final-${index}">${finalPrice===null?'—':money(finalPrice)}</td>
       <td id="pxl-ipo-total-${index}">${total===null?'—':money(total)}</td>
       <td>${field('supplier_name',row.supplier_name||'')}</td>
       <td>${editable?`<select data-ipo-field="manual_state" data-row-index="${index}"><option value="not_ordered" ${row.manual_state==='not_ordered'?'selected':''}>Belum Dipesan</option><option value="ordered" ${row.manual_state==='ordered'?'selected':''}>Ordered</option><option value="hold" ${row.manual_state==='hold'?'selected':''}>Hold</option><option value="cancelled" ${row.manual_state==='cancelled'?'selected':''}>Cancelled</option></select>`:''}<div style="margin-top:${editable?'4px':'0'}"><span id="pxl-ipo-status-${index}" class="pxl-ipo-badge ${statusClass(st)}">${h(st)}</span></div></td>
@@ -72,7 +77,7 @@
     if(!state.data){state.host.innerHTML='<div class="pxl-ipo-error">Data Internal PO belum tersedia.</div>';return;}
     const editable=state.data?.can_manage===true;
     const project=state.data.project||{};const pv=preview();const shownOverall=state.dirty?pv.overall:(state.data.overall_status||pv.overall);
-    const rows=(state.draft.items||[]).map((r,i)=>rowHtml(r,i,editable,pv.totals[i])).join('');
+    const rows=(state.draft.items||[]).map((r,i)=>rowHtml(r,i,editable,pv.finalPrices[i],pv.totals[i])).join('');
     const mutation=editable?`<button class="btn sm" id="pxl-ipo-pr-import">Pilih Purchase Request</button><button class="btn sm" id="pxl-ipo-boq-add">Tambah Item BOQ</button><button class="btn primary sm" id="pxl-ipo-save">Simpan Perubahan</button>`:'';
     state.host.innerHTML=`
       <div id="pxl-ipo-error"></div>
@@ -86,7 +91,7 @@
       </div>
       <div class="pxl-ipo-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="pxl-ipo-kpi"><span>Arrived</span><b id="pxl-ipo-arrived">${pv.counts.arrived}</b></div><div class="pxl-ipo-kpi"><span>Partial / Pending</span><b id="pxl-ipo-pending">${pv.counts.partial_pending}</b></div><div class="pxl-ipo-kpi"><span>Item Ada Issue</span><b id="pxl-ipo-issues">${pv.counts.issues}</b></div></div>
       <div style="margin-bottom:12px"><label>Issue Umum</label>${editable?`<textarea id="pxl-ipo-general-issue" placeholder="Catatan issue pembelian secara umum...">${h(state.draft.general_issue||'')}</textarea>`:`<div class="pxl-v3a-card">${h(state.draft.general_issue||'—')}</div>`}</div>
-      <div class="pxl-ipo-table-wrap"><table class="pxl-ipo-table"><thead><tr><th>No</th><th>Nama Barang</th><th>Qty PO</th><th>Qty Arrived</th><th>Satuan</th><th>Harga Beli Aktual</th><th>Total</th><th>Supplier</th><th>Status</th><th>Issue</th></tr></thead><tbody>${rows||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:22px">Belum ada item Internal PO.</td></tr>'}</tbody></table></div>`;
+      <div class="pxl-ipo-table-wrap"><table class="pxl-ipo-table"><thead><tr><th>No</th><th>Nama Barang</th><th>Qty PO</th><th>Qty Arrived</th><th>Satuan</th><th>Harga Beli Non-PPN</th><th>PPN 11%</th><th>Harga Final</th><th>Total</th><th>Supplier</th><th>Status</th><th>Issue</th></tr></thead><tbody>${rows||'<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:22px">Belum ada item Internal PO.</td></tr>'}</tbody></table></div>`;
     bind(editable);
   }
   function bind(editable){
@@ -99,7 +104,7 @@
       el.oninput=el.onchange=()=>{
         const row=state.draft.items[Number(el.dataset.rowIndex)];if(!row)return;
         const field=el.dataset.ipoField;
-        row[field]=['qty_po','qty_arrived','actual_unit_price'].includes(field)?(el.value===''?null:Number(el.value)):el.value;
+        row[field]=field==='is_ppn'?el.checked:['qty_po','qty_arrived','actual_unit_price'].includes(field)?(el.value===''?null:Number(el.value)):el.value;
         markDirty();refreshPreview();
       };
     });
@@ -112,7 +117,7 @@
     const pv=preview();
     const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val};
     set('pxl-ipo-overall',pv.overall);set('pxl-ipo-count',pv.counts.total_items);set('pxl-ipo-grand',money(pv.grand_total));set('pxl-ipo-arrived',pv.counts.arrived);set('pxl-ipo-pending',pv.counts.partial_pending);set('pxl-ipo-issues',pv.counts.issues);
-    state.draft.items.forEach((row,index)=>{const total=document.getElementById(`pxl-ipo-total-${index}`);if(total)total.textContent=pv.totals[index]===null?'—':money(pv.totals[index]);const st=statusOf(row),badge=document.getElementById(`pxl-ipo-status-${index}`);if(badge){badge.textContent=st;badge.className=`pxl-ipo-badge ${statusClass(st)}`;}const tr=document.querySelector(`[data-ipo-row="${index}"]`);if(tr)tr.classList.toggle('pxl-ipo-has-issue',!!String(row.issue||'').trim())});
+    state.draft.items.forEach((row,index)=>{const final=document.getElementById(`pxl-ipo-final-${index}`);if(final)final.textContent=pv.finalPrices[index]===null?'—':money(pv.finalPrices[index]);const total=document.getElementById(`pxl-ipo-total-${index}`);if(total)total.textContent=pv.totals[index]===null?'—':money(pv.totals[index]);const st=statusOf(row),badge=document.getElementById(`pxl-ipo-status-${index}`);if(badge){badge.textContent=st;badge.className=`pxl-ipo-badge ${statusClass(st)}`;}const tr=document.querySelector(`[data-ipo-row="${index}"]`);if(tr)tr.classList.toggle('pxl-ipo-has-issue',!!String(row.issue||'').trim())});
   }
   function closeSourceModal(){document.querySelector('.pxl-ipo-source-modal')?.remove();}
   function createSourceModal(title,subtitle){
@@ -140,7 +145,7 @@
       state.draft.items.push({
         id:null,source_type:'pr',source_pr_id:pr.id,source_pr_number:pr.pr_number||null,source_pr_item_index:index,source_boq_item_id:null,
         item_name:String(item.desc??item.item_name??item.name??'').trim(),qty_po:Number(item.qty)||1,qty_arrived:0,unit:String(item.unit||'').trim()||null,
-        actual_unit_price:importedPrice,source_supplier_id:item.supplier_id||null,supplier_name:String(item.supplier_name??item.supplier??'').trim()||null,
+        actual_unit_price:importedPrice,is_ppn:false,source_supplier_id:item.supplier_id||null,supplier_name:String(item.supplier_name??item.supplier??'').trim()||null,
         manual_state:'not_ordered',issue:null,sort_order:state.draft.items.length
       });
       existingKeys.add(key);added++;
@@ -170,7 +175,7 @@
     const qty=Number(row.boq_qty);
     state.draft.items.push({
       id:null,source_type:'boq',source_pr_id:null,source_pr_number:null,source_pr_item_index:null,source_boq_item_id:row.id,
-      item_name:row.item_name||'',qty_po:Number.isFinite(qty)&&qty>0?qty:1,qty_arrived:0,unit:row.unit||null,actual_unit_price:null,
+      item_name:row.item_name||'',qty_po:Number.isFinite(qty)&&qty>0?qty:1,qty_arrived:0,unit:row.unit||null,actual_unit_price:null,is_ppn:false,
       source_supplier_id:null,supplier_name:null,manual_state:'not_ordered',issue:null,sort_order:state.draft.items.length
     });
     markDirty();closeSourceModal();render();
@@ -219,25 +224,25 @@
   function exportExcel(){
     if(!window.XLSX){alert('Library Excel belum tersedia. Muat ulang halaman dan coba kembali.');return;}
     const project=state.data?.project||{},pv=preview(),overall=state.dirty?pv.overall:(state.data?.overall_status||pv.overall),generated=new Date().toLocaleString('id-ID');
-    const headers=['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Aktual','Total','Supplier','Status','Issue'];
+    const headers=['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Non-PPN','PPN 11%','Harga Final','Total','Supplier','Status','Issue'];
     const body=(state.draft.items||[]).map((row,index)=>{
-      const price=priceValue(row.actual_unit_price),total=price===null?null:num(row.qty_po)*price;
-      return [index+1,row.item_name||'',num(row.qty_po),num(row.qty_arrived),row.unit||'',price===null?'':price,total===null?'':total,row.supplier_name||'',statusOf(row),row.issue||''];
+      const price=priceValue(row.actual_unit_price),final=finalUnitPrice(row),total=final===null?null:num(row.qty_po)*final;
+      return [index+1,row.item_name||'',num(row.qty_po),num(row.qty_arrived),row.unit||'',price===null?'':price,row.is_ppn?'Ya':'Tidak',final===null?'':final,total===null?'':total,row.supplier_name||'',statusOf(row),row.issue||''];
     });
     const rows=[
       ['PIXEL SOLUSINDO'],['INTERNAL PO — PROJECT MONITORING'],
       ['Project ID',project.project_number||'—'],['Nama Project',project.nama_project||'—'],['Overall Status',overall],['Generated',generated],['Issue Umum',state.draft.general_issue||'—'],[],headers,
-      ...body,[],['TOTAL HARGA BELI','','','','','',pv.grand_total]
+      ...body,[],['TOTAL HARGA BELI','','','','','','','',pv.grand_total]
     ];
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:6},{wch:38},{wch:12},{wch:13},{wch:12},{wch:20},{wch:20},{wch:24},{wch:18},{wch:34}];
+    ws['!cols']=[{wch:6},{wch:38},{wch:12},{wch:13},{wch:12},{wch:20},{wch:10},{wch:20},{wch:20},{wch:24},{wch:18},{wch:34}];
     const headerRow=9,firstDataRow=headerRow+1;
     for(let i=0;i<body.length;i++){
-      for(const col of ['C','D','F','G']){
+      for(const col of ['C','D','F','H','I']){
         const cell=ws[`${col}${firstDataRow+i}`];if(cell&&typeof cell.v==='number')cell.z='#,##0.##';
       }
     }
-    const totalCell=ws[`G${firstDataRow+body.length+1}`];if(totalCell)totalCell.z='#,##0.##';
+    const totalCell=ws[`I${firstDataRow+body.length+1}`];if(totalCell)totalCell.z='#,##0.##';
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Internal PO');
     const projectId=safeExportProjectId();
     XLSX.writeFile(wb,`Internal-PO-${projectId}-${exportDateStamp()}.xlsx`);
@@ -255,13 +260,13 @@
     const issueLines=doc.splitTextToSize(`Issue Umum: ${String(state.draft.general_issue||'—')}`,277);
     doc.text(issueLines,10,34);
     const tableStartY=34+(Math.max(1,issueLines.length)*3.6)+3;
-    const head=[['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Aktual','Total','Supplier','Status','Issue']];
+    const head=[['No','Nama Barang','Qty PO','Qty Arrived','Satuan','Harga Beli Non-PPN','PPN 11%','Harga Final','Total','Supplier','Status','Issue']];
     const body=(state.draft.items||[]).map((row,index)=>{
-      const price=priceValue(row.actual_unit_price),total=price===null?null:num(row.qty_po)*price;
-      return [index+1,row.item_name||'',num(row.qty_po),num(row.qty_arrived),row.unit||'',price===null?'—':money(price),total===null?'—':money(total),row.supplier_name||'',statusOf(row),row.issue||''];
+      const price=priceValue(row.actual_unit_price),final=finalUnitPrice(row),total=final===null?null:num(row.qty_po)*final;
+      return [index+1,row.item_name||'',num(row.qty_po),num(row.qty_arrived),row.unit||'',price===null?'—':money(price),row.is_ppn?'Ya':'Tidak',final===null?'—':money(final),total===null?'—':money(total),row.supplier_name||'',statusOf(row),row.issue||''];
     });
     if(typeof doc.autoTable!=='function'){alert('Komponen tabel PDF belum tersedia. Muat ulang halaman dan coba kembali.');return;}
-    doc.autoTable({startY:tableStartY,head,body,theme:'grid',styles:{fontSize:6.5,cellPadding:1.4,valign:'middle',overflow:'linebreak'},headStyles:{fillColor:[235,237,240],textColor:[20,20,20]},columnStyles:{0:{cellWidth:8},1:{cellWidth:45},2:{cellWidth:14},3:{cellWidth:16},4:{cellWidth:14},5:{cellWidth:28},6:{cellWidth:28},7:{cellWidth:30},8:{cellWidth:24},9:{cellWidth:52}},showHead:'everyPage',rowPageBreak:'avoid'});
+    doc.autoTable({startY:tableStartY,head,body,theme:'grid',styles:{fontSize:6.5,cellPadding:1.4,valign:'middle',overflow:'linebreak'},headStyles:{fillColor:[235,237,240],textColor:[20,20,20]},columnStyles:{0:{cellWidth:7},1:{cellWidth:48},2:{cellWidth:12},3:{cellWidth:14},4:{cellWidth:11},5:{cellWidth:24},6:{cellWidth:13},7:{cellWidth:24},8:{cellWidth:24},9:{cellWidth:25},10:{cellWidth:20},11:{cellWidth:30}},showHead:'everyPage',rowPageBreak:'avoid'});
     const y=Math.min(doc.internal.pageSize.getHeight()-9,(doc.lastAutoTable?.finalY||tableStartY)+7);
     doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(`TOTAL HARGA BELI: ${money(pv.grand_total)}`,doc.internal.pageSize.getWidth()-10,y,{align:'right'});
     const projectId=safeExportProjectId();
