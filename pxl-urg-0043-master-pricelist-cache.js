@@ -253,7 +253,6 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       else if(best.score>=82)review.push(row);
       else unmatched.push({inventory_item_id:inv.id,sku:inv.sku||null,inventory_name:inv.name||''});
     }
-    // A source price may be suggested for only one safe mapping.
     const bySource=new Map();
     safe.forEach(x=>{const arr=bySource.get(x.source_key)||[];arr.push(x);bySource.set(x.source_key,arr)});
     const finalSafe=[],demoted=[];
@@ -265,9 +264,6 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
     return {safe:finalSafe,review,unmatched,already_mapped:mappedInventory.size,total_inventory:inventory.length,total_pricelist:prices.length};
   }
 
-
-  // PXL-URG-0093 — Unified Material Catalog for SO, Master Paket, and Material Request.
-  // Inventory remains the only source of physical stock. Pricelist-only rows are quotation/procurement references.
   app.get('/api/material-catalog',requireAuth,async(req,res)=>{
     try{
       const [inventory,priceRows,mapRows,packages]=await Promise.all([
@@ -323,7 +319,6 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       const priceByKey=new Map(prices.map(x=>[String(x.source_key),x]));
       const mapByInventory=new Map(maps.map(x=>[String(x.inventory_item_id),x]));
       const usedSources=new Set(maps.map(x=>x.source_key).filter(Boolean).map(String));
-
       const catalog=inventory.map(inv=>{
         const map=mapByInventory.get(String(inv.id))||null;
         let price=map?.source_key?priceByKey.get(String(map.source_key))||null:null;
@@ -334,27 +329,14 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
           if(candidates.length===1&&!usedSources.has(String(candidates[0].source_key)))suggestion=candidates[0];
         }
         return {
-          inventory_item_id:inv.id,
-          sku:inv.sku||null,
-          inventory_name:inv.name||'',
-          inventory_category:inv.category||null,
-          unit:inv.unit||'pcs',
-          stock:Number(inv.stock||0),
-          mapping_status:price?(map?.mapping_status||'mapped'):(map?.mapping_status||'unmapped'),
-          mapped_at:map?.mapped_at||null,
-          mapped_by:map?.mapped_by||null,
-          source_key:price?.source_key||map?.source_key||null,
-          pricelist_name:price?.item_name||null,
-          brand:price?.brand||null,
-          price:price?Number(price.price||0):null,
-          source_cell:price?.source_cell||null,
-          suggested_source_key:suggestion?.source_key||null,
-          suggested_name:suggestion?.item_name||null,
-          suggested_brand:suggestion?.brand||null,
+          inventory_item_id:inv.id,sku:inv.sku||null,inventory_name:inv.name||'',inventory_category:inv.category||null,
+          unit:inv.unit||'pcs',stock:Number(inv.stock||0),mapping_status:price?(map?.mapping_status||'mapped'):(map?.mapping_status||'unmapped'),
+          mapped_at:map?.mapped_at||null,mapped_by:map?.mapped_by||null,source_key:price?.source_key||map?.source_key||null,
+          pricelist_name:price?.item_name||null,brand:price?.brand||null,price:price?Number(price.price||0):null,source_cell:price?.source_cell||null,
+          suggested_source_key:suggestion?.source_key||null,suggested_name:suggestion?.item_name||null,suggested_brand:suggestion?.brand||null,
           suggested_price:suggestion?Number(suggestion.price||0):null
         };
       });
-
       const mappedSources=new Set(catalog.map(x=>x.source_key).filter(Boolean).map(String));
       const pricelistOnly=prices.filter(p=>!mappedSources.has(String(p.source_key))).map(p=>({
         inventory_item_id:null,sku:null,inventory_name:null,inventory_category:null,unit:null,stock:null,
@@ -364,7 +346,6 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       res.json({catalog,pricelist_only:pricelistOnly});
     }catch(e){apiError(res,e)}
   });
-
 
   app.get('/api/master-pricelist/auto-map-preview',requireAuth,async(req,res)=>{
     if(!canWrite(req))return res.status(403).json({error:'Anda tidak memiliki permission Write Master Pricelist.'});
@@ -380,10 +361,7 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       const stamp=now(),actor=userName(req);
       let mapped=0,skipped=0;
       for(const x of safe){
-        const payload={
-          inventory_item_id:x.inventory_item_id,inventory_sku:x.sku||null,inventory_name:x.inventory_name||'',
-          source_key:x.source_key,mapping_status:'mapped',mapped_at:stamp,mapped_by:actor,updated_at:stamp
-        };
+        const payload={inventory_item_id:x.inventory_item_id,inventory_sku:x.sku||null,inventory_name:x.inventory_name||'',source_key:x.source_key,mapping_status:'mapped',mapped_at:stamp,mapped_by:actor,updated_at:stamp};
         try{
           await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{Prefer:'resolution=merge-duplicates,return=minimal'});
           mapped++;
@@ -410,14 +388,8 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
         if(!Array.isArray(rows)||!rows.length)return res.status(404).json({error:'Item Master Pricelist tidak ditemukan.'});
       }
       const stamp=now(),actor=userName(req);
-      const payload={
-        inventory_item_id:inv.id,inventory_sku:inv.sku||null,inventory_name:inv.name||'',
-        source_key:sourceKey||null,mapping_status:sourceKey?'manual':'unmapped',
-        mapped_at:sourceKey?stamp:null,mapped_by:sourceKey?actor:null,updated_at:stamp
-      };
-      await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{
-        Prefer:'resolution=merge-duplicates,return=minimal'
-      });
+      const payload={inventory_item_id:inv.id,inventory_sku:inv.sku||null,inventory_name:inv.name||'',source_key:sourceKey||null,mapping_status:sourceKey?'manual':'unmapped',mapped_at:sourceKey?stamp:null,mapped_by:sourceKey?actor:null,updated_at:stamp};
+      await sb('POST','/master_pricelist_inventory_map?on_conflict=inventory_item_id',payload,{Prefer:'resolution=merge-duplicates,return=minimal'});
       res.json({ok:true,...payload});
     }catch(e){apiError(res,e)}
   });
@@ -457,135 +429,49 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       const input=Array.isArray(req.body?.items)?req.body.items:[];
       if(!input.length)return res.status(400).json({error:'Data sinkron kosong.'});
       if(input.length>5000)return res.status(400).json({error:'Maksimum 5000 item per sinkronisasi.'});
+      const corrupted=input.find(raw=>/^PX-/i.test(text(raw?.name||raw?.item_name)));
+      if(corrupted)return res.status(400).json({error:'Safety block: SKU PX- terdeteksi sebagai nama item. Sinkronisasi dibatalkan.'});
 
       const byKey=new Map();
       input.map(cleanItem).filter(Boolean).forEach(item=>byKey.set(item.source_key,item));
       const items=[...byKey.values()];
       if(!items.length)return res.status(400).json({error:'Tidak ada item valid untuk disimpan.'});
-
-      // Pricelist is small enough to read the current cache once. This avoids fragile
-      // PostgREST IN escaping for source-cell keys and keeps change detection deterministic.
       const existingRows=await sb('GET','/master_pricelist_items?select=source_key,category,brand,item_name,price,source_cell,is_active');
       const existing=Array.isArray(existingRows)?existingRows:[];
       const oldMap=new Map(existing.map(x=>[String(x.source_key),x]));
       const newMap=new Map(items.map(x=>[String(x.source_key),x]));
-
       const added=items.filter(x=>!oldMap.has(x.source_key));
       const removed=existing.filter(x=>x.is_active!==false&&!newMap.has(String(x.source_key))&&!String(x.source_key||'').startsWith('MANUAL:'));
-      const priceChanged=items.filter(x=>{
-        const old=oldMap.get(x.source_key);
-        return old&&Number(old.price)!==Number(x.price);
-      });
-      const renamed=items.filter(x=>{
-        const old=oldMap.get(x.source_key);
-        return old&&text(old.item_name)!==text(x.item_name);
-      });
-      const brandChanged=items.filter(x=>{
-        const old=oldMap.get(x.source_key);
-        return old&&text(old.brand)!==text(x.brand);
-      });
-
+      const priceChanged=items.filter(x=>{const old=oldMap.get(x.source_key);return old&&Number(old.price)!==Number(x.price)});
+      const renamed=items.filter(x=>{const old=oldMap.get(x.source_key);return old&&text(old.item_name)!==text(x.item_name)});
+      const brandChanged=items.filter(x=>{const old=oldMap.get(x.source_key);return old&&text(old.brand)!==text(x.brand)});
       const syncId=crypto.randomUUID();
       const stamp=now(),actor=userName(req);
-      const changedKeys=new Set([
-        ...priceChanged.map(x=>x.source_key),
-        ...renamed.map(x=>x.source_key),
-        ...brandChanged.map(x=>x.source_key)
-      ]);
+      const changedKeys=new Set([...priceChanged.map(x=>x.source_key),...renamed.map(x=>x.source_key),...brandChanged.map(x=>x.source_key)]);
       const changedCount=added.length+removed.length+changedKeys.size;
-
-      await sb('POST','/master_pricelist_syncs',{
-        id:syncId,synced_at:stamp,synced_by:actor,item_count:items.length,changed_count:changedCount,
-        price_changed_count:priceChanged.length,added_count:added.length,removed_count:removed.length,
-        renamed_count:renamed.length,brand_changed_count:brandChanged.length
-      });
-
+      await sb('POST','/master_pricelist_syncs',{id:syncId,synced_at:stamp,synced_by:actor,item_count:items.length,changed_count:changedCount,price_changed_count:priceChanged.length,added_count:added.length,removed_count:removed.length,renamed_count:renamed.length,brand_changed_count:brandChanged.length});
       if(priceChanged.length){
-        await sb('POST','/master_pricelist_price_history',priceChanged.map(x=>{
-          const old=oldMap.get(x.source_key);
-          return {
-            id:crypto.randomUUID(),sync_id:syncId,source_key:x.source_key,
-            category:x.category,brand:x.brand,item_name:x.item_name,
-            old_price:Number(old.price)||0,new_price:x.price,changed_at:stamp,changed_by:actor
-          };
-        }));
+        await sb('POST','/master_pricelist_price_history',priceChanged.map(x=>{const old=oldMap.get(x.source_key);return {id:crypto.randomUUID(),sync_id:syncId,source_key:x.source_key,category:x.category,brand:x.brand,item_name:x.item_name,old_price:Number(old.price)||0,new_price:x.price,changed_at:stamp,changed_by:actor}}));
       }
-
       const changeRows=[];
-      added.forEach(x=>changeRows.push({
-        id:crypto.randomUUID(),sync_id:syncId,change_type:'added',source_key:x.source_key,category:x.category,
-        item_name_before:null,item_name_after:x.item_name,brand_before:null,brand_after:x.brand,
-        price_before:null,price_after:x.price,changed_at:stamp,changed_by:actor
-      }));
-      removed.forEach(old=>changeRows.push({
-        id:crypto.randomUUID(),sync_id:syncId,change_type:'removed',source_key:old.source_key,category:old.category,
-        item_name_before:old.item_name,item_name_after:null,brand_before:old.brand,brand_after:null,
-        price_before:Number(old.price)||0,price_after:null,changed_at:stamp,changed_by:actor
-      }));
+      added.forEach(x=>changeRows.push({id:crypto.randomUUID(),sync_id:syncId,change_type:'added',source_key:x.source_key,category:x.category,item_name_before:null,item_name_after:x.item_name,brand_before:null,brand_after:x.brand,price_before:null,price_after:x.price,changed_at:stamp,changed_by:actor}));
+      removed.forEach(old=>changeRows.push({id:crypto.randomUUID(),sync_id:syncId,change_type:'removed',source_key:old.source_key,category:old.category,item_name_before:old.item_name,item_name_after:null,brand_before:old.brand,brand_after:null,price_before:Number(old.price)||0,price_after:null,changed_at:stamp,changed_by:actor}));
       items.forEach(x=>{
-        const old=oldMap.get(x.source_key);
-        if(!old)return;
-        if(text(old.item_name)!==text(x.item_name))changeRows.push({
-          id:crypto.randomUUID(),sync_id:syncId,change_type:'renamed',source_key:x.source_key,category:x.category,
-          item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,
-          price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor
-        });
-        if(text(old.brand)!==text(x.brand))changeRows.push({
-          id:crypto.randomUUID(),sync_id:syncId,change_type:'brand_changed',source_key:x.source_key,category:x.category,
-          item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,
-          price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor
-        });
-        if(Number(old.price)!==Number(x.price))changeRows.push({
-          id:crypto.randomUUID(),sync_id:syncId,change_type:'price_changed',source_key:x.source_key,category:x.category,
-          item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,
-          price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor
-        });
+        const old=oldMap.get(x.source_key);if(!old)return;
+        if(text(old.item_name)!==text(x.item_name))changeRows.push({id:crypto.randomUUID(),sync_id:syncId,change_type:'renamed',source_key:x.source_key,category:x.category,item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor});
+        if(text(old.brand)!==text(x.brand))changeRows.push({id:crypto.randomUUID(),sync_id:syncId,change_type:'brand_changed',source_key:x.source_key,category:x.category,item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor});
+        if(Number(old.price)!==Number(x.price))changeRows.push({id:crypto.randomUUID(),sync_id:syncId,change_type:'price_changed',source_key:x.source_key,category:x.category,item_name_before:old.item_name,item_name_after:x.item_name,brand_before:old.brand,brand_after:x.brand,price_before:Number(old.price)||0,price_after:x.price,changed_at:stamp,changed_by:actor});
       });
-      for(let i=0;i<changeRows.length;i+=150){
-        await sb('POST','/master_pricelist_change_log',changeRows.slice(i,i+150),{Prefer:'return=minimal'});
-      }
-
+      for(let i=0;i<changeRows.length;i+=150)await sb('POST','/master_pricelist_change_log',changeRows.slice(i,i+150),{Prefer:'return=minimal'});
       if(removed.length){
         const removedKeys=removed.map(x=>x.source_key);
-        for(let i=0;i<removedKeys.length;i+=100){
-          const chunk=removedKeys.slice(i,i+100);
-          for(const key of chunk){
-            await sb('PATCH','/master_pricelist_items?source_key=eq.'+encodeURIComponent(key),{
-              is_active:false,last_synced_at:stamp,last_synced_by:actor
-            },{Prefer:'return=minimal'});
-          }
-        }
+        for(let i=0;i<removedKeys.length;i+=100){for(const key of removedKeys.slice(i,i+100)){await sb('PATCH','/master_pricelist_items?source_key=eq.'+encodeURIComponent(key),{is_active:false,last_synced_at:stamp,last_synced_by:actor},{Prefer:'return=minimal'})}}
       }
-
-      const existingUpserts=[];
-      const newUpserts=[];
-      items.forEach(x=>{
-        const base={
-          ...x,
-          is_active:true,
-          last_synced_at:stamp,
-          last_synced_by:actor
-        };
-        if(oldMap.has(x.source_key))existingUpserts.push(base);
-        else newUpserts.push({...base,first_synced_at:stamp});
-      });
-
-      for(let i=0;i<existingUpserts.length;i+=150){
-        await sb('POST','/master_pricelist_items?on_conflict=source_key',existingUpserts.slice(i,i+150),{
-          Prefer:'resolution=merge-duplicates,return=minimal'
-        });
-      }
-      for(let i=0;i<newUpserts.length;i+=150){
-        await sb('POST','/master_pricelist_items?on_conflict=source_key',newUpserts.slice(i,i+150),{
-          Prefer:'resolution=merge-duplicates,return=minimal'
-        });
-      }
-      res.json({
-        ok:true,sync_id:syncId,item_count:items.length,changed_count:changedCount,
-        price_changed_count:priceChanged.length,added_count:added.length,removed_count:removed.length,
-        renamed_count:renamed.length,brand_changed_count:brandChanged.length,
-        synced_at:stamp,synced_by:actor
-      });
+      const existingUpserts=[],newUpserts=[];
+      items.forEach(x=>{const base={...x,is_active:true,last_synced_at:stamp,last_synced_by:actor};if(oldMap.has(x.source_key))existingUpserts.push(base);else newUpserts.push({...base,first_synced_at:stamp})});
+      for(let i=0;i<existingUpserts.length;i+=150)await sb('POST','/master_pricelist_items?on_conflict=source_key',existingUpserts.slice(i,i+150),{Prefer:'resolution=merge-duplicates,return=minimal'});
+      for(let i=0;i<newUpserts.length;i+=150)await sb('POST','/master_pricelist_items?on_conflict=source_key',newUpserts.slice(i,i+150),{Prefer:'resolution=merge-duplicates,return=minimal'});
+      res.json({ok:true,sync_id:syncId,item_count:items.length,changed_count:changedCount,price_changed_count:priceChanged.length,added_count:added.length,removed_count:removed.length,renamed_count:renamed.length,brand_changed_count:brandChanged.length,synced_at:stamp,synced_by:actor});
     }catch(e){apiError(res,e)}
   });
 };
