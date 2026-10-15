@@ -5,6 +5,7 @@ const menu=fs.readFileSync('public/pxl-urg-0040-master-pricelist-menu.js','utf8'
 const legacy=fs.readFileSync('public/master-pricelist-0050.html','utf8');
 const loader=fs.readFileSync('public/pxl-urg-0038c-wa-customer.js','utf8');
 const parentLoader=fs.readFileSync('public/pxl-urg-0032b-remarks-layout.js','utf8');
+const backend=fs.readFileSync('pxl-urg-0043-master-pricelist-cache.js','utf8');
 
 test('Master Pricelist menu opens only canonical fixed page',()=>{
   assert.match(menu,/master-pricelist\.html\?v=PXL-MP-FIX-0001B/);
@@ -23,4 +24,9 @@ test('Master Pricelist loader cache-busts the canonical menu fix',()=>{
 
 test('parent loader cache-busts updated Master Pricelist chain',()=>{
   assert.match(parentLoader,/pxl-urg-0038c-wa-customer\.js\?v=PXL-MP-FIX-0001B/);
+});
+
+test('backend rejects legacy sync payload that uses PX SKU as item name',()=>{
+  assert.match(backend,/Safety block: SKU PX- terdeteksi sebagai nama item/);
+  assert.match(backend,/input\.find\(raw=>\/\^PX-\/i\.test/);
 });
