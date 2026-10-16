@@ -8,10 +8,11 @@ const photos=fs.readFileSync(path.join(root,'public/pxl-vnext-3d-project-photos.
 const index=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const sw=fs.readFileSync(path.join(root,'public/sw.js'),'utf8');
 
-test('Project photo watermark remains a lighter footer overlay',()=>{
-  assert.match(photos,/const blockY=h-blockH/);
-  assert.match(photos,/fillStyle='rgba\(0,0,0,\.38\)'/);
-  assert.match(photos,/fillRect\(0,blockY,w,blockH\)/);
+test('Project photo upload temporarily uses plain resized image without watermark overlay',()=>{
+  assert.match(photos,/renderPlainImage/);
+  assert.doesNotMatch(photos,/const blockY=h-blockH/);
+  assert.doesNotMatch(photos,/fillStyle='rgba\(0,0,0,\.38\)'/);
+  assert.doesNotMatch(photos,/fillRect\(0,blockY,w,blockH\)/);
 });
 
 test('Project MR still supports explicit manual material server payload',()=>{
@@ -20,10 +21,11 @@ test('Project MR still supports explicit manual material server payload',()=>{
   assert.doesNotMatch(mr,/inventory_extra/);
 });
 
-test('current browser assets remain cache-busted after 3D2 fixes',()=>{
+test('current browser assets remain cache-busted after PXL-URG-0113',()=>{
   assert.match(mr,/PXL-VNEXT-3D4/);
-  assert.match(photos,/PXL-VNEXT-3D2/);
+  assert.match(photos,/PXL-URG-0113/);
   assert.match(index,/pxl-vnext-3d-project-photos\.js\?v=PXL-VNEXT-3D2/);
+  assert.match(sw,/PXL-URG-0113/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
   assert.match(sw,/pixelapps-inv1-v118/);
 });
