@@ -19,3 +19,5 @@ drop trigger if exists trg_pxl_urg_0113_clear_disabled_gps on public.project_rep
 create trigger trg_pxl_urg_0113_clear_disabled_gps
 before insert or update on public.project_report_item_photos
 for each row execute function public.pxl_urg_0113_clear_disabled_gps();
+
+notify pgrst, 'reload schema';
