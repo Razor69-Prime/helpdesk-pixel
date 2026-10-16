@@ -51,6 +51,22 @@ const UPLOADS_DIR  = path.join(__dirname, 'data', 'uploads');
 const USERS_FILE   = path.join(__dirname, 'data', 'users.json');
 const TICKETS_FILE = path.join(__dirname, 'data', 'tickets.json');
 
+// PXL-SYS-0002 — lightweight slow-request monitor (runtime only, no DB writes).
+const PXL_SLOW_REQUEST_THRESHOLD_MS = 5000;
+const PXL_SLOW_REQUEST_LOG = process.env.PXL_SLOW_REQUEST_LOG || '/var/tmp/pixelapps-slow-requests.jsonl';
+const PXL_SLOW_REQUEST_MAX_BYTES = 512 * 1024;
+async function pxlRecordSlowRequest(row) {
+  try {
+    const st=await fs.promises.stat(PXL_SLOW_REQUEST_LOG).catch(()=>null);
+    if(st&&st.size>PXL_SLOW_REQUEST_MAX_BYTES){
+      const rotated=PXL_SLOW_REQUEST_LOG+'.1';
+      await fs.promises.unlink(rotated).catch(()=>{});
+      await fs.promises.rename(PXL_SLOW_REQUEST_LOG,rotated).catch(()=>{});
+    }
+    await fs.promises.appendFile(PXL_SLOW_REQUEST_LOG,JSON.stringify(row)+'\n',{encoding:'utf8',mode:0o600});
+  } catch(_) { /* monitoring must never break application flow */ }
+}
+
 // PXL-REV-0052 — Cloudinary signed upload helpers
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '';
@@ -148,6 +164,18 @@ const JWT_SECRET = cfg.SESSION_SECRET;
 // Bekerja sempurna di Vercel serverless tanpa cookie issue
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use((req,res,next)=>{
+  const started=Date.now();
+  res.on('finish',()=>{
+    const duration_ms=Date.now()-started;
+    if(duration_ms<PXL_SLOW_REQUEST_THRESHOLD_MS)return;
+    void pxlRecordSlowRequest({
+      ts:new Date().toISOString(),method:req.method,path:String(req.originalUrl||req.url||'').split('?')[0].slice(0,240),
+      status:Number(res.statusCode||0),duration_ms
+    });
+  });
+  next();
+});
 
 // Header dan endpoint identitas environment dipakai UI untuk menampilkan penanda STAGING.
 app.use((req, res, next) => {
@@ -2492,13 +2520,24 @@ async function pxlSysCpuPercent() {
   const dt=b.total-a.total,di=b.idle-a.idle;
   return dt>0?Math.max(0,Math.min(100,Math.round((100-(di/dt*100))*10)/10)):0;
 }
-async function pxlSysProbe(url) {
+async function pxlSysProbe(url,options={}) {
   const started=Date.now();
   try {
-    const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),2500);
-    const response=await fetch(url,{signal:controller.signal,headers:{'Cache-Control':'no-cache'}}); clearTimeout(timer);
-    return {ok:response.ok,status:response.status,response_ms:Date.now()-started};
+    const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),Number(options.timeout_ms||2500));
+    const response=await fetch(url,{signal:controller.signal,redirect:options.redirect||'follow',headers:{'Cache-Control':'no-cache',...(options.headers||{})}}); clearTimeout(timer);
+    return {ok:response.status>=200&&response.status<500,status:response.status,response_ms:Date.now()-started};
   } catch(e) { return {ok:false,status:0,response_ms:Date.now()-started,error:String(e.name||e.message||e).slice(0,120)}; }
+}
+function pxlSysSlowRequests(){
+  const empty={window_hours:24,count:0,slowest:null,recent:[]};
+  try{
+    if(!fs.existsSync(PXL_SLOW_REQUEST_LOG))return empty;
+    const cutoff=Date.now()-(24 * 60 * 60 * 1000);
+    const rows=fs.readFileSync(PXL_SLOW_REQUEST_LOG,'utf8').split('\n').filter(Boolean).map(line=>{try{return JSON.parse(line)}catch(_){return null}}).filter(x=>x&&Date.parse(x.ts)>=cutoff);
+    rows.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts));
+    const slowest=rows.reduce((best,row)=>!best||Number(row.duration_ms)>Number(best.duration_ms)?row:best,null);
+    return {window_hours:24,count:rows.length,slowest,recent:rows.slice(0,5)};
+  }catch(_){return empty;}
 }
 function pxlSysGit() {
   const cwd=__dirname;
@@ -2541,14 +2580,21 @@ function pxlSysDependencies() {
 app.get('/api/system-tools',requireRole('superadmin'),async(req,res)=>{
   try{
     const memTotal=os.totalmem(),memFree=os.freemem();
-    const [cpuPercent,restProbe]=await Promise.all([pxlSysCpuPercent(),pxlSysProbe('http://127.0.0.1:3003/rest/v1/tickets?select=id&limit=1')]);
-    const backup=pxlSysBackup();
+    const [cpuPercent,nodeProbe,nginxProbe,restProbe,publicProbe]=await Promise.all([
+      pxlSysCpuPercent(),
+      pxlSysProbe('http://127.0.0.1:3001/api/environment'),
+      pxlSysProbe('http://127.0.0.1/',{headers:{Host:'internal.pixelsolusindo.com'},redirect:'manual'}),
+      pxlSysProbe('http://127.0.0.1:3003/rest/v1/tickets?select=id&limit=1'),
+      pxlSysProbe('https://internal.pixelsolusindo.com/',{timeout_ms:3500})
+    ]);
+    const backup=pxlSysBackup(),slowRequests=pxlSysSlowRequests();
     res.setHeader('Cache-Control','no-store, max-age=0');
     res.json({
-      revision:'PXL-URG-0076',generated_at:new Date().toISOString(),
+      revision:'PXL-SYS-0002',generated_at:new Date().toISOString(),
       server:{hostname:os.hostname(),uptime_seconds:Math.round(os.uptime()),cpu_count:os.cpus().length,cpu_percent:cpuPercent,load_average:os.loadavg().map(v=>Math.round(v*100)/100),memory:{total_bytes:memTotal,used_bytes:Math.max(0,memTotal-memFree),free_bytes:memFree,used_percent:memTotal?Math.round((memTotal-memFree)/memTotal*1000)/10:0},disk:pxlSysDisk()},
       services:{pixelapps_node:{running:true,pid:process.pid},nginx:{running:pxlSysProc('nginx: master process')},postgresql17:{running:pxlSysProc('/usr/lib/postgresql/17/bin/postgres')},postgrest:{running:pxlSysProc('/usr/local/bin/postgrest /etc/pixelapps/postgrest.conf')}},
-      application:{node:{ok:true,status:200,response_ms:0},local_rest:restProbe},
+      application:{node:nodeProbe,local_rest:restProbe},
+      monitoring:{threshold_ms:PXL_SLOW_REQUEST_THRESHOLD_MS,slow_requests:slowRequests,probes:{node_local:nodeProbe,nginx_local:nginxProbe,postgrest:restProbe,public_cloudflare:publicProbe}},
       storage:{project_bytes:pxlSysPathSize(__dirname),log_bytes:(()=>{try{return fs.statSync('/var/log/pixelapps-node.log').size}catch(_){return 0}})(),backups:backup,cloudinary_backup:pxlSysCloudinaryBackup(),cloudinary_monthly:cloudBackupCenter.monthlyStatus('/home/deploy/pixelapps-backups/cloudinary'),database:{status:restProbe.ok?'connected':'unavailable',size_bytes:null}},
       deployment:pxlSysGit(),dependencies:pxlSysDependencies(),recent_errors:pxlSysErrors()
     });
