@@ -34,7 +34,10 @@ test('System Tools UI shows lightweight monitoring card and recent slow requests
   assert.match(ui,/Paling lambat/);
   assert.match(ui,/Public Cloudflare/);
   assert.match(ui,/5 kejadian terakhir/);
-  assert.match(index,/pxl-urg-0076-system-tools\.js\?v=PXL-SYS-0002/);
+  assert.match(index,/pxl-urg-0076-system-tools\.js\?v=PXL-SYS-0002A/);
+  assert.ok(ui.indexOf("card('Monitoring Ringan'") < ui.indexOf("card('Service Status'"),'Monitoring Ringan must be near the top before Service Status');
+  assert.match(ui,/\.st-grid\{[^}]*min-width:0/);
+  assert.match(ui,/@media\(max-width:600px\)\{[\s\S]*?\.st-row\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
 });
 
 test('PixelApps daily backup canonical cron runs at 18:15 UTC which is 02:15 WITA next day',()=>{
