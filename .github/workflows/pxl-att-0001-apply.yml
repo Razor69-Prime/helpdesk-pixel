@@ -1,0 +1,35 @@
+name: PXL ATT 0001 Apply
+
+on:
+  push:
+    branches:
+      - pxl-att-0001-apply
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and apply attendance patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pxl-att
+          for f in .pxl-att-gz/chunk-*.b64; do
+            base64 -d "$f" >> /tmp/pxl-att/patch.gz
+          done
+          echo "3aba31b0e4b7f5dc67507c5bfcafc4b322cfde45aca44ab2fc612d791d3872ea  /tmp/pxl-att/patch.gz" | sha256sum -c -
+          gzip -dc /tmp/pxl-att/patch.gz > /tmp/pxl-att/patch.diff
+          git apply --check /tmp/pxl-att/patch.diff
+          git apply /tmp/pxl-att/patch.diff
+          rm -rf .pxl-att .pxl-att-gz
+          rm -f .github/workflows/pxl-att-0001-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "PXL-ATT-0001 — Absensi Online V1"
+          git push origin HEAD:pxl-att-0001-apply
