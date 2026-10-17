@@ -13,18 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rebuild and apply attendance patch
+      - name: Apply verified attendance patch
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/pxl-att
-          for f in .pxl-att-gz/chunk-*.b64; do
-            base64 -d "$f" >> /tmp/pxl-att/patch.gz
-          done
-          gzip -t /tmp/pxl-att/patch.gz
-          gzip -dc /tmp/pxl-att/patch.gz > /tmp/pxl-att/patch.diff
-          git apply --check /tmp/pxl-att/patch.diff
-          git apply /tmp/pxl-att/patch.diff
+          gzip -t .pxl-att/patch.gz
+          gzip -dc .pxl-att/patch.gz > /tmp/pxl-att-0001.patch
+          git apply --check /tmp/pxl-att-0001.patch
+          git apply /tmp/pxl-att-0001.patch
           rm -rf .pxl-att .pxl-att-gz
           rm -f .github/workflows/pxl-att-0001-apply.yml
           git config user.name "github-actions[bot]"
