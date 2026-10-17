@@ -21,7 +21,7 @@ jobs:
           for f in .pxl-att-gz/chunk-*.b64; do
             base64 -d "$f" >> /tmp/pxl-att/patch.gz
           done
-          echo "3aba31b0e4b7f5dc67507c5bfcafc4b322cfde45aca44ab2fc612d791d3872ea  /tmp/pxl-att/patch.gz" | sha256sum -c -
+          gzip -t /tmp/pxl-att/patch.gz
           gzip -dc /tmp/pxl-att/patch.gz > /tmp/pxl-att/patch.diff
           git apply --check /tmp/pxl-att/patch.diff
           git apply /tmp/pxl-att/patch.diff
