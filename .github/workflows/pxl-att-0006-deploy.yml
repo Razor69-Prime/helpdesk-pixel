@@ -1,0 +1,41 @@
+name: PXL-ATT-0006 Deploy
+
+on:
+  push:
+    branches:
+      - pxl-att-0006-deploy
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply attendance watermark user fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/att-0006.patch.gz' -o /tmp/att.patch.gz
+          echo '814c85712f9b56620e45b38e0fca28e1203822672bd9776154d219deff2dca84  /tmp/att.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/att.patch.gz > /tmp/att.patch
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = '210c61784b7fa3db3b41755a45bba7935af843a2'
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/att.patch
+          git diff --cached --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --check public/pxl-attendance-v1.js
+          node --test tests/attendance-v1-ui.test.js tests/attendance-v1-wiring.test.js tests/attendance-v1-api.test.js
+          node --test tests/*.test.js
+          test "$(git write-tree)" = 'a40c7d34566389f0fc3619142f15e5e821c726cb'
+          git config user.name 'Razor69-Prime'
+          git config user.email 'ekahendrayana1986@gmail.com'
+          git commit -m 'PXL-ATT-0006 — Watermark user'
+          git push origin HEAD:main
