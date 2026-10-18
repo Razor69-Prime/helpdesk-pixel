@@ -1,0 +1,44 @@
+name: PXL-ATT-0001 Deploy
+
+on:
+  push:
+    branches:
+      - pxl-att-0001-deploy2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply verified attendance patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/att-0001-07e11df-049bb2f78f1b.patch.gz' -o /tmp/att.patch.gz
+          echo '049bb2f78f1bf258dff33c2c9d880f2a5676b420428f06f10a2205edb2c54d1e  /tmp/att.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/att.patch.gz > /tmp/att.patch
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = '8f904cecc05c1907966f6be9b65775988c011fb4'
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/att.patch
+          git diff --cached --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --check server.js
+          node --check pxl-attendance-api.js
+          node --check pxl-attendance-core.js
+          node --check public/pxl-attendance-v1.js
+          node --test tests/attendance-v1-*.test.js
+          node --test tests/*.test.js
+          test "$(git write-tree)" = '60aab90be2d2c1e535be4d0329d1bc8d7acb3b30'
+          git config user.name 'Razor69-Prime'
+          git config user.email 'ekahendrayana1986@gmail.com'
+          git commit -m 'PXL-ATT-0001 — Absensi Online V1'
+          git push origin HEAD:main
