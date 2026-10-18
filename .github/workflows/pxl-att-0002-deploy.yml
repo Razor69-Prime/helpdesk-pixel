@@ -1,0 +1,40 @@
+name: PXL-ATT-0002 Deploy
+
+on:
+  push:
+    branches:
+      - pxl-att-0002-deploy
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply attendance UI patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/pxl-att-0002.patch.gz' -o /tmp/att.patch.gz
+          echo '4962e11e1c198da0987bfb669dbc808ab3dab00f81c180343dc06888ec19799f  /tmp/att.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/att.patch.gz > /tmp/att.patch
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = '8c26dc31588f036e67ee6482ec1bcaea9c4608c6'
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/att.patch
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --check public/pxl-attendance-v1.js
+          node --test tests/attendance-v1-ui.test.js tests/attendance-v1-wiring.test.js
+          node --test tests/*.test.js
+          test "$(git write-tree)" = '3d93dcb97422d86eb66ab9fa8f14100bc9608f88'
+          git config user.name 'Razor69-Prime'
+          git config user.email 'ekahendrayana1986@gmail.com'
+          git commit -m 'PXL-ATT-0002 — Attendance UI'
+          git push origin HEAD:main
