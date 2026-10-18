@@ -1,0 +1,41 @@
+name: PXL-ATT-0005 Deploy
+
+on:
+  push:
+    branches:
+      - pxl-att-0005-deploy
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply attendance checkout patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/att-0005.patch.gz' -o /tmp/att.patch.gz
+          echo 'a7ef185513701e209f606707d8d3de7efd358437e2c5353c5a0fce6bcc6f9d25  /tmp/att.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/att.patch.gz > /tmp/att.patch
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = '37ed1fa7a8e71371256bc591fff5e1f84533a061'
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/att.patch
+          git diff --cached --check
+          node --check pxl-attendance-api.js
+          node --check public/pxl-attendance-v1.js
+          node --test tests/attendance-v1-*.test.js
+          node --test tests/*.test.js
+          test "$(git write-tree)" = '4c6529df8c33decdddd601f995adc02e9c79f651'
+          git config user.name 'Razor69-Prime'
+          git config user.email 'ekahendrayana1986@gmail.com'
+          git commit -m 'PXL-ATT-0005 — Checkout independent'
+          git push origin HEAD:main
