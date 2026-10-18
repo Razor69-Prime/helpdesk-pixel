@@ -22,3 +22,5 @@ test('checkout is allowed without checkin and watermark typography is uniform',(
 
 
 test('attendance watermark reads lexical currentUser and uses one compact font size without canvas compression',()=>{const x=s();assert.match(x,/typeof currentUser!==['"]undefined['"]/);assert.match(x,/user\(\)\.name\|\|user\(\)\.nama\|\|user\(\)\.username/);assert.match(x,/Math\.round\(w\*\.012\)/);assert.match(x,/measureText/);assert.doesNotMatch(x,/fillText\([^\n]*Math\.max\(100,w-textX-pad\)/);});
+
+test('attendance admin provides period report and Excel export',()=>{const x=s();assert.match(x,/Report Absensi/);assert.match(x,/att-report-from/);assert.match(x,/att-report-to/);assert.match(x,/pxlAttendanceReportLoad/);assert.match(x,/pxlAttendanceExportExcel/);assert.match(x,/XLSX\.utils\.json_to_sheet/);assert.match(x,/Laporan Absensi/);assert.match(x,/attendance\/admin\?from=/);});
