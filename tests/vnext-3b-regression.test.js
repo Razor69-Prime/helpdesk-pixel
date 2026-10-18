@@ -57,5 +57,5 @@ test('current MR UI cache key forces fresh hotfix browser asset',()=>{
   assert.match(index,/pxl-stg-0016-project-report\.js\?v=PXL-VNEXT-3D/);
   assert.match(index,/pxl-vnext-3a-project-detail\.js\?v=PXL-(?:VNEXT-3B1|VNEXT-IPO1)/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v123'/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v124'/);
 });
