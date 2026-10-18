@@ -10,7 +10,7 @@ test('3D photo client loads before active Project Report with 3D cache busting',
   assert.ok(photo>=0&&report>=0&&photo<report);
 });
 test('service worker v119 caches 3D2 module/logo and keeps API bypass',()=>{
-  assert.match(sw,/const CACHE='pixelapps-inv1-v119'/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v120'/);
   assert.match(sw,/\/pxl-vnext-3d-project-photos\.js/);
   assert.match(sw,/\/assets\/pxl-vnext-3d-watermark-logo\.png/);
   assert.match(sw,/url\.pathname\.startsWith\('\/api\/'\).*return/);

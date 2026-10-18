@@ -8,3 +8,7 @@ test('attendance UI uses optional work context and WITA labels',()=>{const x=s()
 test('attendance UI renders own history and permission-gated admin controls',()=>{const x=s();assert.match(x,/\/attendance\/me/);assert.match(x,/\/attendance\/today/);for(const p of ['attendance_view_all','attendance_manage_rules','attendance_manage'])assert.match(x,new RegExp(p));assert.match(x,/superadmin/);assert.match(x,/\/attendance\/admin/);assert.match(x,/\/attendance\/rules/);});
 
 test('watermark is drawn from server capture context and GPS metadata',()=>{const x=s();assert.match(x,/server_time_wita/);assert.match(x,/fillText/);assert.match(x,/latitude/);assert.match(x,/longitude/);assert.match(x,/accuracy/);assert.match(x,/capture-context/);assert.match(x,/photo-signature/);});
+
+test('attendance UI reuses Project watermark logo and layout asset',()=>{const x=s();assert.match(x,/\/assets\/pxl-vnext-3d-watermark-logo\.png/);assert.match(x,/loadImage\(/);assert.match(x,/drawImage\(logo/);assert.match(x,/rgba\(0,0,0,\.38\)/);});
+
+test('attendance action is selected from CHECK_IN CHECK_OUT dropdown',()=>{const x=s();assert.match(x,/id="att-action-select"/);assert.match(x,/<option value="CHECK_IN">CHECK_IN<\/option>/);assert.match(x,/<option value="CHECK_OUT">CHECK_OUT<\/option>/);assert.match(x,/pxlAttendanceStartSelected/);});

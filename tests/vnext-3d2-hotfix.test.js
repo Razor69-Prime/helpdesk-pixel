@@ -27,5 +27,5 @@ test('current browser assets remain cache-busted after PXL-URG-0113',()=>{
   assert.match(index,/pxl-vnext-3d-project-photos\.js\?v=PXL-VNEXT-3D2/);
   assert.match(sw,/PXL-URG-0113/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
-  assert.match(sw,/pixelapps-inv1-v119/);
+  assert.match(sw,/pixelapps-inv1-v120/);
 });
