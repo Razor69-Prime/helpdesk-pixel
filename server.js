@@ -5497,6 +5497,9 @@ require('./pxl-urg-0043-master-pricelist-cache')(app,{requireAuth,db});
 // PXL-STG-0009A — modul terpisah Form Cuti / Izin
 require('./pxl-stg-0009a-leave-api')(app,{db,requireAuth,logActivity});
 
+// PXL-ATT-0001 — Absensi Online V1
+require('./pxl-attendance-api')(app,{db,requireAuth,logActivity,cloudinaryReady,cloudinarySignature,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY});
+
 // SPA fallback harus berada setelah seluruh route API/report.
 app.get('*', (req, res) => res.sendFile(path.join(__dirname,'public','index.html')));
 

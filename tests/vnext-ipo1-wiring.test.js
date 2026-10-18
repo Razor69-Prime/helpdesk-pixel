@@ -17,7 +17,7 @@ test('IPO1 browser module is cache-busted and loaded after current Project Detai
 });
 
 test('service worker bumps cache and serves changed Project Detail/Internal PO assets network-first',()=>{
-  assert.match(sw,/const CACHE='pixelapps-inv1-v118'/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v119'/);
   assert.match(sw,/pxl-vnext-3a-project-detail\.js/);
   assert.match(sw,/pxl-vnext-internal-po\.js/);
   assert.match(sw,/networkFirstAsset\(request\)/);

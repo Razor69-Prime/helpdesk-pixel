@@ -4,7 +4,8 @@ let state={requests:[],balances:[],users:[],options:[],editing:null,signing:null
 const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const role=()=>String(window.currentUser?.role||currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'');
 const me=()=>window.currentUser||currentUser||{};
-const hr=()=>['manager','admin','superadmin'].includes(role());
+const menus=()=>Array.isArray(me().custom_menus)?me().custom_menus:[];
+const hr=()=>role()==='superadmin'||menus().includes('hr_admin_manage');
 const manager=()=>state.canApprove===true;
 const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-';
 const badge=s=>`<span class="leave-badge ${esc(s)}">${({draft:'Draft',submitted:'Diajukan',approved:'Disetujui',rejected:'Ditolak',cancelled:'Dibatalkan'})[s]||s}</span>`;

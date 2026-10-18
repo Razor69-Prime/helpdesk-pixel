@@ -1602,6 +1602,51 @@ async function deletePackageRecipe(id){
 }
 
 
+// PXL-ATT-0001 — Attendance Online V1
+const ATTENDANCE_FILES={
+  rules:path.join(__dirname,'data','attendance_rules.json'),
+  records:path.join(__dirname,'data','attendance_records.json'),
+  tokens:path.join(__dirname,'data','attendance_capture_tokens.json'),
+  history:path.join(__dirname,'data','attendance_history.json')
+};
+function readAttendanceLocal(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(_){return [];}}
+function writeAttendanceLocal(file,rows){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(rows,null,2));}
+async function getAttendanceRules(){
+  if(USE_POSTGREST)return await restFetch('GET','/attendance_rules?is_active=eq.true&order=day_of_week.asc')||[];
+  return readAttendanceLocal(ATTENDANCE_FILES.rules);
+}
+async function replaceAttendanceRules(rows,actor={}){
+  const payload=(rows||[]).map(r=>({...r,timezone:'Asia/Makassar',updated_by_id:actor.id||null,updated_by_name:actor.name||null,updated_at:new Date().toISOString()}));
+  if(USE_POSTGREST){
+    const out=[];
+    for(const row of payload){const saved=await restFetch('POST','/attendance_rules?on_conflict=day_of_week',row,{'Prefer':'resolution=merge-duplicates,return=representation'});if(saved?.[0])out.push(saved[0]);}
+    return out;
+  }
+  writeAttendanceLocal(ATTENDANCE_FILES.rules,payload);return payload;
+}
+async function getAttendanceRecord(userId,workDate){
+  if(USE_POSTGREST){const rows=await restFetch('GET',`/attendance_records?user_id=eq.${encodeURIComponent(userId)}&work_date=eq.${encodeURIComponent(workDate)}&limit=1`);return rows?.[0]||null;}
+  return readAttendanceLocal(ATTENDANCE_FILES.records).find(x=>String(x.user_id)===String(userId)&&String(x.work_date)===String(workDate))||null;
+}
+async function getAttendanceRecords(filters={}){
+  if(USE_POSTGREST){let q='/attendance_records?order=work_date.desc,created_at.desc';if(filters.user_id)q+=`&user_id=eq.${encodeURIComponent(filters.user_id)}`;if(filters.from)q+=`&work_date=gte.${encodeURIComponent(filters.from)}`;if(filters.to)q+=`&work_date=lte.${encodeURIComponent(filters.to)}`;if(filters.id)q+=`&id=eq.${encodeURIComponent(filters.id)}`;return await restFetch('GET',q)||[];}
+  let rows=readAttendanceLocal(ATTENDANCE_FILES.records);if(filters.user_id)rows=rows.filter(x=>String(x.user_id)===String(filters.user_id));if(filters.from)rows=rows.filter(x=>x.work_date>=filters.from);if(filters.to)rows=rows.filter(x=>x.work_date<=filters.to);if(filters.id)rows=rows.filter(x=>String(x.id)===String(filters.id));return rows.sort((a,b)=>String(b.work_date).localeCompare(String(a.work_date)));
+}
+async function insertAttendanceRecord(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),...data};if(USE_POSTGREST){const out=await restFetch('POST','/attendance_records',row);return out?.[0]||row;}const rows=readAttendanceLocal(ATTENDANCE_FILES.records);if(rows.some(x=>String(x.user_id)===String(row.user_id)&&String(x.work_date)===String(row.work_date)))throw new Error('duplicate attendance');rows.push(row);writeAttendanceLocal(ATTENDANCE_FILES.records,rows);return row;}
+async function updateAttendanceRecord(id,patch){patch={...patch,updated_at:new Date().toISOString()};if(USE_POSTGREST){const out=await restFetch('PATCH',`/attendance_records?id=eq.${encodeURIComponent(id)}`,patch);return out?.[0]||null;}const rows=readAttendanceLocal(ATTENDANCE_FILES.records),i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)return null;rows[i]={...rows[i],...patch};writeAttendanceLocal(ATTENDANCE_FILES.records,rows);return rows[i];}
+async function insertAttendanceCaptureToken(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),...data};if(USE_POSTGREST){const out=await restFetch('POST','/attendance_capture_tokens',row);return out?.[0]||row;}const rows=readAttendanceLocal(ATTENDANCE_FILES.tokens);rows.push(row);writeAttendanceLocal(ATTENDANCE_FILES.tokens,rows);return row;}
+async function getAttendanceCaptureToken(tokenHash,userId,eventType){
+  if(USE_POSTGREST){const rows=await restFetch('GET',`/attendance_capture_tokens?token_hash=eq.${encodeURIComponent(tokenHash)}&user_id=eq.${encodeURIComponent(userId)}&event_type=eq.${encodeURIComponent(eventType)}&limit=1`);return rows?.[0]||null;}
+  return readAttendanceLocal(ATTENDANCE_FILES.tokens).find(x=>x.token_hash===tokenHash&&String(x.user_id)===String(userId)&&x.event_type===eventType)||null;
+}
+async function consumeAttendanceCaptureToken(tokenHash,userId,eventType){
+  if(USE_POSTGREST){const out=await restFetch('POST','/rpc/pxl_attendance_consume_capture_token',{p_token_hash:tokenHash,p_user_id:String(userId),p_event_type:eventType});return out?.[0]||null;}
+  const rows=readAttendanceLocal(ATTENDANCE_FILES.tokens),i=rows.findIndex(x=>x.token_hash===tokenHash&&String(x.user_id)===String(userId)&&x.event_type===eventType&&!x.used_at&&new Date(x.expires_at)>new Date());if(i<0)return null;rows[i].used_at=new Date().toISOString();writeAttendanceLocal(ATTENDANCE_FILES.tokens,rows);return rows[i];
+}
+async function insertAttendanceHistory(data){const row={id:crypto.randomUUID(),created_at:new Date().toISOString(),...data};if(USE_POSTGREST){const out=await restFetch('POST','/attendance_history',row);return out?.[0]||row;}const rows=readAttendanceLocal(ATTENDANCE_FILES.history);rows.push(row);writeAttendanceLocal(ATTENDANCE_FILES.history,rows);return row;}
+async function getAttendanceHistory(recordId){if(USE_POSTGREST)return await restFetch('GET',`/attendance_history?attendance_record_id=eq.${encodeURIComponent(recordId)}&order=created_at.desc`)||[];return readAttendanceLocal(ATTENDANCE_FILES.history).filter(x=>String(x.attendance_record_id)===String(recordId)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
+
+
 module.exports = {
   USE_POSTGREST,
   USE_SUPABASE: USE_POSTGREST,
@@ -1644,5 +1689,7 @@ module.exports = {
   getAdditionalMaterialRequests, insertAdditionalMaterialRequest, updateAdditionalMaterialRequest,
   getCrmInvoices, insertCrmInvoice, getCustomerImportStaging, insertCustomerImportStaging, updateCustomerImportStaging, getWhatsappTemplates, insertWhatsappTemplate, getCommunicationHistory, insertCommunicationHistory, getWorkOrderPhotos, insertWorkOrderPhoto, updateWorkOrderPhoto, getCrmReport,
   getServiceOrders, getServiceOrder, getServiceOrderByToken, insertServiceOrder, updateServiceOrder, getServiceHistory, insertServiceHistory, getServicePhotos, insertServicePhoto,
-  getPackageRecipes, getPackageRecipe, insertPackageRecipe, updatePackageRecipe, deletePackageRecipe
+  getPackageRecipes, getPackageRecipe, insertPackageRecipe, updatePackageRecipe, deletePackageRecipe,
+  getAttendanceRules, replaceAttendanceRules, getAttendanceRecord, getAttendanceRecords, insertAttendanceRecord, updateAttendanceRecord,
+  insertAttendanceCaptureToken, getAttendanceCaptureToken, consumeAttendanceCaptureToken, insertAttendanceHistory, getAttendanceHistory
 };
