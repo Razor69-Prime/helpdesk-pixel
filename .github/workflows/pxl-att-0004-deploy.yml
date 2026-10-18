@@ -1,0 +1,41 @@
+name: PXL-ATT-0004 Deploy
+
+on:
+  push:
+    branches:
+      - pxl-att-0004-deploy
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply attendance watermark polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://internal.pixelsolusindo.com/downloads/att-0004.patch.gz' -o /tmp/att.patch.gz
+          echo '59612ab269f6f65474abab69fb2f84a5f5dece91bac6458d3a6e3cbb5656afec  /tmp/att.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/att.patch.gz > /tmp/att.patch
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = '9adf53b1f07b05debf0d81dd978206a5bbd14c23'
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/att.patch
+          git diff --cached --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --check public/pxl-attendance-v1.js
+          node --test tests/attendance-v1-ui.test.js tests/attendance-v1-wiring.test.js
+          node --test tests/*.test.js
+          test "$(git write-tree)" = '301d0a92e6b6bb974d253a283927483b3066079e'
+          git config user.name 'Razor69-Prime'
+          git config user.email 'ekahendrayana1986@gmail.com'
+          git commit -m 'PXL-ATT-0004 — Watermark polish'
+          git push origin HEAD:main
