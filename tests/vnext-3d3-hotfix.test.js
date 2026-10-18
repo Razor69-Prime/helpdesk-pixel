@@ -17,5 +17,5 @@ test('unified material picker removes the separate manual mode that caused incom
 test('3D4 assets supersede the 3D3 manual-mode hotfix',()=>{
   assert.match(mr,/PXL-VNEXT-3D4/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
-  assert.match(sw,/const CACHE='pixelapps-inv1-v122'/);
+  assert.match(sw,/const CACHE='pixelapps-inv1-v123'/);
 });

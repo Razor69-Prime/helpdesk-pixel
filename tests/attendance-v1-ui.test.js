@@ -13,6 +13,8 @@ test('attendance UI reuses Project watermark logo and layout asset',()=>{const x
 
 test('attendance action is selected from CHECK_IN CHECK_OUT dropdown',()=>{const x=s();assert.match(x,/id="att-action-select"/);assert.match(x,/<option value="CHECK_IN">CHECK_IN<\/option>/);assert.match(x,/<option value="CHECK_OUT">CHECK_OUT<\/option>/);assert.match(x,/pxlAttendanceStartSelected/);});
 
-test('attendance watermark matches Project metadata pattern without Project ID',()=>{const x=s();for(const text of ['Lokasi/Waktu Dokumentasi','Lokasi:','Alamat:','GPS:','Waktu:','User:'])assert.match(x,new RegExp(text.replace('/','\\/')));assert.doesNotMatch(x,/Project ID:/);assert.match(x,/nominatim\.openstreetmap\.org\/reverse/);});
+test('attendance watermark matches Project metadata pattern without Project ID',()=>{const x=s();for(const text of ['Lokasi Absensi Online','Lokasi:','Alamat:','GPS:','Waktu:','User:'])assert.match(x,new RegExp(text.replace('/','\\/')));assert.doesNotMatch(x,/Project ID:/);assert.match(x,/nominatim\.openstreetmap\.org\/reverse/);});
 
 test('attendance watermark uses compact translucent block and smaller readable font',()=>{const x=s();assert.match(x,/rgba\(0,0,0,\.24\)/);assert.match(x,/Math\.round\(w\*\.014\)/);assert.match(x,/Math\.round\(w\*\.055\)/);assert.match(x,/ctx\.font=.*Arial,sans-serif/);assert.match(x,/Math\.round\(h\*\.30\)/);});
+
+test('checkout is allowed without checkin and watermark typography is uniform',()=>{const x=s();assert.doesNotMatch(x,/Lakukan CHECK_IN terlebih dahulu/);assert.match(x,/Lokasi Absensi Online/);assert.doesNotMatch(x,/i===2\?Math\.max\(13,font-2\):font/);});

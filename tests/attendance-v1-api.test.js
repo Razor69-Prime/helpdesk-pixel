@@ -25,7 +25,7 @@ test('capture tokens bind user event and deterministic Cloudinary public id',()=
 test('server installs protected attendance API and does not trust client status/timestamp',()=>{
   const api=fs.readFileSync('pxl-attendance-api.js','utf8'),server=fs.readFileSync('server.js','utf8');
   for(const r of ['/api/attendance/today','/api/attendance/me','/api/attendance/capture-context','/api/attendance/photo-signature','/api/attendance/check-in','/api/attendance/check-out','/api/attendance/admin','/api/attendance/rules'])assert.ok(api.includes(r),r);
-  assert.match(api,/requireAuth/);assert.match(api,/consumeAttendanceCaptureToken/);assert.match(api,/CHECK_OUT tanpa CHECK_IN|CHECK_IN.*wajib/i);
+  assert.match(api,/requireAuth/);assert.match(api,/consumeAttendanceCaptureToken/);assert.doesNotMatch(api,/CHECK_OUT tanpa CHECK_IN|CHECK_IN wajib terlebih dahulu/i);assert.match(api,/event===['"]CHECK_OUT['"]/);assert.match(api,/insertAttendanceRecord\(patch\)/);
   assert.doesNotMatch(api,/check_in_at\s*:\s*req\.body\.check_in_at/);assert.doesNotMatch(api,/check_out_at\s*:\s*req\.body\.check_out_at/);assert.doesNotMatch(api,/status\s*:\s*req\.body\.status/);
   assert.match(server,/pxl-attendance-api/);
 });
