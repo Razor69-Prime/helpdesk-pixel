@@ -9,8 +9,10 @@ test('attendance UI renders own history and permission-gated admin controls',()=
 
 test('watermark is drawn from server capture context and GPS metadata',()=>{const x=s();assert.match(x,/server_time_wita/);assert.match(x,/fillText/);assert.match(x,/latitude/);assert.match(x,/longitude/);assert.match(x,/accuracy/);assert.match(x,/capture-context/);assert.match(x,/photo-signature/);});
 
-test('attendance UI reuses Project watermark logo and layout asset',()=>{const x=s();assert.match(x,/\/assets\/pxl-vnext-3d-watermark-logo\.png/);assert.match(x,/loadImage\(/);assert.match(x,/drawImage\(logo/);assert.match(x,/rgba\(0,0,0,\.38\)/);});
+test('attendance UI reuses Project watermark logo and layout asset',()=>{const x=s();assert.match(x,/\/assets\/pxl-vnext-3d-watermark-logo\.png/);assert.match(x,/loadImage\(/);assert.match(x,/drawImage\(logo/);assert.match(x,/rgba\(0,0,0,\.24\)/);});
 
 test('attendance action is selected from CHECK_IN CHECK_OUT dropdown',()=>{const x=s();assert.match(x,/id="att-action-select"/);assert.match(x,/<option value="CHECK_IN">CHECK_IN<\/option>/);assert.match(x,/<option value="CHECK_OUT">CHECK_OUT<\/option>/);assert.match(x,/pxlAttendanceStartSelected/);});
 
 test('attendance watermark matches Project metadata pattern without Project ID',()=>{const x=s();for(const text of ['Lokasi/Waktu Dokumentasi','Lokasi:','Alamat:','GPS:','Waktu:','User:'])assert.match(x,new RegExp(text.replace('/','\\/')));assert.doesNotMatch(x,/Project ID:/);assert.match(x,/nominatim\.openstreetmap\.org\/reverse/);});
+
+test('attendance watermark uses compact translucent block and smaller readable font',()=>{const x=s();assert.match(x,/rgba\(0,0,0,\.24\)/);assert.match(x,/Math\.round\(w\*\.014\)/);assert.match(x,/Math\.round\(w\*\.055\)/);assert.match(x,/ctx\.font=.*Arial,sans-serif/);assert.match(x,/Math\.round\(h\*\.30\)/);});
