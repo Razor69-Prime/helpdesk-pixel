@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL 'https://internal.pixelsolusindo.com/downloads/att-0008.patch.gz' -o /tmp/att.patch.gz
-          echo 'cc481ceb0b8c5bb64997c000acbf1ff72d4dad664dd91b677cda990fba02a9f7  /tmp/att.patch.gz' | sha256sum -c -
+          echo 'efb85640ec601cc9c1d47a310b61bb732d7d0ff01befb2164e0c17975e75ca42  /tmp/att.patch.gz' | sha256sum -c -
           gzip -dc /tmp/att.patch.gz > /tmp/att.patch
           git fetch origin main
           test "$(git rev-parse origin/main)" = 'dcf15b9d730258ce6a722c790585ccc3f449593c'
@@ -35,7 +35,7 @@ jobs:
           node --check pxl-attendance-api.js
           node --test tests/attendance-v1-api.test.js tests/attendance-v1-ui.test.js tests/attendance-v1-permissions.test.js tests/attendance-v1-wiring.test.js
           node --test tests/*.test.js
-          test "$(git write-tree)" = 'cea082ed14cd8c75ba1c1b3053d1794ceaa24df9'
+          test "$(git write-tree)" = '70f64f3f1f96d9c977d8583d0f17a8037ee9d53c'
           git config user.name 'Razor69-Prime'
           git config user.email 'ekahendrayana1986@gmail.com'
           git commit -m 'PXL-ATT-0008 — HR attendance admin'
