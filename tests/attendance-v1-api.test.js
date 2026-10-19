@@ -7,11 +7,12 @@ test('GPS validator requires finite valid latitude longitude accuracy',()=>{
   for(const x of [{latitude:null,longitude:115,accuracy:2},{latitude:91,longitude:115,accuracy:2},{latitude:-8,longitude:181,accuracy:2},{latitude:-8,longitude:115,accuracy:-1},{latitude:'x',longitude:115,accuracy:2}])assert.equal(validGps(x),false);
 });
 
-test('attendance permissions are checklist-only except superadmin bypass',async()=>{
+test('attendance administration is HR-only with superadmin bypass',async()=>{
   const {hasAttendancePermission}=mod._test;
-  const db={getUsers:async()=>[{id:'1',role:'hr',custom_menus:[]},{id:'2',role:'manager',custom_menus:['attendance_view_all']}]};
-  assert.equal(await hasAttendancePermission({session:{user:{id:'1',role:'hr'}}},'attendance_view_all',db),false);
-  assert.equal(await hasAttendancePermission({session:{user:{id:'2',role:'manager'}}},'attendance_view_all',db),true);
+  const db={getUsers:async()=>[{id:'1',role:'hr',custom_menus:[]},{id:'2',role:'manager',custom_menus:['attendance_view_all']},{id:'3',role:'admin',custom_menus:['attendance_manage']}]};
+  assert.equal(await hasAttendancePermission({session:{user:{id:'1',role:'hr'}}},'attendance_view_all',db),true);
+  assert.equal(await hasAttendancePermission({session:{user:{id:'2',role:'manager'}}},'attendance_view_all',db),false);
+  assert.equal(await hasAttendancePermission({session:{user:{id:'3',role:'admin'}}},'attendance_manage',db),false);
   assert.equal(await hasAttendancePermission({session:{user:{id:'9',role:'superadmin'}}},'attendance_manage',db),true);
 });
 

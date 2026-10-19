@@ -5,7 +5,7 @@ test('attendance UI is camera-only and GPS-required',()=>{const x=s();assert.mat
 
 test('attendance UI uses optional work context and WITA labels',()=>{const x=s();assert.match(x,/Pekerjaan \/ kegiatan/);assert.match(x,/opsional/i);assert.match(x,/WITA/);assert.match(x,/Overtime Stage 1|Lembur Tahap 1/);assert.match(x,/Overtime Stage 2|Lembur Tahap 2/);});
 
-test('attendance UI renders own history and permission-gated admin controls',()=>{const x=s();assert.match(x,/\/attendance\/me/);assert.match(x,/\/attendance\/today/);for(const p of ['attendance_view_all','attendance_manage_rules','attendance_manage'])assert.match(x,new RegExp(p));assert.match(x,/superadmin/);assert.match(x,/\/attendance\/admin/);assert.match(x,/\/attendance\/rules/);});
+test('attendance UI renders own history for all users and HR-only admin controls',()=>{const x=s();assert.match(x,/\/attendance\/me/);assert.match(x,/\/attendance\/today/);assert.match(x,/role\(\)==='hr'/);assert.match(x,/role\(\)==='superadmin'/);assert.match(x,/\/attendance\/admin/);assert.match(x,/\/attendance\/rules/);});
 
 test('watermark is drawn from server capture context and GPS metadata',()=>{const x=s();assert.match(x,/server_time_wita/);assert.match(x,/fillText/);assert.match(x,/latitude/);assert.match(x,/longitude/);assert.match(x,/accuracy/);assert.match(x,/capture-context/);assert.match(x,/photo-signature/);});
 
@@ -22,5 +22,7 @@ test('checkout is allowed without checkin and watermark typography is uniform',(
 
 
 test('attendance watermark reads lexical currentUser and uses one compact font size without canvas compression',()=>{const x=s();assert.match(x,/typeof currentUser!==['"]undefined['"]/);assert.match(x,/user\(\)\.name\|\|user\(\)\.nama\|\|user\(\)\.username/);assert.match(x,/Math\.round\(w\*\.012\)/);assert.match(x,/measureText/);assert.doesNotMatch(x,/fillText\([^\n]*Math\.max\(100,w-textX-pad\)/);});
+
+test('attendance administration UI is role HR only with superadmin bypass',()=>{const x=s();assert.match(x,/role\(\)==='hr'/);assert.match(x,/role\(\)==='superadmin'/);assert.doesNotMatch(x,/canAdmin=\(\)=>has\('attendance_view_all'\)/);});
 
 test('attendance admin provides period report and Excel export',()=>{const x=s();assert.match(x,/Report Absensi/);assert.match(x,/att-report-from/);assert.match(x,/att-report-to/);assert.match(x,/pxlAttendanceReportLoad/);assert.match(x,/pxlAttendanceExportExcel/);assert.match(x,/XLSX\.utils\.json_to_sheet/);assert.match(x,/Laporan Absensi/);assert.match(x,/attendance\/admin\?from=/);});
