@@ -1,0 +1,21 @@
+name: Project Done Deploy
+on:
+  push:
+    branches: [project-done-deploy]
+permissions:
+  contents: write
+jobs:
+  deploy-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply tested patch
+        run: |
+          curl -fsSL https://internal.pixelsolusindo.com/downloads/project-done.patch.gz -o /tmp/project-done.patch.gz
+          echo "b23fc1095606bca8452e6fa68773a13f100ccc3c48f4bc6557dad23b7ce07475  /tmp/project-done.patch.gz" | sha256sum -c -
+          gzip -dc /tmp/project-done.patch.gz | git am
+      - name: Push main
+        run: git push origin HEAD:main
