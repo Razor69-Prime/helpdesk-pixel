@@ -366,6 +366,7 @@ input[type=file]{padding:7px 11px;cursor:pointer}
 .proj-status-badge.plan{background:#DCFCE7;color:#15803D}
 .proj-status-badge.progress{background:#DBEAFE;color:#1D4ED8}
 .proj-status-badge.hold{background:var(--surface2);color:var(--muted)}
+.proj-status-badge.done{background:var(--green-bg);color:var(--green)}
 .proj-pic-desa-name{font-weight:600;color:var(--text);font-size:11.5px}
 .proj-pic-desa-phone{color:var(--blue);font-size:11px;margin-top:2px}
 .proj-issue-text{color:var(--muted);font-size:11.5px;line-height:1.5;max-width:200px}
@@ -2082,6 +2083,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
               <option value="On Plan">On Plan</option>
               <option value="On Progress">On Progress</option>
               <option value="Hold">Hold</option>
+              <option value="Done">Done</option>
             </select>
             <input type="text" id="proj-search" placeholder="Cari nama project / Project ID..." oninput="renderProjectList()" class="proj-filter-select" style="flex:1;min-width:160px"/>
             <button class="btn blue sm" onclick="exportProjectPDF()" style="margin-left:auto">📄 Export PDF</button>
@@ -2194,6 +2196,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
                 <option value="On Plan">On Plan</option>
                 <option value="On Progress">On Progress</option>
                 <option value="Hold">Hold</option>
+                <option value="Done">Done</option>
               </select>
             </div>
           </div>
@@ -10381,7 +10384,7 @@ function renderProjectMobileCards(filtered){
   const list=document.getElementById('proj-mobile-list');
   if(!list) return;
   if(!filtered.length){list.innerHTML='<div class="proj-mobile-empty">📭 Belum ada project</div>';return;}
-  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold'};
+  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold','Done':'done'};
   const priorClass={'P1':'p1','P2':'p2'};
   const canEdit=['admin','superadmin','manager','sales'].includes(currentUser.role);
   const canDelete=['admin','superadmin'].includes(currentUser.role);
@@ -10435,7 +10438,7 @@ function renderProjectList(){
     return;
   }
 
-  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold'};
+  const statusClass={'On Plan':'plan','On Progress':'progress','Hold':'hold','Done':'done'};
   const priorClass={'P1':'p1','P2':'p2'};
 
   tbody.innerHTML=filtered.map((p,idx)=>{
