@@ -148,3 +148,63 @@
   setTimeout(bridgeInventoryNavigationPermission,500);
   setTimeout(bridgeInventoryNavigationPermission,1500);
 })();
+
+/* PXL-ACC-0001G — Accounting V1 shell loader + Superadmin-only navigation. */
+(function(){
+  'use strict';
+  const ACCOUNTING_PERMISSION='accounting_transaction_report';
+  const role=()=>{try{return String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'');}catch(_){return'';}};
+  const isSuperadmin=()=>role()==='superadmin';
+
+  function ensureAccountingBundle(){
+    if(!isSuperadmin()||document.getElementById('pxl-accounting-bundle')) return;
+    const s=document.createElement('script');
+    s.id='pxl-accounting-bundle';s.src='/pxl-accounting-sales-v1.js?v=PXL-ACC-0001G';
+    document.body.appendChild(s);
+  }
+  function ensureAccountingRoot(){
+    if(!isSuperadmin()||document.getElementById('tab-accounting')) return;
+    const host=document.querySelector('.app-content');if(!host)return;
+    const tab=document.createElement('div');tab.id='tab-accounting';tab.className='tab-content';
+    tab.innerHTML='<div id="pxl-accounting-root"></div>';host.appendChild(tab);
+  }
+  function openAccounting(){
+    if(!isSuperadmin()) return;
+    ensureAccountingRoot();ensureAccountingBundle();
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-accounting')?.classList.add('active');
+    document.querySelector('[data-pxl-accounting-nav]')?.classList.add('active');
+    try{if(typeof syncActiveNavGroup==='function')syncActiveNavGroup();}catch(_){}
+    const run=()=>{if(typeof window.pxlAccountingOpen==='function')window.pxlAccountingOpen();else setTimeout(run,60);};run();
+  }
+  function ensureAccountingNav(){
+    if(!isSuperadmin()) return;
+    ensureAccountingRoot();ensureAccountingBundle();
+    const nav=document.getElementById('main-nav');if(!nav||nav.querySelector('[data-pxl-accounting-nav]'))return;
+    const group=document.createElement('div');group.className='sidebar-group';group.dataset.navGroup='nav-group-accounting';
+    group.innerHTML='<button type="button" class="sidebar-group-toggle" aria-expanded="true"><span>Accounting</span><span class="sidebar-group-arrow">▾</span></button><div class="sidebar-group-content"></div>';
+    const btn=document.createElement('button');btn.type='button';btn.className='nav-btn';btn.dataset.pxlAccountingNav='1';
+    btn.innerHTML='<span class="nav-icon">🧮</span><span class="nav-label">Accounting</span>';btn.addEventListener('click',openAccounting);
+    group.querySelector('.sidebar-group-content').appendChild(btn);
+    const adminGroup=[...nav.querySelectorAll('.sidebar-group')].find(g=>/administrasi/i.test(g.querySelector('.sidebar-group-toggle span')?.textContent||''));
+    if(adminGroup)nav.insertBefore(group,adminGroup);else nav.appendChild(group);
+  }
+  function ensureAccountingPermission(userId){
+    const box=document.getElementById('menu-checkboxes');if(!box)return;
+    document.getElementById('accounting-permission-placeholder')?.remove();
+    let u=null;try{u=(allUsers||[]).find(x=>String(x.id)===String(userId||document.getElementById('edit-user-id')?.value));}catch(_){}
+    const targetSuper=String(u?.role||document.getElementById('edit-role')?.value||'').toLowerCase().replace(/[ _-]/g,'')==='superadmin';
+    const checked=targetSuper||(Array.isArray(u?.custom_menus)&&u.custom_menus.includes(ACCOUNTING_PERMISSION));
+    const wrap=document.createElement('div');wrap.id='accounting-permission-placeholder';wrap.style.marginTop='12px';
+    wrap.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Accounting</div><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);margin-top:6px"><input type="checkbox" data-menu="'+ACCOUNTING_PERMISSION+'" '+(checked?'checked':'')+' '+(targetSuper?'disabled':'')+' style="width:14px;height:14px;accent-color:var(--accent)"/>📊 Accounting — Laporan Transaksi</label><div style="font-size:11px;color:var(--muted);margin-top:6px">Placeholder akses laporan untuk pengembangan berikutnya. Accounting V1 tetap hanya dapat dibuka Super Admin.</div>';
+    box.parentElement?.appendChild(wrap);
+  }
+
+  const priorOpen=typeof openEditModal==='function'?openEditModal:null;
+  if(priorOpen){openEditModal=function(userId){const r=priorOpen.apply(this,arguments);[0,80,250].forEach(ms=>setTimeout(()=>ensureAccountingPermission(userId),ms));return r;};}
+  const nav=document.getElementById('main-nav');if(nav)new MutationObserver(()=>ensureAccountingNav()).observe(nav,{childList:true,subtree:true});
+  window.pxlOpenAccounting=openAccounting;
+  [0,300,800,1600,3000].forEach(ms=>setTimeout(ensureAccountingNav,ms));
+  setInterval(()=>{if(!document.hidden)ensureAccountingNav();},30000);
+})();
