@@ -48,6 +48,18 @@ function installAttendanceApi(app,deps){
   app.put('/api/attendance/rules',requireAuth,permission('attendance_manage_rules'),async(req,res)=>{try{const rows=normalizeRules(req.body?.rules);res.json(await db.replaceAttendanceRules(rows,{id:me(req).id,name:me(req).name}))}catch(e){res.status(400).json({error:e.message})}});
   app.get('/api/attendance/admin/:id/history',requireAuth,async(req,res)=>{try{if(!await canViewAdmin(req))return res.status(403).json({error:'Akses attendance ditolak.'});res.json(await db.getAttendanceHistory(req.params.id))}catch(e){err(res,e)}});
   app.patch('/api/attendance/admin/:id',requireAuth,permission('attendance_manage'),async(req,res)=>{try{const reason=String(req.body?.reason||'').trim();if(!reason)return res.status(400).json({error:'Alasan koreksi wajib diisi.'});const rows=await db.getAttendanceRecords({id:req.params.id}),before=rows?.[0];if(!before)return res.status(404).json({error:'Attendance tidak ditemukan.'});const allowed=['check_in_at','check_out_at','check_in_work_context','check_out_work_context','check_in_latitude','check_in_longitude','check_in_accuracy','check_out_latitude','check_out_longitude','check_out_accuracy'];const patch={};for(const k of allowed)if(Object.prototype.hasOwnProperty.call(req.body,k))patch[k]=req.body[k];const rules=await getRules();if(patch.check_in_at){const d=new Date(patch.check_in_at),r=resolveAttendanceRule(rules,d);patch.check_in_status=calculateCheckInStatus(r,d).status}if(patch.check_out_at){const d=new Date(patch.check_out_at),r=resolveAttendanceRule(rules,d),st=calculateCheckOutStatus(r,d);patch.check_out_status=st.status;patch.overtime_stage=st.overtime_stage;patch.overtime_eligible_minutes=st.overtime_eligible_minutes}const after=await db.updateAttendanceRecord(before.id,patch);await db.insertAttendanceHistory({attendance_record_id:before.id,action:'ADMIN_CORRECTION',before_json:before,after_json:after,actor_user_id:me(req).id,actor_name:me(req).name,actor_role:me(req).role,reason});if(logActivity)logActivity(req,'attendance','ADMIN_CORRECTION',`${before.work_date} · ${before.user_name} · ${reason}`);res.json(after);}catch(e){err(res,e)}});
+
+
+  // PXL-ACC-0001H — standalone Accounting API mount; uses only auth/session from PixelApps.
+  const accountingSalesStore=require('./accounting-sales-store');
+  const {createAccountingRouter}=require('./accounting-sales-routes');
+  const {isAccountingSuperadmin}=require('./accounting-sales-v1');
+  const requireAccountingSuperadmin=(req,res,next)=>{
+    if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+    if(!isAccountingSuperadmin(req.session.user))return res.status(403).json({error:'Accounting V1 hanya dapat diakses Superadmin.'});
+    next();
+  };
+  app.use('/api/accounting',requireAccountingSuperadmin,createAccountingRouter({store:accountingSalesStore}));
 }
 
 module.exports=installAttendanceApi;
