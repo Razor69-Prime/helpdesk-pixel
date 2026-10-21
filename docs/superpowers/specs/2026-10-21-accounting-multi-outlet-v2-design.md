@@ -100,7 +100,7 @@ Untuk transaksi dan master baru setelah migration, `outlet_id` wajib terisi.
 
 ### 4.3 Uniqueness per outlet
 
-Master tidak lagi unique secara global berdasarkan `name`. Uniqueness menjadi scoped per outlet:
+Master tidak lagi unique secara global berdasarkan `name`. Uniqueness menjadi scoped per outlet melalui unique index berbasis ekspresi:
 
 - `(outlet_id, lower(name))` untuk Customer
 - `(outlet_id, lower(name))` untuk PIC
@@ -117,20 +117,26 @@ Contoh:
 
 Ketiganya record berbeda.
 
-### 4.4 Existing data V1
+### 4.4 Existing data V1 dan migration guard
 
-Pada saat migration PXL-ACC-0002 dijalankan, sistem tidak boleh mengasumsikan outlet existing secara sembarang.
+Sistem tidak boleh menebak outlet untuk data existing.
 
-Strategi migration:
+Sebelum perubahan schema irreversible di migration, lakukan guard terhadap data Accounting V1:
 
-1. Seed `accounting_outlets`.
-2. Tambahkan kolom `outlet_id` nullable terlebih dahulu.
-3. Cek apakah ada transaksi/master existing.
-4. Jika tabel transaksi masih kosong, kolom transaksi dapat langsung dibuat wajib setelah validasi.
-5. Untuk seed master existing V1 yang belum punya outlet, duplikasi seed standar ke masing-masing outlet atau migrasikan dengan strategi eksplisit yang tidak mencampur ownership outlet.
-6. Setelah semua row terpetakan, set `NOT NULL` untuk tabel yang diwajibkan.
+- Jika `accounting_sales_transactions` memiliki row tanpa outlet mapping, migration harus berhenti dan meminta proses mapping eksplisit terlebih dahulu.
+- Jika `accounting_customers` atau `accounting_pics` memiliki row existing tanpa outlet mapping, migration harus berhenti agar Customer/PIC tidak salah dimasukkan ke outlet tertentu.
+- `accounting_product_categories` dan `accounting_payment_methods` seed V1 boleh diduplikasi secara deterministic ke Buduk, Lukluk, dan Bangli karena keduanya adalah master dasar yang memang dibutuhkan setiap outlet.
 
-Migration harus idempotent dan aman dijalankan sekali di staging lalu production.
+Untuk seed Kategori Produk dan Metode Pembayaran V1:
+
+1. Simpan nama master existing.
+2. Lepas global unique constraint/index `name` terlebih dahulu.
+3. Isi `outlet_id` pada row existing untuk satu outlet secara deterministic atau rebuild set seed dalam transaction.
+4. Buat copy nama yang sama untuk dua outlet lain.
+5. Pasang unique index `(outlet_id, lower(name))`.
+6. Pastikan semua row memiliki `outlet_id` sebelum `NOT NULL` diaktifkan.
+
+Migration harus idempotent dan aman dijalankan terlebih dahulu di staging.
 
 ## 5. Master per Outlet
 
@@ -158,7 +164,7 @@ Contoh:
 
 Keduanya tidak dianggap record yang sama.
 
-Dashboard per PIC selalu dihitung dalam konteks outlet aktif. Dashboard gabungan dapat menampilkan agregasi per outlet terlebih dahulu dan tidak boleh menggabungkan dua PIC bernama sama dari outlet berbeda tanpa identitas outlet.
+Dashboard per PIC selalu dihitung dalam konteks outlet aktif. Dashboard gabungan tidak boleh menggabungkan dua PIC bernama sama dari outlet berbeda tanpa identitas outlet.
 
 ## 7. Selector Outlet dan Mode UI
 
@@ -402,17 +408,24 @@ Buat migration baru `PXL-ACC-0002-MIGRATION.sql`.
 
 Migration harus additive dan tidak mengubah file migration PXL-ACC-0001 yang sudah pernah dijalankan di production.
 
-Urutan migration yang disarankan:
+Urutan migration:
 
-1. Create `accounting_outlets`.
-2. Seed Buduk, Lukluk, Bangli.
-3. Add nullable `outlet_id` ke lima tabel Accounting.
-4. Migrasikan/duplikasi seed master existing secara deterministic.
-5. Tambahkan foreign key.
-6. Ganti global unique constraint master menjadi unique per outlet.
-7. Tambahkan index `(outlet_id, transaction_date)` untuk transaksi.
-8. Set `NOT NULL` setelah seluruh row aman.
-9. Commit transaction.
+1. `BEGIN` transaction.
+2. Create `accounting_outlets` jika belum ada.
+3. Seed Buduk, Lukluk, Bangli.
+4. Add nullable `outlet_id` ke lima tabel Accounting jika belum ada.
+5. Jalankan migration guard untuk transaksi, Customer, dan PIC existing tanpa mapping outlet; abort jika ditemukan.
+6. Ambil snapshot nama seed `accounting_product_categories` dan `accounting_payment_methods` existing.
+7. Drop global unique constraint/index pada `name` untuk empat master.
+8. Assign/rebuild seed kategori dan metode pembayaran untuk ketiga outlet secara deterministic.
+9. Tambahkan foreign key `outlet_id` ke `accounting_outlets(id)`.
+10. Buat unique index `(outlet_id, lower(name))` pada empat master.
+11. Tambahkan index transaksi `(outlet_id, transaction_date)` untuk query dashboard/report.
+12. Validasi tidak ada row `outlet_id IS NULL` pada tabel yang diwajibkan.
+13. Set `outlet_id NOT NULL`.
+14. `COMMIT`.
+
+Jika guard gagal, transaction harus rollback tanpa partial schema/data change.
 
 Migration staging wajib dijalankan pada isolated staging database terlebih dahulu.
 
@@ -491,6 +504,7 @@ PXL-ACC-0002 dianggap lulus staging jika minimum:
 Unit/contract tests minimum:
 
 - outlet validation;
+- migration guard untuk existing unmapped data;
 - master scoping per outlet;
 - duplicate name allowed across outlets;
 - duplicate name rejected dalam outlet yang sama;
