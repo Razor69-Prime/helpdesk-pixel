@@ -12,7 +12,7 @@ test('Project MR browser revision is current 3D1 hotfix and cache is bumped',()=
   assert.match(ui,/PXL-VNEXT-3D4/);
   assert.match(ui,/const REV='PXL-VNEXT-3D4'/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
-  assert.match(sw,/pixelapps-inv1-v125/);
+  assert.match(sw,/pixelapps-inv1-v126/);
 });
 
 test('Draft and Rejected editor supports BOQ or manual material without Inventory flow',()=>{

@@ -159,7 +159,7 @@
   function ensureAccountingBundle(){
     if(!isSuperadmin()||document.getElementById('pxl-accounting-bundle')) return;
     const s=document.createElement('script');
-    s.id='pxl-accounting-bundle';s.src='/pxl-accounting-sales-v1.js?v=PXL-ACC-0001G';
+    s.id='pxl-accounting-bundle';s.src='/pxl-accounting-sales-v1.js?v=PXL-ACC-0002A';
     document.body.appendChild(s);
   }
   function ensureAccountingRoot(){

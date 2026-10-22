@@ -33,5 +33,5 @@ test('manual free text validates without BOQ id while selected BOQ preserves exa
 test('3D4 MR asset is cache-busted',()=>{
   assert.match(mr,/PXL-VNEXT-3D4/);
   assert.match(index,/pxl-vnext-3b-project-mr\.js\?v=PXL-VNEXT-3D4/);
-  assert.match(sw,/pixelapps-inv1-v125/);
+  assert.match(sw,/pixelapps-inv1-v126/);
 });

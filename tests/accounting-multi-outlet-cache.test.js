@@ -1,0 +1,9 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const loader=fs.readFileSync('public/pxl-urg-0018-account-permission-explicit-override.js','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+assert.match(loader,/pxl-accounting-sales-v1\.js\?v=PXL-ACC-0002A/,'Accounting loader must cache-bust V2 bundle');
+assert.match(sw,/url\.pathname==='\/pxl-urg-0018-account-permission-explicit-override\.js'/,'service worker must network-first the Accounting loader');
+assert.match(sw,/url\.pathname==='\/pxl-accounting-sales-v1\.js'/,'service worker must network-first the Accounting bundle');
+console.log('Accounting cache loader regression test complete');
