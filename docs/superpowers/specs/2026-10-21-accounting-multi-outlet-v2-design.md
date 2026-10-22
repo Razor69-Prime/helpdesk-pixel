@@ -1,8 +1,8 @@
 # PXL-ACC-0002 — Accounting Multi-Outlet V2 Design
 
-Tanggal: 21 Oktober 2026  
-Status: Design approved in chat; written spec pending final user review  
-Base production: `a9853338fdc8a79e96421924313bf31f770ec9d1`  
+Tanggal: 21 Oktober 2026
+Status: Design approved in chat; written spec pending final user review
+Base production: `a9853338fdc8a79e96421924313bf31f770ec9d1`
 Branch: `feature/accounting-multi-outlet-v2`
 
 ## 1. Tujuan

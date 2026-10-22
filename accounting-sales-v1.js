@@ -11,11 +11,17 @@ const PAID_STATUSES=['PAID','UNPAID'];
 const SALES_TYPES=['BARANG','JASA'];
 
 const clean=v=>String(v??'').trim();
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const money=v=>{
   const n=Number(v);
   if(!Number.isFinite(n)) throw new Error('Nilai Rupiah tidak valid.');
   return Math.round(n);
 };
+function normalizeOutletId(value){
+  const id=clean(value);
+  if(!UUID_RE.test(id)) throw new Error('Outlet wajib dipilih.');
+  return id;
+}
 function calculateAccountingAmounts(grossAmount,hppAmount){
   const gross=money(grossAmount),hpp=money(hppAmount);
   if(gross<0) throw new Error('Nominal transaksi tidak boleh negatif.');
@@ -63,9 +69,10 @@ function resolveAccountingClassification(input={},customerMaster,picMaster){
 function normalizeRole(role){return clean(role).toLowerCase().replace(/[ _-]/g,'');}
 function isAccountingSuperadmin(user){return normalizeRole(user?.role)==='superadmin';}
 function filterTransactions(rows=[],filters={}){
-  const month=clean(filters.month),year=clean(filters.year);
+  const month=clean(filters.month),year=clean(filters.year),outletId=clean(filters.outlet_id);
   return rows.filter(r=>{
     if(r.deleted_at) return false;
+    if(outletId&&clean(r.outlet_id)!==outletId) return false;
     const d=clean(r.transaction_date);
     if(year&&d.slice(0,4)!==year) return false;
     if(month&&d.slice(5,7)!==String(month).padStart(2,'0')) return false;
@@ -76,15 +83,25 @@ function filterTransactions(rows=[],filters={}){
     return true;
   });
 }
-function aggregateAccountingDashboard(rows=[]){
+function aggregateAccountingDashboard(rows=[],options={}){
   const active=rows.filter(r=>!r.deleted_at);
   const summary={gross_amount:0,hpp_amount:0,dpp_amount:0,ppn_amount:0,net_amount:0,transaction_count:active.length};
   const bucket=()=>Object.create(null);
-  const byClassification=bucket(),countByClassification=bucket(),bySub=bucket(),byCategory=bucket(),byPic=bucket(),netByClassification=bucket(),trend=bucket();
+  const byClassification=bucket(),countByClassification=bucket(),bySub=bucket(),byCategory=bucket(),byPic=bucket(),netByClassification=bucket(),trend=bucket(),byOutlet=bucket(),netByOutlet=bucket();
+  const outletSummaries=new Map();
+  const outletOrder=[];
+  const emptyOutletSummary=()=>({gross_amount:0,hpp_amount:0,dpp_amount:0,ppn_amount:0,net_amount:0,transaction_count:0});
+  if(options.scope==='all'&&Array.isArray(options.outlets))for(const o of options.outlets){
+    const name=clean(o?.name||o?.outlet_name||o?.code||o?.id)||'-';
+    if(!outletSummaries.has(name)){outletOrder.push(name);outletSummaries.set(name,emptyOutletSummary());byOutlet[name]=0;netByOutlet[name]=0;}
+  }
   let goods=0,services=0;
   for(const r of active){
     for(const k of ['gross_amount','hpp_amount','dpp_amount','ppn_amount','net_amount']) summary[k]+=Number(r[k]||0);
-    const c=r.classification||'-',s=r.sub_classification||'-',cat=r.product_category||'-',pic=r.pic_name||'-',m=String(r.transaction_date||'').slice(0,7)||'-';
+    const c=r.classification||'-',s=r.sub_classification||'-',cat=r.product_category||'-',outlet=r.outlet_name||r.outlet_code||r.outlet_id||'-';
+    const rawPic=r.pic_name||'-';
+    const pic=options.scope==='all'&&outlet!=='-'?`${outlet} / ${rawPic}`:rawPic;
+    const m=String(r.transaction_date||'').slice(0,7)||'-';
     byClassification[c]=(byClassification[c]||0)+Number(r.gross_amount||0);
     countByClassification[c]=(countByClassification[c]||0)+1;
     bySub[s]=(bySub[s]||0)+Number(r.gross_amount||0);
@@ -93,13 +110,32 @@ function aggregateAccountingDashboard(rows=[]){
     netByClassification[c]=(netByClassification[c]||0)+Number(r.net_amount||0);
     trend[m]=(trend[m]||0)+Number(r.gross_amount||0);
     goods+=Number(r.goods_amount||0);services+=Number(r.service_amount||0);
+    if(options.scope==='all'){
+      if(!outletSummaries.has(outlet)){
+        outletOrder.push(outlet);
+        outletSummaries.set(outlet,emptyOutletSummary());
+      }
+      const os=outletSummaries.get(outlet);os.transaction_count+=1;
+      for(const k of ['gross_amount','hpp_amount','dpp_amount','ppn_amount','net_amount']) os[k]+=Number(r[k]||0);
+      byOutlet[outlet]=(byOutlet[outlet]||0)+Number(r.gross_amount||0);
+      netByOutlet[outlet]=(netByOutlet[outlet]||0)+Number(r.net_amount||0);
+    }
   }
   const series=o=>Object.entries(o).map(([name,value])=>({name,value}));
-  return {summary,charts:{
+  const charts={
     revenue_by_classification:series(byClassification),transactions_by_classification:series(countByClassification),
     revenue_by_sub_classification:series(bySub),revenue_by_category:series(byCategory),
     goods_vs_services:[{name:'Barang',value:goods},{name:'Jasa',value:services}],
     revenue_by_pic:series(byPic),net_by_classification:series(netByClassification),monthly_revenue:series(trend).sort((a,b)=>a.name.localeCompare(b.name))
-  }};
+  };
+  if(options.scope==='all'){
+    charts.revenue_by_outlet=outletOrder.map(name=>({name,value:byOutlet[name]||0}));
+    charts.net_by_outlet=outletOrder.map(name=>({name,value:netByOutlet[name]||0}));
+  }
+  return {
+    summary,
+    outlet_breakdown:options.scope==='all'?outletOrder.map(outlet_name=>({outlet_name,summary:outletSummaries.get(outlet_name)})):[],
+    charts
+  };
 }
-module.exports={ACCOUNTING_COLUMNS,CLASSIFICATIONS,SUB_CLASSIFICATIONS,PAID_STATUSES,SALES_TYPES,calculateAccountingAmounts,normalizeAccountingTransactionInput,resolveAccountingClassification,normalizeRole,isAccountingSuperadmin,filterTransactions,aggregateAccountingDashboard};
+module.exports={ACCOUNTING_COLUMNS,CLASSIFICATIONS,SUB_CLASSIFICATIONS,PAID_STATUSES,SALES_TYPES,normalizeOutletId,calculateAccountingAmounts,normalizeAccountingTransactionInput,resolveAccountingClassification,normalizeRole,isAccountingSuperadmin,filterTransactions,aggregateAccountingDashboard};
