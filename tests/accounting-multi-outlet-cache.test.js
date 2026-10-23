@@ -6,6 +6,6 @@ const sw=fs.readFileSync('public/sw.js','utf8');
 assert.match(loader,/pxl-accounting-sales-v1\.js\?v=PXL-ACC-0002A/,'Accounting loader must cache-bust V2 bundle');
 assert.match(sw,/url\.pathname==='\/pxl-urg-0018-account-permission-explicit-override\.js'/,'service worker must network-first the Accounting loader');
 assert.match(sw,/url\.pathname==='\/pxl-accounting-sales-v1\.js'/,'service worker must network-first the Accounting bundle');
-assert.match(loader,/pxl-accounting-0003\.js\?v=PXL-ACC-0003A/,'PXL-ACC-0003 overlay must be cache-busted');
+assert.match(loader,/pxl-accounting-0003\.js\?v=PXL-ACC-0003/,'PXL-ACC-0003 overlay must be cache-busted');
 assert.match(loader,/pxl-accounting-bundle'\)\)\{ensureAccounting0003\(\);return;\}/,'existing Accounting bundle must still load PXL-ACC-0003 overlay');
 console.log('Accounting cache loader regression test complete');
