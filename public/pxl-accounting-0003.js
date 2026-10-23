@@ -1,7 +1,7 @@
 /* PXL-ACC-0003 — Annual Excel export + PixelApps-standard Accounting dashboard polish. */
 (function(){
 'use strict';
-const REV='PXL-ACC-0003';
+const REV='PXL-ACC-0003A';
 const $=id=>document.getElementById(id);
 const token=()=>{try{return String(window.__pxlAuthToken||localStorage.getItem('pixel_token')||sessionStorage.getItem('pixel_token')||'').trim()}catch(_){return String(window.__pxlAuthToken||'').trim()}};
 function installStyle(){
@@ -37,6 +37,10 @@ function enhanceDashboard(){
     actions.appendChild(monthly);
     const annual=document.createElement('button');annual.className='btn primary';annual.id='ad-export-year';annual.textContent='⬇ Excel 1 Tahun';annual.onclick=()=>window.pxlAccountingExport?.(true);actions.appendChild(annual);
     monthly.onclick=()=>window.pxlAccountingExport?.(false);
+  }
+  const txMonthly=$('acc-export');if(txMonthly&&!$('acc-export-year')){
+    txMonthly.id='acc-export-month';txMonthly.textContent='⬇ Excel Bulan';txMonthly.onclick=()=>window.pxlAccountingExport?.(false);
+    const txAnnual=document.createElement('button');txAnnual.className='btn';txAnnual.id='acc-export-year';txAnnual.textContent='⬇ Excel 1 Tahun';txAnnual.onclick=()=>window.pxlAccountingExport?.(true);txMonthly.insertAdjacentElement('afterend',txAnnual);
   }
 }
 window.pxlAccountingExport=async function(annual=false){
