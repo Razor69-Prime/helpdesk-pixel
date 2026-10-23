@@ -35,9 +35,10 @@ function accountingExportFilename(scope,outletName,suffix){
   return scope==='all'?`Accounting_Semua_Outlet_${suffix}.xlsx`:`Accounting_${safe||'Outlet'}_${suffix}.xlsx`;
 }
 function exportPeriods(q={}){
-  const raw=clean(q.periods);
+  const raw=clean(q.periods),year=clean(q.year),annual=clean(q.annual)==='1';
   const out=raw?raw.split(',').map(x=>x.trim()).filter(Boolean):[];
-  if(!out.length&&/^\d{4}$/.test(clean(q.year))&&/^\d{1,2}$/.test(clean(q.month))) out.push(`${clean(q.year)}-${String(Number(q.month)).padStart(2,'0')}`);
+  if(!out.length&&annual&&/^\d{4}$/.test(year)) for(let month=1;month<=12;month++) out.push(`${year}-${String(month).padStart(2,'0')}`);
+  if(!out.length&&/^\d{4}$/.test(year)&&/^\d{1,2}$/.test(clean(q.month))) out.push(`${year}-${String(Number(q.month)).padStart(2,'0')}`);
   const valid=[...new Set(out.filter(x=>/^\d{4}-(0[1-9]|1[0-2])$/.test(x)))];
   if(!valid.length) throw new Error('Periode export wajib dipilih.');
   if(valid.length>24) throw new Error('Maksimal 24 bulan per export.');
@@ -125,7 +126,7 @@ function createAccountingRouter({store}){
     const scope=all?'all':'outlet';
     const wb=await buildAccountingWorkbook(periodRows,{scope,outletName,outletId});
     const buffer=Buffer.from(await wb.xlsx.writeBuffer());
-    const suffix=periods.length===1?periods[0]:`${periods[0]}_sd_${periods[periods.length-1]}`;
+    const suffix=clean(req.query.annual)==='1'&&/^\d{4}$/.test(clean(req.query.year))?clean(req.query.year):(periods.length===1?periods[0]:`${periods[0]}_sd_${periods[periods.length-1]}`);
     res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',`attachment; filename="${accountingExportFilename(scope,outletName,suffix)}"`);
     res.send(buffer);

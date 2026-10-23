@@ -156,10 +156,15 @@
   const role=()=>{try{return String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'');}catch(_){return'';}};
   const isSuperadmin=()=>role()==='superadmin';
 
+  function ensureAccounting0003(){
+    if(document.getElementById('pxl-accounting-0003'))return;
+    const s=document.createElement('script');s.id='pxl-accounting-0003';s.src='/pxl-accounting-0003.js?v=PXL-ACC-0003';document.head.appendChild(s);
+  }
   function ensureAccountingBundle(){
-    if(!isSuperadmin()||document.getElementById('pxl-accounting-bundle')) return;
+    if(!isSuperadmin()) return;
+    if(document.getElementById('pxl-accounting-bundle')){ensureAccounting0003();return;}
     const s=document.createElement('script');
-    s.id='pxl-accounting-bundle';s.src='/pxl-accounting-sales-v1.js?v=PXL-ACC-0002A';
+    s.id='pxl-accounting-bundle';s.src='/pxl-accounting-sales-v1.js?v=PXL-ACC-0002A';s.onload=ensureAccounting0003;
     document.body.appendChild(s);
   }
   function ensureAccountingRoot(){

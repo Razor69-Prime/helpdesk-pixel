@@ -89,6 +89,7 @@ test('Accounting UI contract is Superadmin-only and permission remains placehold
   assert.match(loader,/accounting_transaction_report/);
   assert.match(loader,/tab-accounting/);
   assert.match(loader,/PXL-ACC-0001G/);
+  assert.match(loader,/pxl-accounting-0003\.js\?v=PXL-ACC-0003/);
   assert.doesNotMatch(ui,/custom_menus.*accounting_transaction_report[\s\S]{0,120}canOpenAccounting/);
 });
 
@@ -122,6 +123,18 @@ test('dashboard route and browser charts are wired inside Accounting module',()=
   const ui=fs.readFileSync(path.join(__dirname,'..','public','pxl-accounting-sales-v1.js'),'utf8');
   assert.match(routes,/router\.get\('\/dashboard'/);
   for(const key of ['revenue_by_classification','transactions_by_classification','revenue_by_sub_classification','revenue_by_category','goods_vs_services','revenue_by_pic','net_by_classification','monthly_revenue']) assert.match(ui,new RegExp(key));
+});
+
+test('Accounting dashboard exposes monthly and annual export with PixelApps-standard dashboard classes',()=>{
+  const fs=require('fs');
+  const ui=fs.readFileSync(path.join(__dirname,'..','public','pxl-accounting-0003.js'),'utf8');
+  assert.match(ui,/ad-export-month/);
+  assert.match(ui,/ad-export-year/);
+  assert.match(ui,/annual=1/);
+  assert.match(ui,/acc-dashboard-toolbar/);
+  assert.match(ui,/acc-kpi-card/);
+  assert.match(ui,/acc-chart-card/);
+  assert.match(ui,/acc-dashboard-grid/);
 });
 
 test('Excel export endpoint and authenticated browser download are wired',()=>{

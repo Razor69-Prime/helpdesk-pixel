@@ -4,6 +4,7 @@ const ExcelJS=require('exceljs');
 let exp;
 try{exp=require('../accounting-sales-export');}catch(e){console.error('EXPECTED RED: accounting-sales-export module missing');process.exit(1);}
 const {buildAccountingWorkbook,monthSheetName}=exp;
+const {exportPeriods}=require('../accounting-sales-routes');
 const COLUMNS=['TANGGAL','KLASIFIKASI','SUB KLASIFIKASI','NAMA CUSTOMER - PEKERJAAN','TRANSAKSI','NOMINAL TRANSAKSI','HPP','NET','DPP','PPN','KATEGORI PRODUK','METODE PEMBAYARAN','STATUS PAID','PENJ. BARANG','PENJ. JASA','PIC'];
 (async()=>{
   assert.equal(monthSheetName('2026-10'),'OKTOBER');
@@ -25,5 +26,12 @@ const COLUMNS=['TANGGAL','KLASIFIKASI','SUB KLASIFIKASI','NAMA CUSTOMER - PEKERJ
   assert.ok(ws.getCell('A4').border.left.style);
   const multi=await buildAccountingWorkbook({'2026-10':rows,'2027-10':rows});
   assert.deepStrictEqual(multi.worksheets.map(x=>x.name),['OKTOBER 2026','OKTOBER 2027']);
+  assert.deepStrictEqual(exportPeriods({year:'2026',annual:'1'}),[
+    '2026-01','2026-02','2026-03','2026-04','2026-05','2026-06',
+    '2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'
+  ]);
+  const annualRows=Object.fromEntries(exportPeriods({year:'2026',annual:'1'}).map(p=>[p,p==='2026-10'?rows:[]]));
+  const annual=await buildAccountingWorkbook(annualRows);
+  assert.deepStrictEqual(annual.worksheets.map(x=>x.name),['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER']);
   console.log('Accounting Excel export tests complete');
 })().catch(e=>{console.error(e.stack||e);process.exit(1);});
