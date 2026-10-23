@@ -87,7 +87,7 @@ function aggregateAccountingDashboard(rows=[],options={}){
   const active=rows.filter(r=>!r.deleted_at);
   const summary={gross_amount:0,hpp_amount:0,dpp_amount:0,ppn_amount:0,net_amount:0,transaction_count:active.length};
   const bucket=()=>Object.create(null);
-  const byClassification=bucket(),countByClassification=bucket(),bySub=bucket(),byCategory=bucket(),byPic=bucket(),netByClassification=bucket(),trend=bucket(),byOutlet=bucket(),netByOutlet=bucket();
+  const byClassification=bucket(),countByClassification=bucket(),bySub=bucket(),byCategory=bucket(),byPic=bucket(),netByClassification=bucket(),trend=bucket(),byOutlet=bucket(),netByOutlet=bucket(),paidTotals=bucket(),paidCounts=bucket(),paymentTotals=bucket(),paymentCounts=bucket();
   const outletSummaries=new Map();
   const outletOrder=[];
   const emptyOutletSummary=()=>({gross_amount:0,hpp_amount:0,dpp_amount:0,ppn_amount:0,net_amount:0,transaction_count:0});
@@ -98,7 +98,7 @@ function aggregateAccountingDashboard(rows=[],options={}){
   let goods=0,services=0;
   for(const r of active){
     for(const k of ['gross_amount','hpp_amount','dpp_amount','ppn_amount','net_amount']) summary[k]+=Number(r[k]||0);
-    const c=r.classification||'-',s=r.sub_classification||'-',cat=r.product_category||'-',outlet=r.outlet_name||r.outlet_code||r.outlet_id||'-';
+    const c=r.classification||'-',s=r.sub_classification||'-',cat=r.product_category||'-',outlet=r.outlet_name||r.outlet_code||r.outlet_id||'-',paid=r.paid_status||'-',payment=r.payment_method||'-';
     const rawPic=r.pic_name||'-';
     const pic=options.scope==='all'&&outlet!=='-'?`${outlet} / ${rawPic}`:rawPic;
     const m=String(r.transaction_date||'').slice(0,7)||'-';
@@ -108,6 +108,8 @@ function aggregateAccountingDashboard(rows=[],options={}){
     byCategory[cat]=(byCategory[cat]||0)+Number(r.gross_amount||0);
     byPic[pic]=(byPic[pic]||0)+Number(r.gross_amount||0);
     netByClassification[c]=(netByClassification[c]||0)+Number(r.net_amount||0);
+    paidTotals[paid]=(paidTotals[paid]||0)+Number(r.gross_amount||0);paidCounts[paid]=(paidCounts[paid]||0)+1;
+    paymentTotals[payment]=(paymentTotals[payment]||0)+Number(r.gross_amount||0);paymentCounts[payment]=(paymentCounts[payment]||0)+1;
     trend[m]=(trend[m]||0)+Number(r.gross_amount||0);
     goods+=Number(r.goods_amount||0);services+=Number(r.service_amount||0);
     if(options.scope==='all'){
@@ -132,8 +134,10 @@ function aggregateAccountingDashboard(rows=[],options={}){
     charts.revenue_by_outlet=outletOrder.map(name=>({name,value:byOutlet[name]||0}));
     charts.net_by_outlet=outletOrder.map(name=>({name,value:netByOutlet[name]||0}));
   }
+  const paid_breakdown=['PAID','UNPAID'].map(name=>({name,value:paidTotals[name]||0,count:paidCounts[name]||0}));
+  const payment_methods=Object.keys(paymentTotals).sort((a,b)=>a.localeCompare(b)).map(name=>({name,value:paymentTotals[name]||0,count:paymentCounts[name]||0}));
   return {
-    summary,
+    summary,paid_breakdown,payment_methods,
     outlet_breakdown:options.scope==='all'?outletOrder.map(outlet_name=>({outlet_name,summary:outletSummaries.get(outlet_name)})):[],
     charts
   };

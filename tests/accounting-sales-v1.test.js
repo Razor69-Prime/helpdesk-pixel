@@ -107,14 +107,16 @@ test('Accounting browser bundle preserves exact workbook column order',()=>{
 
 test('dashboard aggregation returns summaries and Accounting chart series',()=>{
   const rows=[
-    {transaction_date:'2026-10-01',classification:'B2C',sub_classification:'Project',product_category:'CCTV',pic_name:'Eka',gross_amount:1110000,hpp_amount:500000,dpp_amount:1000000,ppn_amount:110000,net_amount:500000,goods_amount:1110000,service_amount:0},
-    {transaction_date:'2026-10-02',classification:'B2B',sub_classification:'Operasional',product_category:'Jaringan',pic_name:'Budha',gross_amount:555000,hpp_amount:200000,dpp_amount:500000,ppn_amount:55000,net_amount:300000,goods_amount:0,service_amount:555000}
+    {transaction_date:'2026-10-01',classification:'B2C',sub_classification:'Project',product_category:'CCTV',pic_name:'Eka',payment_method:'Transfer Bank',paid_status:'PAID',gross_amount:1110000,hpp_amount:500000,dpp_amount:1000000,ppn_amount:110000,net_amount:500000,goods_amount:1110000,service_amount:0},
+    {transaction_date:'2026-10-02',classification:'B2B',sub_classification:'Operasional',product_category:'Jaringan',pic_name:'Budha',payment_method:'QRIS',paid_status:'UNPAID',gross_amount:555000,hpp_amount:200000,dpp_amount:500000,ppn_amount:55000,net_amount:300000,goods_amount:0,service_amount:555000}
   ];
   const d=acc.aggregateAccountingDashboard(rows);
   assert.deepStrictEqual(d.summary,{gross_amount:1665000,hpp_amount:700000,dpp_amount:1500000,ppn_amount:165000,net_amount:800000,transaction_count:2});
   assert.equal(d.charts.revenue_by_classification.find(x=>x.name==='B2C').value,1110000);
   assert.equal(d.charts.goods_vs_services.find(x=>x.name==='Jasa').value,555000);
   assert.equal(d.charts.monthly_revenue[0].name,'2026-10');
+  assert.deepStrictEqual(d.paid_breakdown,[{name:'PAID',value:1110000,count:1},{name:'UNPAID',value:555000,count:1}]);
+  assert.deepStrictEqual(d.payment_methods,[{name:'QRIS',value:555000,count:1},{name:'Transfer Bank',value:1110000,count:1}]);
 });
 
 test('dashboard route and browser charts are wired inside Accounting module',()=>{
@@ -135,6 +137,12 @@ test('Accounting dashboard exposes monthly and annual export with PixelApps-stan
   assert.match(ui,/acc-kpi-card/);
   assert.match(ui,/acc-chart-card/);
   assert.match(ui,/acc-dashboard-grid/);
+  assert.match(ui,/acc-finance-card/);
+  assert.match(ui,/acc-kpi-icon/);
+  assert.match(ui,/function h\(v\)/);
+  assert.match(ui,/PAID/);
+  assert.match(ui,/UNPAID/);
+  assert.match(ui,/payment_methods/);
 });
 
 test('Excel export endpoint and authenticated browser download are wired',()=>{
