@@ -3,14 +3,16 @@ const ExcelJS=require('exceljs');
 const {ACCOUNTING_COLUMNS}=require('./accounting-sales-v1');
 const MONTHS=['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
 const FILL='FF9A4F20',WHITE='FFFFFFFF',BLACK='FF2F2F2F';
+const CLASS_LABELS={B2B:'B2B Corp',B2BG:'B2B Grosir',B2C:'B2C',B2G:'B2G'};
+const classLabel=v=>CLASS_LABELS[v]||String(v||'');
 function monthSheetName(period){const m=Number(String(period||'').slice(5,7));if(!m||m<1||m>12)throw new Error('Periode export tidak valid.');return MONTHS[m-1];}
 function rowValues(r,options={}){
   const values=[
     r.transaction_date?new Date(`${String(r.transaction_date).slice(0,10)}T00:00:00`):null,
-    r.classification||'',r.sub_classification||'',
+    classLabel(r.classification),r.sub_classification||'',
     [r.customer_name,r.job_name].filter(Boolean).join(' - '),r.transaction_description||'',
     Number(r.gross_amount||0),Number(r.hpp_amount||0),Number(r.net_amount||0),Number(r.dpp_amount||0),Number(r.ppn_amount||0),
-    r.product_category||'',r.payment_method||'',r.paid_status||'',Number(r.goods_amount||0),Number(r.service_amount||0),r.pic_name||''
+    r.product_category||'',r.payment_method||'',r.paid_status||'',r.pic_name||''
   ];
   return options.scope==='all'?[r.outlet_name||r.outlet_code||r.outlet_id||'',...values]:values;
 }
@@ -30,9 +32,9 @@ function styleSheet(ws,rows,options={}){
   rows.forEach(r=>ws.addRow(rowValues(r,options)));
   const wrap=new Set((combined?[5,6,12,13]:[4,5,11,12]));
   for(let r=4;r<=ws.rowCount;r++)for(let c=1;c<=last;c++){const cell=ws.getRow(r).getCell(c);cell.border={top:{style:'thin',color:{argb:BLACK}},left:{style:'thin',color:{argb:BLACK}},bottom:{style:'thin',color:{argb:BLACK}},right:{style:'thin',color:{argb:BLACK}}};cell.alignment={vertical:'top',wrapText:wrap.has(c)};}
-  const moneyCols=[6,7,8,9,10,14,15].map(c=>c+offset);moneyCols.forEach(c=>ws.getColumn(c).numFmt='"Rp" #,##0');
-  ws.getColumn(1+offset).numFmt='dd/mm/yyyy';Object.values(totalCols).forEach(c=>ws.getRow(2).getCell(c).numFmt='"Rp" #,##0');
-  const widths=[12,12,16,28,36,18,16,16,16,16,24,22,14,16,16,18];if(combined)widths.unshift(14);ws.columns.forEach((col,i)=>{col.width=widths[i]||14;});
+  const moneyCols=[6,7,8,9,10].map(c=>c+offset);moneyCols.forEach(c=>ws.getColumn(c).numFmt='"Rp" #,##0.00');
+  ws.getColumn(1+offset).numFmt='dd/mm/yyyy';Object.values(totalCols).forEach(c=>ws.getRow(2).getCell(c).numFmt='"Rp" #,##0.00');
+  const widths=[12,12,16,28,36,18,16,16,16,16,24,22,14,18];if(combined)widths.unshift(14);ws.columns.forEach((col,i)=>{col.width=widths[i]||14;});
   ws.views=[{state:'frozen',ySplit:3,xSplit:0}];ws.autoFilter={from:'A3',to:`${lastCol}${Math.max(3,ws.rowCount)}`};
 }
 async function buildAccountingWorkbook(periodRows={},options={}){
