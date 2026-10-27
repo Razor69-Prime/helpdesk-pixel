@@ -14,6 +14,16 @@ function witaLabel(date){const p=witaParts(date);return `${p.year}-${String(p.mo
 function ensureCloudinaryUrl(url,cloudName,publicId){try{const u=new URL(String(url||''));if(u.protocol!=='https:'||u.hostname!=='res.cloudinary.com')return false;const prefix=`/${cloudName}/image/upload/`;return u.pathname.includes(prefix)&&decodeURIComponent(u.pathname).includes('/'+publicId+'.')}catch(_){return false}}
 function normalizeRules(rows){if(!Array.isArray(rows)||rows.length!==7)throw new Error('Rule attendance harus berisi 7 hari.');const seen=new Set();return rows.map(r=>{const d=Number(r.day_of_week);if(d<1||d>7||seen.has(d))throw new Error('Day of week tidak valid/duplikat.');seen.add(d);const work=r.is_workday!==false;if(work&&!/^\d{2}:\d{2}/.test(String(r.check_in_time||'')))throw new Error('Jam masuk wajib.');if(work&&!/^\d{2}:\d{2}/.test(String(r.check_out_time||'')))throw new Error('Jam pulang wajib.');return{day_of_week:d,is_workday:work,check_in_time:work?String(r.check_in_time).slice(0,5):null,check_out_time:work?String(r.check_out_time).slice(0,5):null,timezone:TIMEZONE,overtime_stage1_minutes:120,overtime_stage2_minutes:240,is_active:true}}).sort((a,b)=>a.day_of_week-b.day_of_week)}
 
+// PXL-DASH-UI-0024 — Dashboard umum membaca ringkasan omzet Accounting secara read-only.
+function hasDashboardAccountingAccess(req){
+  const u=req?.session?.user||{},role=norm(u.role),custom=Array.isArray(u.custom_menus)?u.custom_menus.map(String):[];
+  if(role==='superadmin')return true;
+  const marker=custom.includes('dashboard_permission_v1');
+  if(marker)return custom.includes('dashboard_read')||custom.includes('dashboard')||custom.includes('dashboard_write');
+  return role==='manager'||role==='admin';
+}
+function dashboardAccountingDate(v){const s=String(v||'').trim();return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:''}
+
 function installAttendanceApi(app,deps){
   const {db,requireAuth,logActivity,cloudinaryReady,cloudinarySignature,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY}=deps;
   const me=req=>req.session.user;
@@ -21,7 +31,7 @@ function installAttendanceApi(app,deps){
   const permission=(perm)=>async(req,res,next)=>{try{if(await hasAttendancePermission(req,perm,db))return next();res.status(403).json({error:'Akses attendance ditolak.'})}catch(e){res.status(500).json({error:e.message})}};
   const canViewAdmin=async req=>(await hasAttendancePermission(req,'attendance_view_all',db))||(await hasAttendancePermission(req,'attendance_manage',db));
   const tokenRow=async(req,event)=>{const raw=String(req.body?.capture_token||'');if(!raw)throw Object.assign(new Error('Capture token wajib.'),{status:400});const row=await db.getAttendanceCaptureToken(tokenHash(raw),me(req).id,event);if(!row||row.used_at||new Date(row.expires_at)<=new Date())throw Object.assign(new Error('Capture token tidak valid atau sudah kedaluwarsa.'),{status:409});return{raw,row,hash:tokenHash(raw)}};
-  const photoValidate=(row,hash,event,body)=>{const expected=attendancePublicId(row.user_id,row.work_date,event,hash);if(String(body.cloudinary_public_id||'')!==expected)throw Object.assign(new Error('Foto tidak terikat capture attendance ini.'),{status:400});if(!ensureCloudinaryUrl(body.secure_url,CLOUDINARY_CLOUD_NAME,expected))throw Object.assign(new Error('URL foto attendance tidak valid.'),{status:400});return expected};
+  const photoValidate=(row,hash,event,body)=>{const expected=attendancePublicId(row.user_id,row.work_date,event,t.hash);if(String(body.cloudinary_public_id||'')!==expected)throw Object.assign(new Error('Foto tidak terikat capture attendance ini.'),{status:400});if(!ensureCloudinaryUrl(body.secure_url,CLOUDINARY_CLOUD_NAME,expected))throw Object.assign(new Error('URL foto attendance tidak valid.'),{status:400});return expected};
   const err=(res,e)=>res.status(e.status||500).json({error:e.message});
 
   app.get('/api/attendance/today',requireAuth,async(req,res)=>{try{const now=new Date(),date=workDateWita(now),rules=await getRules(),rule=resolveAttendanceRule(rules,now),record=await db.getAttendanceRecord(me(req).id,date);res.json({server_time:now.toISOString(),server_time_wita:witaLabel(now),work_date:date,timezone:TIMEZONE,rule,record});}catch(e){err(res,e)}});
@@ -44,16 +54,36 @@ function installAttendanceApi(app,deps){
   app.post('/api/attendance/check-in',requireAuth,(req,res)=>eventSave(req,res,'CHECK_IN'));
   app.post('/api/attendance/check-out',requireAuth,(req,res)=>eventSave(req,res,'CHECK_OUT'));
 
-  app.get('/api/attendance/admin',requireAuth,async(req,res)=>{try{if(!await canViewAdmin(req))return res.status(403).json({error:'Akses attendance ditolak.'});res.json(await db.getAttendanceRecords({user_id:req.query.user_id,from:req.query.from,to:req.query.to}))}catch(e){err(res,e)}});
+  app.get('/api/attendance/admin',requireAuth,async(req,res)=>{try{if(!await canViewAdmin(req))return res.status(403).json({error:'Akses attendance ditolak.'});res.json(await db.getAttendanceRecords({user_id:me(req).id,from:req.query.from,to:req.query.to}))}catch(e){err(res,e)}});
   app.put('/api/attendance/rules',requireAuth,permission('attendance_manage_rules'),async(req,res)=>{try{const rows=normalizeRules(req.body?.rules);res.json(await db.replaceAttendanceRules(rows,{id:me(req).id,name:me(req).name}))}catch(e){res.status(400).json({error:e.message})}});
   app.get('/api/attendance/admin/:id/history',requireAuth,async(req,res)=>{try{if(!await canViewAdmin(req))return res.status(403).json({error:'Akses attendance ditolak.'});res.json(await db.getAttendanceHistory(req.params.id))}catch(e){err(res,e)}});
   app.patch('/api/attendance/admin/:id',requireAuth,permission('attendance_manage'),async(req,res)=>{try{const reason=String(req.body?.reason||'').trim();if(!reason)return res.status(400).json({error:'Alasan koreksi wajib diisi.'});const rows=await db.getAttendanceRecords({id:req.params.id}),before=rows?.[0];if(!before)return res.status(404).json({error:'Attendance tidak ditemukan.'});const allowed=['check_in_at','check_out_at','check_in_work_context','check_out_work_context','check_in_latitude','check_in_longitude','check_in_accuracy','check_out_latitude','check_out_longitude','check_out_accuracy'];const patch={};for(const k of allowed)if(Object.prototype.hasOwnProperty.call(req.body,k))patch[k]=req.body[k];const rules=await getRules();if(patch.check_in_at){const d=new Date(patch.check_in_at),r=resolveAttendanceRule(rules,d);patch.check_in_status=calculateCheckInStatus(r,d).status}if(patch.check_out_at){const d=new Date(patch.check_out_at),r=resolveAttendanceRule(rules,d),st=calculateCheckOutStatus(r,d);patch.check_out_status=st.status;patch.overtime_stage=st.overtime_stage;patch.overtime_eligible_minutes=st.overtime_eligible_minutes}const after=await db.updateAttendanceRecord(before.id,patch);await db.insertAttendanceHistory({attendance_record_id:before.id,action:'ADMIN_CORRECTION',before_json:before,after_json:after,actor_user_id:me(req).id,actor_name:me(req).name,actor_role:me(req).role,reason});if(logActivity)logActivity(req,'attendance','ADMIN_CORRECTION',`${before.work_date} · ${before.user_name} · ${reason}`);res.json(after);}catch(e){err(res,e)}});
 
-
-  // PXL-ACC-0001H — standalone Accounting API mount; uses only auth/session from PixelApps.
+  // PXL-DASH-UI-0024 — safe read-only Accounting aggregate for Dashboard roles.
   const accountingSalesStore=require('./accounting-sales-store');
   const {createAccountingRouter}=require('./accounting-sales-routes');
-  const {isAccountingSuperadmin}=require('./accounting-sales-v1');
+  const {isAccountingSuperadmin,aggregateAccountingDashboard}=require('./accounting-sales-v1');
+  app.get('/api/dashboard/accounting-summary',requireAuth,async(req,res)=>{
+    try{
+      if(!hasDashboardAccountingAccess(req))return res.status(403).json({error:'Anda tidak memiliki akses Dashboard.'});
+      const from=dashboardAccountingDate(req.query.from),to=dashboardAccountingDate(req.query.to);
+      const year=/^\d{4}$/.test(String(req.query.year||''))?String(req.query.year):String(new Date().getFullYear());
+      const periodFilters={};if(from)periodFilters.from=from;if(to)periodFilters.to=to;
+      const [periodRows,annualRows,outlets]=await Promise.all([
+        accountingSalesStore.listTransactions(periodFilters),
+        accountingSalesStore.listTransactions({from:`${year}-01-01`,to:`${year}-12-31`}),
+        accountingSalesStore.listOutlets()
+      ]);
+      const outletNames=new Map(outlets.map(o=>[o.id,o.name]));
+      const nameRows=rows=>rows.map(row=>({...row,outlet_name:row.outlet_name||outletNames.get(row.outlet_id)||row.outlet_id}));
+      const period=aggregateAccountingDashboard(nameRows(periodRows),{scope:'all',outlets,asOf:to||undefined});
+      const annual=aggregateAccountingDashboard(nameRows(annualRows),{scope:'all',outlets});
+      const outlet_breakdown=(period.outlet_breakdown||[]).map(x=>({outlet_name:x.outlet_name,gross_amount:Number(x.summary?.gross_amount||0),transaction_count:Number(x.summary?.transaction_count||0)}));
+      res.json({revision:'PXL-DASH-UI-0024',source:'accounting',period:{from:from||null,to:to||null,year},summary:{gross_amount:Number(period.summary?.gross_amount||0),transaction_count:Number(period.summary?.transaction_count||0)},paid_breakdown:(period.paid_breakdown||[]).map(x=>({name:x.name,value:Number(x.value||0),count:Number(x.count||0)})),outlet_breakdown,monthly_revenue:Array.isArray(annual.charts?.monthly_revenue)?annual.charts.monthly_revenue.map(x=>({name:x.name,value:Number(x.value||0)})):[]});
+    }catch(e){err(res,e)}
+  });
+
+  // PXL-ACC-0001H — standalone Accounting API mount; uses only auth/session from PixelApps.
   const requireAccountingSuperadmin=(req,res,next)=>{
     if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
     if(!isAccountingSuperadmin(req.session.user))return res.status(403).json({error:'Accounting V1 hanya dapat diakses Superadmin.'});
@@ -63,4 +93,4 @@ function installAttendanceApi(app,deps){
 }
 
 module.exports=installAttendanceApi;
-module.exports._test={validGps,hasAttendancePermission,tokenHash,attendancePublicId,ensureCloudinaryUrl,normalizeRules,witaLabel};
+module.exports._test={validGps,hasAttendancePermission,tokenHash,attendancePublicId,ensureCloudinaryUrl,normalizeRules,witaLabel,hasDashboardAccountingAccess,dashboardAccountingDate};
