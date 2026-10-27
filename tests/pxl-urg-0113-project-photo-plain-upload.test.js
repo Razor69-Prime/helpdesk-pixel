@@ -45,9 +45,9 @@ test('Project photo UI no longer asks for GPS and service worker forces fresh pl
   assert.doesNotMatch(photos,/id="pxl3d-gps-retry"/);
   assert.doesNotMatch(photos,/GPS wajib untuk semua foto Project/);
   assert.match(photos,/Foto akan diunggah tanpa watermark dan tanpa GPS/);
-  assert.match(photos,/revision:'PXL-URG-0114'/);
-  assert.match(index,/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0114/);
-  assert.match(sw,/replace\('\/pxl-vnext-3d-project-photos\.js\?v=PXL-VNEXT-3D2','\/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0114'\)/);
+  assert.match(photos,/revision:'PXL-URG-0115'/);
+  assert.match(index,/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0115/);
+  assert.match(sw,/replace\('\/pxl-vnext-3d-project-photos\.js\?v=PXL-VNEXT-3D2','\/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0115'\)/);
   assert.match(sw,/url\.pathname==='\/pxl-vnext-3d-project-photos\.js'/);
   assert.match(sw,/networkFirstAsset\(request\)/);
 });

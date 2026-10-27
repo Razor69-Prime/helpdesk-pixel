@@ -16,7 +16,7 @@ test('3D photo client uses resize-only camera/gallery sequential upload while wa
   assert.match(src,/capture=["']environment["']/);
   assert.match(src,/multiple/);
   assert.match(src,/for\s*\(const file of files\)[\s\S]*await processAndUpload/);
-  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-URG-0114'/);
+  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-URG-0115'/);
 });
 test('plain photo renderer resizes and encodes JPEG without adding overlay text',()=>{
   const src=fs.readFileSync(jsPath,'utf8');
@@ -47,4 +47,15 @@ test('Project gallery loads photo pixels through authenticated same-origin endpo
   assert.match(src,/\/api\/project-report-item-photos\/\$\{encodeURIComponent\(photoId\)\}\/download/);
   assert.match(src,/data-p3d-photo-id/);
   assert.doesNotMatch(src,/<img src="\$\{esc\(p\.secure_url\)\}"/);
+});
+
+test('photo modal keeps current-item evidence flow but also renders other Project photos inside the same modal',()=>{
+  const src=fs.readFileSync(jsPath,'utf8');
+  assert.match(src,/\/projects\/\$\{encodeURIComponent\(ctxState\.project\.id\)\}\/photos/);
+  assert.match(src,/Dokumentasi Project/);
+  assert.match(src,/project_report_item_id/);
+  assert.match(src,/item_name/);
+  assert.match(src,/data-p3d-project-photo/);
+  assert.match(src,/String\(p\.project_report_item_id\).*String\(ctxState\.item\.id\)/s);
+  assert.doesNotMatch(src,/data-p3d-project-photo[\s\S]{0,180}data-p3d-select/);
 });

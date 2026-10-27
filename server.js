@@ -2157,6 +2157,20 @@ app.get('/api/project-report-items/:id/photos', requireProjectPhotoRead, async (
   }catch(e){res.status(500).json({error:e.message});}
 });
 
+app.get('/api/projects/:id/photos', requireProjectPhotoRead, async (req,res)=>{
+  try{
+    const [projects,items]=await Promise.all([db.getProjects(),db.getProjectReportItems()]);
+    const project=projects.find(x=>String(x.id)===String(req.params.id));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const projectItems=items.filter(x=>String(x.project_id)===String(project.id));
+    const itemById=new Map(projectItems.map(x=>[String(x.id),x]));
+    const photos=await db.getProjectReportItemPhotos({projectId:project.id});
+    const links=photos.length?await db.getProjectReportAchievementPhotoLinks({photoIds:photos.map(x=>x.id)}):[];
+    const byPhoto=new Map();for(const l of links){const k=String(l.photo_id);if(!byPhoto.has(k))byPhoto.set(k,[]);byPhoto.get(k).push(l.achievement_id)}
+    res.json(photos.map(p=>{const sourceItem=itemById.get(String(p.project_report_item_id));return {...p,item_name:sourceItem?.item_name||'Item Project',item_category:sourceItem?.category||null,achievement_ids:byPhoto.get(String(p.id))||[],evidence_count:(byPhoto.get(String(p.id))||[]).length}}));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.post('/api/project-report-items/:id/photos/signature', requireProjectPhotoUpload, async (req,res)=>{
   try{
     if(!cloudinaryReady())return res.status(503).json({error:'Cloudinary belum dikonfigurasi.'});

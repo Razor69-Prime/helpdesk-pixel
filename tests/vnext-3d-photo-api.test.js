@@ -43,3 +43,13 @@ test('metadata POST binds Cloudinary public id and secure URL to the exact Proje
   assert.match(post,/cleanupPublicId/);
   assert.match(post,/e\.statusCode\|\|e\.status/);
 });
+
+test('Project-level photo gallery API returns active project photos with source item labels and evidence counts',()=>{
+  const get=route('get','/api/projects/:id/photos');
+  assert.match(get,/requireProjectPhotoRead/);
+  assert.match(get,/getProjectReportItemPhotos\(\{projectId:/);
+  assert.match(get,/item_name/);
+  assert.match(get,/project_report_item_id/);
+  assert.match(get,/getProjectReportAchievementPhotoLinks/);
+  assert.match(get,/evidence_count/);
+});
