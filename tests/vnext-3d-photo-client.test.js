@@ -16,7 +16,7 @@ test('3D photo client uses resize-only camera/gallery sequential upload while wa
   assert.match(src,/capture=["']environment["']/);
   assert.match(src,/multiple/);
   assert.match(src,/for\s*\(const file of files\)[\s\S]*await processAndUpload/);
-  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-URG-0113'/);
+  assert.match(src,/window\.PXLProjectPhotos\s*=\s*\{[\s\S]*open[\s\S]*revision:'PXL-URG-0114'/);
 });
 test('plain photo renderer resizes and encodes JPEG without adding overlay text',()=>{
   const src=fs.readFileSync(jsPath,'utf8');
@@ -40,4 +40,11 @@ test('photo downloads use JWT-authenticated fetch and plain preview is visible b
   assert.match(src,/data-p3d-download-all/);
   assert.match(src,/id="pxl3d-preview"/);
   assert.match(src,/URL\.createObjectURL\(blob\)/);
+});
+test('Project gallery loads photo pixels through authenticated same-origin endpoint instead of direct Cloudinary img src',()=>{
+  const src=fs.readFileSync(jsPath,'utf8');
+  assert.match(src,/async function projectPhotoBlobUrl\(/);
+  assert.match(src,/\/api\/project-report-item-photos\/\$\{encodeURIComponent\(photoId\)\}\/download/);
+  assert.match(src,/data-p3d-photo-id/);
+  assert.doesNotMatch(src,/<img src="\$\{esc\(p\.secure_url\)\}"/);
 });
