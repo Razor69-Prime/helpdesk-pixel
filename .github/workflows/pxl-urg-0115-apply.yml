@@ -1,0 +1,46 @@
+name: PXL-URG-0115 Apply
+
+on:
+  push:
+    branches: [pxl-urg-0115-stage5]
+    paths:
+      - '.github/workflows/pxl-urg-0115-apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: pxl-urg-0115-stage5
+          fetch-depth: 0
+
+      - name: Preserve patch and switch to latest main
+        shell: bash
+        run: |
+          base64 -d .github/pxl-urg-0115.patch.gz.b64 | gunzip > /tmp/PXL-URG-0115.patch
+          git fetch origin main
+          git checkout -B pxl-urg-0115-result origin/main
+          git apply --check /tmp/PXL-URG-0115.patch
+          git apply /tmp/PXL-URG-0115.patch
+
+      - name: Run Project Photo regression tests
+        shell: bash
+        run: |
+          node --check server.js
+          node --check public/pxl-vnext-3d-project-photos.js
+          node --test tests/*photo*.test.js tests/pxl-urg-0113-project-photo-plain-upload.test.js
+
+      - name: Commit clean hotfix result
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add server.js public/index.html public/pxl-vnext-3d-project-photos.js public/sw.js tests/vnext-3d-photo-api.test.js tests/vnext-3d-photo-client.test.js tests/pxl-urg-0113-project-photo-plain-upload.test.js
+          git diff --cached --quiet && { echo 'No changes to commit'; exit 1; } || true
+          git commit -m 'PXL-URG-0115 — show Project photos in item modal'
+          git push origin HEAD:refs/heads/pxl-urg-0115-result-20261027
