@@ -1,0 +1,44 @@
+name: PXL-URG-0114 Apply
+
+on:
+  push:
+    branches:
+      - pxl-urg-0114-apply
+    paths:
+      - .github/workflows/pxl-urg-0114-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve patch and switch to latest main
+        run: |
+          cp .github/pxl-urg-0114.patch /tmp/PXL-URG-0114.patch
+          git fetch origin main
+          git checkout -B pxl-urg-0114-result origin/main
+          git apply --index /tmp/PXL-URG-0114.patch
+
+      - name: Run Project Photo regression tests
+        run: |
+          node --test \
+            tests/pxl-urg-0113-project-photo-plain-upload.test.js \
+            tests/vnext-3d-photo-api.test.js \
+            tests/vnext-3d-photo-client.test.js \
+            tests/vnext-3d-photo-core.test.js \
+            tests/vnext-3d-photo-db.test.js \
+            tests/vnext-3d-photo-download.test.js
+
+      - name: Commit clean hotfix result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "PXL-URG-0114 — fix Project photo preview"
+          git push origin HEAD:refs/heads/pxl-urg-0114-result-20261027
