@@ -32,7 +32,7 @@
 (function(){
   'use strict';
   function ensureDashboardAccountingV2(){
-    if(document.getElementById('pxl-dashboard-accounting-v2')) return;
+    if(document.getElementById('pxl-dashboard-accounting-v2')||document.querySelector('script[src*="/pxl-dashboard-accounting-v2.js"]')) return;
     const s=document.createElement('script');
     s.id='pxl-dashboard-accounting-v2';
     s.src='/pxl-dashboard-accounting-v2.js?v=PXL-DASH-UI-0024A';
