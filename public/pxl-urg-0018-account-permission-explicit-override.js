@@ -27,3 +27,18 @@
   const priorOpen=typeof openEditModal==='function'?openEditModal:null;if(priorOpen){openEditModal=function(userId){const r=priorOpen.apply(this,arguments);[0,80,250].forEach(ms=>setTimeout(()=>ensureAccountingPermission(userId),ms));return r;};}
   const nav=document.getElementById('main-nav');if(nav)new MutationObserver(()=>ensureAccountingNav()).observe(nav,{childList:true,subtree:true});window.pxlOpenAccounting=openAccounting;[0,300,800,1600,3000].forEach(ms=>setTimeout(ensureAccountingNav,ms));setInterval(()=>{if(!document.hidden)ensureAccountingNav();},30000);
 })();
+
+/* PXL-DASH-UI-0024A — direct Dashboard Accounting V2 loader; do not rely on service worker injection. */
+(function(){
+  'use strict';
+  function ensureDashboardAccountingV2(){
+    if(document.getElementById('pxl-dashboard-accounting-v2')) return;
+    const s=document.createElement('script');
+    s.id='pxl-dashboard-accounting-v2';
+    s.src='/pxl-dashboard-accounting-v2.js?v=PXL-DASH-UI-0024A';
+    s.async=false;
+    document.body.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureDashboardAccountingV2,{once:true});
+  else ensureDashboardAccountingV2();
+})();
