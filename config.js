@@ -20,6 +20,8 @@ require('./pxl-stg-0004e');
 require('./pxl-stg-0004d');
 require('./pxl-stg-0004f');
 require('./pxl-urg-0012-superadmin-boq');
+// PXL-URG-0117 — Superadmin Detail BOQ correction below Total Done.
+require('./pxl-urg-0117-superadmin-boq-done-bypass');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
