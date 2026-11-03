@@ -24,6 +24,8 @@ require('./pxl-urg-0012-superadmin-boq');
 require('./pxl-urg-0117-superadmin-boq-done-bypass');
 // PXL-URG-0118 — compact payload/performance API hooks.
 require('./pxl-urg-0118-performance-api');
+// PXL-URG-0119 — compact PR list + lightweight Project Tracker summaries.
+require('./pxl-urg-0119-pr-project-performance');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
