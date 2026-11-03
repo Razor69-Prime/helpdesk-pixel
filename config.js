@@ -22,6 +22,8 @@ require('./pxl-stg-0004f');
 require('./pxl-urg-0012-superadmin-boq');
 // PXL-URG-0117 — Superadmin Detail BOQ correction below Total Done.
 require('./pxl-urg-0117-superadmin-boq-done-bypass');
+// PXL-URG-0118 — compact payload/performance API hooks.
+require('./pxl-urg-0118-performance-api');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
