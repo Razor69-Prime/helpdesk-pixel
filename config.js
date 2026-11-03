@@ -28,6 +28,8 @@ require('./pxl-urg-0118-performance-api');
 require('./pxl-urg-0119-pr-project-performance');
 // PXL-URG-0121 — PR-only resilient live loader; Project Tracker untouched.
 require('./pxl-urg-0121-pr-live-load-hook');
+// PXL-URG-0122 — WO mobile action layout + Detail restore only.
+require('./pxl-urg-0122-wo-mobile-actions-hook');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
