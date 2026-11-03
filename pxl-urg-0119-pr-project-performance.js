@@ -9,16 +9,7 @@ const PATCH_KEY=Symbol.for('pxl.urg.0119.performance.api');
 const STATIC_KEY=Symbol.for('pxl.urg.0119.performance.static');
 
 function compactPrRows(rows){
-  return (Array.isArray(rows)?rows:[]).map(row=>({
-    ...row,
-    items:(Array.isArray(row.items)?row.items:[]).map(item=>({
-      desc:item?.desc||'',
-      qty:item?.qty??0,
-      price:item?.price??0,
-      unit:item?.unit||'',
-      inventory_status:item?.inventory_status||''
-    }))
-  }));
+  return require('./pxl-urg-0120-pr-project-live-fix').compactPrForLegacyRenderer(rows);
 }
 
 function buildLightProjectSummaries({projects=[],reports=[],legacyAchievements=[],items=[],itemAchievements=[],today=null}={}){
@@ -62,7 +53,9 @@ function injectLoader(html){
   let out=String(html||'');
   try{out=require('./pxl-urg-0118-performance-api').injectPerformanceLoader(out);}catch(_){}
   const tag='<script src="/pxl-urg-0119-pr-project-performance.js?v=PXL-URG-0119"></script>';
+  const fixTag='<script src="/pxl-urg-0120-pr-project-live-fix.js?v=PXL-URG-0120"></script>';
   if(!out.includes('/pxl-urg-0119-pr-project-performance.js'))out=out.replace('</body>',tag+'\n</body>');
+  if(!out.includes('/pxl-urg-0120-pr-project-live-fix.js'))out=out.replace('</body>',fixTag+'\n</body>');
   return out;
 }
 
