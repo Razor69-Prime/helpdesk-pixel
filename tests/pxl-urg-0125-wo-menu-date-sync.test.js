@@ -8,7 +8,7 @@ test('0125 restores Kanban+Timeline scripts and native Edit Tanggal button into 
   const mod=require(path.join(root,'pxl-urg-0125-wo-menu-date-sync.js'));
   const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
   const out=mod.patchWoMenuDateSync(html);
-  assert.match(out,/pxl-stg-0007j-layout\.js\?v=PXL-URG-0127/);
+  assert.match(out,/pxl-stg-0007j-layout\.js\?v=PXL-URG-0128/);
   assert.match(out,/pxl-stg-0007l-timeline\.js\?v=PXL-URG-0125/);
   assert.match(out,/pxl-urg-0125-wo-date-sync\.js\?v=PXL-URG-0125/);
   assert.match(out,/const dateEditBtn=.*pxlEditWoSchedule/s);
