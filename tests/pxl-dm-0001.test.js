@@ -13,6 +13,12 @@ test('marketing reader is transaction read-only and contains no source write sta
   assert.doesNotMatch(s,/\b(INSERT|UPDATE|DELETE|REPLACE|TRUNCATE|ALTER|DROP|CREATE)\b\s+(INTO\s+|TABLE\s+)?(?:`?kpi_records|`?meta_ad_campaigns|`?prospect_summaries)/i);
 });
 
+test('unauthorized Digital Marketing guard sends once and stops handler flow',()=>{
+  const api=read('pxl-dm-0001-api.js');
+  assert.match(api,/if\(!u\)\{res\.status\(401\)\.json\(\{error:'Unauthorized'\}\);return null\}/);
+  assert.match(api,/superadmin[\s\S]*res\.status\(403\)[\s\S]*return null/);
+});
+
 test('snapshot API exposes local-only snapshot routes and 04:00 WITA scheduler',()=>{
   const s=read('pxl-dm-0001-api.js');
   assert.match(s,/\/api\/digital-marketing\/snapshots/);
