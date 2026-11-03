@@ -37,7 +37,7 @@ test('scheduler is process-wide single instance even when express.static is moun
 
 test('server wrapper injects Digital Marketing loader without modifying raw index.html',()=>{
   const api=read('pxl-dm-0001-api.js');
-  assert.match(api,/pxl-dm-0001\.js\?v=PXL-DM-0001B/);
+  assert.match(api,/pxl-dm-0001\.js\?v=PXL-DM-0002/);
   assert.match(api,/pathname==='\/'\|\|pathname==='\/index\.html'/);
   const html=read('public/index.html');
   assert.doesNotMatch(html,/pxl-dm-0001\.js/);
@@ -58,4 +58,33 @@ test('UI identifies Marketing Apps as READ ONLY and never calls AI endpoints',()
   assert.match(s,/READ ONLY/);
   assert.match(s,/Tarik Data Sekarang/);
   assert.doesNotMatch(s,/\/api\/ai\//);
+});
+
+test('PXL-DM-0002 reader mirrors Marketing Apps business services while remaining READ ONLY',()=>{
+  const s=read('pxl-dm-marketing-reader.php');
+  assert.match(s,/App\\Services\\KpiService/);
+  assert.match(s,/App\\Services\\CustomerDealRevenue/);
+  assert.match(s,/App\\Services\\CustomerPaymentRevenue/);
+  assert.match(s,/getMonthlyDataByCategory/);
+  assert.match(s,/compareMonths/);
+  assert.match(s,/checkTargetAchievement/);
+  assert.match(s,/getWebsiteAnalyticsSummary/);
+  assert.match(s,/START TRANSACTION READ ONLY/i);
+  assert.doesNotMatch(s,/\b(INSERT|UPDATE|DELETE|REPLACE|TRUNCATE|ALTER|DROP|CREATE)\b\s+(INTO\s+|TABLE\s+)?(?:`?kpi_records|`?meta_ad_campaigns|`?prospect_summaries|`?customer_followups|`?customer_payments)/i);
+});
+
+test('PXL-DM-0002 backfill may repair CLOSED PixelApps snapshots but auto/manual cannot',()=>{
+  const s=read('pxl-dm-0001-api.js');
+  assert.match(s,/old\?\.status==='closed'&&mode!=='backfill'/);
+});
+
+test('PXL-DM-0002 UI renders full KPI categories, target achievement and Meta Ads business revenue',()=>{
+  const s=read('public/pxl-dm-0001.js');
+  assert.match(s,/target_achievement/);
+  assert.match(s,/categories/);
+  assert.match(s,/deal_revenue/);
+  assert.match(s,/cash_in/);
+  assert.match(s,/outstanding/);
+  assert.match(s,/Video Views/);
+  assert.match(s,/Instagram Reach/);
 });

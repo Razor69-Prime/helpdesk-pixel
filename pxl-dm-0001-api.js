@@ -8,7 +8,7 @@ const SOURCE_READER=require('path').join(__dirname,'pxl-dm-marketing-reader.php'
 const validPeriod=p=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(p||''));
 const currentPeriod=()=>{const d=new Date(Date.now()+8*3600e3);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`};
 const isPast=p=>p<currentPeriod();
-const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0001B"></script>';
+const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0002"></script>';
 const SCHEDULER_KEY=Symbol.for('pxl.dm.0001.scheduler');
 function injectLoader(html){const src=String(html||'');if(src.includes('/pxl-dm-0001.js'))return src;return src.includes('</body>')?src.replace('</body>',DM_LOADER+'\n</body>'):src+DM_LOADER;}
 function user(req){const a=String(req.headers.authorization||''),t=a.startsWith('Bearer ')?a.slice(7):String(req.headers['x-auth-token']||'');if(!t)return null;try{return jwt.verify(t,process.env.SESSION_SECRET||'pixel-helpdesk-2026-secret')?.user||null}catch(_){return null}}
@@ -19,7 +19,7 @@ async function existing(period){const rows=await rest(`/digital_marketing_snapsh
 async function history(period,mode,status,message,hash){return rest('/digital_marketing_pull_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({period,pull_mode:mode,status,message:message||null,source_hash:hash||null,pulled_at:new Date().toISOString()})})}
 async function pullPeriod(period,mode='manual'){
   if(!validPeriod(period))throw new Error('Periode tidak valid.');const old=await existing(period);
-  if(old?.status==='closed'){await history(period,mode,'skipped_closed','Snapshot historical CLOSED dipertahankan.',old.source_hash);return {ok:true,skipped:true,snapshot:old}}
+  if(old?.status==='closed'&&mode!=='backfill'){await history(period,mode,'skipped_closed','Snapshot historical CLOSED dipertahankan.',old.source_hash);return {ok:true,skipped:true,snapshot:old}}
   const src=readSource(period),raw=JSON.stringify(src),hash=crypto.createHash('sha256').update(raw).digest('hex');
   const row={period,status:isPast(period)?'closed':'open',source_name:'Marketing Apps',source_read_only:true,source_payload:src.payload,summary:src.summary,source_hash:hash,pull_mode:mode,pulled_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   const rows=await rest('/digital_marketing_snapshots?on_conflict=period',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(row)});await history(period,mode,'success','Marketing Apps READ ONLY → snapshot PixelApps.',hash);return {ok:true,skipped:false,snapshot:Array.isArray(rows)?rows[0]:row};
