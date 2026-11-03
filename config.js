@@ -31,6 +31,8 @@ require('./pxl-urg-0121-pr-live-load-hook');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
+// PXL-DM-0001 — outermost Digital Marketing snapshot/API wrapper; Marketing Apps source is READ ONLY.
+require('./pxl-dm-0001-api');
 
 const POSTGREST_URL = process.env.POSTGREST_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:3003';
 const POSTGREST_KEY = process.env.POSTGREST_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || 'local-compat-key';
