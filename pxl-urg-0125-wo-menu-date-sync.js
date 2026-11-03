@@ -18,6 +18,7 @@ function patchWoMenuDateSync(html){
   src=addScript(src,'/pxl-stg-0007j-layout.js?v=PXL-URG-0125');
   src=addScript(src,'/pxl-stg-0007l-timeline.js?v=PXL-URG-0125');
   src=addScript(src,'/pxl-urg-0125-wo-date-sync.js?v=PXL-URG-0125');
+  src=addScript(src,'/pxl-urg-0126-kanban-unhide.js?v=PXL-URG-0126');
   return src;
 }
 module.exports={patchWoMenuDateSync};
