@@ -2,6 +2,7 @@
 
 /** PXL-STG-0007S — batasi pemindahan tanggal berdasarkan status WO. */
 const express = require('express');
+const { canMoveScheduleDate } = require('./pxl-urg-0130-manager-date-policy');
 const originalPatch = express.application.patch;
 
 const norm = value => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -10,10 +11,6 @@ const dateOnly = value => {
   return /^\d{4}-\d{2}-\d{2}$/.test(valueString) ? valueString : null;
 };
 const same = (left, right) => String(left ?? '') === String(right ?? '');
-const allowedStatuses = new Set([
-  'assigned',
-  'menunggu', 'waiting', 'pending'
-]);
 
 async function guardScheduleDateMove(req, res, next) {
   try {
@@ -31,10 +28,13 @@ async function guardScheduleDateMove(req, res, next) {
     if (!currentDate || currentDate === requestedDate) return next();
 
     const status = norm(ticket.status);
-    if (allowedStatuses.has(status)) return next();
+    const role = norm(req.session?.user?.role);
+    if (canMoveScheduleDate({ role, status })) return next();
 
     return res.status(409).json({
-      error: 'Tanggal WO hanya dapat dipindahkan saat status Assigned atau Menunggu.',
+      error: status === 'cancelled'
+        ? 'WO Cancelled tidak dapat dipindahkan tanggalnya.'
+        : 'Tanggal WO hanya dapat dipindahkan saat status Assigned atau Menunggu.',
       code: 'SCHEDULE_DATE_STATUS_LOCKED',
       current_status: ticket.status || null,
       current_date: currentDate,
