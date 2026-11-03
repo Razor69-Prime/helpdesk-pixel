@@ -26,6 +26,8 @@ require('./pxl-urg-0117-superadmin-boq-done-bypass');
 require('./pxl-urg-0118-performance-api');
 // PXL-URG-0119 — compact PR list + lightweight Project Tracker summaries.
 require('./pxl-urg-0119-pr-project-performance');
+// PXL-URG-0121 — PR-only resilient live loader; Project Tracker untouched.
+require('./pxl-urg-0121-pr-live-load-hook');
 require('./pxl-stg-0004c');
 require('./pxl-stg-0004b');
 require('./pxl-stg-0004a');
