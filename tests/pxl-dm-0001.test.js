@@ -31,10 +31,19 @@ test('scheduler is process-wide single instance even when express.static is moun
 
 test('server wrapper injects Digital Marketing loader without modifying raw index.html',()=>{
   const api=read('pxl-dm-0001-api.js');
-  assert.match(api,/pxl-dm-0001\.js\?v=PXL-DM-0001/);
+  assert.match(api,/pxl-dm-0001\.js\?v=PXL-DM-0001B/);
   assert.match(api,/pathname==='\/'\|\|pathname==='\/index\.html'/);
   const html=read('public/index.html');
   assert.doesNotMatch(html,/pxl-dm-0001\.js/);
+});
+
+test('UI follows PixelApps canonical auth token and currentUser fallbacks',()=>{
+  const s=read('public/pxl-dm-0001.js');
+  assert.match(s,/pixel_token/);
+  assert.match(s,/pxl_token/);
+  assert.match(s,/authToken/);
+  assert.match(s,/__pxlAuthToken/);
+  assert.match(s,/window\.currentUser/);
 });
 
 test('UI identifies Marketing Apps as READ ONLY and never calls AI endpoints',()=>{

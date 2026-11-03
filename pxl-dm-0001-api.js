@@ -8,7 +8,7 @@ const SOURCE_READER=require('path').join(__dirname,'pxl-dm-marketing-reader.php'
 const validPeriod=p=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(p||''));
 const currentPeriod=()=>{const d=new Date(Date.now()+8*3600e3);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`};
 const isPast=p=>p<currentPeriod();
-const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0001"></script>';
+const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0001B"></script>';
 const SCHEDULER_KEY=Symbol.for('pxl.dm.0001.scheduler');
 function injectLoader(html){const src=String(html||'');if(src.includes('/pxl-dm-0001.js'))return src;return src.includes('</body>')?src.replace('</body>',DM_LOADER+'\n</body>'):src+DM_LOADER;}
 function user(req){const a=String(req.headers.authorization||''),t=a.startsWith('Bearer ')?a.slice(7):String(req.headers['x-auth-token']||'');if(!t)return null;try{return jwt.verify(t,process.env.SESSION_SECRET||'pixel-helpdesk-2026-secret')?.user||null}catch(_){return null}}
