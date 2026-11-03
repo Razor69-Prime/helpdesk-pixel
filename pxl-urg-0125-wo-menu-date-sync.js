@@ -15,6 +15,8 @@ function patchWoMenuDateSync(html){
     src=src.replace('<span>🕐 ${dt}</span>','<span>🕐 ${dt}${dateEditBtn}</span>');
   }
   src=addScript(src,'/pxl-stg-0007h-auth.js?v=PXL-URG-0125');
+  // PXL-URG-0129 — restore original standalone Kanban shell before native fallback.
+  src=addScript(src,'/pxl-urg-0008.js?v=PXL-URG-0129');
   src=addScript(src,'/pxl-stg-0007j-layout.js?v=PXL-URG-0128');
   src=addScript(src,'/pxl-stg-0007l-timeline.js?v=PXL-URG-0125');
   src=addScript(src,'/pxl-urg-0125-wo-date-sync.js?v=PXL-URG-0125');
