@@ -9,6 +9,7 @@ const validPeriod=p=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(p||''));
 const currentPeriod=()=>{const d=new Date(Date.now()+8*3600e3);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`};
 const isPast=p=>p<currentPeriod();
 const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0001"></script>';
+const SCHEDULER_KEY=Symbol.for('pxl.dm.0001.scheduler');
 function injectLoader(html){const src=String(html||'');if(src.includes('/pxl-dm-0001.js'))return src;return src.includes('</body>')?src.replace('</body>',DM_LOADER+'\n</body>'):src+DM_LOADER;}
 function user(req){const a=String(req.headers.authorization||''),t=a.startsWith('Bearer ')?a.slice(7):String(req.headers['x-auth-token']||'');if(!t)return null;try{return jwt.verify(t,process.env.SESSION_SECRET||'pixel-helpdesk-2026-secret')?.user||null}catch(_){return null}}
 function guard(req,res){const u=user(req);if(!u)return res.status(401).json({error:'Unauthorized'});if(String(u.role||'').toLowerCase()!=='superadmin')return res.status(403).json({error:'Digital Marketing Phase 1 hanya untuk Superadmin.'});return u}
@@ -27,7 +28,7 @@ async function failHistory(period,mode,e){try{await history(period,mode,'failed'
 function monthsFromMay(){const out=[],now=currentPeriod();let y=2026,m=5;while(`${y}-${String(m).padStart(2,'0')}`<=now){out.push(`${y}-${String(m).padStart(2,'0')}`);m++;if(m===13){m=1;y++}}return out}
 function msToNextWita4(now=new Date()){const next=new Date(now);next.setUTCHours(20,0,0,0);if(next<=now)next.setUTCDate(next.getUTCDate()+1);return next-now}
 function schedule(){const arm=()=>setTimeout(async()=>{const p=currentPeriod();try{await pullPeriod(p,'auto')}catch(e){await failHistory(p,'auto',e)}finally{arm()}},msToNextWita4());arm()}
-express.static=function(root,opt){const mw=originalStatic(root,opt);let scheduled=false;return async function(req,res,next){
+express.static=function(root,opt){const mw=originalStatic(root,opt);return async function(req,res,next){
   const path=req.path||'',pathname=String(path).split('?')[0];
   if(req.method==='GET'&&(pathname==='/'||pathname==='/index.html')){const nativeSend=res.send.bind(res);res.send=function(body){return nativeSend(typeof body==='string'?injectLoader(body):body)}}
   if(path.startsWith('/api/digital-marketing/')){if(!guard(req,res))return;
@@ -40,7 +41,7 @@ express.static=function(root,opt){const mw=originalStatic(root,opt);let schedule
       return res.status(404).json({error:'Digital Marketing route tidak ditemukan.'});
     }catch(e){return res.status(500).json({error:String(e.message||e)})}
   }
-  if(!scheduled){scheduled=true;schedule();console.log('[PXL-DM-0001] scheduler armed: 04:00 WITA / Asia/Makassar');}
+  if(!global[SCHEDULER_KEY]){global[SCHEDULER_KEY]=true;schedule();console.log('[PXL-DM-0001] scheduler armed: 04:00 WITA / Asia/Makassar');}
   return mw(req,res,next);
 }}
 module.exports={pullPeriod,currentPeriod,msToNextWita4,readSource,injectLoader};

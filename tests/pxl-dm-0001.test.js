@@ -23,6 +23,12 @@ test('snapshot API exposes local-only snapshot routes and 04:00 WITA scheduler',
   assert.match(s,/digital_marketing_pull_history/);
 });
 
+test('scheduler is process-wide single instance even when express.static is mounted more than once',()=>{
+  const api=read('pxl-dm-0001-api.js');
+  assert.match(api,/Symbol\.for\('pxl\.dm\.0001\.scheduler'\)/);
+  assert.doesNotMatch(api,/let scheduled=false/);
+});
+
 test('server wrapper injects Digital Marketing loader without modifying raw index.html',()=>{
   const api=read('pxl-dm-0001-api.js');
   assert.match(api,/pxl-dm-0001\.js\?v=PXL-DM-0001/);
