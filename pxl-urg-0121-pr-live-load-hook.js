@@ -6,6 +6,7 @@ const path=require('path');
 const {patchWoDetail}=require('./pxl-urg-0123-wo-detail-safe');
 const {patchWoMobileGrid}=require('./pxl-urg-0124-wo-mobile-grid');
 const {patchWoMenuDateSync}=require('./pxl-urg-0125-wo-menu-date-sync');
+const {patchWoOptionalTechnician}=require('./pxl-urg-0131-wo-optional-tech');
 const KEY=Symbol.for('pxl.urg.0121.pr.loader');
 function inject(html){
   const src=String(html||'');
@@ -22,7 +23,7 @@ if(!global[KEY]){
     return function(req,res,next){
       const pathname=String(req.path||req.url||'').split('?')[0];
       if(pathname==='/'||pathname==='/index.html'){
-        try{res.setHeader('Cache-Control','no-store, max-age=0');return res.type('html').send(inject(patchWoMenuDateSync(patchWoMobileGrid(patchWoDetail(fs.readFileSync(path.join(root,'index.html'),'utf8'))))));}
+        try{res.setHeader('Cache-Control','no-store, max-age=0');return res.type('html').send(inject(patchWoOptionalTechnician(patchWoMenuDateSync(patchWoMobileGrid(patchWoDetail(fs.readFileSync(path.join(root,'index.html'),'utf8')))))));}
         catch(_){return native(req,res,next);}
       }
       return native(req,res,next);
