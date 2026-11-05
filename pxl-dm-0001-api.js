@@ -9,8 +9,9 @@ const validPeriod=p=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(p||''));
 const currentPeriod=()=>{const d=new Date(Date.now()+8*3600e3);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`};
 const isPast=p=>p<currentPeriod();
 const DM_LOADER='<script src="/pxl-dm-0001.js?v=PXL-DM-0002"></script>';
+const DM_DASH_LOADER='<script src="/pxl-dm-0003-dashboard.js?v=PXL-DM-0003"></script>';
 const SCHEDULER_KEY=Symbol.for('pxl.dm.0001.scheduler');
-function injectLoader(html){const src=String(html||'');if(src.includes('/pxl-dm-0001.js'))return src;return src.includes('</body>')?src.replace('</body>',DM_LOADER+'\n</body>'):src+DM_LOADER;}
+function injectLoader(html){const src=String(html||'');const loaders=[!src.includes('/pxl-dm-0001.js')?DM_LOADER:'',!src.includes('/pxl-dm-0003-dashboard.js')?DM_DASH_LOADER:''].filter(Boolean).join('\n');if(!loaders)return src;return src.includes('</body>')?src.replace('</body>',loaders+'\n</body>'):src+loaders;}
 function user(req){const a=String(req.headers.authorization||''),t=a.startsWith('Bearer ')?a.slice(7):String(req.headers['x-auth-token']||'');if(!t)return null;try{return jwt.verify(t,process.env.SESSION_SECRET||'pixel-helpdesk-2026-secret')?.user||null}catch(_){return null}}
 function guard(req,res){const u=user(req);if(!u){res.status(401).json({error:'Unauthorized'});return null}if(String(u.role||'').toLowerCase()!=='superadmin'){res.status(403).json({error:'Digital Marketing Phase 1 hanya untuk Superadmin.'});return null}return u}
 async function rest(path,opt={}){const r=await fetch(BASE+path,{...opt,headers:{apikey:KEY,Authorization:`Bearer ${KEY}`,'Content-Type':'application/json',...(opt.headers||{})}});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch(_){data=text}if(!r.ok)throw new Error(`PostgREST ${r.status}: ${typeof data==='string'?data:JSON.stringify(data)}`);return data}
