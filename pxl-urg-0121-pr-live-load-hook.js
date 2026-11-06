@@ -10,8 +10,14 @@ const {patchWoOptionalTechnician}=require('./pxl-urg-0131-wo-optional-tech');
 const KEY=Symbol.for('pxl.urg.0121.pr.loader');
 function inject(html){
   const src=String(html||'');
-  const tag='<script src="/pxl-urg-0121-pr-live-load.js?v=PXL-URG-0121"></script>';
-  return src.includes('/pxl-urg-0121-pr-live-load.js')?src:src.replace('</body>',tag+'\n</body>');
+  const prTag='<script src="/pxl-urg-0121-pr-live-load.js?v=PXL-URG-0121"></script>';
+  // PXL-URG-0132: 0121 serves index.html directly, bypassing the legacy 0040A
+  // Master Pricelist menu injector. Restore its existing permission-aware module.
+  const masterTag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0132" data-pxl-master-pricelist-bootstrap="0132"></script>';
+  let result=src;
+  if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
+  if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
+  return result;
 }
 if(!global[KEY]){
   global[KEY]=true;
