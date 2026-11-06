@@ -1,14 +1,13 @@
-/* PXL-URG-0027J — Auto Generate WO Number: fill visible Input Laporan immediately.
- * Scope: Form Laporan Pekerjaan only.
- * Reads existing Daftar Tiket (/api/tickets), finds the highest WO number for
- * the current year, then fills ALL matching WO fields (including the visible
- * duplicate form) as readonly. No existing ticket/WO data is modified.
+/* PXL-URG-0133 — WO number generator from authenticated read-only endpoint.
+ * The endpoint considers active and archived WO numbers; preview and Submit
+ * both refresh the latest number. All matching WO inputs are kept in sync.
+ * No timer polling, MutationObserver or changes to ticket/WO data.
  */
 (()=>{
   'use strict';
 
-  const REV='PXL-URG-0027J';
-  let busy=false;
+  const REV='PXL-URG-0133';
+  let pending=null;
   let lastApplied='';
 
   function token(){
@@ -18,28 +17,6 @@
     const t=token(),h={Accept:'application/json'};
     if(t){h.Authorization='Bearer '+t;h['X-Auth-Token']=t;}
     return h;
-  }
-  function rowsOf(data){
-    if(Array.isArray(data))return data;
-    if(Array.isArray(data?.rows))return data.rows;
-    if(Array.isArray(data?.tickets))return data.tickets;
-    if(Array.isArray(data?.data))return data.data;
-    return [];
-  }
-  function numberOf(row){
-    return String(row?.wo_number||row?.ticket_number||row?.ticket_no||row?.number||row?.no_ticket||row?.nomor_tiket||'').trim();
-  }
-  function nextWo(rows,year){
-    let max=0,width=6;
-    const rx=new RegExp('^WO[-\\s]?'+year+'[-\\s]?(\\d+)$','i');
-    for(const row of rows){
-      const value=numberOf(row);
-      const m=value.match(rx);
-      if(!m)continue;
-      max=Math.max(max,Number(m[1])||0);
-      width=Math.max(width,String(m[1]).length);
-    }
-    return `WO-${year}-${String(max+1).padStart(width,'0')}`;
   }
   function isVisible(el){
     if(!el) return false;
@@ -87,38 +64,34 @@
   }
   async function apply(force=false){
     const inputs=findWoInputs();
-    if(!inputs.length||busy)return;
-    if(!force&&lastApplied&&inputs.every(input=>input.value===lastApplied))return;
-    busy=true;
-    try{
-      const response=await fetch('/api/tickets',{headers:headers(),cache:'no-store'});
-      if(!response.ok)return;
-      const data=await response.json().catch(()=>[]);
-      const value=nextWo(rowsOf(data),new Date().getFullYear());
+    if(!inputs.length)return '';
+    if(pending)return pending;
+    if(!force&&lastApplied&&inputs.every(input=>input.value===lastApplied))return lastApplied;
+    pending=(async()=>{
+      const response=await fetch('/api/tickets/next-number',{headers:headers(),cache:'no-store'});
+      if(!response.ok)throw new Error('GET /api/tickets/next-number: '+response.status);
+      const data=await response.json();
+      const value=String(data?.wo_number||'').trim();
+      if(!/^WO-\d{4}-\d{6,}$/.test(value))throw new Error('Nomor WO dari server tidak valid.');
       if(value&&decorateAll(value))lastApplied=value;
-    }catch(e){console.warn(REV,'gagal membaca nomor WO terakhir',e);}
-    finally{busy=false;}
+      return value;
+    })();
+    try{return await pending;}
+    catch(e){console.warn(REV,'gagal membaca nomor WO terakhir',e);return ''}
+    finally{pending=null;}
   }
 
-  let timer=null;
-  const schedule=(delay=80,force=false)=>{clearTimeout(timer);timer=setTimeout(()=>apply(force),delay);};
-  const refreshBurst=()=>{
-    apply(true);
-    setTimeout(()=>apply(true),150);
-    setTimeout(()=>apply(true),500);
-    setTimeout(()=>apply(true),1200);
-  };
-  const observer=new MutationObserver(()=>schedule(80,false));
+  // No global MutationObserver or burst polling. Regenerate on page opening and Submit.
   const start=()=>{
-    observer.observe(document.documentElement,{childList:true,subtree:true});
-    refreshBurst();
+    apply(true);
     document.addEventListener('click',e=>{
+      const tab=e.target?.closest?.('[data-tab-id="report"],[data-page="report"]');
       const text=String(e.target?.textContent||'').toLowerCase();
-      if(text.includes('input laporan')||text.includes('laporan pekerjaan'))refreshBurst();
+      if(tab||text.includes('input wo')||text.includes('input laporan')||text.includes('laporan pekerjaan'))setTimeout(()=>apply(true),0);
     },true);
-    document.addEventListener('reset',()=>setTimeout(refreshBurst,50),true);
+    document.addEventListener('reset',()=>setTimeout(()=>apply(true),0),true);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 
-  window.PXL_URG_0010={revision:REV,refresh:refreshBurst,getLast:()=>lastApplied};
+  window.PXL_URG_0010={revision:REV,refresh:()=>apply(true),ensure:()=>apply(true),getLast:()=>lastApplied};
 })();

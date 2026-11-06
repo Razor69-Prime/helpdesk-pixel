@@ -7,6 +7,8 @@ const {patchWoDetail}=require('./pxl-urg-0123-wo-detail-safe');
 const {patchWoMobileGrid}=require('./pxl-urg-0124-wo-mobile-grid');
 const {patchWoMenuDateSync}=require('./pxl-urg-0125-wo-menu-date-sync');
 const {patchWoOptionalTechnician}=require('./pxl-urg-0131-wo-optional-tech');
+const {patchWoSubmitNumber}=require('./pxl-urg-0133-wo-number-submit');
+require('./pxl-urg-0133-wo-number-api');
 const KEY=Symbol.for('pxl.urg.0121.pr.loader');
 function inject(html){
   const src=String(html||'');
@@ -14,9 +16,11 @@ function inject(html){
   // PXL-URG-0132: 0121 serves index.html directly, bypassing the legacy 0040A
   // Master Pricelist menu injector. Restore its existing permission-aware module.
   const masterTag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0132" data-pxl-master-pricelist-bootstrap="0132"></script>';
+  const woNumberTag='<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0133"></script>';
   let result=src;
   if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
   if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
+  if(!result.includes('/pxl-urg-0010-wo-autonumber.js'))result=result.replace('</body>',woNumberTag+'\n</body>');
   return result;
 }
 if(!global[KEY]){
@@ -29,7 +33,7 @@ if(!global[KEY]){
     return function(req,res,next){
       const pathname=String(req.path||req.url||'').split('?')[0];
       if(pathname==='/'||pathname==='/index.html'){
-        try{res.setHeader('Cache-Control','no-store, max-age=0');return res.type('html').send(inject(patchWoOptionalTechnician(patchWoMenuDateSync(patchWoMobileGrid(patchWoDetail(fs.readFileSync(path.join(root,'index.html'),'utf8')))))));}
+        try{res.setHeader('Cache-Control','no-store, max-age=0');return res.type('html').send(inject(patchWoSubmitNumber(patchWoOptionalTechnician(patchWoMenuDateSync(patchWoMobileGrid(patchWoDetail(fs.readFileSync(path.join(root,'index.html'),'utf8'))))))));}
         catch(_){return native(req,res,next);}
       }
       return native(req,res,next);
