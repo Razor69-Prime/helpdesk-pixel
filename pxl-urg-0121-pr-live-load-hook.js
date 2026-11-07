@@ -17,10 +17,14 @@ function inject(html){
   // Master Pricelist menu injector. Restore its existing permission-aware module.
   const masterTag='<script src="/pxl-urg-0040-master-pricelist-menu.js?v=PXL-URG-0132" data-pxl-master-pricelist-bootstrap="0132"></script>';
   const woNumberTag='<script src="/pxl-urg-0010-wo-autonumber.js?v=PXL-URG-0133"></script>';
+  // PXL-URG-0134 — restore existing live material fast search for MR input.
+  // Loader 0121 bypassed the original 0004D index injector; no MR flow/API change.
+  const mrSearchTag='<script src="/pxl-stg-0004d.js?v=PXL-URG-0134"></script>';
   let result=src;
   if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
   if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
   if(!result.includes('/pxl-urg-0010-wo-autonumber.js'))result=result.replace('</body>',woNumberTag+'\n</body>');
+  if(!result.includes('/pxl-stg-0004d.js'))result=result.replace('</body>',mrSearchTag+'\n</body>');
   return result;
 }
 if(!global[KEY]){
