@@ -1,8 +1,8 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelApps — Report Center</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font:14px Inter,Arial,sans-serif}.top{background:#fff;border-bottom:1px solid #e3e9f1;padding:17px 23px;display:flex;align-items:center;justify-content:space-between}.wrap{max-width:1180px;padding:18px;margin:auto}.card{background:#fff;border:1px solid #e1e6ee;border-radius:14px;padding:20px;margin-bottom:16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px}.muted{color:#667085;font-size:12px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.report{background:#fff;border:1px solid #d4dce6;border-radius:10px;padding:14px;text-align:left;cursor:pointer;font-weight:600}.report[aria-pressed=true]{background:#e9f1fb;border-color:#165ca5}.filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.filters label{display:grid;gap:5px;font-size:12px}input,select,button,a{font:inherit}input,select{padding:9px;border:1px solid #c9d2e0;border-radius:8px}button,.btn{border:1px solid #b8c7d7;border-radius:8px;padding:10px 13px;background:#fff;cursor:pointer;color:#17325b;text-decoration:none}.primary{background:#0c376a;color:#fff}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:14px 0}.table-wrap{max-height:65vh;overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e8ebf1;padding:9px;white-space:nowrap;text-align:left}th{background:#edf3f9;position:sticky;top:0}.error{color:#9d1b1b}@media(max-width:600px){.wrap{padding:10px}.top{padding:14px}.filters>*{flex:1}input{width:100%}}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font:14px Inter,Arial,sans-serif}.top{background:#fff;border-bottom:1px solid #e3e9f1;padding:17px 23px;display:flex;align-items:center;justify-content:space-between}.wrap{max-width:1180px;padding:18px;margin:auto}.card{background:#fff;border:1px solid #e1e6ee;border-radius:14px;padding:20px;margin-bottom:16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px}.muted{color:#667085;font-size:12px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.report{background:#fff;border:1px solid #d4dce6;border-radius:10px;padding:14px;text-align:left;cursor:pointer;font-weight:600}.report[aria-pressed=true]{background:#e9f1fb;border-color:#165ca5}#accounting-period-actions button[aria-pressed=true]{background:#103d73;color:#fff;border-color:#103d73;font-weight:700}#accounting-period-actions button:focus-visible{outline:3px solid #8fbff3;outline-offset:2px}.filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.filters label{display:grid;gap:5px;font-size:12px}input,select,button,a{font:inherit}input,select{padding:9px;border:1px solid #c9d2e0;border-radius:8px}button,.btn{border:1px solid #b8c7d7;border-radius:8px;padding:10px 13px;background:#fff;cursor:pointer;color:#17325b;text-decoration:none}.primary{background:#0c376a;color:#fff}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:14px 0}.table-wrap{max-height:65vh;overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e8ebf1;padding:9px;white-space:nowrap;text-align:left}th{background:#edf3f9;position:sticky;top:0}.error{color:#9d1b1b}@media(max-width:600px){.wrap{padding:10px}.top{padding:14px}.filters>*{flex:1}input{width:100%}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0002B · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0002C · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
 <main class="wrap"><section class="card"><h2>Daftar Laporan</h2><div class="grid" id="catalog">Memeriksa hak akses…</div></section>
 <section class="card" id="viewer" hidden><h2 id="title"></h2><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div id="accounting-period-actions" class="actions" hidden style="margin:12px 0 0"><button type="button" id="period-this">Bulan Ini</button><button type="button" id="period-last">Bulan Lalu</button><button type="button" id="period-compare">Perbandingan per Bulan</button><span class="muted" id="period-note">Bandingkan 12 bulan dalam tahun berjalan</span></div>
@@ -28,26 +28,56 @@ function witaToday(){
  const field=name=>parts.find(p=>p.type===name).value;
  return {year:Number(field('year')),month:Number(field('month'))};
 }
-function setMonthPeriod(offset){
+let chosenPeriod='';
+function markPeriod(id){
+ chosenPeriod=id;
+ for(const key of ['this','last','compare']){
+  const btn=$('period-'+key);
+  btn.setAttribute('aria-pressed',String(key===id));
+ }
+}
+function setMonthPeriod(offset,id){
  const today=witaToday(),d=new Date(Date.UTC(today.year,today.month-1+offset,1));
  const year=d.getUTCFullYear(),month=d.getUTCMonth()+1;
  const from=year+'-'+String(month).padStart(2,'0')+'-01';
  const end=new Date(Date.UTC(year,month,0)).getUTCDate();
  $('from').value=from;$('to').value=year+'-'+String(month).padStart(2,'0')+'-'+String(end).padStart(2,'0');
+ markPeriod(id);
+ // Monthly comparison needs a year range; a single month returns only one row.
+ // For individual months, switch back to the accounting summary.
+ if(chosen==='acc-monthly')selectReport('acc-summary');
+ else load();
+}
+function compareMonths(){
+ const today=witaToday();
+ $('from').value=today.year+'-01-01';$('to').value=today.year+'-12-31';
+ markPeriod('compare');
+ selectReport('acc-monthly');
+}
+$('period-this').onclick=()=>setMonthPeriod(0,'this');
+$('period-last').onclick=()=>setMonthPeriod(-1,'last');
+$('period-compare').onclick=compareMonths;
+for(const id of ['period-this','period-last','period-compare'])$(id).setAttribute('aria-pressed','false');
+for(const id of ['from','to'])$(id).addEventListener('change',()=>markPeriod(''));
+function selectReport(code){
+ const button=[...document.querySelectorAll('.report')].find(b=>b.dataset.reportCode===code);
+ if(!button){$('status').textContent='Pilihan laporan tidak tersedia';$('status').className='error';return;}
+ for(const el of document.querySelectorAll('.report'))el.setAttribute('aria-pressed','false');
+ button.setAttribute('aria-pressed','true');
+ chosen=code;const isAcc=chosen.startsWith('acc-');
+ $('accounting-outlet-filter').hidden=!isAcc;
+ $('accounting-segment-filter').hidden=!isAcc;
+ $('accounting-period-actions').hidden=!isAcc;
+ $('title').textContent=button.textContent;
+ $('viewer').hidden=false;
  load();
 }
-$('period-this').onclick=()=>setMonthPeriod(0);
-$('period-last').onclick=()=>setMonthPeriod(-1);
-$('period-compare').onclick=()=>{
- const today=witaToday();$('from').value=today.year+'-01-01';$('to').value=today.year+'-12-31';
- const button=document.querySelector('[data-report-code="acc-monthly"]');
- if(button)button.click();
-};
 function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}return p.toString();}
-async function load(){if(!chosen)return;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));renderSummary(d.summary);const h=make('tr','');d.columns.forEach(c=>h.appendChild(make('th',c)));$('head').appendChild(h);d.rows.forEach(row=>{const tr=make('tr','');d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));$('body').appendChild(tr);});$('count').textContent=d.rows.length+' baris'+(d.totalSource>d.limit?' (dibatasi '+d.limit+')':'');$('status').textContent=d.rows.length?'':'Tidak ada data dalam periode ini';}catch(e){$('count').textContent='';$('status').textContent=e.message;$('status').className='error';}}
+let latestRequest=0;
+async function load(){if(!chosen)return;const requestId=++latestRequest;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));if(requestId!==latestRequest)return;renderSummary(d.summary);const h=make('tr','');d.columns.forEach(c=>h.appendChild(make('th',c)));$('head').appendChild(h);d.rows.forEach(row=>{const tr=make('tr','');d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));$('body').appendChild(tr);});$('count').textContent=d.rows.length+' baris'+(d.totalSource>d.limit?' (dibatasi '+d.limit+')':'');$('status').textContent=d.rows.length?'':'Tidak ada data dalam periode ini';}catch(e){if(requestId!==latestRequest)return;$('count').textContent='';$('status').textContent=e.message;$('status').className='error';}}
 async function download(format){if(!chosen)return;try{const q=params(),u='/api/report-center/'+chosen+'/export.'+format+(q?'?'+q:'');const response=await fetch(u,{headers:authHeaders(),cache:'no-store'});if(!response.ok)throw Error('Ekspor gagal (HTTP '+response.status+')');const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='PixelApps-'+chosen+'.'+format;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){$('status').textContent=e.message;$('status').className='error';}}
 $('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
 async function outlets(){try{const data=await json('/api/report-center/accounting/outlets');const root=$('accounting-outlet');data.forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent=o.name;root.appendChild(opt);});}catch(e){$('status').textContent='Daftar outlet belum dapat dimuat: '+e.message;}}
-json('/api/report-center/catalog').then(d=>{$('catalog').replaceChildren();let previous='';d.reports.forEach(r=>{if(r.group!==previous){previous=r.group;const h=make('h3',previous||'Laporan');h.style.gridColumn='1 / -1';$('catalog').appendChild(h);}const b=make('button',r.title);b.className='report';b.type='button';b.dataset.reportCode=r.code;b.setAttribute('aria-pressed','false');b.onclick=()=>{document.querySelectorAll('.report').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');chosen=r.code;const isAcc=chosen.startsWith('acc-');$('accounting-outlet-filter').hidden=!isAcc;$('accounting-segment-filter').hidden=!isAcc;$('accounting-period-actions').hidden=!isAcc;$('title').textContent=r.title;$('viewer').hidden=false;load();};$('catalog').appendChild(b);});}).then(outlets).catch(e=>{$('catalog').textContent=e.message;$('catalog').className='error';});
+json('/api/report-center/catalog').then(d=>{$('catalog').replaceChildren();let previous='';d.reports.forEach(r=>{if(r.group!==previous){previous=r.group;const h=make('h3',previous||'Laporan');h.style.gridColumn='1 / -1';$('catalog').appendChild(h);}const b=make('button',r.title);b.className='report';b.type='button';b.dataset.reportCode=r.code;b.setAttribute('aria-pressed','false');b.onclick=()=>{markPeriod('');selectReport(r.code);};$('catalog').appendChild(b);});}).then(outlets).catch(e=>{$('catalog').textContent=e.message;$('catalog').className='error';});
 })();
 </script></body></html>

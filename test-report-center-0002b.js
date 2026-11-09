@@ -30,8 +30,8 @@ const rows=[
  for(const id of ['period-this','period-last','period-compare'])assert(html.includes('id="'+id+'"'));
  assert(js.includes("timeZone:'Asia/Makassar'"));
  assert(js.includes("today.year+'-01-01'"));
- assert(js.includes("data-report-code=\"acc-monthly\""));
+ assert(js.includes("selectReport('acc-monthly')"));
  const nav=fs.readFileSync('public/report-center-nav.js','utf8');
- assert(nav.includes('report-center.html?v=PXL-RPT-0002B'));
+ assert(nav.includes('report-center.html?v=PXL-RPT-0002C'));
  console.log('PASS PXL-RPT-0002B: monthly buckets, MoM, leap/year boundary, WITA actions, UI');
 })().catch(e=>{console.error(e);process.exitCode=1});
