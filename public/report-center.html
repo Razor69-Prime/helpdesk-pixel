@@ -2,12 +2,19 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font:14px Inter,Arial,sans-serif}.top{background:#fff;border-bottom:1px solid #e3e9f1;padding:17px 23px;display:flex;align-items:center;justify-content:space-between}.wrap{max-width:1180px;padding:18px;margin:auto}.card{background:#fff;border:1px solid #e1e6ee;border-radius:14px;padding:20px;margin-bottom:16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px}.muted{color:#667085;font-size:12px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.report{background:#fff;border:1px solid #d4dce6;border-radius:10px;padding:14px;text-align:left;cursor:pointer;font-weight:600}.report[aria-pressed=true]{background:#e9f1fb;border-color:#165ca5}.filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.filters label{display:grid;gap:5px;font-size:12px}input,button,a{font:inherit}input{padding:9px;border:1px solid #c9d2e0;border-radius:8px}button,.btn{border:1px solid #b8c7d7;border-radius:8px;padding:10px 13px;background:#fff;cursor:pointer;color:#17325b;text-decoration:none}.primary{background:#0c376a;color:#fff}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:14px 0}.table-wrap{max-height:65vh;overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e8ebf1;padding:9px;white-space:nowrap;text-align:left}th{background:#edf3f9;position:sticky;top:0}.error{color:#9d1b1b}@media(max-width:600px){.wrap{padding:10px}.top{padding:14px}.filters>*{flex:1}input{width:100%}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0001 · READ ONLY · Superadmin</div></div><a class="btn" href="/">Kembali</a></header>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0001 · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
 <main class="wrap"><section class="card"><h2>Daftar Laporan</h2><div class="grid" id="catalog">Memeriksa hak akses…</div></section>
 <section class="card" id="viewer" hidden><h2 id="title"></h2><div class="filters"><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div class="actions"><button id="pdf">Unduh PDF</button><button id="xlsx">Unduh Excel</button><span class="muted" id="count"></span></div><p id="status" role="status"></p><div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>
 <script>
-(()=>{'use strict';const $=id=>document.getElementById(id);let chosen='';const make=(tag,text)=>{const e=document.createElement(tag);e.textContent=String(text??'');return e};
+(()=>{'use strict';const $=id=>document.getElementById(id);
+function backToApp(){
+ if(window.parent!==window){window.parent.postMessage({type:'PXL_RPT_CLOSE'},window.location.origin);return;}
+ try{if(document.referrer&&new URL(document.referrer).origin===window.location.origin&&history.length>1){history.back();return;}}catch(_){}
+ window.location.assign('/');
+}
+$('pxl-rpt-back').addEventListener('click',backToApp);
+let chosen='';const make=(tag,text)=>{const e=document.createElement(tag);e.textContent=String(text??'');return e};
 function authHeaders(){const t=String(localStorage.getItem('pixel_token')||sessionStorage.getItem('pixel_token')||'').trim();return t?{'Authorization':'Bearer '+t,'X-Auth-Token':t}:{}}
 async function json(url){const r=await fetch(url,{headers:authHeaders(),cache:'no-store'});if(!r.ok)throw new Error(r.status===403?'Akses hanya untuk Superadmin':r.status===401?'Silakan login terlebih dahulu':'HTTP '+r.status);return r.json();}
 function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);return p.toString();}
