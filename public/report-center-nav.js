@@ -23,7 +23,7 @@
    overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#f5f7fb;display:flex;flex-direction:column';
    const frame=document.createElement('iframe');
    frame.title='Report Center';
-   frame.src='/report-center.html?v=PXL-RPT-0004';
+   frame.src='/report-center.html?v=PXL-RPT-0005';
    frame.style.cssText='width:100%;height:100%;border:0;flex:1';
    overlay.appendChild(frame);
    document.body.appendChild(overlay);
