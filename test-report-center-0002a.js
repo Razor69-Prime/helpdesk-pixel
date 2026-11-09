@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const a=require('./report-center-accounting');
+const outlets=['f093ba8d-dd95-4b7b-86fa-2669c966df4d','4ab666aa-c5b5-4696-928c-3728e3bb8052','d9c1e0b9-34fe-4943-8936-29303e5ae3f8'];
+for(const id of outlets)assert.equal(a.validate({outlet_id:id}).outlet_id,id);
+assert.throws(()=>a.validate({outlet_id:'invalid'}),{status:400});
+const html=fs.readFileSync('public/report-center.html','utf8'),js=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+const match=js.match(/const formatReportValue=\(key,value\)=>\{[\s\S]*?\};/);
+assert(match,'numeric presentation formatter');
+const format=vm.runInNewContext(match[0]+'\nformatReportValue');
+assert.equal(format('Omzet (Rp)',4156538185),'4.156.538.185');
+assert.equal(format('NET (Rp)',1440819739.5),'1.440.819.739,5');
+assert.equal(format('Transaksi',2938),'2.938');
+assert.equal(format('Customer','Pixel Solusindo'),'Pixel Solusindo');
+console.log('PASS PXL-RPT-0002A: Buduk/Lukluk/Bangli UUIDs and id-ID numeric separators');

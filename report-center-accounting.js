@@ -16,7 +16,7 @@ const number=v=>Number.isFinite(Number(v))?Number(v):0;
 const amount=n=>Number(n.toFixed(2));
 function validate(filters={}){
  const outlet=String(filters.outlet_id||'').trim(),classification=String(filters.classification||'').trim().toUpperCase();
- if(outlet&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(outlet))throw Object.assign(new Error('Outlet tidak valid'),{status:400});
+ if(outlet&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(outlet))throw Object.assign(new Error('Outlet tidak valid'),{status:400});
  if(classification&&!CLASSIFICATIONS.includes(classification))throw Object.assign(new Error('Klasifikasi tidak valid'),{status:400});
  return {outlet_id:outlet,classification};
 }
