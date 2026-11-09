@@ -12,7 +12,7 @@ const reads=[];const db={getCrmReport:async()=>{reads.push('crm');return{tickets
 (async()=>{assert.equal((await R.getData(db,'wo',null,null)).rows.length,1);assert.deepEqual(reads,['crm']);await assert.rejects(()=>R.getData(db,'other',null,null),{status:404});
  const routes={};const app={get(path,...handlers){routes[path]=handlers;}};
  R.install(app,{db,requireAuth:(_req,_res,next)=>next(),reportSvc:{writePdf(){},writeExcel(){}}});
- assert.equal(Object.keys(routes).length,3);
+ assert.equal(Object.keys(routes).length,4);
  for(const handlers of Object.values(routes)){const r=response();let passed=false;handlers[1]({session:{user:{role:'sales'}}},r,()=>passed=true);assert.equal(r.statusCode,403);assert.equal(passed,false);}
  console.log('PASS: superadmin-only, data projection, date validation, read-only source selection, route protection');
 })().catch(e=>{console.error(e);process.exitCode=1;});
