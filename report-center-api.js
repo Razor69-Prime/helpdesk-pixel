@@ -4,6 +4,7 @@ const accounting=require('./report-center-accounting');
 const products=require('./report-center-products');
 const salesReports=require('./report-center-sales');
 const technicianReports=require('./report-center-technicians');
+const executiveReports=require('./report-center-executive');
 const REPORTS=Object.freeze({
  wo:{title:'Work Order',source:'crm',key:'tickets',cols:[['wo_number','Nomor WO'],['customer_name','Customer'],['status','Status'],['technician','Teknisi'],['created_at','Dibuat'],['scheduled_date','Jadwal']]},
  sales:{title:'Sales Order',source:'crm',key:'sales_orders',cols:[['so_number','Nomor SO'],['customer_name','Customer'],['status','Status'],['total_amount','Total'],['created_at','Dibuat']]},
@@ -42,6 +43,7 @@ async function getData(db,code,from,to,options={}){
  if(Object.hasOwn(products.REPORTS,code))return products.getData(db,code,{...options,from,to});
  if(Object.hasOwn(salesReports.REPORTS,code))return salesReports.getData(code,{...options,from,to});
  if(Object.hasOwn(technicianReports.REPORTS,code))return technicianReports.getData(db,code,{...options,from,to});
+ if(Object.hasOwn(executiveReports.REPORTS,code))return executiveReports.getData(db,code,{...options,from,to});
  const spec=Object.hasOwn(REPORTS,code)?REPORTS[code]:null;
  if(!spec)throw Object.assign(new Error('Laporan tidak dikenal'),{status:404});
  let source;
@@ -56,7 +58,7 @@ function install(app,{db,requireAuth,reportSvc}){
  const guards=[requireAuth,superadminOnly];
  const dates=req=>{const from=dateParam(req.query.from),to=dateParam(req.query.to);if(from&&to&&from>to)throw Object.assign(new Error('Rentang tanggal tidak valid'),{status:400});return {from,to};};
  const fail=(res,e)=>{if(!res.headersSent)res.status(e.status||500).json({error:e.status?e.message:'Gagal membaca laporan'});};
- app.get('/api/report-center/catalog',...guards,(_req,res)=>{res.set('Cache-Control','no-store');res.json({revision:'PXL-RPT-0005',readOnly:true,access:'superadmin',reports:[...Object.entries(REPORTS).map(([code,s])=>({code,title:s.title,group:'Operasional'})),...Object.entries(accounting.REPORTS).map(([code,s])=>({code,title:s.title,group:'Accounting & Segmentasi'})),...Object.entries(products.REPORTS).map(([code,s])=>({code,title:s.title,group:'Produk & Inventory'})),...Object.entries(salesReports.REPORTS).map(([code,s])=>({code,title:s.title,group:'Sales Performance'})),...Object.entries(technicianReports.REPORTS).map(([code,s])=>({code,title:s.title,group:'Teknisi & Project'}))]});});
+ app.get('/api/report-center/catalog',...guards,(_req,res)=>{res.set('Cache-Control','no-store');res.json({revision:'PXL-RPT-0006',readOnly:true,access:'superadmin',reports:[...Object.entries(executiveReports.REPORTS).map(([code,s])=>({code,title:s.title,group:'Executive Summary'})),...Object.entries(REPORTS).map(([code,s])=>({code,title:s.title,group:'Operasional'})),...Object.entries(accounting.REPORTS).map(([code,s])=>({code,title:s.title,group:'Accounting & Segmentasi'})),...Object.entries(products.REPORTS).map(([code,s])=>({code,title:s.title,group:'Produk & Inventory'})),...Object.entries(salesReports.REPORTS).map(([code,s])=>({code,title:s.title,group:'Sales Performance'})),...Object.entries(technicianReports.REPORTS).map(([code,s])=>({code,title:s.title,group:'Teknisi & Project'}))]});});
  app.get('/api/report-center/accounting/outlets',...guards,async(_req,res)=>{try{const outlets=await require('./accounting-sales-store').listOutlets();res.set('Cache-Control','no-store');res.json((outlets||[]).map(o=>({id:o.id,name:o.name})));}catch(e){fail(res,e);}});
  app.get('/api/report-center/:code/data',...guards,async(req,res)=>{try{const {from,to}=dates(req);res.set('Cache-Control','no-store');res.json(await getData(db,req.params.code,from,to,req.query));}catch(e){fail(res,e);}});
  app.get('/api/report-center/:code/export.:format',...guards,async(req,res)=>{try{
