@@ -4,6 +4,7 @@ const {CLASSIFICATIONS}=require('./accounting-sales-v1');
 const LABELS={B2B:'B2B Corp',B2BG:'B2B Grosir',B2C:'B2C',B2G:'B2G'};
 const REPORTS=Object.freeze({
  'acc-summary':{title:'Accounting — Ringkasan Klasifikasi',kind:'segment'},
+ 'acc-monthly':{title:'Accounting — Perbandingan per Bulan',kind:'monthly'},
  'acc-b2b':{title:'Accounting — B2B Corp',segment:'B2B',kind:'details'},
  'acc-b2bg':{title:'Accounting — B2B Grosir',segment:'B2BG',kind:'details'},
  'acc-b2c':{title:'Accounting — B2C',segment:'B2C',kind:'details'},
@@ -54,6 +55,28 @@ function totals(rows){
 }
 const finColumns=['Transaksi','Omzet (Rp)','HPP (Rp)','DPP (Rp)','PPN (Rp)','NET (Rp)'];
 function financialRow(name,s){return {'Kelompok':name,'Transaksi':s.transactions,'Omzet (Rp)':s.omzet,'HPP (Rp)':s.hpp,'DPP (Rp)':s.dpp,'PPN (Rp)':s.ppn,'NET (Rp)':s.net};}
+function monthlyRows(rows,from,to){
+ const current=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit'}).formatToParts(new Date());
+ const localYear=Number(current.find(p=>p.type==='year').value);
+ const first=from?from.slice(0,7):String(localYear)+'-01';
+ const last=to?to.slice(0,7):String(localYear)+'-12';
+ const output=[];
+ let year=Number(first.slice(0,4)),month=Number(first.slice(5,7));
+ const endYear=Number(last.slice(0,4)),endMonth=Number(last.slice(5,7));
+ if(!Number.isInteger(year)||!Number.isInteger(month)||month<1||month>12||!Number.isInteger(endYear)||!Number.isInteger(endMonth)||endMonth<1||endMonth>12||year*12+month>endYear*12+endMonth||endYear*12+endMonth-(year*12+month)>35)throw Object.assign(new Error('Perbandingan maksimal 36 bulan'),{status:400});
+ const buckets=new Map();
+ for(const r of rows){const key=String(r.transaction_date||'').slice(0,7);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(r);}
+ while(year*12+month<=endYear*12+endMonth){
+  const key=year+'-'+String(month).padStart(2,'0');
+  const name=new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(year,month-1,1)));
+  const total=totals(buckets.get(key)||[]);
+  const previous=output.length?output[output.length-1]['Omzet (Rp)']:null;
+  const change=previous===null?'—':previous===0?(total.omzet===0?'0%':'Baru'):(100*(total.omzet-previous)/previous).toFixed(1)+'%';
+  output.push({...financialRow(name,total),'Perubahan Omzet':change});
+  month++;if(month===13){month=1;year++;}
+ }
+ return output;
+}
 const detailColumns=['Tanggal','Outlet','Klasifikasi','Customer','Pekerjaan','Transaksi','Kategori Produk','PIC','Status Paid','Omzet (Rp)','HPP (Rp)','DPP (Rp)','PPN (Rp)','NET (Rp)'];
 function detailRow(r,outletNames){return {'Tanggal':r.transaction_date||'','Outlet':outletNames.get(r.outlet_id)||r.outlet_id||'','Klasifikasi':LABELS[r.classification]||r.classification||'','Customer':r.customer_name||'','Pekerjaan':r.job_name||'','Transaksi':r.transaction_description||'','Kategori Produk':r.product_category||'','PIC':r.pic_name||'','Status Paid':r.paid_status||'','Omzet (Rp)':number(r.gross_amount),'HPP (Rp)':number(r.hpp_amount),'DPP (Rp)':number(r.dpp_amount),'PPN (Rp)':number(r.ppn_amount),'NET (Rp)':number(r.net_amount)};}
 async function getData(code,options={},deps={}){
@@ -64,7 +87,9 @@ async function getData(code,options={},deps={}){
  const outletNames=new Map((outlets||[]).map(o=>[o.id,o.name]));
  const summary=totals(allRows);
  let columns,rows;
- if(spec.kind==='segment'){
+ if(spec.kind==='monthly'){
+  columns=['Kelompok',...finColumns,'Perubahan Omzet'];rows=monthlyRows(allRows,options.from,options.to);
+ }else if(spec.kind==='segment'){
   columns=['Kelompok',...finColumns];
   rows=CLASSIFICATIONS.filter(x=>!classification||classification===x).map(x=>financialRow(LABELS[x],totals(allRows.filter(r=>r.classification===x))));
  }else if(spec.kind==='outlets'){
@@ -75,4 +100,4 @@ async function getData(code,options={},deps={}){
  }else{columns=detailColumns;rows=allRows.map(r=>detailRow(r,outletNames));}
  return {code,title:spec.title,columns,rows,totalSource:allRows.length,limit:MAX_TRANSACTIONS,summary,source:'Accounting',readOnly:true};
 }
-module.exports={REPORTS,LABELS,validate,readRows,totals,getData};
+module.exports={REPORTS,LABELS,validate,readRows,totals,monthlyRows,getData};
