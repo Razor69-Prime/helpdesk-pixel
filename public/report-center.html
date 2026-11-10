@@ -1,10 +1,46 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelApps — Report Center</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font:14px Inter,Arial,sans-serif}.top{background:#fff;border-bottom:1px solid #e3e9f1;padding:17px 23px;display:flex;align-items:center;justify-content:space-between}.wrap{max-width:1180px;padding:18px;margin:auto}.card{background:#fff;border:1px solid #e1e6ee;border-radius:14px;padding:20px;margin-bottom:16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px}.muted{color:#667085;font-size:12px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.report{background:#fff;border:1px solid #d4dce6;border-radius:10px;padding:14px;text-align:left;cursor:pointer;font-weight:600}.report[aria-pressed=true]{background:#e9f1fb;border-color:#165ca5}#accounting-period-actions button[aria-pressed=true]{background:#103d73;color:#fff;border-color:#103d73;font-weight:700}#accounting-period-actions button:focus-visible{outline:3px solid #8fbff3;outline-offset:2px}.filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.filters label{display:grid;gap:5px;font-size:12px}input,select,button,a{font:inherit}input,select{padding:9px;border:1px solid #c9d2e0;border-radius:8px}button,.btn{border:1px solid #b8c7d7;border-radius:8px;padding:10px 13px;background:#fff;cursor:pointer;color:#17325b;text-decoration:none}.primary{background:#0c376a;color:#fff}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:14px 0}.table-wrap{max-height:65vh;overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e8ebf1;padding:9px;white-space:nowrap;text-align:left}th{background:#edf3f9;position:sticky;top:0}.error{color:#9d1b1b}@media(max-width:600px){.wrap{padding:10px}.top{padding:14px}.filters>*{flex:1}input{width:100%}}
+
+[hidden]{display:none!important}
+body{background:#f3f6fb;color:#18283f}
+.top{padding:18px clamp(18px,3vw,38px);border-bottom:1px solid #dfe7f2;position:sticky;top:0;z-index:8;box-shadow:0 3px 14px rgba(14,47,88,.035)}
+.top h1{font-size:21px;letter-spacing:-.4px}.top .muted{margin-top:3px}
+.wrap.report-layout{max-width:1700px;margin:0 auto;padding:22px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);align-items:start;gap:18px}
+.report-layout .card{margin:0;border:1px solid #e1e9f3;box-shadow:0 5px 22px rgba(30,59,99,.04)}
+#report-directory{position:sticky;top:96px;max-height:calc(100vh - 118px);overflow:auto;padding:19px}
+#report-directory h2{margin:0 0 12px;font-size:16px}
+#catalog-search{width:100%;padding:11px 12px;border:1px solid #d1dbea;border-radius:10px;margin-bottom:13px}
+#catalog{display:flex;flex-direction:column;gap:5px}
+#catalog h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#637996;margin:19px 5px 7px;font-weight:800}
+#catalog .report{width:100%;padding:11px 12px;border:1px solid transparent;border-radius:10px;line-height:1.45;font-size:12px;font-weight:600;color:#33445f;background:transparent}
+#catalog .report:hover{background:#edf3fb;border-color:#dce8f7}
+#catalog .report[aria-pressed=true]{background:#e5f0fc;color:#0d447c;border-color:#aac8eb;box-shadow:inset 3px 0 #2066b2}
+#viewer,#viewer-welcome{min-width:0;padding:25px}
+#viewer-welcome{min-height:300px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:12px}
+#viewer-welcome .welcome-icon{display:grid;place-items:center;width:62px;height:62px;border-radius:18px;background:#e9f2fd;color:#155b9f;font-size:28px}
+#viewer-welcome h2{margin:5px 0 0;font-size:20px}
+#viewer-welcome p{margin:0;max-width:400px;line-height:1.6;color:#667992}
+#viewer h2{margin:0 0 6px;font-size:20px}
+#viewer .report-desc{margin:0 0 20px;color:#71839a;font-size:12px}
+#viewer .filters{background:#f8fafd;border:1px solid #e6edf6;border-radius:12px;padding:14px;gap:12px}
+#viewer .filters label{color:#4f6582;font-size:11px;font-weight:600;flex:1 1 145px;min-width:0}
+#viewer .filters label select,#viewer .filters label input{background:white;width:100%;min-height:38px}
+#viewer .filters .primary{min-height:38px}
+#accounting-summary{grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px}
+#accounting-summary .card{padding:16px;box-shadow:none}
+#viewer .table-wrap{max-height:58vh;border:1px solid #e6edf6;border-radius:11px}
+#viewer table{font-size:12px}#viewer th{background:#eaf1f9;color:#334d70}#viewer td{padding:11px 10px}
+#viewer tr:nth-child(even) td{background:#fafcff}
+#viewer .actions{gap:8px}#status{font-size:12px;line-height:1.6;color:#5c6f89}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #8dbcf1;outline-offset:2px}
+@media(max-width:900px){.wrap.report-layout{grid-template-columns:1fr;gap:12px;padding:14px}#report-directory{position:static;max-height:255px;padding:15px}#viewer,#viewer-welcome{padding:17px}#catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}#catalog h3{grid-column:1/-1;margin-top:12px}}
+@media(max-width:600px){.top{padding:14px}.top h1{font-size:18px}.wrap.report-layout{padding:10px}#report-directory{max-height:290px}#catalog{grid-template-columns:1fr 1fr;gap:5px}#catalog .report{font-size:11px;padding:9px}#viewer .filters label{flex:1 1 135px}#viewer .filters .primary{width:100%}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0006 · READ ONLY · Superadmin · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
-<main class="wrap"><section class="card"><h2>Daftar Laporan</h2><div class="grid" id="catalog">Memeriksa hak akses…</div></section>
-<section class="card" id="viewer" hidden><h2 id="title"></h2><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0007A · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<main class="wrap report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><h2>Daftar Laporan</h2><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
+<section class="card" id="viewer-welcome"><div class="welcome-icon">▤</div><h2>Pilih laporan untuk ditampilkan</h2><p>Gunakan daftar di sebelah kiri untuk memilih laporan. Filter dan data akan tampil di panel ini tanpa membuka halaman lain.</p></section>
+<section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div id="accounting-period-actions" class="actions" hidden style="margin:12px 0 0"><button type="button" id="period-this">Bulan Ini</button><button type="button" id="period-last">Bulan Lalu</button><button type="button" id="period-compare">Perbandingan per Bulan</button><span class="muted" id="period-note">Bandingkan 12 bulan dalam tahun berjalan</span></div>
 <div id="accounting-summary" hidden class="grid" style="margin-top:16px"></div><div class="actions"><button id="pdf">Unduh PDF</button><button id="xlsx">Unduh Excel</button><span class="muted" id="count"></span></div><p id="status" role="status"></p><div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>
 <script>
@@ -70,6 +106,7 @@ function selectReport(code){
  $('accounting-period-actions').hidden=!chosen.startsWith('acc-');
  $('title').textContent=button.textContent;
  $('viewer').hidden=false;
+ $('viewer-welcome').hidden=true;
  load();
 }
 function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}return p.toString();}
@@ -78,6 +115,16 @@ async function load(){if(!chosen)return;const requestId=++latestRequest;$('statu
 async function download(format){if(!chosen)return;try{const q=params(),u='/api/report-center/'+chosen+'/export.'+format+(q?'?'+q:'');const response=await fetch(u,{headers:authHeaders(),cache:'no-store'});if(!response.ok)throw Error('Ekspor gagal (HTTP '+response.status+')');const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='PixelApps-'+chosen+'.'+format;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){$('status').textContent=e.message;$('status').className='error';}}
 $('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
 async function outlets(){try{const data=await json('/api/report-center/accounting/outlets');const root=$('accounting-outlet');data.forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent=o.name;root.appendChild(opt);});}catch(e){$('status').textContent='Daftar outlet belum dapat dimuat: '+e.message;}}
+$('catalog-search').addEventListener('input',()=>{
+ const q=$('catalog-search').value.trim().toLocaleLowerCase('id-ID');
+ let current=null,visible=false;
+ for(const child of $('catalog').children){
+  if(child.tagName==='H3'){if(current)current.hidden=!visible;current=child;visible=false;continue;}
+  const yes=child.textContent.toLocaleLowerCase('id-ID').includes(q);
+  child.hidden=!yes;if(yes)visible=true;
+ }
+ if(current)current.hidden=!visible;
+});
 json('/api/report-center/catalog').then(d=>{$('catalog').replaceChildren();let previous='';d.reports.forEach(r=>{if(r.group!==previous){previous=r.group;const h=make('h3',previous||'Laporan');h.style.gridColumn='1 / -1';$('catalog').appendChild(h);}const b=make('button',r.title);b.className='report';b.type='button';b.dataset.reportCode=r.code;b.setAttribute('aria-pressed','false');b.onclick=()=>{markPeriod('');selectReport(r.code);};$('catalog').appendChild(b);});}).then(outlets).catch(e=>{$('catalog').textContent=e.message;$('catalog').className='error';});
 })();
 </script></body></html>
