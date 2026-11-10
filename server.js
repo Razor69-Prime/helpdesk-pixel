@@ -2108,6 +2108,48 @@ app.delete('/api/project-report-items/:id', requireProjectBoqAccess, async (req,
   catch(e){ res.status(500).json({error:e.message}); }
 });
 
+// PXL-DOC-0001 — isolated, read-only Project Documentation access.
+const PROJECT_DOC_PERMISSIONS=['project_documentation_view','project_documentation_export','project_documentation_manage'];
+function hasProjectDocumentationPermission(req,permission){
+  const user=req.session?.user||{};
+  const role=String(user.role||'').toLowerCase().replace(/[ _-]/g,'');
+  return role==='superadmin'||(PROJECT_DOC_PERMISSIONS.includes(permission)&&Array.isArray(user.custom_menus)&&user.custom_menus.includes(permission));
+}
+function requireProjectDocumentation(permission='project_documentation_view'){
+  return (req,res,next)=>{
+    if(!req.session?.user)return res.status(401).json({error:'Unauthorized'});
+    if(!hasProjectDocumentationPermission(req,'project_documentation_view')||!hasProjectDocumentationPermission(req,permission))
+      return res.status(403).json({error:'Izin Dokumentasi Project tidak tersedia.'});
+    next();
+  };
+}
+app.get('/api/project-documentation/projects',requireProjectDocumentation(),async(req,res)=>{
+  try{
+    const projects=await db.getProjects();
+    res.json((projects||[]).map(p=>({id:p.id,project_number:p.project_number,nama_project:p.nama_project,name:p.name})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/project-documentation/projects/:id/photos',requireProjectDocumentation(),async(req,res)=>{
+  try{
+    const project=(await db.getProjects()).find(p=>String(p.id)===String(req.params.id));
+    if(!project)return res.status(404).json({error:'Project tidak ditemukan.'});
+    const [items,photos]=await Promise.all([db.getProjectReportItems(project.id),db.getProjectReportItemPhotos({projectId:project.id})]);
+    const lookup=new Map(items.map(i=>[String(i.id),i]));
+    res.json(photos.map(p=>({id:p.id,item_name:lookup.get(String(p.project_report_item_id))?.item_name||'Item Project',image_url:p.secure_url,secure_url:'/api/project-documentation/photos/'+encodeURIComponent(p.id)+'/image',evidence_time:p.evidence_time,uploaded_at:p.uploaded_at})));
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/project-documentation/photos/:id/image',requireProjectDocumentation(),async(req,res)=>{
+  try{
+    const photo=await db.getProjectReportItemPhoto(req.params.id);
+    if(!photo||photo.deleted_at)return res.status(404).json({error:'Foto tidak ditemukan.'});
+    const remote=await fetch(photo.secure_url,{timeout:45000});
+    if(!remote.ok)return res.status(502).json({error:'Foto tidak tersedia.'});
+    res.setHeader('Content-Type',remote.headers.get('content-type')||'image/jpeg');
+    res.setHeader('Cache-Control','private, no-store');
+    remote.body.pipe(res);
+  }catch(e){if(!res.headersSent)res.status(500).json({error:e.message});else res.end();}
+});
+
 // PXL-VNEXT-3D — Project photo downloads
 app.get('/api/project-report-item-photos/:photoId/download', requireProjectPhotoRead, async (req,res)=>{
   try{

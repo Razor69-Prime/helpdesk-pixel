@@ -2044,6 +2044,7 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
     </div>
 
     <!-- TAB: PURCHASE REQUEST -->
+    <div id="tab-project_documentation" class="tab-content"><div id="pxl-doc-root"></div></div>
     <div id="tab-projects" class="tab-content">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
@@ -4246,6 +4247,7 @@ function buildNav(){
     {id:'inventory', label:'📦 Inventory', show: role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
+    {id:'project_documentation',label:'📷 Dokumentasi Project',show:isSuperAdmin},
     {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'sales_order',label:'🧾 Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
@@ -4263,6 +4265,7 @@ function buildNav(){
     if(effective.includes('tickets')&&!effective.includes('survey_results')) effective.push('survey_results');
     // Permission Service Center selalu menyinkronkan menu induknya.
     if(customMenus.some(x=>String(x||'').startsWith('service_'))&&!effective.includes('service_center')) effective.push('service_center');
+    if(customMenus.includes('project_documentation_view')&&!effective.includes('project_documentation')) effective.push('project_documentation');
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id) && t.id!=='users' && t.id!=='banner_promo');
   }
 
@@ -4286,7 +4289,7 @@ function buildNav(){
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','survey_results','service_center','materials']},
-    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','crm','sales_order']},
+    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','project_documentation','crm','sales_order']},
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory']},
@@ -4479,6 +4482,7 @@ function switchTab(tab,btn){
     if(frame && !frame.dataset.loaded){ frame.src='/inventory.html'; frame.dataset.loaded='1'; }
   }
   if(tab==='pr')        loadPurchaseRequests();
+  if(tab==='project_documentation' && window.pxlProjectDocumentation) window.pxlProjectDocumentation.open();
   if(tab==='projects')  { if(window.pxlProjectReport?.refreshAccess) window.pxlProjectReport.refreshAccess(); if(String(currentUser?.role||'').toLowerCase().replace(/[ _-]/g,'')==='technician'){ if(window.pxlProjectReport?.open) window.pxlProjectReport.open('report'); } else { loadProjects(); updateImportButtonVisibility(); } }
   if(tab==='supplier')  loadSuppliers();
 }
@@ -5658,6 +5662,7 @@ const ALL_MENUS=[
   {id:'inventory',label:'📦 Inventory Asset'},
   {id:'pr',      label:'📝 Purchase Request'},
   {id:'projects',label:'📁 Project Tracker'},
+  {id:'project_documentation',label:'📷 Dokumentasi Project'},
   {id:'crm',label:'🤝 CRM'},
   {id:'sales_order',label:'🧾 Sales Order'},
   {id:'package_recipes',label:'📦 Master Paket'},
@@ -5685,7 +5690,10 @@ const PROJECT_PERMISSIONS=[
   {id:'project_boq_manage',label:'📐 Input Total BOQ Project'},
   {id:'project_gantt_manage',label:'📅 Kelola Gantt Plan Project'},
   {id:'project_primary_wo_manage',label:'🛠️ Link Primary WO Project'},
-  {id:'project_internal_po_manage',label:'🧾 Kelola Internal PO Project'}
+  {id:'project_internal_po_manage',label:'🧾 Kelola Internal PO Project'},
+  {id:'project_documentation_view',label:'📷 Lihat Dokumentasi Project'},
+  {id:'project_documentation_export',label:'📄 Download PDF Dokumentasi'},
+  {id:'project_documentation_manage',label:'✏️ Susun Foto & Keterangan PDF'}
 ];
 const VNEXT_CRM_PERMISSIONS=[
   {id:'customer_segment_read',label:'🏷️ Lihat Segmentasi Customer'},
@@ -5720,7 +5728,7 @@ function getDefaultMenus(role){
     case 'manager':    return ['dashboard','report','tickets','service_center','invoice','kpi','sales','kunjungan','archive','materials','inventory','pr','projects','crm','sales_order','supplier'];
     case 'sales':      return ['report','tickets','kpi','kunjungan','projects','crm','sales_order','materials'];
     case 'hr':         return ['leave'];
-    case 'admin':      return ALL_MENUS.filter(m=>!['users','actlog','system_tools'].includes(m.id)).map(m=>m.id);
+    case 'admin':      return ALL_MENUS.filter(m=>!['users','actlog','system_tools','project_documentation'].includes(m.id)).map(m=>m.id);
     case 'superadmin': return ALL_MENUS.map(m=>m.id);
     default:           return [];
   }
@@ -5750,7 +5758,7 @@ function buildMenuCheckboxes(currentMenus, forceSuperAdmin=false){
   const groups=[
     {label:'Ringkasan & Kinerja',ids:['dashboard','kpi']},
     {label:'Operasional Teknisi',ids:['report','tickets','service_center','materials']},
-    {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','crm','sales_order','package_recipes']},
+    {label:'Sales, CRM & Proyek',ids:['sales','kunjungan','projects','project_documentation','crm','sales_order','package_recipes']},
     {label:'Accounting & Piutang',ids:['invoice']},
     {label:'Keuangan & Pengadaan',ids:['pr','supplier']},
     {label:'Gudang',ids:['inventory']},
@@ -13243,7 +13251,7 @@ setInterval(()=>{
 </div>
 <script src="/pxl-stg-0009a-leave.js?v=PXL-STG-0009A17"></script>
 <script src="/pxl-attendance-v1.js?v=PXL-ATT-0008"></script>
-<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-vnext-3d-project-photos.js?v=PXL-URG-0115"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3D"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-internal-po.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0002A"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-SVC-HDR-0001"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
+<script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-doc-0001.js?v=PXL-DOC-0001"></script><script src="/pxl-vnext-3d-project-photos.js?v=PXL-URG-0115"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3D"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-internal-po.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0002A"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-SVC-HDR-0001"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-PR-INV-0001A"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 <script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-VNEXT-3B2A"></script>
