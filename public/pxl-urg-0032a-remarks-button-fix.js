@@ -1,8 +1,9 @@
 /* PXL-URG-0032D — Keep Add/Edit Remarks logic intact; align remarks output above ticket meta. */
 (function(){
   'use strict';
-  const REV='PXL-URG-0112';
-  let installTimer=null;
+  const REV='PXL-URG-0135';
+  // Native renderTickets already draws buttons and read-more; delegated clicks
+  // remain valid after pagination. Avoid the old global mutation polling loop.
 
   function activeTickets(){
     try{return typeof allTickets!=='undefined'&&Array.isArray(allTickets)?allTickets:[];}catch(_){return [];}
@@ -68,8 +69,6 @@
         ?pxlFormatWoRemarks(remarks,true)
         :'Remarks: '+remarks.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
-    if(typeof pxlRefreshWoRemarksToggles==='function')pxlRefreshWoRemarksToggles(card);
-
     // Output remarks must live immediately above the status/date/duration row
     // for PWA, mobile browser and desktop. This only changes placement/styling.
     const meta=card.querySelector('.ticket-meta');
@@ -77,6 +76,7 @@
       if(el.parentElement!==meta.parentElement || el.nextElementSibling!==meta){
         meta.insertAdjacentElement('beforebegin',el);
       }
+      if(typeof pxlRefreshWoRemarksToggles==='function')pxlRefreshWoRemarksToggles(card);
       return;
     }
 
@@ -84,6 +84,7 @@
     const header=card.querySelector('.ticket-header');
     if(header) header.insertAdjacentElement('afterend',el);
     else if(!el.isConnected) card.appendChild(el);
+    if(typeof pxlRefreshWoRemarksToggles==='function')pxlRefreshWoRemarksToggles(card);
   }
 
   function ensureModal(){
@@ -164,8 +165,6 @@
     });
   }
 
-  function scheduleInstall(){clearTimeout(installTimer);installTimer=setTimeout(install,80);}
-
   document.addEventListener('click',function(e){
     const btn=e.target?.closest?.('.pxl-native-remarks-btn');
     if(!btn)return;
@@ -175,8 +174,6 @@
     openRemarks(ticket);
   },true);
 
-  const observer=new MutationObserver(scheduleInstall);
-  observer.observe(document.documentElement,{childList:true,subtree:true});
   document.addEventListener('DOMContentLoaded',install);
   setTimeout(install,0);setTimeout(install,300);setTimeout(install,1000);
   window.PXL_URG_0032A={revision:REV,refresh:install};
