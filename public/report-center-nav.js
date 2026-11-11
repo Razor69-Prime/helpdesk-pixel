@@ -10,6 +10,7 @@
    if(!overlay)return;
    overlay.remove();
    document.body.style.overflow=overlay.dataset.previousOverflow||'';
+   document.documentElement.style.overflow=overlay.dataset.previousHtmlOverflow||'';
    document.getElementById('pxl-rpt-menu')?.focus();
  }
  function openReport(){
@@ -18,16 +19,18 @@
    const overlay=document.createElement('div');
    overlay.id=overlayId;
    overlay.dataset.previousOverflow=document.body.style.overflow||'';
+   overlay.dataset.previousHtmlOverflow=document.documentElement.style.overflow||'';
    overlay.setAttribute('role','dialog');
    overlay.setAttribute('aria-label','Report Center');
-   overlay.style.cssText='position:fixed;inset:0;z-index:10001;background:#f5f7fb;display:flex;flex-direction:column';
+   overlay.style.cssText='position:fixed;inset:0;width:100%;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none;z-index:10001;background:#f5f7fb;display:flex;flex-direction:column';
    const frame=document.createElement('iframe');
    frame.title='Report Center';
-   frame.src='/report-center.html?v=PXL-RPT-0009A';
-   frame.style.cssText='width:100%;height:100%;border:0;flex:1';
+   frame.src='/report-center.html?v=PXL-RPT-0009B';
+   frame.style.cssText='display:block;width:100%;height:0;min-height:0;min-width:0;border:0;flex:1 1 auto;overflow:hidden';
    overlay.appendChild(frame);
    document.body.appendChild(overlay);
    document.body.style.overflow='hidden';
+   document.documentElement.style.overflow='hidden';
  }
  window.addEventListener('message',event=>{
    if(event.origin!==window.location.origin||event.data?.type!=='PXL_RPT_CLOSE')return;

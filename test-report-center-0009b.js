@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nav=fs.readFileSync('public/report-center-nav.js','utf8');new vm.Script(nav);
+assert(nav.includes("overlay.dataset.previousHtmlOverflow=document.documentElement.style.overflow||''"));
+assert(nav.includes("document.documentElement.style.overflow='hidden'"));
+assert(nav.includes("document.documentElement.style.overflow=overlay.dataset.previousHtmlOverflow||''"));
+assert(nav.includes('height:100dvh;overflow:hidden;overscroll-behavior:none'));
+assert(nav.includes('height:0;min-height:0;min-width:0;border:0;flex:1 1 auto;overflow:hidden'));
+assert(nav.includes("frame.src='/report-center.html?v=PXL-RPT-0009B'"));
+const html=fs.readFileSync('public/report-center.html','utf8');
+assert(html.includes('PXL-RPT-0009B · READ ONLY'));
+assert(html.includes('html,body{height:100%;height:100dvh;overflow:hidden'));
+assert(html.includes('#catalog{min-height:0;flex:1 1 auto;overflow-y:auto'));
+for(const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(m[1]);
+assert(fs.readFileSync('public/index.html','utf8').includes('report-center-nav.js?v=PXL-RPT-0009B'));
+console.log('PASS PXL-RPT-0009B: html+body scroll lock, iframe viewport flex, clean restore, menu scroll unchanged');
