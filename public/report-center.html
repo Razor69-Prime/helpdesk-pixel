@@ -31,16 +31,16 @@ body{background:#f3f6fb;color:#18283f}
 #accounting-summary .card{padding:16px;box-shadow:none}
 #viewer .table-wrap{max-height:58vh;border:1px solid #e6edf6;border-radius:11px}
 #viewer table{font-size:12px}#viewer th{background:#eaf1f9;color:#334d70}#viewer td{padding:11px 10px}
-#viewer tr:nth-child(even) td{background:#fafcff}
+#viewer tr:nth-child(even) td{background:#fafcff}#viewer tr.brand-group td{background:#edf3fc;border-top:2px solid #d8e5f5;padding:7px 10px}#viewer .brand-group button{border:0;background:transparent;font-size:13px;font-weight:800;color:#1d4e83;padding:7px;text-align:left}#viewer tr.brand-detail td:first-child{padding-left:22px;color:#4a6281}#viewer tr.brand-detail td:nth-child(2){font-weight:650;color:#193e69}
 #viewer .actions{gap:8px}#status{font-size:12px;line-height:1.6;color:#5c6f89}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #8dbcf1;outline-offset:2px}
 @media(max-width:900px){.wrap.report-layout{grid-template-columns:1fr;gap:12px;padding:14px}#report-directory{position:static;max-height:255px;padding:15px}#viewer,#viewer-welcome{padding:17px}#catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}#catalog h3{grid-column:1/-1;margin-top:12px}}
 @media(max-width:600px){.top{padding:14px}.top h1{font-size:18px}.wrap.report-layout{padding:10px}#report-directory{max-height:290px}#catalog{grid-template-columns:1fr 1fr;gap:5px}#catalog .report{font-size:11px;padding:9px}#viewer .filters label{flex:1 1 135px}#viewer .filters .primary{width:100%}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0007C · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0007D · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
 <main class="wrap report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><h2>Daftar Laporan</h2><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
 <section class="card" id="viewer-welcome"><div class="welcome-icon">▤</div><h2>Pilih laporan untuk ditampilkan</h2><p>Gunakan daftar di sebelah kiri untuk memilih laporan. Filter dan data akan tampil di panel ini tanpa membuka halaman lain.</p></section>
-<section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
+<section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label id="brand-model-filter" hidden>Merek<select id="brand-model"><option value="">Semua Merek</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div id="accounting-period-actions" class="actions" hidden style="margin:12px 0 0"><button type="button" id="period-this">Bulan Ini</button><button type="button" id="period-last">Bulan Lalu</button><button type="button" id="period-compare">Perbandingan per Bulan</button><span class="muted" id="period-note">Bandingkan 12 bulan dalam tahun berjalan</span></div>
 <div id="accounting-summary" hidden class="grid" style="margin-top:16px"></div><div class="actions"><button id="pdf">Unduh PDF</button><button id="xlsx">Unduh Excel</button><span class="muted" id="count"></span></div><p id="status" role="status"></p><div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>
 <script>
@@ -100,7 +100,9 @@ function selectReport(code){
  if(!button){$('status').textContent='Pilihan laporan tidak tersedia';$('status').className='error';return;}
  for(const el of document.querySelectorAll('.report'))el.setAttribute('aria-pressed','false');
  button.setAttribute('aria-pressed','true');
- chosen=code;const isAcc=chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-');
+ const previous=chosen;chosen=code;const isAcc=chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-');
+ if(previous!==chosen)$('brand-model').value='';
+ $('brand-model-filter').hidden=!['prod-brand-best','prod-brand-model'].includes(chosen);
  $('accounting-outlet-filter').hidden=!isAcc;
  $('accounting-segment-filter').hidden=!isAcc;
  $('accounting-period-actions').hidden=!chosen.startsWith('acc-');
@@ -109,11 +111,33 @@ function selectReport(code){
  $('viewer-welcome').hidden=true;
  load();
 }
-function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}return p.toString();}
+function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}if(['prod-brand-best','prod-brand-model'].includes(chosen)&&$('brand-model').value)p.set('brand',$('brand-model').value);return p.toString();}
 let latestRequest=0;
-async function load(){if(!chosen)return;const requestId=++latestRequest;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));if(requestId!==latestRequest)return;renderSummary(d.summary);const h=make('tr','');d.columns.forEach(c=>h.appendChild(make('th',c)));$('head').appendChild(h);d.rows.forEach(row=>{const tr=make('tr','');d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));$('body').appendChild(tr);});$('count').textContent=d.rows.length+' baris'+(d.totalSource>d.limit?' (dibatasi '+d.limit+')':'');$('status').textContent=[d.note||'',d.period?'Periode: '+d.period.from+' s.d. '+d.period.to:'',d.rows.length?'':'Tidak ada data dalam periode ini'].filter(Boolean).join(' | ');}catch(e){if(requestId!==latestRequest)return;$('count').textContent='';$('status').textContent=e.message;$('status').className='error';}}
+async function load(){if(!chosen)return;const requestId=++latestRequest;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));if(requestId!==latestRequest)return;
+ if(Array.isArray(d.brandOptions)){
+  const select=$('brand-model'),previous=select.value;
+  select.replaceChildren();const all=document.createElement('option');all.value='';all.textContent='Semua Merek';select.appendChild(all);
+  d.brandOptions.forEach(brand=>{const opt=document.createElement('option');opt.value=brand;opt.textContent=brand;select.appendChild(opt);});
+  select.value=d.brandOptions.includes(previous)?previous:'';
+ }
+ renderSummary(d.summary);const h=make('tr','');d.columns.forEach(c=>h.appendChild(make('th',c)));$('head').appendChild(h);if(chosen==='prod-brand-model'){
+  let lastBrand=null,groupRows=[],groupButton=null,groupIndex=-1;
+  for(const row of d.rows){
+   if(row.Merek!==lastBrand){
+    lastBrand=row.Merek;groupRows=[];groupIndex++;
+    const header=make('tr','');header.className='brand-group';const cell=make('td','');cell.colSpan=d.columns.length;
+    groupButton=make('button','▾ '+lastBrand);groupButton.type='button';groupButton.setAttribute('aria-expanded',String(groupIndex===0));
+    const children=groupRows,button=groupButton,brand=lastBrand;
+    button.onclick=()=>{const show=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(show));button.textContent=(show?'▾ ':'▸ ')+brand;children.forEach(r=>r.hidden=!show);};
+    if(groupIndex!==0)button.textContent='▸ '+lastBrand;
+    cell.appendChild(button);header.appendChild(cell);$('body').appendChild(header);
+   }
+   const tr=make('tr','');tr.className='brand-detail';d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));
+   tr.hidden=groupIndex!==0;groupRows.push(tr);$('body').appendChild(tr);
+  }
+ }else d.rows.forEach(row=>{const tr=make('tr','');d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));$('body').appendChild(tr);});$('count').textContent=d.rows.length+' baris'+(d.totalSource>d.limit?' (dibatasi '+d.limit+')':'');$('status').textContent=[d.note||'',d.period?'Periode: '+d.period.from+' s.d. '+d.period.to:'',d.rows.length?'':'Tidak ada data dalam periode ini'].filter(Boolean).join(' | ');}catch(e){if(requestId!==latestRequest)return;$('count').textContent='';$('status').textContent=e.message;$('status').className='error';}}
 async function download(format){if(!chosen)return;try{const q=params(),u='/api/report-center/'+chosen+'/export.'+format+(q?'?'+q:'');const response=await fetch(u,{headers:authHeaders(),cache:'no-store'});if(!response.ok)throw Error('Ekspor gagal (HTTP '+response.status+')');const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='PixelApps-'+chosen+'.'+format;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){$('status').textContent=e.message;$('status').className='error';}}
-$('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
+$('brand-model').onchange=load;$('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
 async function outlets(){try{const data=await json('/api/report-center/accounting/outlets');const root=$('accounting-outlet');data.forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent=o.name;root.appendChild(opt);});}catch(e){$('status').textContent='Daftar outlet belum dapat dimuat: '+e.message;}}
 $('catalog-search').addEventListener('input',()=>{
  const q=$('catalog-search').value.trim().toLocaleLowerCase('id-ID');

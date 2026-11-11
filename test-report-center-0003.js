@@ -11,8 +11,8 @@ const rows=[
 ];
 const mock={readRows:async()=>rows,listOutlets:async()=>[{id:a,name:'Buduk'},{id:b,name:'Lukluk'}]};
 (async()=>{
- assert.equal(Object.keys(R.REPORTS).length,9);
- assert(Object.keys(R.REPORTS).every(x=>x.startsWith('prod-category-')||x.startsWith('prod-item-')));
+ assert.equal(Object.keys(R.REPORTS).length,11);
+ assert(Object.keys(R.REPORTS).every(x=>x.startsWith('prod-category-')||x.startsWith('prod-item-')||x.startsWith('prod-brand-')));
  const top=await R.getData({},'prod-category-revenue',{},mock);
  assert.equal(top.source,'Accounting');assert(top.readOnly);assert.equal(top.summary.transactions,4);assert.equal(top.summary.omzet,850);
  assert.equal(top.rows[0]['Kategori Produk'],'CCTV');assert.equal(top.rows[0]['Omzet (Rp)'],500);
