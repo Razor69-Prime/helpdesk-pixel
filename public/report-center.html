@@ -36,11 +36,22 @@ body{background:#f3f6fb;color:#18283f}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #8dbcf1;outline-offset:2px}
 @media(max-width:900px){.wrap.report-layout{grid-template-columns:1fr;gap:12px;padding:14px}#report-directory{position:static;max-height:none;overflow:visible;padding:15px}#viewer,#viewer-welcome{padding:17px}#catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}#catalog h3{grid-column:1/-1;margin-top:12px}}
 @media(max-width:600px){.top{padding:14px}.top h1{font-size:18px}.wrap.report-layout{padding:10px}#report-directory{max-height:none}#catalog{grid-template-columns:1fr 1fr;gap:5px}#catalog .report{font-size:11px;padding:9px}#viewer .filters label{flex:1 1 135px}#viewer .filters .primary{width:100%}}
+#report-directory .directory-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#report-directory .directory-top h2{margin:0 0 12px}
+#menu-toggle{border:1px solid #c8d6e9;background:#f4f8ff;border-radius:9px;color:#184779;font-weight:700;padding:8px 11px;cursor:pointer}
+.report-layout.menu-collapsed{grid-template-columns:145px minmax(0,1fr)}
+.report-layout.menu-collapsed #report-directory{padding:12px}
+.report-layout.menu-collapsed #catalog-search,.report-layout.menu-collapsed #catalog{display:none}
+#catalog h3{cursor:pointer;position:relative;padding-right:32px}
+#catalog h3::after{content:'▾';position:absolute;right:12px;top:11px}
+#catalog h3[aria-expanded=false]::after{content:'▸'}
+#catalog .report[hidden]{display:none}
+@media(max-width:900px){.wrap.report-layout.menu-collapsed{grid-template-columns:1fr}.report-layout.menu-collapsed #report-directory{max-height:none}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0007E · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
-<main class="wrap report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><h2>Daftar Laporan</h2><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0008 · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<main class="wrap report-layout" id="report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><div class="directory-top"><h2>Daftar Laporan</h2><button id="menu-toggle" type="button" aria-expanded="true" aria-controls="catalog">− Kecilkan</button></div><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
 <section class="card" id="viewer-welcome"><div class="welcome-icon">▤</div><h2>Pilih laporan untuk ditampilkan</h2><p>Gunakan daftar di sebelah kiri untuk memilih laporan. Filter dan data akan tampil di panel ini tanpa membuka halaman lain.</p></section>
-<section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label id="brand-model-filter" hidden>Merek<select id="brand-model"><option value="">Semua Merek</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
+<section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label id="brand-model-filter" hidden>Merek<select id="brand-model"><option value="">Semua Merek</option></select></label><label id="crm-pic-filter" hidden>Sales PIC<select id="crm-pic"><option value="">Semua Sales PIC</option></select></label><label id="crm-market_segment-filter" hidden>Market Segment<select id="crm-market_segment"><option value="">Semua Market Segment</option></select></label><label id="crm-sector-filter" hidden>Sector<select id="crm-sector"><option value="">Semua Sector</option></select></label><label id="crm-customer_source-filter" hidden>Sumber Customer<select id="crm-customer_source"><option value="">Semua Sumber Customer</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div id="accounting-period-actions" class="actions" hidden style="margin:12px 0 0"><button type="button" id="period-this">Bulan Ini</button><button type="button" id="period-last">Bulan Lalu</button><button type="button" id="period-compare">Perbandingan per Bulan</button><span class="muted" id="period-note">Bandingkan 12 bulan dalam tahun berjalan</span></div>
 <div id="accounting-summary" hidden class="grid" style="margin-top:16px"></div><div class="actions"><button id="pdf">Unduh PDF</button><button id="xlsx">Unduh Excel</button><span class="muted" id="count"></span></div><p id="status" role="status"></p><div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>
 <script>
@@ -51,6 +62,16 @@ function backToApp(){
  window.location.assign('/');
 }
 $('pxl-rpt-back').addEventListener('click',backToApp);
+const crmKeys=['pic','market_segment','sector','customer_source'];
+function updateCrmOptions(filters){
+ for(const key of crmKeys){
+  const select=$('crm-'+key),previous=select.value;
+  const first=select.options[0].textContent;select.replaceChildren();
+  const all=document.createElement('option');all.value='';all.textContent=first;select.appendChild(all);
+  for(const value of filters?.[key]||[]){const option=document.createElement('option');option.value=value;option.textContent=value;select.appendChild(option);}
+  select.value=Array.from(select.options).some(x=>x.value===previous)?previous:'';
+ }
+}
 let chosen='';const make=(tag,text)=>{const e=document.createElement(tag);e.textContent=String(text??'');return e};
 const formatReportValue=(key,value)=>{
  if(typeof value==='number'&&Number.isFinite(value))return value.toLocaleString('id-ID',{maximumFractionDigits:2});
@@ -102,6 +123,9 @@ function selectReport(code){
  button.setAttribute('aria-pressed','true');
  const previous=chosen;chosen=code;const isAcc=chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-');
  if(previous!==chosen)$('brand-model').value='';
+ if(previous!==chosen&&chosen.startsWith('crm-'))for(const key of crmKeys)$('crm-'+key).value='';
+ for(const key of crmKeys)$('crm-'+key+'-filter').hidden=!chosen.startsWith('crm-');
+
  $('brand-model-filter').hidden=!['prod-brand-best','prod-brand-model','prod-brand-model-all'].includes(chosen);
  $('accounting-outlet-filter').hidden=!isAcc;
  $('accounting-segment-filter').hidden=!isAcc;
@@ -111,7 +135,7 @@ function selectReport(code){
  $('viewer-welcome').hidden=true;
  load();
 }
-function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}if(['prod-brand-best','prod-brand-model','prod-brand-model-all'].includes(chosen)&&$('brand-model').value)p.set('brand',$('brand-model').value);return p.toString();}
+function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}if(['prod-brand-best','prod-brand-model','prod-brand-model-all'].includes(chosen)&&$('brand-model').value)p.set('brand',$('brand-model').value);if(chosen.startsWith('crm-'))for(const key of crmKeys){const value=$('crm-'+key).value;if(value)p.set(key,value);}return p.toString();}
 let latestRequest=0;
 async function load(){if(!chosen)return;const requestId=++latestRequest;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));if(requestId!==latestRequest)return;
  if(Array.isArray(d.brandOptions)){
@@ -120,6 +144,7 @@ async function load(){if(!chosen)return;const requestId=++latestRequest;$('statu
   d.brandOptions.forEach(brand=>{const opt=document.createElement('option');opt.value=brand;opt.textContent=brand;select.appendChild(opt);});
   select.value=d.brandOptions.includes(previous)?previous:'';
  }
+ if(chosen.startsWith('crm-')&&d.filters)updateCrmOptions(d.filters);
  renderSummary(d.summary);const h=make('tr','');d.columns.forEach(c=>h.appendChild(make('th',c)));$('head').appendChild(h);if(chosen==='prod-brand-model'||chosen==='prod-brand-model-all'){
   let lastBrand=null,groupRows=[],groupButton=null,groupIndex=-1;
   for(const row of d.rows){
@@ -137,18 +162,33 @@ async function load(){if(!chosen)return;const requestId=++latestRequest;$('statu
   }
  }else d.rows.forEach(row=>{const tr=make('tr','');d.columns.forEach(c=>tr.appendChild(make('td',formatReportValue(c,row[c]))));$('body').appendChild(tr);});$('count').textContent=d.rows.length+' baris'+(d.totalSource>d.limit?' (dibatasi '+d.limit+')':'');$('status').textContent=[d.note||'',d.period?'Periode: '+d.period.from+' s.d. '+d.period.to:'',d.rows.length?'':'Tidak ada data dalam periode ini'].filter(Boolean).join(' | ');}catch(e){if(requestId!==latestRequest)return;$('count').textContent='';$('status').textContent=e.message;$('status').className='error';}}
 async function download(format){if(!chosen)return;try{const q=params(),u='/api/report-center/'+chosen+'/export.'+format+(q?'?'+q:'');const response=await fetch(u,{headers:authHeaders(),cache:'no-store'});if(!response.ok)throw Error('Ekspor gagal (HTTP '+response.status+')');const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='PixelApps-'+chosen+'.'+format;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){$('status').textContent=e.message;$('status').className='error';}}
-$('brand-model').onchange=load;$('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
+for(const key of crmKeys)$('crm-'+key).onchange=load;$('brand-model').onchange=load;$('load').onclick=load;$('pdf').onclick=()=>download('pdf');$('xlsx').onclick=()=>download('xlsx');
 async function outlets(){try{const data=await json('/api/report-center/accounting/outlets');const root=$('accounting-outlet');data.forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.textContent=o.name;root.appendChild(opt);});}catch(e){$('status').textContent='Daftar outlet belum dapat dimuat: '+e.message;}}
-$('catalog-search').addEventListener('input',()=>{
+function refreshCatalog(){
  const q=$('catalog-search').value.trim().toLocaleLowerCase('id-ID');
- let current=null,visible=false;
+ let header=null,items=[];
+ const finish=()=>{
+  if(!header)return;
+  let matched=0;
+  for(const button of items){
+   const ok=!q||button.textContent.toLocaleLowerCase('id-ID').includes(q);
+   if(ok)matched++;
+   button.hidden=!ok||(!q&&header.getAttribute('aria-expanded')==='false');
+  }
+  header.hidden=!!q&&!matched;
+ };
  for(const child of $('catalog').children){
-  if(child.tagName==='H3'){if(current)current.hidden=!visible;current=child;visible=false;continue;}
-  const yes=child.textContent.toLocaleLowerCase('id-ID').includes(q);
-  child.hidden=!yes;if(yes)visible=true;
+  if(child.tagName==='H3'){finish();header=child;items=[];}
+  else items.push(child);
  }
- if(current)current.hidden=!visible;
-});
-json('/api/report-center/catalog').then(d=>{$('catalog').replaceChildren();let previous='';d.reports.forEach(r=>{if(r.group!==previous){previous=r.group;const h=make('h3',previous||'Laporan');h.style.gridColumn='1 / -1';$('catalog').appendChild(h);}const b=make('button',r.title);b.className='report';b.type='button';b.dataset.reportCode=r.code;b.setAttribute('aria-pressed','false');b.onclick=()=>{markPeriod('');selectReport(r.code);};$('catalog').appendChild(b);});}).then(outlets).catch(e=>{$('catalog').textContent=e.message;$('catalog').className='error';});
+ finish();
+}
+$('catalog-search').addEventListener('input',refreshCatalog);
+$('menu-toggle').onclick=()=>{
+ const collapsed=$('report-layout').classList.toggle('menu-collapsed');
+ $('menu-toggle').setAttribute('aria-expanded',String(!collapsed));
+ $('menu-toggle').textContent=collapsed?'+ Buka':'− Kecilkan';
+};
+json('/api/report-center/catalog').then(d=>{$('catalog').replaceChildren();let previous='';d.reports.forEach(r=>{if(r.group!==previous){previous=r.group;const h=make('h3',previous||'Laporan');h.style.gridColumn='1 / -1';h.setAttribute('role','button');h.setAttribute('tabindex','0');h.setAttribute('aria-expanded','true');h.onclick=()=>{h.setAttribute('aria-expanded',String(h.getAttribute('aria-expanded')!=='true'));refreshCatalog();};h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.click();}};$('catalog').appendChild(h);}const b=make('button',r.title);b.className='report';b.type='button';b.dataset.reportCode=r.code;b.setAttribute('aria-pressed','false');b.onclick=()=>{markPeriod('');selectReport(r.code);};$('catalog').appendChild(b);});}).then(outlets).catch(e=>{$('catalog').textContent=e.message;$('catalog').className='error';});
 })();
 </script></body></html>
