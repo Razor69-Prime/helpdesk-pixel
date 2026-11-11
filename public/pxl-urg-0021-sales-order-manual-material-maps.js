@@ -57,13 +57,20 @@
     const label=input?.closest('.item-picker')?.querySelector('label');
     const selected=row.querySelector('.selected-item');
     if(manual){
+      const previousId=String(row.dataset.inventoryId||'');
+      if(!row.dataset.manualId&&previousId.startsWith(MANUAL_PREFIX))row.dataset.manualId=previousId;
       row.dataset.inventoryId='';
+      row.dataset.catalogId='';
+      row.dataset.sourceType='manual';
+      row.dataset.sourceKey='';
       row.dataset.sku='';
       if(label) label.textContent='Nama Material Manual';
       if(input) input.placeholder='Ketik nama material secara manual...';
       if(selected){selected.textContent='Material manual — tidak terhubung Inventory / Material Request';selected.style.color='#9b541f';}
       row.querySelector('.item-results')?.classList.remove('open');
     }else{
+      row.dataset.manualId='';
+      if(row.dataset.sourceType==='manual')row.dataset.sourceType='inventory';
       if(label) label.textContent='Cari Nama Material / SKU';
       if(input) input.placeholder='Ketik nama atau SKU...';
       if(selected) selected.style.color='';
@@ -73,6 +80,7 @@
   function setPackageItemMode(row,data={}){
     resetPackageLauncher(row);
     row.dataset.manualMaterial='0';
+    row.dataset.manualId='';
     row.classList.remove('pxl-manual-material');
     const source=row.querySelector('.pxl-material-source');
     if(source)source.value='master_package';
@@ -126,7 +134,7 @@
     source.innerHTML='<option value="inventory">Pilih dari Inventory</option><option value="manual">Input Manual</option><option value="master_package">Master Paket</option>';
     picker.insertBefore(source,picker.querySelector('.item-search'));
     const isPackage=String(data?.source_type||'')==='master_package'&&!!data?.package_id;
-    const manual=Boolean(data?.manual_material)||String(data?.inventory_item_id||'').startsWith(MANUAL_PREFIX);
+    const manual=data?.manual_material===true||String(data?.source_type||'').toLowerCase()==='manual'||String(data?.inventory_item_id||'').startsWith(MANUAL_PREFIX);
     if(isPackage)setPackageItemMode(row,data);else setManualMode(row,manual);
     source.addEventListener('change',()=>{if(source.value==='master_package')showPackagePicker(row);else setManualMode(row,source.value==='manual');});
     row.querySelector('.item-search')?.addEventListener('focus',event=>{
@@ -180,7 +188,9 @@
           const name=row.querySelector('.item-search')?.value.trim()||'';
           if(!name) throw new Error('Nama material manual wajib diisi.');
           const unit=row.querySelector('.unit')?.value.trim()||'pcs';
-          const fakeId=MANUAL_PREFIX+Date.now().toString(36)+'-'+index;
+          const existingId=String(row.dataset.manualId||'');
+          const fakeId=existingId.startsWith(MANUAL_PREFIX)?existingId:(MANUAL_PREFIX+Date.now().toString(36)+'-'+index);
+          row.dataset.manualId=fakeId;
           row.dataset.inventoryId=fakeId;
           const fake={id:fakeId,name,sku:null,unit,stock:0,tracking_mode:'quantity'};
           fakeItems.push(fake);
@@ -193,8 +203,11 @@
           try{OPT.inventory_items=OPT.inventory_items.filter(item=>!String(item?.id||'').startsWith(MANUAL_PREFIX));}catch(_){}
         }
         const materialItems=(payload.items||[]).filter(item=>!['service','jasa'].includes(String(item.item_type||item.type||'item').toLowerCase()));
+        // Site mode already serializes all sites; the visible rows may belong to
+        // a different site than materialItems[0..N]. Never rewrite another site.
+        const siteMode=materialItems.some(item=>item.site_id||item.site_name);
         let manualIndex=0;
-        [...document.querySelectorAll('.material-row')].forEach((row,index)=>{
+        if(!siteMode)[...document.querySelectorAll('.material-row')].forEach((row,index)=>{
           const item=materialItems[index];
           if(!item) return;
           if(row.dataset.manualMaterial==='1'){

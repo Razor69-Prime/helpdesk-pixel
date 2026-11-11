@@ -97,31 +97,36 @@
   function rowToMaterial(row){
     const id=row.dataset.inventoryId||'';
     const typed=row.querySelector('.item-search')?.value?.trim()||'';
-    const inventory=typeof window.resolveSalesOrderInventorySelection==='function'
+    // PXL-URG-0136: never convert an explicitly manual SO line into Inventory.
+    const manual=row.dataset.manualMaterial==='1'||row.querySelector('.pxl-material-source')?.value==='manual';
+    const manualId=manual?(String(row.dataset.manualId||'').startsWith('manual:')?row.dataset.manualId:(String(id).startsWith('manual:')?id:'manual:'+uid())):null;
+    if(manual)row.dataset.manualId=manualId;
+    const inventory=manual?null:(typeof window.resolveSalesOrderInventorySelection==='function'
       ? window.resolveSalesOrderInventorySelection(getOPT().inventory_items||[],{
           catalogId:row.dataset.catalogId,
           inventoryId:id,
           sku:row.dataset.sku,
           name:typed
         })
-      : (getOPT().inventory_items||[]).find(x=>String(x.inventory_item_id||x.id||'')===String(id));
+      : (getOPT().inventory_items||[]).find(x=>String(x.inventory_item_id||x.id||'')===String(id)));
     if(!typed && !inventory) return null;
     const packageMaterial=row.dataset.sourceType==='master_package'||!!row.dataset.packageId;
     return {
-      inventory_item_id: inventory?.inventory_item_id || inventory?.id || id || null,
-      source_type:packageMaterial?'master_package':(inventory?.source_type||'inventory'),
-      source_key:inventory?.source_key||row.dataset.sourceKey||null,
-      package_id:row.dataset.packageId||null,
-      package_item_id:row.dataset.packageItemId||null,
-      package_name:row.dataset.packageName||null,
+      inventory_item_id:manual?manualId:(inventory?.inventory_item_id||inventory?.id||id||null),
+      source_type:manual?'manual':(packageMaterial?'master_package':(inventory?.source_type||'inventory')),
+      source_key:manual?null:(inventory?.source_key||row.dataset.sourceKey||null),
+      manual_material:manual,
+      package_id:manual?null:(row.dataset.packageId||null),
+      package_item_id:manual?null:(row.dataset.packageItemId||null),
+      package_name:manual?null:(row.dataset.packageName||null),
       name: inventory?.name || typed,
       item_name: inventory?.name || typed,
-      sku: inventory?.sku || row.dataset.sku || null,
+      sku:manual?null:(inventory?.sku||row.dataset.sku||null),
       qty: num(row.querySelector('.qty')?.value),
       unit: row.querySelector('.unit')?.value || inventory?.unit || 'pcs',
       unit_price: num(row.querySelector('.price')?.value),
       item_type:'item',
-      stock_at_select: inventory?.stock ?? null,
+      stock_at_select:manual?null:(inventory?.stock??null),
       ppn_applied: row.dataset.ppnApplied==='1',
       ppn_rate: row.dataset.ppnApplied==='1' ? num(row.dataset.ppnRate) : 0,
       ppn_amount: row.dataset.ppnApplied==='1' ? (num(row.querySelector('.qty')?.value)*num(row.querySelector('.price')?.value)*num(row.dataset.ppnRate)/100) : 0

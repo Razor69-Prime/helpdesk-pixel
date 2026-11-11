@@ -337,14 +337,18 @@ function addMaterial(data = {}) {
   const container = byId('materialItems');
   if (!container) return;
   container.querySelector('.empty-hint')?.remove();
-  const selected = OPT.inventory_items.find(item => String(item.id) === String(data.inventory_item_id || '')) || OPT.inventory_items.find(item => data.source_key&&String(item.source_key||'')===String(data.source_key));
+  // PXL-URG-0136 — the persisted manual source must never be remapped by matching name/SKU.
+  const manualItem = data.manual_material === true || String(data.source_type||'').toLowerCase() === 'manual' || String(data.inventory_item_id||'').startsWith('manual:');
+  const selected = manualItem ? null : (OPT.inventory_items.find(item => String(item.id) === String(data.inventory_item_id || '')) || OPT.inventory_items.find(item => data.source_key&&String(item.source_key||'')===String(data.source_key)));
   const row = document.createElement('div');
   row.className = 'line-row material-row';
-  row.dataset.inventoryId = selected?.inventory_item_id || data.inventory_item_id || '';
-  row.dataset.catalogId = selected?.id || '';
-  row.dataset.sourceType = selected?.source_type || (data.inventory_item_id?'inventory':'');
-  row.dataset.sourceKey = selected?.source_key || data.source_key || '';
-  row.dataset.sku = selected?.sku || data.sku || '';
+  row.dataset.inventoryId = manualItem ? '' : (selected?.inventory_item_id || data.inventory_item_id || '');
+  row.dataset.manualId = manualItem && String(data.inventory_item_id||'').startsWith('manual:') ? String(data.inventory_item_id) : '';
+  row.dataset.manualMaterial = manualItem ? '1' : '0';
+  row.dataset.catalogId = manualItem ? '' : (selected?.id || '');
+  row.dataset.sourceType = manualItem ? 'manual' : (selected?.source_type || data.source_type || (data.inventory_item_id?'inventory':''));
+  row.dataset.sourceKey = manualItem ? '' : (selected?.source_key || data.source_key || '');
+  row.dataset.sku = manualItem ? '' : (selected?.sku || data.sku || '');
   row.dataset.packageId = data.package_id || '';
   row.dataset.packageItemId = data.package_item_id || '';
   row.dataset.packageName = data.package_name || '';
@@ -560,7 +564,8 @@ function collect() {
 
   document.querySelectorAll('.material-row').forEach(row => {
     const typedName = row.querySelector('.item-search')?.value.trim() || '';
-    const inventory = resolveSalesOrderInventorySelection(OPT.inventory_items, {
+    const manualMaterial = row.dataset.manualMaterial === '1' || row.querySelector('.pxl-material-source')?.value === 'manual';
+    const inventory = manualMaterial ? null : resolveSalesOrderInventorySelection(OPT.inventory_items, {
       catalogId: row.dataset.catalogId,
       inventoryId: row.dataset.inventoryId,
       sku: row.dataset.sku,
@@ -575,26 +580,27 @@ function collect() {
     }
     const packageMaterial = row.dataset.sourceType === 'master_package' || !!row.dataset.packageId;
     if (!typedName && !inventory) return;
-    if (!inventory && !packageMaterial) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
+    if (!inventory && !packageMaterial && !manualMaterial) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
     const qty = numberValue(row.querySelector('.qty')?.value);
     const materialName = inventory?.name || typedName;
     if (qty <= 0) throw new Error(`Qty material ${materialName} harus lebih dari 0.`);
     items.push({
-      inventory_item_id: inventory?.inventory_item_id || row.dataset.inventoryId || null,
-      source_type: packageMaterial ? 'master_package' : (inventory?.source_type || 'inventory'),
-      source_key: inventory?.source_key || row.dataset.sourceKey || null,
-      package_id: row.dataset.packageId || null,
-      package_item_id: row.dataset.packageItemId || null,
-      package_name: row.dataset.packageName || null,
+      inventory_item_id: manualMaterial ? (row.dataset.manualId || row.dataset.inventoryId || null) : (inventory?.inventory_item_id || row.dataset.inventoryId || null),
+      source_type: manualMaterial ? 'manual' : (packageMaterial ? 'master_package' : (inventory?.source_type || 'inventory')),
+      source_key: manualMaterial ? null : (inventory?.source_key || row.dataset.sourceKey || null),
+      manual_material: manualMaterial,
+      package_id: manualMaterial ? null : (row.dataset.packageId || null),
+      package_item_id: manualMaterial ? null : (row.dataset.packageItemId || null),
+      package_name: manualMaterial ? null : (row.dataset.packageName || null),
       name: materialName || '',
       item_name: materialName || '',
-      sku: inventory?.sku || row.dataset.sku || null,
+      sku: manualMaterial ? null : (inventory?.sku || row.dataset.sku || null),
       qty,
       unit: row.querySelector('.unit')?.value || inventory?.unit || 'pcs',
       unit_price: numberValue(row.querySelector('.price')?.value),
       item_type: 'item',
-      stock_at_select: inventory ? (inventory.inventory_available===false ? null : (inventory.stock ?? null)) : null,
-      hpp_reference: inventory?.hpp ?? (numberValue(row.dataset.hppReference || 0) || null)
+      stock_at_select: manualMaterial ? null : (inventory ? (inventory.inventory_available===false ? null : (inventory.stock ?? null)) : null),
+      hpp_reference: manualMaterial ? (numberValue(row.dataset.hppReference || 0) || null) : (inventory?.hpp ?? (numberValue(row.dataset.hppReference || 0) || null))
     });
   });
 
