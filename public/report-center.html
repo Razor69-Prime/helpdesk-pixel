@@ -64,8 +64,32 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 #compare-result .compare-up{color:#146746;font-weight:750}
 #compare-result .compare-down{color:#9b3c38;font-weight:750}
 @media(max-width:600px){.compare-form label{flex-basis:130px}.compare-form button{width:100%}}
+
+/* PXL-RPT-0009A: one viewport, menu scroll on left, report scroll inside its panel. */
+html,body{height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
+body{display:flex;flex-direction:column;min-height:0}
+.top{position:relative;top:auto;flex:0 0 auto}
+.wrap.report-layout{flex:1 1 auto;min-height:0;height:auto;width:100%;margin:0 auto;overflow:hidden;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+#report-directory{height:100%;min-height:0;max-height:none;overflow:hidden;display:flex;flex-direction:column}
+#report-directory .directory-top{flex:0 0 auto}
+#catalog-search{flex:0 0 auto}
+#catalog{min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;align-content:start;padding-right:4px}
+#viewer,#viewer-welcome{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
+#viewer .table-wrap{max-height:none;overflow-x:auto;overflow-y:visible}
+.report-layout.menu-collapsed #report-directory{overflow:hidden}
+@media(max-width:900px){
+ .wrap.report-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(165px,34vh) minmax(0,1fr)}
+ #report-directory{max-height:none;min-height:0;height:100%;overflow:hidden}
+ #viewer,#viewer-welcome{height:100%;min-height:0}
+ .wrap.report-layout.menu-collapsed{grid-template-rows:auto minmax(0,1fr)}
+ .report-layout.menu-collapsed #report-directory{height:auto}
+}
+@media(max-width:600px){
+ .wrap.report-layout{grid-template-rows:minmax(155px,34vh) minmax(0,1fr)}
+ #report-directory{max-height:none}
+}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0009 · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0009A · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
 <main class="wrap report-layout" id="report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><div class="directory-top"><h2>Daftar Laporan</h2><button id="menu-toggle" type="button" aria-expanded="true" aria-controls="catalog">− Kecilkan</button></div><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
 <section class="card" id="viewer-welcome"><div class="welcome-icon">▤</div><h2>Pilih laporan untuk ditampilkan</h2><p>Gunakan daftar di sebelah kiri untuk memilih laporan. Filter dan data akan tampil di panel ini tanpa membuka halaman lain.</p></section>
 <section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label id="brand-model-filter" hidden>Merek<select id="brand-model"><option value="">Semua Merek</option></select></label><label id="crm-pic-filter" hidden>Sales PIC<select id="crm-pic"><option value="">Semua Sales PIC</option></select></label><label id="crm-market_segment-filter" hidden>Market Segment<select id="crm-market_segment"><option value="">Semua Market Segment</option></select></label><label id="crm-sector-filter" hidden>Sector<select id="crm-sector"><option value="">Semua Sector</option></select></label><label id="crm-customer_source-filter" hidden>Sumber Customer<select id="crm-customer_source"><option value="">Semua Sumber Customer</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>

@@ -17,6 +17,6 @@ assert.match(script,/\$\('accounting-period-actions'\)\.hidden=!chosen\.startsWi
 assert.match(nav,/visibilitychange',\(\)=>\{if\(!document\.hidden\)tick\(\);\}/);
 assert.doesNotMatch(nav,/visibilitychange[^\n]*lastToken=''/);
 assert.match(nav,/if\(t!==lastToken\)\{lastToken=t;verify\(t\);\}/);
-assert.match(nav,/frame\.src='\/report-center\.html\?v=PXL-RPT-0009'/);
-assert.match(fs.readFileSync('public/index.html','utf8'),/report-center-nav\.js\?v=PXL-RPT-0009/);
-console.log('PASS PXL-RPT-0009: 2-panel layout, hidden controls, responsive, search, safe Chrome visibility and cache-bust');
+assert.match(nav,/frame\.src='\/report-center\.html\?v=PXL-RPT-0009A'/);
+assert.match(fs.readFileSync('public/index.html','utf8'),/report-center-nav\.js\?v=PXL-RPT-0009A/);
+console.log('PASS PXL-RPT-0009A: 2-panel layout, hidden controls, responsive, search, safe Chrome visibility and cache-bust');
