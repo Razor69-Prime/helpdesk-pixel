@@ -10,7 +10,7 @@ code=code.replace(/\$\('period-this'\).onclick=.+?\n/g,'').replace(/\$\('period-
 code=code.replace(/for\(const id of \['period-this','period-last','period-compare'\]\)\$\(id\).setAttribute\('aria-pressed','false'\);/,'');
 code=code.replace(/for\(const id of \['from','to'\]\)\$\(id\).addEventListener\('change',\(\)=>markPeriod\(''\)\);/,'');
 const elements=new Map(),reportButtons=['acc-summary','acc-monthly','acc-b2c'].map(code=>({dataset:{reportCode:code},textContent:code,attrs:{},setAttribute(k,v){this.attrs[k]=v;}}));
-const get=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,attrs:{},textContent:'',setAttribute(k,v){this.attrs[k]=v;}});return elements.get(id);};
+const get=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,attrs:{},textContent:'',replaceChildren(){},setAttribute(k,v){this.attrs[k]=v;}});return elements.get(id);};
 let loaded=0;
 const ctx={document:{querySelectorAll:s=>s==='.report'?reportButtons:[]},$:get,load(){loaded++},chosen:'acc-summary',crmKeys:['pic','market_segment','sector','customer_source'],witaToday:()=>({year:2026,month:11}),Date,console};
 vm.createContext(ctx);vm.runInContext(code+';globalThis.api={markPeriod,setMonthPeriod,compareMonths,selectReport};',ctx);
@@ -29,4 +29,4 @@ ctx.api.markPeriod('');assert.equal(get('period-this').attrs['aria-pressed'],'fa
 assert(loaded>=4);
 assert(source.includes('if(requestId!==latestRequest)return'));
 assert(html.includes('button[aria-pressed=true]'));
-console.log('PASS PXL-RPT-0008: active highlights, correct WITA dates, compare 12-month switch, return to summary, stale response guard');
+console.log('PASS PXL-RPT-0009: active highlights, correct WITA dates, compare 12-month switch, return to summary, stale response guard');

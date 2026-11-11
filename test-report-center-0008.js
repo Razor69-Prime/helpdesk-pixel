@@ -37,9 +37,9 @@ const orders=[
  const byName=Object.fromEntries(sources.rows.map(x=>[x['Sumber Customer (SO)'],x['Customer Unik Terhubung']]));
  assert.deepEqual(byName,{'Organic':1,'Referral':1,'Belum Tercatat':2});
  assert.equal(sources.summary.items,3);
- const opts={customers:async()=>customers,orders:async()=>orders};
+ const opts={customers:async()=>customers,orders:async()=>orders,accountingRows:async()=>[]};
  for(const code of Object.keys(mod.REPORTS)){
-  const result=await mod.getData({},code,{},opts);assert(result.readOnly);assert.equal(result.source,'CRM');
+  const result=await mod.getData({},code,{},opts);assert(result.readOnly);assert.equal(result.source,code.startsWith('crm-top-shoppers')?'CRM + Accounting':'CRM');
  }
  await assert.rejects(mod.getData({},'crm-invalid',{},opts),{status:404});
  const ui=fs.readFileSync('public/report-center.html','utf8');

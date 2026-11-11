@@ -47,12 +47,34 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 #catalog h3[aria-expanded=false]::after{content:'▸'}
 #catalog .report[hidden]{display:none}
 @media(max-width:900px){.wrap.report-layout.menu-collapsed{grid-template-columns:1fr}.report-layout.menu-collapsed #report-directory{max-height:none}}
+
+#compare-months{margin:16px 0;border:1px solid #dbe6f4;border-radius:12px;background:#fbfdff;padding:15px}
+#compare-months>summary{cursor:pointer;font-weight:800;color:#174a80;font-size:13px}
+.compare-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:14px}
+.compare-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650;color:#536b88;min-width:150px;flex:1}
+.compare-form input{min-height:38px;border-radius:8px;border:1px solid #ccd9eb;padding:7px 10px;background:#fff}
+.compare-form button{min-height:38px}
+#compare-result{margin-top:14px;max-width:100%;overflow-x:auto}
+#compare-result h3{font-size:13px;margin:12px 0 8px;color:#24496e}
+#compare-result table{width:100%;border-collapse:collapse;font-size:12px}
+#compare-result th,#compare-result td{border-bottom:1px solid #e6edf5;padding:9px 12px;text-align:right;white-space:nowrap}
+#compare-result th:first-child,#compare-result td:first-child{text-align:left;white-space:normal;min-width:160px}
+#compare-result th{background:#edf3fa}
+#compare-result .compare-note{font-size:11px;line-height:1.6;color:#637692;margin:9px 0}
+#compare-result .compare-up{color:#146746;font-weight:750}
+#compare-result .compare-down{color:#9b3c38;font-weight:750}
+@media(max-width:600px){.compare-form label{flex-basis:130px}.compare-form button{width:100%}}
 </style></head><body>
-<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0008 · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
+<header class="top"><div><h1>Report Center</h1><div class="muted">PXL-RPT-0009 · READ ONLY · Superadmin</div></div><button class="btn" type="button" id="pxl-rpt-back">Kembali</button></header>
 <main class="wrap report-layout" id="report-layout"><aside class="card" id="report-directory" aria-label="Navigasi laporan"><div class="directory-top"><h2>Daftar Laporan</h2><button id="menu-toggle" type="button" aria-expanded="true" aria-controls="catalog">− Kecilkan</button></div><input id="catalog-search" type="search" placeholder="Cari nama laporan…" aria-label="Cari laporan"><nav id="catalog" aria-label="Kategori laporan">Memeriksa hak akses…</nav></aside>
 <section class="card" id="viewer-welcome"><div class="welcome-icon">▤</div><h2>Pilih laporan untuk ditampilkan</h2><p>Gunakan daftar di sebelah kiri untuk memilih laporan. Filter dan data akan tampil di panel ini tanpa membuka halaman lain.</p></section>
 <section class="card" id="viewer" hidden><h2 id="title"></h2><p class="report-desc">Pilih periode dan filter sesuai kebutuhan, lalu tampilkan atau unduh laporan.</p><div class="filters"><label id="accounting-outlet-filter" hidden>Outlet<select id="accounting-outlet"><option value="">Semua Outlet</option></select></label><label id="accounting-segment-filter" hidden>Klasifikasi<select id="accounting-segment"><option value="">Semua Segmen</option><option value="B2B">B2B Corp</option><option value="B2BG">B2B Grosir</option><option value="B2C">B2C</option><option value="B2G">B2G</option></select></label><label id="brand-model-filter" hidden>Merek<select id="brand-model"><option value="">Semua Merek</option></select></label><label id="crm-pic-filter" hidden>Sales PIC<select id="crm-pic"><option value="">Semua Sales PIC</option></select></label><label id="crm-market_segment-filter" hidden>Market Segment<select id="crm-market_segment"><option value="">Semua Market Segment</option></select></label><label id="crm-sector-filter" hidden>Sector<select id="crm-sector"><option value="">Semua Sector</option></select></label><label id="crm-customer_source-filter" hidden>Sumber Customer<select id="crm-customer_source"><option value="">Semua Sumber Customer</option></select></label><label>Dari tanggal<input type="date" id="from"></label><label>Sampai tanggal<input type="date" id="to"></label><button class="primary" id="load">Tampilkan</button></div>
 <div id="accounting-period-actions" class="actions" hidden style="margin:12px 0 0"><button type="button" id="period-this">Bulan Ini</button><button type="button" id="period-last">Bulan Lalu</button><button type="button" id="period-compare">Perbandingan per Bulan</button><span class="muted" id="period-note">Bandingkan 12 bulan dalam tahun berjalan</span></div>
+<details id="compare-months"><summary>Bandingkan dengan bulan lain (semua jenis laporan)</summary>
+<div class="compare-form"><label>Bulan A<input type="month" id="compare-a" aria-label="Bulan A"></label>
+<label>Bulan B<input type="month" id="compare-b" aria-label="Bulan B"></label>
+<button type="button" id="compare-run" class="primary">Bandingkan</button></div>
+<div id="compare-result" role="status" aria-live="polite"></div></details>
 <div id="accounting-summary" hidden class="grid" style="margin-top:16px"></div><div class="actions"><button id="pdf">Unduh PDF</button><button id="xlsx">Unduh Excel</button><span class="muted" id="count"></span></div><p id="status" role="status"></p><div class="table-wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div></section></main>
 <script>
 (()=>{'use strict';const $=id=>document.getElementById(id);
@@ -121,10 +143,14 @@ function selectReport(code){
  if(!button){$('status').textContent='Pilihan laporan tidak tersedia';$('status').className='error';return;}
  for(const el of document.querySelectorAll('.report'))el.setAttribute('aria-pressed','false');
  button.setAttribute('aria-pressed','true');
- const previous=chosen;chosen=code;const isAcc=chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-');
+ const previous=chosen;chosen=code;if(previous!==chosen){$('compare-result').replaceChildren();$('compare-months').open=false;}const isAcc=chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-');
  if(previous!==chosen)$('brand-model').value='';
  if(previous!==chosen&&chosen.startsWith('crm-'))for(const key of crmKeys)$('crm-'+key).value='';
  for(const key of crmKeys)$('crm-'+key+'-filter').hidden=!chosen.startsWith('crm-');
+ const shopping=chosen.startsWith('crm-top-shoppers');
+ $('crm-customer_source-filter').hidden=!chosen.startsWith('crm-')||shopping;
+ $('crm-market_segment-filter').hidden=shopping&&chosen!=='crm-top-shoppers';
+
 
  $('brand-model-filter').hidden=!['prod-brand-best','prod-brand-model','prod-brand-model-all'].includes(chosen);
  $('accounting-outlet-filter').hidden=!isAcc;
@@ -136,6 +162,96 @@ function selectReport(code){
  load();
 }
 function params(){const from=$('from').value,to=$('to').value;if(from&&to&&from>to)throw Error('Tanggal awal melebihi tanggal akhir');const p=new URLSearchParams();if(from)p.set('from',from);if(to)p.set('to',to);if(chosen.startsWith('acc-')||chosen.startsWith('prod-')||chosen.startsWith('sales-')){const outlet=$('accounting-outlet').value,segment=$('accounting-segment').value;if(outlet)p.set('outlet_id',outlet);if(segment)p.set('classification',segment);}if(['prod-brand-best','prod-brand-model','prod-brand-model-all'].includes(chosen)&&$('brand-model').value)p.set('brand',$('brand-model').value);if(chosen.startsWith('crm-'))for(const key of crmKeys){const value=$('crm-'+key).value;if(value)p.set(key,value);}return p.toString();}
+// Reuse the exact report data route for both month selections, preserving all other filters.
+function monthDates(value){
+ if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value))throw Error('Pilih kedua bulan pembanding');
+ const [year,month]=value.split('-').map(Number);
+ const end=new Date(Date.UTC(year,month,0)).getUTCDate();
+ return {from:value+'-01',to:value+'-'+String(end).padStart(2,'0')};
+}
+function comparisonMetrics(result){
+ const summary=result?.summary||{},m={'Baris Hasil':Array.isArray(result?.rows)?result.rows.length:0};
+ const fields=[['transactions','Transaksi'],['items','Jumlah Customer/Item'],['omzet','Omzet (Rp)'],['hpp','HPP (Rp)'],['dpp','DPP (Rp)'],['ppn','PPN (Rp)'],['net','NET (Rp)'],['qty','Qty'],['value','Nilai (Rp)']];
+ for(const [key,label] of fields)if(typeof summary[key]==='number'&&Number.isFinite(summary[key]))m[label]=summary[key];
+ // ActiveWO/projectsOpen in Executive are live snapshots, not period-specific.
+ return m;
+}
+function comparisonRows(a,b){
+ const metric=['Omzet (Rp)','Transaksi','Jumlah Customer','Jumlah Item','Qty','WO Aktif','Achievement Periode'].find(key=>
+  [...(a.rows||[]),...(b.rows||[])].some(row=>typeof row[key]==='number'));
+ if(!metric)return null;
+ const keys=(b.columns||a.columns||[]).filter(key=>![metric,'Peringkat','Kontribusi Omzet (%)'].includes(key)&&
+  [...(a.rows||[]),...(b.rows||[])].some(row=>typeof row[key]==='string')).slice(0,2);
+ if(!keys.length)return null;
+ const group=rows=>{
+  const map=new Map();
+  for(const row of rows||[]){
+   if(typeof row[metric]!=='number')continue;
+   const name=keys.map(key=>String(row[key]||'')).join(' / ');
+   if(!name)continue;
+   map.set(name,(map.get(name)||0)+row[metric]);
+  }
+  return map;
+ };
+ const x=group(a.rows),y=group(b.rows);
+ const names=[...new Set([...x.keys(),...y.keys()])].sort((v,w)=>(y.get(w)||0)-(y.get(v)||0)).slice(0,10);
+ return {metric,rows:names.map(name=>({name,a:x.get(name)||0,b:y.get(name)||0}))};
+}
+function renderComparison(first,second,labelA,labelB){
+ const root=$('compare-result');root.replaceChildren();
+ const metricA=comparisonMetrics(first),metricB=comparisonMetrics(second);
+ const title=make('h3','Ringkasan '+labelA+' dibandingkan '+labelB);root.appendChild(title);
+ const table=make('table',''),head=make('tr','');
+ for(const h of ['Indikator',labelA,labelB,'Selisih B − A','Perubahan'])head.appendChild(make('th',h));
+ const thead=make('thead','');thead.appendChild(head);table.appendChild(thead);
+ const body=make('tbody','');
+ for(const [key,a] of Object.entries(metricA)){
+  if(!(key in metricB))continue;
+  const b=metricB[key],diff=b-a,tr=make('tr','');
+  const currency=key.includes('(Rp)');
+  const format=v=>(currency?'Rp ':'')+Number(v).toLocaleString('id-ID',{maximumFractionDigits:2});
+  const pct=a===0?(b===0?'0%':'Baru'):(diff/a*100).toLocaleString('id-ID',{maximumFractionDigits:1})+'%';
+  [key,format(a),format(b),(diff>0?'+':'')+format(diff),pct].forEach((value,i)=>{
+   const td=make('td',value);if(i===3||i===4)td.className=diff>0?'compare-up':diff<0?'compare-down':'';tr.appendChild(td);
+  });body.appendChild(tr);
+ }
+ table.appendChild(body);root.appendChild(table);
+ const details=comparisonRows(first,second);
+ if(details&&details.rows.length){
+  root.appendChild(make('h3','Perbandingan 10 kelompok teratas — '+details.metric));
+  const table2=make('table',''),head2=make('tr','');
+  for(const h of ['Kelompok',labelA,labelB,'Selisih'])head2.appendChild(make('th',h));
+  const th=make('thead','');th.appendChild(head2);table2.appendChild(th);
+  const tb=make('tbody','');
+  for(const row of details.rows){
+   const tr=make('tr','');
+   [row.name,row.a.toLocaleString('id-ID',{maximumFractionDigits:2}),row.b.toLocaleString('id-ID',{maximumFractionDigits:2}),(row.b-row.a).toLocaleString('id-ID',{maximumFractionDigits:2})].forEach(v=>tr.appendChild(make('td',v)));
+   tb.appendChild(tr);
+  }
+  table2.appendChild(tb);root.appendChild(table2);
+ }
+ const note='Perbandingan menggunakan laporan dan filter yang sama untuk masing-masing bulan. '+(first.note||'')+' '+(second.note&&second.note!==first.note?second.note:'');
+ const p=make('p',note);p.className='compare-note';root.appendChild(p);
+}
+let compareRequest=0;
+async function runMonthComparison(){
+ const id=++compareRequest,code=chosen,root=$('compare-result');root.className='';root.textContent='Memuat dua periode…';
+ try{
+  if(!code)throw Error('Pilih laporan terlebih dahulu');
+  const a=monthDates($('compare-a').value),b=monthDates($('compare-b').value);
+  const common=new URLSearchParams(params());
+  const query=period=>{const x=new URLSearchParams(common);x.set('from',period.from);x.set('to',period.to);return '/api/report-center/'+code+'/data?'+x;};
+  const [first,second]=await Promise.all([json(query(a)),json(query(b))]);
+  if(id!==compareRequest||chosen!==code)return;
+  renderComparison(first,second,$('compare-a').value,$('compare-b').value);
+ }catch(error){if(id!==compareRequest)return;root.textContent=error.message;root.className='error';}
+}
+$('compare-run').onclick=runMonthComparison;
+const todayMonth=witaToday();
+const startMonth=todayMonth.year+'-'+String(todayMonth.month).padStart(2,'0');
+$('compare-a').value=startMonth;
+const prior=new Date(Date.UTC(todayMonth.year,todayMonth.month-2,1));
+$('compare-b').value=prior.getUTCFullYear()+'-'+String(prior.getUTCMonth()+1).padStart(2,'0');
 let latestRequest=0;
 async function load(){if(!chosen)return;const requestId=++latestRequest;$('status').textContent='Memuat…';$('status').className='';$('head').replaceChildren();$('body').replaceChildren();renderSummary(null);try{const q=params(),d=await json('/api/report-center/'+chosen+'/data'+(q?'?'+q:''));if(requestId!==latestRequest)return;
  if(Array.isArray(d.brandOptions)){

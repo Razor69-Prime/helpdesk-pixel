@@ -4,7 +4,10 @@
 const REPORTS=Object.freeze({
  'crm-classification':{title:'CRM — Detail Klasifikasi Customer',kind:'detail'},
  'crm-segments':{title:'CRM — Rekap Market Segment & Sector',kind:'segment'},
- 'crm-sources':{title:'CRM — Rekap Sumber Customer (SO Terhubung)',kind:'source'}
+ 'crm-sources':{title:'CRM — Rekap Sumber Customer (SO Terhubung)',kind:'source'},
+ 'crm-top-shoppers':{title:'CRM — Top Customer Belanja Semua Segmen',kind:'shopping'},
+ 'crm-top-shoppers-b2b':{title:'CRM — Top Customer Belanja B2B',kind:'shopping',segment:'B2B'},
+ 'crm-top-shoppers-b2c':{title:'CRM — Top Customer Belanja B2C',kind:'shopping',segment:'B2C'}
 });
 const cols=['Customer','Sales PIC','Market Segment','Sector','Sumber Customer (SO)','Jumlah SO Terhubung','Tanggal Dibuat'];
 const clean=v=>String(v??'').trim();
@@ -68,11 +71,57 @@ function report(customers,orders,kind,options={}){
  const missing=data.filter(x=>!x.sources.length).length;
  return {columns,rows:rows.slice(0,MAX_ROWS),summary:{items:data.length},totalSource:rows.length,limit:MAX_ROWS,filters:optionsList,note:note+' '+missing+' customer tanpa sumber SO tercatat.'};
 }
+const accounting=require('./report-center-accounting');
+const nameKey=v=>clean(v).replace(/\s+/g,' ').toLocaleLowerCase('id-ID');
+const numeric=v=>Number.isFinite(Number(v))?Number(v):0;
+const rounded=v=>Number(v.toFixed(2));
+function customerShopping(customers,transactions,options={},fixedSegment=''){
+ const byName=new Map();
+ for(const c of customers||[]){
+  const key=nameKey(c.name);if(!key)continue;
+  const arr=byName.get(key)||[];arr.push(c);byName.set(key,arr);
+ }
+ const groups=new Map();let unmatched=0,ambiguous=0,filtered=0;
+ for(const tx of transactions||[]){
+  const matches=byName.get(nameKey(tx.customer_name))||[];
+  if(matches.length===0){unmatched++;continue;}
+  if(matches.length!==1){ambiguous++;continue;}
+  const crm=matches[0],segment=safe(crm.market_segment),pic=safe(crm.sales_pic),sector=safe(crm.sector);
+  if(fixedSegment&&segment!==fixedSegment)continue;
+  if(options.market_segment&&segment!==options.market_segment)continue;
+  if(options.pic&&pic!==options.pic)continue;
+  if(options.sector&&sector!==options.sector)continue;
+  const key=clean(crm.id),item=groups.get(key)||{crm,segment,pic,sector,count:0,omzet:0,hpp:0,net:0};
+  item.count++;item.omzet+=numeric(tx.gross_amount);item.hpp+=numeric(tx.hpp_amount);item.net+=numeric(tx.net_amount);
+  groups.set(key,item);filtered++;
+ }
+ const rows=[...groups.values()].sort((a,b)=>b.omzet-a.omzet||b.count-a.count).map((v,i)=>({
+  'Peringkat':i+1,'Customer':safe(v.crm.name),'Market Segment':v.segment,'Sector':v.sector,'Sales PIC':v.pic,
+  'Transaksi':v.count,'Omzet (Rp)':rounded(v.omzet),'HPP (Rp)':rounded(v.hpp),'NET (Rp)':rounded(v.net)
+ }));
+ const totals=rows.reduce((a,x)=>({transactions:a.transactions+x.Transaksi,omzet:a.omzet+x['Omzet (Rp)'],hpp:a.hpp+x['HPP (Rp)'],net:a.net+x['NET (Rp)']}),{transactions:0,omzet:0,hpp:0,net:0});
+ for(const k of ['omzet','hpp','net'])totals[k]=rounded(totals[k]);
+ const filters={
+  pic:[...new Set((customers||[]).map(c=>safe(c.sales_pic)))].sort(),
+  market_segment:[...new Set((customers||[]).map(c=>safe(c.market_segment)))].sort(),
+  sector:[...new Set((customers||[]).map(c=>safe(c.sector)))].sort(),
+  customer_source:[]
+ };
+ return {columns:['Peringkat','Customer','Market Segment','Sector','Sales PIC','Transaksi','Omzet (Rp)','HPP (Rp)','NET (Rp)'],
+  rows:rows.slice(0,MAX_ROWS),summary:totals,filters,totalSource:rows.length,limit:MAX_ROWS,
+  note:'Omzet/HPP/NET dari transaksi Accounting, segmen dan PIC dari CRM. Customer dihubungkan hanya jika nama ter-normalisasi cocok tepat dan unik di CRM; bukan relasi ID langsung. '+unmatched+' transaksi Accounting tidak cocok dan '+ambiguous+' ambigu, sehingga dikecualikan dari peringkat. Jumlah transaksi bukan unit barang terjual.',
+  matchedTransactions:filtered,unmatchedTransactions:unmatched,ambiguousTransactions:ambiguous};
+}
 async function getData(db,code,options={},deps={}){
  const spec=Object.hasOwn(REPORTS,code)?REPORTS[code]:null;
  if(!spec)throw Object.assign(new Error('Laporan CRM tidak tersedia'),{status:404});
+ if(spec.kind==='shopping'){
+  const [customers,transactions]=await Promise.all([(deps.customers||db.getCrmCustomers)(),(deps.accountingRows||accounting.readRows)({from:options.from,to:options.to})]);
+  const result=customerShopping(customers,transactions,options,spec.segment||'');
+  return {...result,code,title:spec.title,source:'CRM + Accounting',readOnly:true};
+ }
  const [customers,orders]=await Promise.all([(deps.customers||db.getCrmCustomers)(),(deps.orders||db.getSalesOrders)()]);
  const result=report(customers,orders,spec.kind,options);
  return {...result,code,title:spec.title,source:'CRM',readOnly:true};
 }
-module.exports={REPORTS,report,getData};
+module.exports={REPORTS,report,customerShopping,getData};
