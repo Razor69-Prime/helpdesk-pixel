@@ -29,4 +29,4 @@ ctx.api.markPeriod('');assert.equal(get('period-this').attrs['aria-pressed'],'fa
 assert(loaded>=4);
 assert(source.includes('if(requestId!==latestRequest)return'));
 assert(html.includes('button[aria-pressed=true]'));
-console.log('PASS PXL-RPT-0007D: active highlights, correct WITA dates, compare 12-month switch, return to summary, stale response guard');
+console.log('PASS PXL-RPT-0007E: active highlights, correct WITA dates, compare 12-month switch, return to summary, stale response guard');

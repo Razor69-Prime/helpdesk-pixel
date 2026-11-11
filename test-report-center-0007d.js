@@ -17,7 +17,7 @@ const goods=[
  assert.deepEqual(p.parseBrandModel(goods[6]),{brand:'Merek tidak teridentifikasi',model:'Tipe tidak tercatat'});
  assert.deepEqual(p.parseBrandModel(goods[7]),{brand:'Dahua',model:'DH-XVR1B04-I/T'});
  assert.equal(p.parseBrandModel(r('Penjualan CCTV Ezviz H8C 2MP','CCTV',100,30)).brand,'Merek tidak teridentifikasi');
- assert.equal(Object.keys(p.REPORTS).length,11);
+ assert.equal(Object.keys(p.REPORTS).length,12);
  const totals=p.brandModels(goods,'brand');
  assert.equal(totals.rows.reduce((a,b)=>a+b.Transaksi,0),goods.length);
  assert.notEqual(totals.rows[0].Merek,'Merek tidak teridentifikasi');
@@ -35,10 +35,11 @@ const goods=[
  assert.equal(filtered.brandOptions.length,totals.brandOptions.length);
  assert.throws(()=>p.brandModels(goods,'brand','A Brand Not There'),{status:400});
  const deps={readRows:async()=>goods,listOutlets:async()=>[]};
- for(const code of ['prod-brand-best','prod-brand-model']){
+ for(const code of ['prod-brand-best','prod-brand-model-all']){
   const d=await p.getData({},code,{brand:'EZVIZ'},deps);assert.equal(d.source,'Accounting');assert(d.readOnly);assert.equal(d.summary.transactions,4);
   assert(d.columns.includes('Merek'));assert(d.note.includes('bukan SKU'));
  }
+ const shortlisted=await p.getData({},'prod-brand-model',{brand:'EZVIZ'},deps);assert.equal(shortlisted.summary.transactions,3);
  for(const code of ['prod-category-revenue','prod-item-best'])assert((await p.getData({},code,{},deps)).rows.length>0);
  const html=fs.readFileSync('public/report-center.html','utf8');
  assert(html.includes('id="brand-model-filter"'));

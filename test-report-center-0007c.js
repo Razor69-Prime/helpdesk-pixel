@@ -9,7 +9,7 @@ const all=[
  item('Teknisi Instalasi','JASA',900,400,0,'JASA')
 ];
 (async()=>{
- assert.equal(Object.keys(p.REPORTS).length,11);
+ assert.equal(Object.keys(p.REPORTS).length,12);
  const a=p.itemBestSellers(all.filter(x=>x.sales_type==='BARANG'),'revenue');
  assert.equal(a.rows.length,4);assert.equal(a.rows[0]['Omzet (Rp)'],300);
  const h=a.rows.find(x=>x['Kategori Produk']==='CCTV'&&x['Nama Barang / Deskripsi Transaksi'].toLowerCase().includes('h8c 2mp'));

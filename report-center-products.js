@@ -14,7 +14,8 @@ const REPORTS=Object.freeze({
  'prod-item-active':{title:'Item Best Seller — Frekuensi Transaksi',kind:'item',sort:'frequency'},
  'prod-item-net':{title:'Item Best Seller — Kontribusi NET',kind:'item',sort:'net'},
  'prod-brand-best':{title:'Brand Best Seller — Omzet Accounting',kind:'brand'},
- 'prod-brand-model':{title:'Brand & Tipe/Model Best Seller',kind:'brand-model'}
+ 'prod-brand-model':{title:'Top 10 Tipe/Model per Merek (Accounting)',kind:'brand-model',topTen:true},
+ 'prod-brand-model-all':{title:'Brand & Tipe/Model — Semua Data',kind:'brand-model'}
 });
 const fmt=v=>Number.isFinite(Number(v))?Number(v):0;
 const money=v=>Number(v.toFixed(2));
@@ -40,7 +41,7 @@ function parseBrandModel(row){
  }
  return {brand:UNKNOWN_BRAND,model:UNKNOWN_MODEL};
 }
-function brandModels(goods,kind,brandFilter=''){
+function brandModels(goods,kind,brandFilter='',topTen=false){
  const parsed=goods.map(row=>({row,...parseBrandModel(row)}));
  const options=BRAND_NAMES.filter(brand=>parsed.some(x=>x.brand===brand));
  if(parsed.some(x=>x.brand===UNKNOWN_BRAND))options.push(UNKNOWN_BRAND);
@@ -72,6 +73,25 @@ function brandModels(goods,kind,brandFilter=''){
   }
   return b['Omzet (Rp)']-a['Omzet (Rp)']||b.Transaksi-a.Transaksi||a.Merek.localeCompare(b.Merek,'id');
  });
+ if(topTen){
+  // Only identifiable brands and models qualify for a model best-seller ranking.
+  // Each brand has its own independent 1–10 ranking by Accounting omzet.
+  const ranks=new Map();
+  const shortlisted=rows.filter(row=>{
+   if(row.Merek===UNKNOWN_BRAND||row['Tipe/Model / Deskripsi']===UNKNOWN_MODEL)return false;
+   const rank=(ranks.get(row.Merek)||0)+1;ranks.set(row.Merek,rank);
+   return rank<=10;
+  });
+  const totalTop=shortlisted.reduce((a,row)=>({
+   transactions:a.transactions+row.Transaksi,omzet:a.omzet+row['Omzet (Rp)'],
+   hpp:a.hpp+row['HPP (Rp)'],dpp:a.dpp+row['DPP (Rp)'],
+   ppn:a.ppn+row['PPN (Rp)'],net:a.net+row['NET (Rp)']
+  }),{transactions:0,omzet:0,hpp:0,dpp:0,ppn:0,net:0});
+  for(const key of ['omzet','hpp','dpp','ppn','net'])totalTop[key]=money(totalTop[key]);
+  for(const row of shortlisted)row['Kontribusi Omzet (%)']=totalTop.omzet?Number((row['Omzet (Rp)']/totalTop.omzet*100).toFixed(2)):0;
+  return {columns:MODEL_COLUMNS,rows:shortlisted,summary:totalTop,brandOptions:options,
+   note:'TOP 10 per merek berdasarkan omzet Accounting untuk tipe/model yang dapat diidentifikasi. Setiap merek maksimal 10 model; merek atau model tanpa identitas jelas tidak masuk peringkat. Model berdasarkan deskripsi, bukan SKU terverifikasi. KPI di atas menjumlahkan item yang tampil, bukan seluruh Accounting. Jumlah transaksi bukan unit terjual. Pilih laporan Semua Data untuk memeriksa transaksi yang dikecualikan.'};
+ }
  const unclassified=selected.filter(x=>x.brand===UNKNOWN_BRAND).length;
  const noModel=selected.filter(x=>x.model===UNKNOWN_MODEL).length;
  return {columns:kind==='brand'?BRAND_COLUMNS:MODEL_COLUMNS,rows,summary:total,brandOptions:options,
@@ -151,7 +171,7 @@ async function getData(_db,code,options={},deps={}){
  const getOutlets=deps.listOutlets||require('./accounting-sales-store').listOutlets;
  const [allRows,outlets]=await Promise.all([read({...options,...check}),getOutlets()]);
  const goods=allRows.filter(r=>String(r.sales_type||'').trim().toUpperCase()==='BARANG');
- const result=spec.kind==='brand'||spec.kind==='brand-model'?brandModels(goods,spec.kind,String(options.brand||'').trim()):spec.kind==='item'?itemBestSellers(goods,spec.sort):aggregate(goods,spec.kind,spec.sort,outlets);
+ const result=spec.kind==='brand'||spec.kind==='brand-model'?brandModels(goods,spec.kind,String(options.brand||'').trim(),!!spec.topTen):spec.kind==='item'?itemBestSellers(goods,spec.sort):aggregate(goods,spec.kind,spec.sort,outlets);
  return {...result,code,title:spec.title,source:'Accounting',readOnly:true,note:result.note||note,limit:20000,totalSource:goods.length};
 }
 module.exports={REPORTS,summarize,aggregate,itemBestSellers,parseBrandModel,brandModels,getData,note};

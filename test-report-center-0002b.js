@@ -32,6 +32,6 @@ const rows=[
  assert(js.includes("today.year+'-01-01'"));
  assert(js.includes("selectReport('acc-monthly')"));
  const nav=fs.readFileSync('public/report-center-nav.js','utf8');
- assert(nav.includes('report-center.html?v=PXL-RPT-0007D'));
+ assert(nav.includes('report-center.html?v=PXL-RPT-0007E'));
  console.log('PASS PXL-RPT-0002B: monthly buckets, MoM, leap/year boundary, WITA actions, UI');
 })().catch(e=>{console.error(e);process.exitCode=1});
