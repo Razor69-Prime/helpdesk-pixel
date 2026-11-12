@@ -20,6 +20,8 @@ require('./pxl-stg-0008a9-invoice-query-fix');
 require('./pxl-stg-0008a-invoice-api');
 require('./pxl-urg-0014');
 require('./pxl-urg-0021');
+// PXL-CRM-0001 — authenticated read-only CRM customer Excel export.
+require('./pxl-crm-0001-customer-export');
 
 const fs = require('fs');
 const path = require('path');
