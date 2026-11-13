@@ -23,12 +23,15 @@ function inject(html){
   // PXL-URG-0135: restore native Add/Edit Remarks click handler and inline refresh.
   // The 0121 index response bypasses the legacy 0032A remarks script injector.
   const remarksTag='<script src="/pxl-urg-0032a-remarks-button-fix.js?v=PXL-URG-0135"></script>';
+  // PXL-URG-0139 — customer-specific tracking WhatsApp message, read-only UI.
+  const trackWaTag='<script src="/pxl-urg-0139-wo-tracking-wa.js?v=PXL-URG-0139"></script>';
   let result=src;
   if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
   if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
   if(!result.includes('/pxl-urg-0010-wo-autonumber.js'))result=result.replace('</body>',woNumberTag+'\n</body>');
   if(!result.includes('/pxl-stg-0004d.js'))result=result.replace('</body>',mrSearchTag+'\n</body>');
   if(!result.includes('/pxl-urg-0032a-remarks-button-fix.js'))result=result.replace('</body>',remarksTag+'\n</body>');
+  if(!result.includes('/pxl-urg-0139-wo-tracking-wa.js'))result=result.replace('</body>',trackWaTag+'\n</body>');
   return result;
 }
 if(!global[KEY]){
