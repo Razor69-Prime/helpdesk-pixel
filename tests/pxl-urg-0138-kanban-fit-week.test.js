@@ -12,7 +12,9 @@ const css=read('public/pxl-urg-0138-kanban-fit.css');
 test('0138 attaches exactly one versioned stylesheet after the original Kanban rules',()=>{
   const src='/pxl-urg-0138-kanban-fit.css?v=PXL-URG-0138';
   assert.equal(html.split(src).length-1,1);
-  assert.match(html,/<\/style><link rel="stylesheet" href="\/pxl-urg-0138-kanban-fit\.css\?v=PXL-URG-0138"><\/head>/);
+  // 0138 remains the first external stylesheet; 0140 may add a mobile-only override afterward.
+  assert.match(html,/<\/style><link rel="stylesheet" href="\/pxl-urg-0138-kanban-fit\.css\?v=PXL-URG-0138">/);
+  assert.ok(html.indexOf('/pxl-urg-0138-kanban-fit.css')<html.indexOf('</head>'));
   assert.match(html,/<div id="body">Memuat/);
   assert.match(html,/function renderKanban\(/);
   assert.match(html,/function openM\(id\)/);
