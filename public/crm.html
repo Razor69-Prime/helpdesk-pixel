@@ -12,6 +12,16 @@
 .c360-fast{position:relative}.c360-fast-results{display:none;position:absolute;z-index:40;left:0;right:0;top:100%;max-height:280px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.14);margin-top:4px}.c360-fast-results.open{display:block}.c360-fast-item{padding:9px 10px;border-bottom:1px solid #eee;cursor:pointer}.c360-fast-item:last-child{border-bottom:0}.c360-fast-item:hover,.c360-fast-item.active{background:#fff4ea}.c360-fast-item b{display:block;font-size:13px}.c360-fast-item small{display:block;color:var(--muted);margin-top:2px}
 #msg{display:none;position:fixed;right:18px;bottom:18px;background:#111;color:#fff;padding:12px 16px;border-radius:9px;z-index:50}
 @media(max-width:900px){.grid4,.grid2,.form{grid-template-columns:1fr}.full{grid-column:auto}}
+
+/* PXL-CRM-0001 — filter and sorting for Master Customer only */
+.crm-customer-filter{margin-top:12px;padding:15px 16px}
+.crm-customer-filter .filter-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.crm-customer-filter .filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.crm-customer-filter .filter-grid label{font-weight:600}
+.crm-customer-filter .filter-grid input,.crm-customer-filter .filter-grid select{min-width:0}
+.crm-customer-filter .filter-counter{font-size:12px;color:var(--muted);margin-top:12px}
+@media(max-width:900px){.crm-customer-filter .filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.crm-customer-filter .filter-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><div class="wrap">
@@ -25,7 +35,23 @@
 <button class="tab" data-page="wofoundation">Integrasi WO</button>
 </div>
 <section class="page active" id="dashboard"><div class="toolbar"><div><h2>Dashboard CRM</h2><div class="sub">Ringkasan hubungan customer. Proses transaksi tetap dikelola pada modul lama masing-masing.</div></div><button class="btn" onclick="loadAll()">Refresh</button></div><div class="grid4" id="metrics"></div><div class="grid2" style="margin-top:12px"><div class="card"><b>Follow-up Terdekat</b><div id="upcomingFollowup"></div></div><div class="card"><b>Komunikasi Terbaru</b><div id="latestCommunication"></div></div></div></section>
-<section class="page" id="customers"><div class="toolbar"><div><h2>Master Customer</h2><div class="sub">Kelola profil customer tanpa menduplikasi modul transaksi.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="customerExportBtn" style="display:none" onclick="exportCustomerClassification()">📥 Export Excel Customer</button><button class="btn" id="bulkClassificationBtn" style="display:none" onclick="toggleBulkClassification()">Bulk Classification</button><button class="btn primary" onclick="saveCustomer()">Tambah Customer</button></div></div><div class="card"><div class="form"><div><label>Nama</label><input id="cName"></div><div><label>Tipe Legacy</label><select id="cType"><option>B2B</option><option>B2C</option><option>Pemerintah</option></select></div><div id="segmentField"><label>Market Segment</label><select id="cSegment" onchange="syncSectorOptions()"><option>Unclassified</option><option>B2B</option><option>B2C</option></select></div><div id="sectorField"><label>Sector</label><select id="cSector"><option value="">-</option></select></div><div><label>Sales PIC</label><input id="cSales"></div><div><label>Telepon/WhatsApp</label><input id="cPhone"></div><div class="full"><label>Alamat</label><input id="cAddress"></div></div></div><div id="bulkClassificationPanel" class="card" style="display:none;margin-top:12px"><div class="toolbar"><div><b>Bulk Classification Customer</b><div class="sub"><span id="bulkSelectedCount">0</span> customer dipilih. Preview wajib sebelum Confirm.</div></div><button class="btn" onclick="clearBulkSelection()">Reset Pilihan</button></div><div class="form"><div><label>Market Segment Baru</label><select id="bulkSegment" onchange="syncBulkSectorOptions();resetBulkPreview()"><option>Unclassified</option><option>B2B</option><option>B2C</option></select></div><div><label>Sector Baru</label><select id="bulkSector" onchange="resetBulkPreview()"><option value="">-</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" onclick="previewBulkClassification()">Preview</button><button class="btn" id="bulkConfirmBtn" style="display:none" onclick="confirmBulkClassification()">Confirm Classification</button></div><div id="bulkPreview" style="display:none;margin-top:12px"></div></div><div class="table" style="margin-top:12px"><table><thead><tr id="customerTableHead"></tr></thead><tbody id="customerRows"></tbody></table></div></section>
+<section class="page" id="customers"><div class="toolbar"><div><h2>Master Customer</h2><div class="sub">Kelola profil customer tanpa menduplikasi modul transaksi.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="customerExportBtn" style="display:none" onclick="exportCustomerClassification()">📥 Export Excel Customer</button><button class="btn" id="bulkClassificationBtn" style="display:none" onclick="toggleBulkClassification()">Bulk Classification</button><button class="btn primary" onclick="saveCustomer()">Tambah Customer</button></div></div><div class="card"><div class="form"><div><label>Nama</label><input id="cName"></div><div><label>Tipe Legacy</label><select id="cType"><option>B2B</option><option>B2C</option><option>Pemerintah</option></select></div><div id="segmentField"><label>Market Segment</label><select id="cSegment" onchange="syncSectorOptions()"><option>Unclassified</option><option>B2B</option><option>B2C</option></select></div><div id="sectorField"><label>Sector</label><select id="cSector"><option value="">-</option></select></div><div><label>Sales PIC</label><input id="cSales"></div><div><label>Telepon/WhatsApp</label><input id="cPhone"></div><div class="full"><label>Alamat</label><input id="cAddress"></div></div></div><div id="bulkClassificationPanel" class="card" style="display:none;margin-top:12px"><div class="toolbar"><div><b>Bulk Classification Customer</b><div class="sub"><span id="bulkSelectedCount">0</span> customer dipilih. Preview wajib sebelum Confirm.</div></div><button class="btn" onclick="clearBulkSelection()">Reset Pilihan</button></div><div class="form"><div><label>Market Segment Baru</label><select id="bulkSegment" onchange="syncBulkSectorOptions();resetBulkPreview()"><option>Unclassified</option><option>B2B</option><option>B2C</option></select></div><div><label>Sector Baru</label><select id="bulkSector" onchange="resetBulkPreview()"><option value="">-</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" onclick="previewBulkClassification()">Preview</button><button class="btn" id="bulkConfirmBtn" style="display:none" onclick="confirmBulkClassification()">Confirm Classification</button></div><div id="bulkPreview" style="display:none;margin-top:12px"></div></div><section class="card crm-customer-filter" aria-label="Filter Master Customer">
+<div class="filter-heading"><div><b>Filter & Sorting Customer</b><div class="sub">Pencarian hanya mengubah tampilan, bukan data customer.</div></div><button class="btn" type="button" onclick="resetCrmCustomerFilters()">Reset Filter</button></div>
+<div class="filter-grid">
+<div><label for="crmCustomerSearch">Cari Customer / Telepon</label><input type="search" id="crmCustomerSearch" placeholder="Nama, nomor WhatsApp, atau alamat…" autocomplete="off" oninput="renderCustomerTable()"></div>
+<div><label for="crmCustomerPic">Sales PIC</label><select id="crmCustomerPic" onchange="renderCustomerTable()"><option value="">Semua Sales PIC</option></select></div>
+<div><label for="crmCustomerType">Tipe Customer</label><select id="crmCustomerType" onchange="renderCustomerTable()"><option value="">Semua Tipe</option></select></div>
+<div><label for="crmCustomerSegment">Market Segment</label><select id="crmCustomerSegment" onchange="renderCustomerTable()"><option value="">Semua Segment</option></select></div>
+<div><label for="crmCustomerSector">Sector</label><select id="crmCustomerSector" onchange="renderCustomerTable()"><option value="">Semua Sector</option></select></div>
+<div><label for="crmCustomerSort">Urutkan Berdasarkan</label><select id="crmCustomerSort" onchange="renderCustomerTable()">
+<option value="name:asc">Nama Customer (A–Z)</option><option value="name:desc">Nama Customer (Z–A)</option>
+<option value="sales_pic:asc">Sales PIC (A–Z)</option><option value="sales_pic:desc">Sales PIC (Z–A)</option>
+<option value="type:asc">Tipe (A–Z)</option><option value="type:desc">Tipe (Z–A)</option>
+<option value="market_segment:asc">Segment (A–Z)</option><option value="market_segment:desc">Segment (Z–A)</option>
+<option value="sector:asc">Sector (A–Z)</option><option value="sector:desc">Sector (Z–A)</option>
+</select></div>
+</div><div class="filter-counter" id="crmCustomerFilterCount" role="status" aria-live="polite">Memuat daftar customer…</div></section>
+<div class="table" style="margin-top:12px"><table><thead><tr id="customerTableHead"></tr></thead><tbody id="customerRows"></tbody></table></div></section>
 <section class="page" id="pipeline"><div class="toolbar"><div><h2>Leads & Pipeline</h2><div class="sub">Tampilan hubungan calon customer berdasarkan data CRM yang tersedia.</div></div></div><div class="table card"><table><thead><tr><th>Customer/Lead</th><th>Tipe</th><th>Sales PIC</th><th>Status</th><th>Follow-up Berikutnya</th><th>Aksi</th></tr></thead><tbody id="pipelineRows"></tbody></table></div></section>
 <section class="page" id="followup"><div class="toolbar"><div><h2>WhatsApp & Follow-up</h2><div class="sub">Buka WhatsApp customer dan otomatis simpan riwayat komunikasi.</div></div><button class="btn wa" onclick="openWhatsapp()">Buka WhatsApp</button></div><div class="card"><div class="form"><div><label>Customer</label><select id="fuCustomer" onchange="loadCommHistory(this.value)"></select></div><div><label>Channel</label><select id="fuChannel"><option>WhatsApp</option><option>Telepon</option><option>Email</option><option>Kunjungan</option></select></div><div><label>Topik</label><input id="fuTopic" value="Follow-up penawaran"></div><div><label>Hasil</label><input id="fuResult" value="Menunggu konfirmasi customer"></div><div class="full"><label>Pesan</label><textarea id="fuMessage">Halo {{customer_name}}, kami dari Pixel Solusindo ingin menindaklanjuti {{topic}}. Terima kasih.</textarea></div><div><label>Follow-up Berikutnya</label><input id="fuNext" type="datetime-local"></div></div></div></section>
 <section class="page" id="history"><div class="toolbar"><div><h2>Riwayat Komunikasi</h2><div class="sub">Semua komunikasi customer yang tersimpan di CRM.</div></div></div><div id="commHistory" class="table card"></div></section>
@@ -161,6 +187,51 @@ async function loadAll(){
     }
   }
 }
+// PXL-CRM-0001 — client-side customer filters (no CRM mutations).
+function crmCustomerNorm(value){return String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('id-ID')}
+function refreshCrmCustomerFilterOptions(){
+ const fields=[['crmCustomerPic','sales_pic'],['crmCustomerType','type'],['crmCustomerSegment','market_segment'],['crmCustomerSector','sector']];
+ for(const [id,key] of fields){
+  const select=document.getElementById(id);if(!select)continue;
+  const current=select.value,all=select.options[0].textContent;
+  select.replaceChildren();
+  const opt=document.createElement('option');opt.value='';opt.textContent=all;select.appendChild(opt);
+  const values=[...new Set(D.customers.map(c=>String(c[key]??'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'id',{sensitivity:'base'}));
+  for(const value of values){const option=document.createElement('option');option.value=value;option.textContent=value;select.appendChild(option);}
+  if(values.includes(current))select.value=current;
+ }
+}
+function getFilteredCrmCustomers(){
+ const query=crmCustomerNorm(document.getElementById('crmCustomerSearch')?.value);
+ const filters=[['crmCustomerPic','sales_pic'],['crmCustomerType','type'],['crmCustomerSegment','market_segment'],['crmCustomerSector','sector']];
+ const selected=filters.map(([id,key])=>({key,value:crmCustomerNorm(document.getElementById(id)?.value)}));
+ const sort=String(document.getElementById('crmCustomerSort')?.value||'name:asc').split(':');
+ const key=['name','sales_pic','type','market_segment','sector'].includes(sort[0])?sort[0]:'name',dir=sort[1]==='desc'?-1:1;
+ return D.customers.filter(c=>{
+  if(query&&!['name','phone','normalized_phone','address'].some(field=>crmCustomerNorm(c[field]).includes(query)))return false;
+  return selected.every(f=>!f.value||crmCustomerNorm(c[f.key])===f.value);
+ }).sort((a,b)=>dir*crmCustomerNorm(a[key]).localeCompare(crmCustomerNorm(b[key]),'id',{numeric:true})||crmCustomerNorm(a.name).localeCompare(crmCustomerNorm(b.name),'id',{numeric:true}));
+}
+function resetCrmCustomerFilters(){
+ const search=document.getElementById('crmCustomerSearch');if(search)search.value='';
+ for(const id of ['crmCustomerPic','crmCustomerType','crmCustomerSegment','crmCustomerSector']){const e=document.getElementById(id);if(e)e.value='';}
+ const sort=document.getElementById('crmCustomerSort');if(sort)sort.value='name:asc';
+ renderCustomerTable();
+}
+function syncBulkSelectAll(){
+ const toggle=document.getElementById('bulkSelectAll');if(!toggle)return;
+ const ids=getFilteredCrmCustomers().map(c=>String(c.id));
+ const count=ids.filter(id=>bulkSelectedCustomerIds.has(id)).length;
+ toggle.checked=ids.length>0&&count===ids.length;
+ toggle.indeterminate=count>0&&count<ids.length;
+}
+function renderCustomerTable(){
+ const bulk=canBulkSegment(),visible=getFilteredCrmCustomers();
+customerRows.innerHTML=visible.map(c=>`<tr>${bulk?`<td><input type="checkbox" class="bulk-customer-check" data-id="${esc(c.id)}" ${bulkSelectedCustomerIds.has(String(c.id))?'checked':''} onchange="toggleBulkCustomer('${esc(c.id)}',this.checked)"></td>`:''}<td><b>${esc(c.name)}</b></td><td>${esc(c.type||'-')}</td><td>${esc(c.market_segment||'Unclassified')}</td><td>${esc(c.sector||'-')}</td><td>${esc(c.sales_pic||'-')}</td><td>${esc(c.phone||c.normalized_phone||'-')}</td><td>${esc(c.last_communication_channel||'-')} ${c.last_communication_at?esc(c.last_communication_at.slice(0,10)):''}</td><td><button class="btn" onclick="selectFU('${c.id}')">Follow-up</button> <button class="btn wa" onclick="quickWa('${c.id}')">WhatsApp</button> <button class="btn" onclick="open360('${c.id}')">360</button>${currentUser?.role==='superadmin'?` <button class="btn" style="border-color:#dc2626;color:#dc2626" onclick="deleteCustomer('${c.id}','${esc(c.name).replace(/'/g,'&#39;')}')">Hapus</button>`:''}</td></tr>`).join('');
+const count=document.getElementById('crmCustomerFilterCount');
+ if(count)count.textContent='Menampilkan '+visible.length.toLocaleString('id-ID')+' dari '+D.customers.length.toLocaleString('id-ID')+' customer'+(bulk?' · '+bulkSelectedCustomerIds.size.toLocaleString('id-ID')+' dipilih untuk Bulk Classification':'');
+ syncBulkSelectAll();updateBulkSelectedCount();
+}
 function render(){const selected360=c360Select?.value||'';const c=D.counts||{};metrics.innerHTML=[['Customer',c.customers||D.customers.length],['Follow-up',D.customers.filter(x=>x.next_follow_up_at).length],['Komunikasi',D.communications.length],['Customer Aktif',D.customers.filter(x=>(x.status||'active')==='active').length]].map(x=>`<div class="card metric"><div class="label">${x[0]}</div><b>${x[1]||0}</b></div>`).join('');
 const opts=D.customers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');fuCustomer.innerHTML=opts;
 const c360Rows=getC360Customers();
@@ -170,8 +241,8 @@ else if(c360Rows.length)c360Select.value=c360Rows[0].id;
 else c360Select.value='';
 refreshC360FastHint();
 const bulk=canBulkSegment();
-customerTableHead.innerHTML=(bulk?'<th><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)"></th>':'')+'<th>Customer</th><th>Tipe</th>'+(bulk?'<th>Segment</th><th>Sector</th>':'')+'<th>Sales PIC</th><th>Nomor</th><th>Last Komunikasi</th><th>Aksi</th>';
-customerRows.innerHTML=D.customers.map(c=>`<tr>${bulk?`<td><input type="checkbox" class="bulk-customer-check" data-id="${esc(c.id)}" ${bulkSelectedCustomerIds.has(String(c.id))?'checked':''} onchange="toggleBulkCustomer('${esc(c.id)}',this.checked)"></td>`:''}<td><b>${esc(c.name)}</b></td><td>${esc(c.type||'-')}</td>${bulk?`<td>${esc(c.market_segment||'Unclassified')}</td><td>${esc(c.sector||'-')}</td>`:''}<td>${esc(c.sales_pic||'-')}</td><td>${esc(c.phone||c.normalized_phone||'-')}</td><td>${esc(c.last_communication_channel||'-')} ${c.last_communication_at?esc(c.last_communication_at.slice(0,10)):''}</td><td><button class="btn" onclick="selectFU('${c.id}')">Follow-up</button> <button class="btn wa" onclick="quickWa('${c.id}')">WhatsApp</button> <button class="btn" onclick="open360('${c.id}')">360</button>${currentUser?.role==='superadmin'?` <button class="btn" style="border-color:#dc2626;color:#dc2626" onclick="deleteCustomer('${c.id}','${esc(c.name).replace(/'/g,'&#39;')}')">Hapus</button>`:''}</td></tr>`).join('');
+customerTableHead.innerHTML=(bulk?'<th><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll(this.checked)"></th>':'')+'<th>Customer</th><th>Tipe</th><th>Segment</th><th>Sector</th><th>Sales PIC</th><th>Nomor</th><th>Last Komunikasi</th><th>Aksi</th>';
+refreshCrmCustomerFilterOptions();renderCustomerTable();
 updateBulkSelectedCount();
 renderWoFoundation();
 pipelineRows.innerHTML=D.customers.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.type||'-')}</td><td>${esc(c.sales_pic||'-')}</td><td><span class="badge">${esc(c.status||'active')}</span></td><td>${c.next_follow_up_at?esc(c.next_follow_up_at.replace('T',' ').slice(0,16)):'-'}</td><td><button class="btn" onclick="selectFU('${c.id}')">Follow-up</button></td></tr>`).join('');renderHistory();renderDashboardLists();renderCustomer360()}
@@ -264,8 +335,8 @@ function syncBulkSectorOptions(){const seg=bulkSegment.value;bulkSector.innerHTM
 function applySegmentPermission(){const ok=canManageSegment();segmentField.style.display=ok?'':'none';sectorField.style.display=ok?'':'none';bulkClassificationBtn.style.display=canBulkSegment()?'':'none';const exportBtn=document.getElementById('customerExportBtn');if(exportBtn)exportBtn.style.display=canExportCustomerClassification()?'':'none';syncSectorOptions();syncBulkSectorOptions()}
 function toggleBulkClassification(){if(!canBulkSegment())return msg('Anda tidak memiliki izin Bulk Segmentasi Customer.');bulkClassificationPanel.style.display=bulkClassificationPanel.style.display==='none'?'block':'none';resetBulkPreview()}
 function updateBulkSelectedCount(){const el=document.getElementById('bulkSelectedCount');if(el)el.textContent=bulkSelectedCustomerIds.size}
-function toggleBulkCustomer(id,checked){id=String(id);checked?bulkSelectedCustomerIds.add(id):bulkSelectedCustomerIds.delete(id);updateBulkSelectedCount();resetBulkPreview()}
-function toggleBulkSelectAll(checked){bulkSelectedCustomerIds=new Set(checked?D.customers.map(c=>String(c.id)):[]);document.querySelectorAll('.bulk-customer-check').forEach(el=>el.checked=checked);updateBulkSelectedCount();resetBulkPreview()}
+function toggleBulkCustomer(id,checked){id=String(id);checked?bulkSelectedCustomerIds.add(id):bulkSelectedCustomerIds.delete(id);syncBulkSelectAll();updateBulkSelectedCount();resetBulkPreview()}
+function toggleBulkSelectAll(checked){for(const c of getFilteredCrmCustomers()){const id=String(c.id);checked?bulkSelectedCustomerIds.add(id):bulkSelectedCustomerIds.delete(id);}document.querySelectorAll('.bulk-customer-check').forEach(el=>el.checked=checked);syncBulkSelectAll();updateBulkSelectedCount();resetBulkPreview()}
 function clearBulkSelection(){bulkSelectedCustomerIds.clear();document.querySelectorAll('.bulk-customer-check').forEach(el=>el.checked=false);const all=document.getElementById('bulkSelectAll');if(all)all.checked=false;updateBulkSelectedCount();resetBulkPreview()}
 function resetBulkPreview(){bulkPreviewSignature='';bulkPreview.style.display='none';bulkPreview.innerHTML='';bulkConfirmBtn.style.display='none'}
 function getBulkTarget(){const market_segment=bulkSegment.value;let sector=bulkSector.value||null;if(market_segment==='Unclassified')sector=null;const allowed=sectorOptions(market_segment);if(market_segment!=='Unclassified'&&!allowed.includes(sector))throw new Error(`Sector ${market_segment} tidak valid.`);return{market_segment,sector}}
