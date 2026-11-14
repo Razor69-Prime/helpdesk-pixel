@@ -1,0 +1,83 @@
+/* PXL-URG-0141 — Service Reminder must not consume width in the PixelApps header.
+   Scoped to the existing toast only. No Service Center data or behavior changes. */
+#app .topbar .topbar-right > .svc-toast{
+  position:fixed;
+  top:calc(62px + env(safe-area-inset-top, 0px));
+  right:14px;
+  left:auto;
+  bottom:auto;
+  box-sizing:border-box;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  flex:none;
+  width:min(390px,calc(100vw - 24px));
+  min-width:0;
+  max-width:calc(100vw - 24px);
+  margin:0;
+  padding:11px 12px;
+  background:#fff7da;
+  border:1px solid #ead28a;
+  border-radius:11px;
+  box-shadow:0 9px 25px rgba(0,0,0,.14);
+  font-size:12px;
+  font-weight:400;
+  line-height:1.45;
+  color:#3d3523;
+  overflow-wrap:break-word;
+  opacity:0;
+  transform:translateY(-6px);
+  transition:opacity .25s ease,transform .25s ease;
+  z-index:1200;
+}
+#app .topbar .topbar-right > .svc-toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+#app .topbar .topbar-right > .svc-toast > div{
+  min-width:0;
+  max-width:100%;
+  overflow-wrap:break-word;
+}
+#app .topbar .topbar-right > .svc-toast > #svc-toast-open{
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  min-width:54px;
+  max-width:90px;
+  margin:0;
+  padding:7px 11px;
+  white-space:nowrap;
+  line-height:1.2;
+}
+@media(max-width:800px){
+  #app .topbar .topbar-right > .svc-toast{
+    position:fixed;
+    top:calc(60px + env(safe-area-inset-top, 0px));
+    right:8px;
+    left:auto;
+    bottom:auto;
+    width:min(360px,calc(100vw - 16px));
+    max-width:calc(100vw - 16px);
+    gap:9px;
+    padding:10px 11px;
+  }
+}
+@media(max-width:390px){
+  #app .topbar .topbar-right > .svc-toast{
+    grid-template-columns:minmax(0,1fr) auto;
+    font-size:11px;
+    gap:8px;
+  }
+  #app .topbar .topbar-right > .svc-toast > #svc-toast-open{
+    min-width:50px;
+    padding:6px 9px;
+  }
+}
+/* Staging ribbon shifts the header down by 31px. */
+body.pxl-staging #app .topbar .topbar-right > .svc-toast{
+  top:calc(93px + env(safe-area-inset-top, 0px));
+}

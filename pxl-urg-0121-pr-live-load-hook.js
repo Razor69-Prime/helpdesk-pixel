@@ -25,6 +25,8 @@ function inject(html){
   const remarksTag='<script src="/pxl-urg-0032a-remarks-button-fix.js?v=PXL-URG-0135"></script>';
   // PXL-URG-0139 — customer-specific tracking WhatsApp message, read-only UI.
   const trackWaTag='<script src="/pxl-urg-0139-wo-tracking-wa.js?v=PXL-URG-0139"></script>';
+  // PXL-URG-0141 — float Service Reminder below the header instead of stretching its flex row.
+  const reminderHeaderCss='<link rel="stylesheet" href="/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0141">';
   let result=src;
   if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
   if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
@@ -32,6 +34,7 @@ function inject(html){
   if(!result.includes('/pxl-stg-0004d.js'))result=result.replace('</body>',mrSearchTag+'\n</body>');
   if(!result.includes('/pxl-urg-0032a-remarks-button-fix.js'))result=result.replace('</body>',remarksTag+'\n</body>');
   if(!result.includes('/pxl-urg-0139-wo-tracking-wa.js'))result=result.replace('</body>',trackWaTag+'\n</body>');
+  if(!result.includes('/pxl-urg-0141-service-reminder-header.css'))result=result.replace('</head>',reminderHeaderCss+'\n</head>');
   return result;
 }
 if(!global[KEY]){
