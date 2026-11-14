@@ -27,6 +27,8 @@ function inject(html){
   const trackWaTag='<script src="/pxl-urg-0139-wo-tracking-wa.js?v=PXL-URG-0139"></script>';
   // PXL-URG-0141 — float Service Reminder below the header instead of stretching its flex row.
   const reminderHeaderCss='<link rel="stylesheet" href="/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0141">';
+  // PXL-URG-0142 — one-day, Superadmin-only Service Reminder visual test.
+  const reminderTestTag='<script src="/pxl-urg-0142-service-reminder-test.js?v=PXL-URG-0142"></script>';
   let result=src;
   if(!result.includes('/pxl-urg-0121-pr-live-load.js'))result=result.replace('</body>',prTag+'\n</body>');
   if(!result.includes('/pxl-urg-0040-master-pricelist-menu.js'))result=result.replace('</body>',masterTag+'\n</body>');
@@ -35,6 +37,7 @@ function inject(html){
   if(!result.includes('/pxl-urg-0032a-remarks-button-fix.js'))result=result.replace('</body>',remarksTag+'\n</body>');
   if(!result.includes('/pxl-urg-0139-wo-tracking-wa.js'))result=result.replace('</body>',trackWaTag+'\n</body>');
   if(!result.includes('/pxl-urg-0141-service-reminder-header.css'))result=result.replace('</head>',reminderHeaderCss+'\n</head>');
+  if(!result.includes('/pxl-urg-0142-service-reminder-test.js'))result=result.replace('</body>',reminderTestTag+'\n</body>');
   return result;
 }
 if(!global[KEY]){
