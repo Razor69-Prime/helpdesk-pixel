@@ -26,7 +26,7 @@ function inject(html){
   // PXL-URG-0139 — customer-specific tracking WhatsApp message, read-only UI.
   const trackWaTag='<script src="/pxl-urg-0139-wo-tracking-wa.js?v=PXL-URG-0139"></script>';
   // PXL-URG-0141 — float Service Reminder below the header instead of stretching its flex row.
-  const reminderHeaderCss='<link rel="stylesheet" href="/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0141">';
+  const reminderHeaderCss='<link rel="stylesheet" href="/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0143">';
   // PXL-URG-0142 — one-day, Superadmin-only Service Reminder visual test.
   const reminderTestTag='<script src="/pxl-urg-0142-service-reminder-test.js?v=PXL-URG-0142"></script>';
   let result=src;

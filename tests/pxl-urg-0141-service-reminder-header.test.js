@@ -12,7 +12,7 @@ const {inject}=require('../pxl-urg-0121-pr-live-load-hook');
 test('0141 inserts exactly one external stylesheet in served index while preserving existing loaders',()=>{
   const original=read('public/index.html');
   const page=inject(original);
-  const href='/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0141';
+  const href='/pxl-urg-0141-service-reminder-header.css?v=PXL-URG-0143';
   assert.equal(page.split(href).length-1,1);
   assert.ok(page.indexOf(href)<page.indexOf('</head>'));
   assert.equal(inject(page),page,'injection is idempotent');
@@ -29,8 +29,8 @@ test('0141 desktop Service Reminder is fixed below header, not a flex-width chil
   assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\s*\{[^}]*position:fixed;/s);
   assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto;/s);
   assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\s*\{[^}]*flex:none;/s);
-  assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\s*\{[^}]*width:min\(390px,calc\(100vw - 24px\)\);/s);
-  assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\.show\s*\{[^}]*opacity:1;[^}]*transform:translateY\(0\)/s);
+  assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\s*\{[^}]*width:min\(310px,calc\(100vw - 24px\)\);/s);
+  assert.match(css,/#app \.topbar \.topbar-right > \.svc-toast\.show\s*\{[^}]*opacity:1;[^}]*transform:translate\(-50%,0\)/s);
   // Reminder can appear before Service Center is rendered; standalone CSS must fully style it.
   for(const property of ['background:#fff7da;','border:1px solid #ead28a;','border-radius:11px;','box-shadow:','opacity:0;','transition:opacity']){
     assert.ok(css.includes(property),property);
@@ -51,12 +51,12 @@ test('0141 reminder CTA stays on right, never wraps onto a second row',()=>{
 });
 
 test('0141 PWA/mobile uses viewport-sized floating toast without changing topbar position',()=>{
-  assert.match(css,/@media\(max-width:800px\)\s*\{[^]*?position:fixed;[^]*?width:min\(360px,calc\(100vw - 16px\)\);/);
+  assert.match(css,/@media\(max-width:800px\)\s*\{[^]*?position:fixed;[^]*?width:min\(300px,calc\(100vw - 16px\)\);/);
   assert.match(css,/@media\(max-width:390px\)\s*\{/);
   assert.match(css,/body\.pxl-staging #app \.topbar \.topbar-right > \.svc-toast/);
   assert.doesNotMatch(css,/#app \.topbar\s*\{[^}]*position:/s);
   for(const viewport of [320,375,390,414,768,1226]){
-    const maximum=viewport<=800?Math.min(360,viewport-16):Math.min(390,viewport-24);
+    const maximum=viewport<=800?Math.min(300,viewport-16):Math.min(310,viewport-24);
     assert.ok(maximum<=viewport-16);
     assert.ok(maximum>=200);
   }

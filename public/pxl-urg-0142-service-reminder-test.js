@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const TEST_DATE='2026-11-14';
-  const KEY='pxl-urg-0142-reminder-test-shown';
+  const KEY='pxl-urg-0143-reminder-test-shown';
   const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   let attempts=0;
   function check(){
