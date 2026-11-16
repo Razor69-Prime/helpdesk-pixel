@@ -4250,7 +4250,7 @@ function buildNav(){
     {id:'leave',     label:'🗓️ Form Cuti / Izin', show: true},
     {id:'attendance',label:'🕘 Absensi Online', show: true},
     {id:'inventory', label:'📦 Inventory', show: role==='admin'||isManager||isSuperAdmin},
-    {id:'warehouse_mr',label:'📋 Verifikasi MR Gudang',show:role==='warehouseadmin'||role==='admin'||isManager||isSuperAdmin},
+    {id:'warehouse_mr',label:'📋 Verifikasi MR Gudang',show:role==='warehouseadmin'||role==='warehouse'||role==='admin'||isManager||isSuperAdmin},
     {id:'pr',        label:'📝 Purchase Request', show: isSuperAdmin||role==='accounting'||isManager||role==='admin'},
     {id:'projects',  label:'📁 Project Tracker', show: role==='sales'||role==='admin'||isManager||isSuperAdmin},
     {id:'project_documentation',label:'📷 Dokumentasi Project',show:isSuperAdmin},
@@ -4277,7 +4277,7 @@ function buildNav(){
 
   // Warehouse screen strictly restricted to internal staff; no technician exposure.
   const canWarehouse=role!=='technician'&&role!=='technisi'&&(
-    ['superadmin','manager','admin','warehouseadmin'].includes(role)
+    ['superadmin','manager','admin','warehouseadmin','warehouse'].includes(role)
     || customMenus.includes('material_return_verify'));
   tabs=tabs.filter(t=>t.id!=='warehouse_mr'||canWarehouse);
   if(canWarehouse&&!tabs.some(t=>t.id==='warehouse_mr')){

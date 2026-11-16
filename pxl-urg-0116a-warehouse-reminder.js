@@ -4,7 +4,7 @@ const norm=v=>String(v??'').trim().toLowerCase();
 const canView=user=>{
   const role=norm(user?.role).replace(/[\s_-]/g,'');
   if(['technician','technisi'].includes(role))return false;
-  return ['superadmin','manager','admin','warehouseadmin'].includes(role)
+  return ['superadmin','manager','admin','warehouseadmin','warehouse'].includes(role)
     || (Array.isArray(user?.custom_menus)&&user.custom_menus.includes('material_return_verify'));
 };
 const resolved=row=>{

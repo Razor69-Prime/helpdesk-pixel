@@ -1660,8 +1660,16 @@ async function getAttendanceHistory(recordId){if(USE_POSTGREST)return await rest
 
 // PXL-URG-0116B — separate warehouse inspection audit; does not mutate Inventory or MR status.
 async function getWarehouseMrAudit(){
-  if(!USE_POSTGREST)return [];
-  return await restFetch('GET','/warehouse_mr_inspection_audit?order=created_at.desc&limit=500')||[];
+  if(!USE_POSTGREST)return Object.assign([],{unavailable:true});
+  try{return await restFetch('GET','/warehouse_mr_inspection_audit?order=created_at.desc&limit=500')||[];}
+  catch(error){
+    // Audit table is introduced in a separate DB migration; avoid taking down the MR queue
+    // before that migration is approved and run. The UI disables audit writes explicitly.
+    if(/PGRST205|warehouse_mr_inspection_audit.*not find|not find.*warehouse_mr_inspection_audit|relation.*warehouse_mr_inspection_audit.*does not exist/i.test(String(error.message||''))){
+      return Object.assign([],{unavailable:true});
+    }
+    throw error;
+  }
 }
 async function insertWarehouseMrAudit(data){
   if(!USE_POSTGREST)throw new Error('Warehouse inspection audit requires staging PostgREST migration');

@@ -2492,7 +2492,7 @@ app.get('/api/warehouse/mr-review',requireAuth,async(req,res)=>{
       db.getTickets(null,true),db.getMRForms(),db.getCrmMaterialRequests(),db.getCrmWorkOrders(),db.getWarehouseMrAudit()
     ]);
     res.setHeader('Cache-Control','no-store');
-    res.json({rows:mod.pendingForTickets({tickets,mrs,crmRequests,crmWorkOrders},{all:true}),audit});
+    res.json({rows:mod.pendingForTickets({tickets,mrs,crmRequests,crmWorkOrders},{all:true}),audit,audit_ready:!audit.unavailable});
   }catch(error){res.status(503).json({error:'Warehouse review belum siap. Periksa migration staging dan koneksi database.'});}
 });
 app.post('/api/warehouse/mr-review/:source/:id/inspection',requireAuth,async(req,res)=>{

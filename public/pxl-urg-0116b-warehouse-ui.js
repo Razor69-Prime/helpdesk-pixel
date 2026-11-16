@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const roles=new Set(['superadmin','admin','manager','warehouseadmin']);
+const roles=new Set(['superadmin','admin','manager','warehouseadmin','warehouse']);
 const allowed=()=>{
  const user=typeof currentUser!=='undefined'?currentUser:window.currentUser;
  const role=String(user?.role||'').toLowerCase().replace(/[\s_-]/g,'');
@@ -10,7 +10,7 @@ const allowed=()=>{
  return roles.has(role)||(Array.isArray(user?.custom_menus)&&user.custom_menus.includes('material_return_verify'));
 };
 const root=()=>document.getElementById('pxl-warehouse-mr-root');
-let rows=[],audit=[],selected=null,filter='pending',ledgerDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+let rows=[],audit=[],auditReady=false,selected=null,filter='pending',ledgerDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 function style(){if(document.getElementById('pxl-warehouse-mr-css'))return;
  const el=document.createElement('style');el.id='pxl-warehouse-mr-css';el.textContent=`
  #pxl-warehouse-mr-root{font-size:13px;color:var(--text,#26313d)}
@@ -40,8 +40,8 @@ function render(){const el=root();if(!el||!allowed())return;style();const shown=
 }
 function detail(r){selected=r;const el=root()?.querySelector('#wmr-detail-host');if(!el)return;
  el.innerHTML='<div class="wmr-panel"><div class="wmr-head"><div><b>Detail MR '+esc(r.mr_id)+'</b><div class="wmr-sub">WO: '+esc(r.wo_number||r.ticket_id)+' · '+esc(r.status)+'</div></div><button class="wmr-btn" id="wmr-close">Tutup Detail</button></div>'+itemsHtml(r.items||[])+
- '<div class="wmr-detail"><div><label>Hasil Pemeriksaan</label><select id="wmr-outcome"><option value="checked">Pemeriksaan Fisik Dicatat</option><option value="discrepancy">Ada Selisih / Kendala</option></select><label>Jumlah yang diperiksa</label><input id="wmr-qty" type="number" min="0" max="1000000" step="0.001" value="0"></div><div><label>Catatan (wajib)</label><textarea id="wmr-note" rows="4" maxlength="1000" placeholder="Kondisi fisik, selisih, dan tindak lanjut..."></textarea></div></div><p class="wmr-sub">Tombol ini hanya menyimpan audit pemeriksaan. Stok dan status MR tidak diubah.</p><div class="wmr-actions"><button class="wmr-btn primary" id="wmr-submit">Simpan Catatan Pemeriksaan</button></div><p id="wmr-msg" class="wmr-sub" role="status"></p><h4>Riwayat Pemeriksaan</h4>'+historyHtml(r.source,r.mr_id)+'</div>';
- el.querySelector('#wmr-close').onclick=()=>{selected=null;el.innerHTML='';};el.querySelector('#wmr-submit').onclick=submit;
+ (auditReady ? '<div class="wmr-detail"><div><label>Hasil Pemeriksaan</label><select id="wmr-outcome"><option value="checked">Pemeriksaan Fisik Dicatat</option><option value="discrepancy">Ada Selisih / Kendala</option></select><label>Jumlah yang diperiksa</label><input id="wmr-qty" type="number" min="0" max="1000000" step="0.001" value="0"></div><div><label>Catatan (wajib)</label><textarea id="wmr-note" rows="4" maxlength="1000" placeholder="Kondisi fisik, selisih, dan tindak lanjut..."></textarea></div></div><p class="wmr-sub">Tombol ini hanya menyimpan audit pemeriksaan. Stok dan status MR tidak diubah.</p><div class="wmr-actions"><button class="wmr-btn primary" id="wmr-submit">Simpan Catatan Pemeriksaan</button></div><p id="wmr-msg" class="wmr-sub" role="status"></p><h4>Riwayat Pemeriksaan</h4>'+historyHtml(r.source,r.mr_id)+'</div>' : '<p class="wmr-pill">Pencatatan pemeriksaan belum aktif karena migration audit database belum dijalankan. Daftar MR tetap bisa dimonitor.</p></div>');
+ el.querySelector('#wmr-close').onclick=()=>{selected=null;el.innerHTML='';};if(auditReady)el.querySelector('#wmr-submit').onclick=submit;
 }
 async function request(method,path,body){const headers={'Content-Type':'application/json'};const token=typeof readAppToken==='function'?readAppToken():'';if(token)headers.Authorization='Bearer '+token;
  const resp=await fetch('/api'+path,{method,credentials:'same-origin',headers,body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -71,6 +71,6 @@ async function loadStockLedger(){
   (rows.map(t=>'<tr><td>'+esc(new Date(t.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Makassar',hour:'2-digit',minute:'2-digit'}))+'</td><td>'+esc(t.item_name)+'</td><td>'+esc(t.transaction_type)+'</td><td>'+format(Math.max(0,t.qty))+'</td><td>'+format(Math.max(0,-t.qty))+'</td><td>'+format(t.balance_after)+'</td><td>'+esc(t.reference)+'<div class="wmr-sub">'+esc(t.created_by)+'</div></td></tr>').join('')||'<tr><td colspan="7">Tidak ada transaksi pada tanggal ini.</td></tr>')+'</tbody></table></div>';
  }catch(e){el.textContent='Gagal memuat ledger: '+e.message;}
 }
-async function refresh(){const el=root();if(!el||!allowed())return;el.textContent='Memuat daftar MR gudang...';try{const result=await request('GET','/warehouse/mr-review');rows=result.rows||[];audit=result.audit||[];render();}catch(e){el.textContent='Gagal memuat verifikasi MR: '+e.message;}}
+async function refresh(){const el=root();if(!el||!allowed())return;el.textContent='Memuat daftar MR gudang...';try{const result=await request('GET','/warehouse/mr-review');rows=result.rows||[];audit=result.audit||[];auditReady=result.audit_ready===true;render();}catch(e){el.textContent='Gagal memuat verifikasi MR: '+e.message;}}
 window.pxlWarehouseMr={refresh};
 })();
