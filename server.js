@@ -2467,6 +2467,74 @@ app.get('/api/material-requests', requireRole('superadmin','accounting','manager
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// PXL-URG-0116C — read-only historical stock IN/OUT and opening/closing by WITA date.
+app.get('/api/warehouse/stock-ledger',requireAuth,async(req,res)=>{
+  const reminder=require('./pxl-urg-0116a-warehouse-reminder');
+  if(!reminder.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+  const ledger=require('./pxl-urg-0116c-stock-ledger');
+  const date=String(req.query.date||'');
+  if(!ledger.validDate(date))return res.status(400).json({error:'Tanggal harus berformat YYYY-MM-DD'});
+  const today=ledger.localDate(new Date().toISOString());
+  if(date>today)return res.status(400).json({error:'Tanggal mendatang belum memiliki saldo akhir'});
+  try{
+    const [items,transactions]=await Promise.all([db.getInventoryItems(),db.getInventoryLedgerHistory()]);
+    res.setHeader('Cache-Control','no-store');
+    return res.json(ledger.buildDailyLedger({items,transactions,date}));
+  }catch(e){console.error('PXL-URG-0116C ledger read failed:',e.message);return res.status(503).json({error:'Laporan stok belum tersedia: '+e.message});}
+});
+
+// PXL-URG-0116B — warehouse admin queue and append-only inspection history.
+app.get('/api/warehouse/mr-review',requireAuth,async(req,res)=>{
+  const mod=require('./pxl-urg-0116a-warehouse-reminder');
+  if(!mod.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+  try{
+    const [tickets,mrs,crmRequests,crmWorkOrders,audit]=await Promise.all([
+      db.getTickets(null,true),db.getMRForms(),db.getCrmMaterialRequests(),db.getCrmWorkOrders(),db.getWarehouseMrAudit()
+    ]);
+    res.setHeader('Cache-Control','no-store');
+    res.json({rows:mod.pendingForTickets({tickets,mrs,crmRequests,crmWorkOrders},{all:true}),audit});
+  }catch(error){res.status(503).json({error:'Warehouse review belum siap. Periksa migration staging dan koneksi database.'});}
+});
+app.post('/api/warehouse/mr-review/:source/:id/inspection',requireAuth,async(req,res)=>{
+  const mod=require('./pxl-urg-0116a-warehouse-reminder');
+  if(!mod.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+  const source=String(req.params.source||'');
+  if(!['mr_form','crm_mr'].includes(source))return res.status(400).json({error:'Sumber MR tidak valid'});
+  const outcome=String(req.body?.outcome||'');
+  if(!['checked','discrepancy'].includes(outcome))return res.status(400).json({error:'Hasil pemeriksaan tidak valid'});
+  const note=String(req.body?.note||'').trim();
+  if(!note||note.length>1000)return res.status(400).json({error:'Catatan pemeriksaan wajib diisi (maks 1000 karakter)'});
+  const qty=Number(req.body?.quantity_checked);
+  if(!Number.isFinite(qty)||qty<0||qty>1000000)return res.status(400).json({error:'Quantity harus bernilai 0 hingga 1000000'});
+  try{
+    const sourceRows=source==='mr_form'?await db.getMRForms():await db.getCrmMaterialRequests();
+    const mr=sourceRows.find(row=>String(row.id)===String(req.params.id));
+    if(!mr)return res.status(404).json({error:'Material Request tidak ditemukan'});
+    const entry=await db.insertWarehouseMrAudit({
+      source,mr_id:String(mr.id),outcome,note,quantity_checked:qty,
+      actor_id:String(req.session.user.id||''),actor_name:String(req.session.user.name||''),
+      snapshot_status:String(mr.status||''),snapshot_warehouse_status:String(mr.warehouse_status||'')
+    });
+    logActivity(req,'warehouse','PEMERIKSAAN MR',source+' / '+mr.id+' / '+outcome);
+    res.status(201).json({entry,stock_changed:false,mr_status_changed:false});
+  }catch(e){res.status(503).json({error:'Pemeriksaan belum tersimpan. Pastikan migration audit sudah dijalankan di staging.'});}
+});
+
+// PXL-URG-0116A — internal-only unresolved MR reminders after WO closing.
+// No database writes, no technician exposure, no impact to WO closing.
+app.get('/api/warehouse/unfinished-mr-reminders', requireAuth, async (req,res)=>{
+  const reminder=require('./pxl-urg-0116a-warehouse-reminder');
+  if(!reminder.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+  try{
+    const [tickets,mrs,crmRequests,crmWorkOrders]=await Promise.all([
+      db.getTickets(null,true),db.getMRForms(),db.getCrmMaterialRequests(),db.getCrmWorkOrders()
+    ]);
+    const rows=reminder.pendingForTickets({tickets,mrs,crmRequests,crmWorkOrders});
+    res.setHeader('Cache-Control','no-store');
+    return res.json({total:rows.length,rows});
+  }catch(e){return res.status(500).json({error:'Warehouse reminder unavailable'});}
+});
+
 // ══════════════════════════════════════════
 //  MATERIAL REQUEST FORM (akses semua role)
 // ══════════════════════════════════════════

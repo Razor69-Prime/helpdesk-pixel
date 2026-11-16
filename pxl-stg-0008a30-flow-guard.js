@@ -1,9 +1,8 @@
 'use strict';
 
 // PXL-URG-0011 — server-side guard untuk urutan WO dan Material Request.
-// Material Request bersifat kondisional: WO tanpa kebutuhan/pengambilan material
-// tetap dapat diselesaikan. Jika MR ada, material wajib sudah diambil.
-// Pengembalian material tetap dilakukan setelah pekerjaan selesai.
+// PXL-URG-0116A: MR tidak menghalangi closing WO oleh teknisi.
+// Tindak lanjut MR ditangani internal Admin Gudang/Manager/Superadmin.
 // Superadmin memiliki full override untuk penyelesaian WO tanpa signature/MR guard.
 
 const express = require('express');
@@ -65,7 +64,7 @@ express.application.post = function pxl0008a30Post(path, ...handlers) {
     const guard = (req, res, next) => {
       if (norm(req.body?.stage) !== 'selesai') return next();
       if (isSuperadmin(req)) return next();
-      return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
+      return requireCompletionSignatures(req, res, next);
     };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
   }
@@ -77,7 +76,7 @@ express.application.patch = function pxl0008a30Patch(path, ...handlers) {
     const guard = (req, res, next) => {
       if (!isDoneStatus(req.body?.status)) return next();
       if (isSuperadmin(req)) return next();
-      return requireCompletionSignatures(req, res, () => requireMaterialTaken(req, res, next));
+      return requireCompletionSignatures(req, res, next);
     };
     handlers.splice(Math.max(0, handlers.length - 1), 0, guard);
   }

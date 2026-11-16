@@ -1225,6 +1225,17 @@ async function getInventoryTransactions() {
   requireInventorySupabase();
   return await restFetch('GET', '/inventory_transactions?select=*,inventory_items(name,unit)&order=created_at.desc&limit=500') || [];
 }
+// PXL-URG-0116C — paginated read-only full ledger, never silently truncate history.
+async function getInventoryLedgerHistory(){
+  requireInventorySupabase();
+  const pageSize=1000, maxRows=30000, rows=[];
+  for(let offset=0;offset<=maxRows;offset+=pageSize){
+    const page=await restFetch('GET',`/inventory_transactions?select=id,item_id,transaction_type,qty,balance_after,reference,created_by,created_at&order=created_at.asc,id.asc&limit=${pageSize}&offset=${offset}`)||[];
+    rows.push(...page);
+    if(page.length<pageSize)return rows;
+  }
+  throw new Error('Riwayat Inventory melebihi batas aman laporan. Tidak menampilkan saldo yang berpotensi tidak akurat.');
+}
 async function insertInventoryTransaction(data) {
   requireInventorySupabase();
   const entry = { id: crypto.randomUUID(), ...data, created_at: new Date().toISOString() };
@@ -1647,7 +1658,19 @@ async function insertAttendanceHistory(data){const row={id:crypto.randomUUID(),c
 async function getAttendanceHistory(recordId){if(USE_POSTGREST)return await restFetch('GET',`/attendance_history?attendance_record_id=eq.${encodeURIComponent(recordId)}&order=created_at.desc`)||[];return readAttendanceLocal(ATTENDANCE_FILES.history).filter(x=>String(x.attendance_record_id)===String(recordId)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
 
 
+// PXL-URG-0116B — separate warehouse inspection audit; does not mutate Inventory or MR status.
+async function getWarehouseMrAudit(){
+  if(!USE_POSTGREST)return [];
+  return await restFetch('GET','/warehouse_mr_inspection_audit?order=created_at.desc&limit=500')||[];
+}
+async function insertWarehouseMrAudit(data){
+  if(!USE_POSTGREST)throw new Error('Warehouse inspection audit requires staging PostgREST migration');
+  const rows=await restFetch('POST','/warehouse_mr_inspection_audit',data);
+  return rows?.[0]||data;
+}
+
 module.exports = {
+  getWarehouseMrAudit, insertWarehouseMrAudit,
   USE_POSTGREST,
   USE_SUPABASE: USE_POSTGREST,
   getTickets, getArchivedTickets, getTicketByToken,
@@ -1678,7 +1701,7 @@ module.exports = {
   getInventoryCategories, generateInventoryBarcode, findInventoryItemByCode, findInventoryItemByManufacturerBarcode, getInventoryHealth,
   getInventoryItems, getInventoryItem, insertInventoryItem, updateInventoryItem, generateInventorySku, deleteInventoryItem, mergeInventoryDuplicatesBulk,
   restockInventoryBatch, getInventoryTransactions, insertInventoryTransaction,
-  getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
+  getInventoryLedgerHistory, getInventoryOpnames, insertInventoryOpname, updateInventoryOpname, insertInventoryOpnameItem, importInventoryCutoff,
   getCrmCustomers, insertCrmCustomer, updateCrmCustomer, deleteCrmCustomer,
   getLeaveRequests, insertLeaveRequest, updateLeaveRequest, getLeaveBalances, upsertLeaveBalance, insertLeaveHistory,
   getLeaveHrOptions, insertLeaveHrOption, updateLeaveHrOption, deleteLeaveHrOption, getLeaveSignatories, upsertLeaveSignatory,
