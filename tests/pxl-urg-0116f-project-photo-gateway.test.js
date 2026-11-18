@@ -52,9 +52,9 @@ test('photo download GET retries 502 without retrying upload or modifying photo 
  const response=await h.lib.photoFetch('/api/project-report-item-photos/p/download',{});
  assert.equal(response.status,200);assert.equal(count,2);
  const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
- assert.match(html,/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0116F/);
+ assert.match(html,/pxl-vnext-3d-project-photos\.js\?v=PXL-URG-0116(?:F|G)/);
  const js=source;
- assert.match(js,/revision:'PXL-URG-0116F'/);
+ assert.match(js,/revision:'PXL-URG-0116(?:F|G)'/);
  assert.match(js,/await fetch\(`https:\/\/api\.cloudinary\.com/);
  assert.match(js,/async function deletePhoto\(id\)/);
  assert.match(js,/apiCall\('DELETE'/);

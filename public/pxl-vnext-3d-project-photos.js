@@ -49,13 +49,40 @@
     if(ctxState!==state){URL.revokeObjectURL(objectUrl);return null}
     state.photoObjectUrls.set(key,objectUrl);return objectUrl;
   }
+  function approvedCloudinaryUrl(photo){
+    try{
+      const url=new URL(String(photo?.secure_url||''));
+      return url.protocol==='https:'&&url.hostname==='res.cloudinary.com'&&url.pathname.includes('/image/upload/')?url.href:null;
+    }catch(_){return null}
+  }
+  // Render a vetted Cloudinary URL as an image instead of piping the entire
+  // original photograph through Node/Nginx for every thumbnail.
+  // Keep the authenticated proxy as a fallback for legacy photos.
+  function loadPhotoImage(img,photoId,state){
+    const photo=[...(state.photos||[]),...(state.projectPhotos||[])].find(x=>String(x.id)===String(photoId));
+    const direct=approvedCloudinaryUrl(photo);
+    const tryImage=url=>new Promise((resolve,reject)=>{
+      if(state!==ctxState||!img.isConnected)return resolve(null);
+      let finished=false;
+      const finish=(ok)=>{if(finished)return;finished=true;img.onload=null;img.onerror=null;ok?resolve(url):reject(new Error('Foto tidak dapat ditampilkan.'))};
+      img.onload=()=>finish(true);img.onerror=()=>finish(false);
+      img.src=url;
+    });
+    if(direct){
+      return tryImage(direct).catch(async()=>{
+        if(state!==ctxState||!img.isConnected)return null;
+        const fallback=await projectPhotoBlobUrl(photoId);
+        return fallback?tryImage(fallback):null;
+      });
+    }
+    return projectPhotoBlobUrl(photoId).then(url=>url?tryImage(url):null);
+  }
   function pumpPhotoQueue(){
     while(photoInFlight<MAX_PARALLEL_PHOTOS&&photoQueue.length){
       const job=photoQueue.shift();if(job.state!==ctxState||!job.img.isConnected)continue;
       photoInFlight++;
-      projectPhotoBlobUrl(job.photoId).then(url=>{
+      loadPhotoImage(job.img,job.photoId,job.state).then(url=>{
         if(!url||job.state!==ctxState||!job.img.isConnected)return;
-        job.img.src=url;
         const link=job.img.closest('[data-p3d-photo-link]');if(link)link.href=url;
       }).catch(e=>{
         if(job.state!==ctxState||!job.img.isConnected)return;
@@ -137,5 +164,5 @@
     if(retry)retry.onclick=loadGallery;
   }
   function open({project,item,user,selectedPhotoIds,onSelectionChange}){ensureStyle();close();ctxState={project,item,user,selected:new Set((selectedPhotoIds||[]).map(String)),onSelectionChange,photos:[],projectPhotos:[],previewUrl:null,photoObjectUrls:new Map()};const modal=document.createElement('div');modal.id='pxl3d-photo-modal';modal.className='p3d-modal';modal.innerHTML=`<div class="p3d-box"><div class="p3d-head"><div><b>📷 Foto Item Project</b><div class="p3d-status">Project ID: ${esc(project.project_number||project.id)} · ${esc(item.item_name||item.category||'Item')}</div></div><button class="btn sm" id="pxl3d-close">✕</button></div><div class="p3d-drop"><div class="p3d-actions"><label class="btn sm primary">📷 Kamera<input id="pxl3d-camera" type="file" accept="image/*" capture="environment" style="display:none"></label><label class="btn sm">🖼️ Galeri<input id="pxl3d-gallery-input" type="file" accept="image/*" multiple style="display:none"></label><button class="btn sm" data-p3d-download-all>⬇ Download Semua Foto</button></div><img id="pxl3d-preview" class="p3d-preview" alt="Preview foto" style="display:none"><div class="p3d-status" id="pxl3d-status">Foto akan diunggah tanpa watermark dan tanpa GPS.</div><div class="p3d-error" id="pxl3d-error"></div></div><div id="pxl3d-gallery"><div class="p3d-status">Memuat gallery...</div></div></div>`;document.body.appendChild(modal);modal.onclick=e=>{if(e.target===modal)close()};document.getElementById('pxl3d-close').onclick=close;document.getElementById('pxl3d-camera').onchange=e=>uploadFiles('camera',e.target);document.getElementById('pxl3d-gallery-input').onchange=e=>uploadFiles('gallery',e.target);document.querySelector('[data-p3d-download-all]').onclick=async()=>{try{await downloadWithAuth(`/api/project-report-items/${encodeURIComponent(item.id)}/photos/download-all`,`${project.project_number||project.id}-photos.zip`)}catch(e){document.getElementById('pxl3d-error').textContent=e.message}};loadGallery()}
-  window.PXLProjectPhotos={open,close,revision:'PXL-URG-0116F'};
+  window.PXLProjectPhotos={open,close,revision:'PXL-URG-0116G'};
 })();
