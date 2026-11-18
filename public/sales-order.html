@@ -353,13 +353,16 @@ function addMaterial(data = {}) {
   row.dataset.packageItemId = data.package_item_id || '';
   row.dataset.packageName = data.package_name || '';
   row.dataset.hppReference = data.hpp_reference ?? data.hpp_unit ?? '';
+  // Persisted non-PROBUS rows remain editable as historic SO lines, but are not searchable for new selection.
+  row.dataset.legacyExisting = (!manualItem && !selected && (data.inventory_item_id || data.source_key)) ? '1' : '0';
+  row.dataset.legacyName = row.dataset.legacyExisting === '1' ? String(data.item_name || data.name || '') : '';
   if (data.source_type === 'master_package') row.dataset.sourceType = 'master_package';
   row.innerHTML = `
     <div class="wide item-picker">
       <label>Cari Nama Material / SKU</label>
       <input class="item-search" autocomplete="off" placeholder="Ketik nama atau SKU..." value="${esc(selected?.name || data.item_name || data.name || '')}">
       <div class="item-results"></div>
-      <div class="selected-item">${selected ? `Dipilih: ${esc(selected.name)}${selected.sku ? ' · ' + esc(selected.sku) : ''} · stok ${numberValue(selected.stock)} ${esc(selected.unit || 'pcs')}` : (data.source_type==='master_package' ? `Master Paket: ${esc(data.package_name||'')} · ${data.inventory_item_id?'terhubung Inventory':'belum Inventory'}` : '')}</div>
+      <div class="selected-item">${selected ? `Dipilih: ${esc(selected.name)}${selected.sku ? ' · ' + esc(selected.sku) : ''} · stok ${numberValue(selected.stock)} ${esc(selected.unit || 'pcs')}` : (data.source_type==='master_package' ? `Master Paket: ${esc(data.package_name||'')} · ${data.inventory_item_id?'terhubung Inventory':'belum Inventory'}` : (row.dataset.legacyExisting==='1'?'Arsip non-PROBUS · item historis, tidak tersedia untuk pemilihan baru':''))}</div>
     </div>
     <div><label>Qty</label><input class="qty" type="number" min="0.01" step="0.01" value="${numberValue(data.qty || 1)}"></div>
     <div><label>Satuan</label><input class="unit" value="${esc(data.unit || selected?.unit || 'pcs')}" readonly></div>
@@ -370,6 +373,8 @@ function addMaterial(data = {}) {
   const search = row.querySelector('.item-search');
   search?.addEventListener('focus', () => renderMaterialResults(row, search.value));
   search?.addEventListener('input', () => {
+    row.dataset.legacyExisting = '0';
+    row.dataset.legacyName = '';
     row.dataset.inventoryId = '';
     row.dataset.catalogId = '';
     row.dataset.sourceType = '';
@@ -565,7 +570,8 @@ function collect() {
   document.querySelectorAll('.material-row').forEach(row => {
     const typedName = row.querySelector('.item-search')?.value.trim() || '';
     const manualMaterial = row.dataset.manualMaterial === '1' || row.querySelector('.pxl-material-source')?.value === 'manual';
-    const inventory = manualMaterial ? null : resolveSalesOrderInventorySelection(OPT.inventory_items, {
+    const legacyExisting = !!editId && row.dataset.legacyExisting === '1' && typedName === row.dataset.legacyName;
+    const inventory = manualMaterial || legacyExisting ? null : resolveSalesOrderInventorySelection(OPT.inventory_items, {
       catalogId: row.dataset.catalogId,
       inventoryId: row.dataset.inventoryId,
       sku: row.dataset.sku,
@@ -580,7 +586,7 @@ function collect() {
     }
     const packageMaterial = row.dataset.sourceType === 'master_package' || !!row.dataset.packageId;
     if (!typedName && !inventory) return;
-    if (!inventory && !packageMaterial && !manualMaterial) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
+    if (!inventory && !packageMaterial && !manualMaterial && !legacyExisting) throw new Error(`Material “${typedName || '-'}” wajib dipilih dari hasil fast searching.`);
     const qty = numberValue(row.querySelector('.qty')?.value);
     const materialName = inventory?.name || typedName;
     if (qty <= 0) throw new Error(`Qty material ${materialName} harus lebih dari 0.`);
@@ -805,7 +811,8 @@ async function load({ throwOnError = false } = {}) {
       api('GET', '/api/material-catalog').catch(() => ({ items: [] })),
       api('GET', '/api/sales-orders/package-recipes').catch(() => ({ items: [] }))
     ]);
-    const unifiedItems=Array.isArray(unified.items)&&unified.items.length?unified.items:(Array.isArray(options.inventory_items)?options.inventory_items.map(x=>({...x,inventory_item_id:x.id,source_type:'inventory',source_status:'inventory_only',inventory_available:true,hpp:null,hpp_mapped:false})):[]);
+    // Fail closed: never fall back to unfiltered Inventory when the PROBUS catalog is empty or unavailable.
+    const unifiedItems=Array.isArray(unified.items)?unified.items:[];
     MASTER_HPP_BY_ID = new Map(unifiedItems.filter(x=>x.inventory_item_id).map(x=>[String(x.inventory_item_id),{price:x.hpp}]));
     OPT = {
       sales_users: Array.isArray(options.sales_users) ? options.sales_users : [],

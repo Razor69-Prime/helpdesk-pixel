@@ -4,6 +4,7 @@
  * Google Sheet remains read-only; frontend sends normalized read results to this API.
  */
 const crypto=require('crypto');
+const {officialSku,selectOfficialCatalog}=require('./pxl-urg-0116e-probus-catalog');
 
 function attachPackageItemAliases(items,packages){
   const aliasByInventory=new Map();
@@ -264,6 +265,9 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
     return {safe:finalSafe,review,unmatched,already_mapped:mappedInventory.size,total_inventory:inventory.length,total_pricelist:prices.length};
   }
 
+  // PXL-URG-0116E — only active PROBUS entries may be selected in NEW material
+  // searches. Do not alter inventory_items / transaction records: WO/SO/MR history
+  // continues to resolve stored item IDs and item-name snapshots.
   app.get('/api/material-catalog',requireAuth,async(req,res)=>{
     try{
       const [inventory,priceRows,mapRows,packages]=await Promise.all([
@@ -274,10 +278,10 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
       ]);
       const prices=Array.isArray(priceRows)?priceRows:[];
       const maps=Array.isArray(mapRows)?mapRows:[];
-      const priceByKey=new Map(prices.map(x=>[String(x.source_key),x]));
-      const mapByInventory=new Map(maps.map(x=>[String(x.inventory_item_id),x]));
-      const usedSources=new Set(maps.map(x=>x.source_key).filter(Boolean).map(String));
-      const items=inventory.map(inv=>{
+      const {officialInventory,officialUnmapped,byInventory,byKey}=selectOfficialCatalog({inventory,prices,maps});
+      const priceByKey=byKey;
+      const mapByInventory=byInventory;
+      const items=officialInventory.map(inv=>{
         const map=mapByInventory.get(String(inv.id))||null;
         const price=map?.source_key?priceByKey.get(String(map.source_key))||null:null;
         const upper=String(inv.name||'').toUpperCase();
@@ -288,21 +292,22 @@ module.exports=function installMasterPricelistCache(app,{requireAuth,db}){
         return {
           id:String(inv.id),inventory_item_id:inv.id,source_type:price?'inventory_pricelist':'inventory',
           source_status:price?'inventory_pricelist':'inventory_only',source_key:price?.source_key||null,
-          name:inv.name||'',sku:inv.sku||null,barcode:inv.barcode||inv.manufacturer_barcode||null,recipe_category:recipeCategory,
+          name:inv.name||'',sku:officialSku(price?.source_key)||null,legacy_sku:inv.sku||null,barcode:inv.barcode||inv.manufacturer_barcode||null,recipe_category:recipeCategory,
           product_number:inv.product_number||null,category:inv.category||null,subcategory:inv.subcategory||null,
           brand:price?.brand||null,unit:inv.unit||'pcs',stock:Number(inv.stock||0),
           hpp:price?Number(price.price||0):null,hpp_mapped:!!price,inventory_available:true,
           pricelist_name:price?.item_name||null
         };
       });
-      prices.filter(p=>!usedSources.has(String(p.source_key))).forEach(price=>items.push({
+      officialUnmapped.forEach(price=>items.push({
         id:'price:'+String(price.source_key),inventory_item_id:null,source_type:'pricelist',source_status:'pricelist_only',
-        source_key:price.source_key,name:price.item_name||'',sku:null,barcode:null,product_number:null,recipe_category:'other',
+        source_key:price.source_key,name:price.item_name||'',sku:officialSku(price.source_key)||null,barcode:null,product_number:null,recipe_category:'other',
         category:price.category||null,subcategory:null,brand:price.brand||null,unit:'pcs',stock:null,
         hpp:Number(price.price||0),hpp_mapped:true,inventory_available:false,pricelist_name:price.item_name||''
       }));
       const aliasedItems=attachPackageItemAliases(items,packages);
-      res.json({items:aliasedItems,inventory_count:inventory.length,pricelist_only_count:aliasedItems.filter(x=>x.source_status==='pricelist_only').length});
+      res.setHeader('Cache-Control','no-store');
+      res.json({items:aliasedItems,inventory_count:officialInventory.length,pricelist_only_count:aliasedItems.filter(x=>x.source_status==='pricelist_only').length,official_catalog:'PROBUS',hidden_non_probus:true});
     }catch(e){apiError(res,e)}
   });
 
