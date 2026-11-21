@@ -20,11 +20,50 @@ function style(){
  const node=document.createElement('style');node.id='pxl-wh-0001-style';node.textContent=
  '.wh-box{padding:15px;border:1px solid var(--border,#ddd);border-radius:12px;margin:12px 0;background:var(--surface,#fff)}'+
  '.wh-tabs,.wh-tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.wh-btn{padding:8px 12px;border:1px solid var(--border,#ccc);border-radius:8px;cursor:pointer;background:var(--surface,#fff);color:inherit}.wh-btn.active{background:#24476b;color:white}'+
- '.wh-input{padding:8px;border:1px solid var(--border,#ccc);border-radius:8px;max-width:100%;background:var(--surface,#fff);color:inherit}.wh-scroll{max-width:100%;overflow-x:auto}.wh-table{width:100%;border-collapse:collapse;font-size:12px}.wh-table td,.wh-table th{padding:9px;text-align:left;border-bottom:1px solid var(--border,#ddd)}.wh-muted{color:var(--muted,#64748b);font-size:12px}.wh-table th{white-space:nowrap}';
+ '.wh-input{padding:8px;border:1px solid var(--border,#ccc);border-radius:8px;max-width:100%;background:var(--surface,#fff);color:inherit}.wh-catalog{position:relative;min-width:min(100%,350px);flex:1}.wh-catalog-input{width:100%;box-sizing:border-box}.wh-catalog-results{position:absolute;top:100%;left:0;right:0;max-height:300px;overflow-y:auto;z-index:100;background:var(--surface,#fff);border:1px solid var(--border,#ccc);border-radius:8px;box-shadow:0 10px 28px #0002}.wh-catalog-option{display:block;width:100%;padding:10px 12px;text-align:left;border:0;border-bottom:1px solid var(--border,#eee);background:transparent;color:inherit;cursor:pointer}.wh-catalog-option:hover,.wh-catalog-option:focus{background:var(--surface-hover,#edf2f7)}.wh-catalog-name{display:block;font-weight:650}.wh-catalog-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted,#64748b);margin-top:3px}.wh-probus{display:inline-block;border-radius:99px;padding:2px 7px;background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800}.wh-autofill-line{padding:9px 0;border-bottom:1px solid var(--border,#ddd)}.wh-scroll{max-width:100%;overflow-x:auto}.wh-table{width:100%;border-collapse:collapse;font-size:12px}.wh-table td,.wh-table th{padding:9px;text-align:left;border-bottom:1px solid var(--border,#ddd)}.wh-muted{color:var(--muted,#64748b);font-size:12px}.wh-table th{white-space:nowrap}';
  document.head.appendChild(node);
 }
 const table=(headers,body)=>'<div class="wh-scroll"><table class="wh-table"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 const num=v=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(Number(v)||0);
+const badge=()=>'<span class="wh-probus">PROBUS</span>';
+const materialLabel=item=>'<span class="wh-catalog-name">'+esc(item.name||'-')+'</span><span class="wh-catalog-meta">'+esc(item.sku||'SKU belum dipetakan')+' '+(String(item.sku||'').startsWith('PX-')?badge():'')+'</span>';
+// Custom results instead of native datalist: display material name ABOVE the PX SKU + badge.
+function initCatalogPicker(host,inputId,resultId,onSelect){
+ const input=host.querySelector('#'+inputId),result=host.querySelector('#'+resultId);
+ let chosen=null;
+ const search=()=>{
+  const q=input.value.trim().toLocaleLowerCase('id-ID');
+  chosen=null;
+  if(!q){result.hidden=true;result.innerHTML='';return;}
+  const matches=inventory.filter(item=>(item.name+' '+item.sku).toLocaleLowerCase('id-ID').includes(q)).slice(0,35);
+  result.hidden=false;
+  result.innerHTML=matches.map(item=>'<button type="button" class="wh-catalog-option" data-wh-sku="'+esc(item.sku)+'">'+materialLabel(item)+'</button>').join('')||'<div class="wh-muted" style="padding:10px">Tidak ditemukan di katalog PROBUS.</div>';
+  result.querySelectorAll('[data-wh-sku]').forEach(button=>button.onclick=()=>{
+   const item=inventory.find(i=>i.sku===button.dataset.whSku);
+   if(!item)return;
+   chosen=item;
+   input.value=item.name;
+   result.hidden=true;result.innerHTML='';
+   onSelect?.(item);
+  });
+ };
+ input.addEventListener('input',search);
+ input.addEventListener('focus',()=>{if(!chosen&&input.value.trim())search();});
+ input.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){result.hidden=true;return;}
+  if(event.key==='Enter'&&!result.hidden){
+   const first=result.querySelector('[data-wh-sku]');
+   if(first){event.preventDefault();first.click();}
+  }
+ });
+ const hideOnOutsideClick=event=>{
+  if(!input.isConnected){document.removeEventListener('pointerdown',hideOnOutsideClick);return;}
+  if(event.target!==input&&!result.contains(event.target))result.hidden=true;
+ };
+ document.addEventListener('pointerdown',hideOnOutsideClick);
+ return {getSelected:()=>chosen,select:item=>{chosen=item||null;input.value=item?.name||'';result.hidden=true;result.innerHTML='';onSelect?.(item||null);},clear:()=>{chosen=null;input.value='';result.hidden=true;result.innerHTML='';onSelect?.(null);}};
+}
+
 function render(){
  style();const el=root();if(!el)return;
  el.innerHTML='<div class="wh-box"><strong>📦 Warehouse Monitoring</strong><div class="wh-muted">Monitoring independen · SO / WO semua status · tanpa mutasi stok atau perubahan Close WO</div><div class="wh-tabs">'+
@@ -72,33 +111,60 @@ function detail(key){
 }
 async function renderUsage(){
  const host=root().querySelector('#wh-content');
- const work=rows.filter(r=>r.wo_number&&r.wh_id);
- host.innerHTML='<div class="wh-box"><strong>Input Pemakaian Material Harian (USED)</strong><p class="wh-muted">Pilih WO dan SKU resmi PX. Pemakaian dicatat terpisah dan TIDAK mengurangi stok Inventory.</p>'+
+ const work=rows.filter(r=>(r.wo_number||r.so_number)&&r.wh_id);
+ host.innerHTML='<div class="wh-box"><strong>Input Pemakaian Material Harian (USED)</strong><p class="wh-muted">Pilih SO / WO dan material PROBUS. Item pekerjaan ditawarkan otomatis, tetapi USED baru tersimpan setelah Anda mengisi Qty dan mengklik Simpan.</p>'+
  '<div class="wh-tools"><input class="wh-input" type="date" id="wh-used-date" value="'+esc(date)+'" aria-label="Tanggal pemakaian">'+
- '<select id="wh-used-wo" class="wh-input" aria-label="Pilih Work Order" style="max-width:100%"><option value="">Pilih WO...</option>'+work.map(r=>'<option value="'+esc(r.source_key)+'">'+esc(r.wh_number)+' · '+esc(r.wo_number)+' · '+esc(r.customer||r.job||'')+'</option>').join('')+'</select>'+
- '<input id="wh-used-item" class="wh-input" list="wh-used-options" placeholder="SKU PX resmi" aria-label="Pilih SKU">'+
- '<datalist id="wh-used-options">'+inventory.map(i=>'<option value="'+esc(i.sku)+'">'+esc(i.name)+'</option>').join('')+'</datalist>'+
+ '<select id="wh-used-wo" class="wh-input" aria-label="Pilih SO atau Work Order" style="max-width:100%"><option value="">Pilih SO / WO...</option>'+work.map(r=>'<option value="'+esc(r.source_key)+'">'+esc(r.wh_number)+' · '+esc([r.so_number,r.wo_number].filter(Boolean).join(' / '))+' · '+esc(r.customer||r.job||'')+'</option>').join('')+'</select></div>'+
+ '<div id="wh-used-autofill" class="wh-muted" aria-live="polite">Pilih SO atau WO untuk melihat material terkait.</div>'+
+ '<div class="wh-tools"><div class="wh-catalog"><input id="wh-used-item" class="wh-input wh-catalog-input" autocomplete="off" placeholder="Cari nama material atau SKU PX" aria-label="Pilih material PROBUS" aria-controls="wh-used-results"><div id="wh-used-results" class="wh-catalog-results" hidden></div></div>'+
  '<input id="wh-used-qty" class="wh-input" type="number" min=".001" step=".001" placeholder="Qty USED" style="width:130px">'+
  '<input id="wh-used-note" class="wh-input" placeholder="Keterangan opsional" maxlength="1000">'+
- '<button class="wh-btn" id="wh-used-save">Simpan Pemakaian</button></div><p class="wh-muted" id="wh-used-msg"></p>'+
+ '<button class="wh-btn" id="wh-used-save">Simpan Pemakaian</button></div><p class="wh-muted" id="wh-used-selected" aria-live="polite"></p><p class="wh-muted" id="wh-used-msg" role="status"></p>'+
  '<div class="wh-tools"><button class="wh-btn" id="wh-used-refresh">Lihat Pemakaian Harian</button></div><div id="wh-used-history"></div></div>';
  const msg=host.querySelector('#wh-used-msg');
+ const selectedInfo=host.querySelector('#wh-used-selected');
+ const picker=initCatalogPicker(host,'wh-used-item','wh-used-results',item=>{selectedInfo.innerHTML=item?'Dipilih: '+materialLabel(item):'';});
+ const auto=host.querySelector('#wh-used-autofill');
+ const sourcePicker=host.querySelector('#wh-used-wo');
+ sourcePicker.onchange=()=>{
+  const record=work.find(r=>r.source_key===sourcePicker.value);
+  picker.clear();msg.textContent='';
+  if(!record){auto.textContent='Pilih SO atau WO untuk melihat material terkait.';return;}
+  const matcher=window.PXL_WH_MATERIAL_MATCH;
+  const proposals=matcher?.proposals(record,inventory)||[];
+  if(!proposals.length){auto.innerHTML='<p>Belum ada material pada SO/WO tersebut. Gunakan pencarian katalog PROBUS untuk input manual.</p>';return;}
+  auto.innerHTML='<p><b>Material otomatis dari SO / WO / MR</b> — klik Gunakan untuk memilih SKU. Qty rencana bukan otomatis Qty USED.</p>'+
+  proposals.map((p,i)=>'<div class="wh-autofill-line">'+
+   (p.catalog_item?materialLabel(p.catalog_item):'<strong>'+esc(p.name||'Material historis')+'</strong><span class="wh-catalog-meta">Belum terpetakan ke SKU PROBUS · pilih SKU secara manual</span>')+
+   '<span class="wh-muted">Rencana: '+num(p.planned_qty)+' '+esc(p.unit)+' · '+esc(p.source)+'</span> '+
+   (p.catalog_item?'<button type="button" class="wh-btn" data-wh-proposal="'+i+'">Gunakan</button>':'')+'</div>').join('');
+  auto.querySelectorAll('[data-wh-proposal]').forEach(button=>button.onclick=()=>{
+   const p=proposals[Number(button.dataset.whProposal)];
+   if(!p?.catalog_item)return;
+   picker.select(p.catalog_item);
+   host.querySelector('#wh-used-qty').focus();
+  });
+  const matched=proposals.filter(p=>p.catalog_item);
+  if(proposals.length===1&&matched.length===1)picker.select(matched[0].catalog_item);
+ };
  const load=async()=>{
   const dest=host.querySelector('#wh-used-history');dest.textContent='Memuat pemakaian...';
-  try{const d=await req('GET','daily-usage?date='+encodeURIComponent(host.querySelector('#wh-used-date').value));dest.innerHTML=table(['Tanggal','No. WH','SKU PX / Material','USED','Satuan','Petugas','Keterangan'],(d.rows||[]).map(i=>'<tr><td>'+esc(i.usage_date)+'</td><td>'+esc((rows.find(r=>r.wh_id===i.warehouse_id)||{}).wh_number||i.warehouse_id)+'</td><td>'+esc(i.sku)+' — '+esc(i.item_name)+'</td><td>'+num(i.qty_used)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.actor_name)+'</td><td>'+esc(i.note)+'</td></tr>').join('')||'<tr><td colspan="7">Belum ada pemakaian pada tanggal ini.</td></tr>');}
+  try{const d=await req('GET','daily-usage?date='+encodeURIComponent(host.querySelector('#wh-used-date').value));
+   dest.innerHTML=table(['Tanggal','No. WH','Material / SKU PX','USED','Satuan','Petugas','Keterangan'],(d.rows||[]).map(i=>'<tr><td>'+esc(i.usage_date)+'</td><td>'+esc((rows.find(r=>String(r.wh_id)===String(i.warehouse_id))||{}).wh_number||i.warehouse_id)+'</td><td>'+materialLabel(i)+'</td><td>'+num(i.qty_used)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.actor_name)+'</td><td>'+esc(i.note)+'</td></tr>').join('')||'<tr><td colspan="7">Belum ada pemakaian pada tanggal ini.</td></tr>');}
   catch(e){dest.textContent=e.message;}
  };
  host.querySelector('#wh-used-refresh').onclick=load;
  host.querySelector('#wh-used-save').onclick=async()=>{
-  const key=host.querySelector('#wh-used-wo').value,rec=work.find(r=>r.source_key===key);
-  const sku=host.querySelector('#wh-used-item').value.trim().toUpperCase(),item=inventory.find(i=>i.sku===sku),raw=host.querySelector('#wh-used-qty').value,qty=Number(raw),usage_date=host.querySelector('#wh-used-date').value;
-  if(!rec||!item||!raw||!Number.isFinite(qty)||qty<=0){msg.textContent='Pilih WO, SKU PX resmi dan qty yang valid.';return;}
+  const key=sourcePicker.value,rec=work.find(r=>r.source_key===key);
+  const item=picker.getSelected(),raw=host.querySelector('#wh-used-qty').value,qty=Number(raw),usage_date=host.querySelector('#wh-used-date').value;
+  if(!rec||!item||!raw||!Number.isFinite(qty)||qty<=0){msg.textContent='Pilih SO/WO, pilih material PROBUS dari hasil pencarian, lalu isi Qty USED.';return;}
   const btn=host.querySelector('#wh-used-save');btn.disabled=true;msg.textContent='Menyimpan...';
-  try{await req('POST','daily-usage',{usage_date,warehouse_id:rec.wh_id,source_key:key,sku,qty_used:qty,note:host.querySelector('#wh-used-note').value});msg.textContent='Pemakaian berhasil dicatat, stok tidak berubah. Tambahkan material berikutnya bila diperlukan.';host.querySelector('#wh-used-qty').value='';await load();}
+  try{await req('POST','daily-usage',{usage_date,warehouse_id:rec.wh_id,source_key:key,sku:item.sku,qty_used:qty,note:host.querySelector('#wh-used-note').value});msg.textContent='Pemakaian tersimpan, stok tidak berubah. Silakan pilih material berikutnya.';host.querySelector('#wh-used-qty').value='';await load();}
   catch(e){msg.textContent=e.message;}finally{btn.disabled=false;}
  };
  load();
 }
+
 async function renderDaily(){
  const host=root().querySelector('#wh-content');
  host.innerHTML='<div class="wh-box"><strong>Daily Stock IN / OUT</strong><p class="wh-muted">SKU resmi PX; saldo bermasalah akan ditandai untuk rekonsiliasi, tanpa mengubah stok.</p><div class="wh-tools"><input type="date" class="wh-input" id="wh-date" value="'+esc(date)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';

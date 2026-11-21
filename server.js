@@ -2571,7 +2571,7 @@ app.post('/api/warehouse/daily-usage',requireAuth,async(req,res)=>{
   const record=records.find(x=>x.source_key===sourceKey&&Number(x.id)===Number(req.body?.warehouse_id));
   if(!record)return res.status(404).json({error:'Nomor Warehouse tidak valid'});
   const wh=require('./pxl-wh-0001-monitor').build(sources).find(x=>x.source_key===sourceKey);
-  if(!wh?.wo_number)return res.status(400).json({error:'Pilih pekerjaan dengan nomor WO untuk mencatat USED'});
+  if(!wh?.wo_number&&!wh?.so_number)return res.status(400).json({error:'Pilih pekerjaan yang memiliki nomor SO atau WO untuk mencatat USED'});
   const item=catalog.find(i=>i.sku===sku);
   if(!item)return res.status(400).json({error:'SKU tidak ditemukan dalam katalog PROBUS resmi'});
   const row=await db.insertWarehouseDailyUsage({
