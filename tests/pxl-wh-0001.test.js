@@ -11,6 +11,11 @@ test('all SO and WO statuses appear, even with no MR or items',()=>{
  assert.deepEqual(new Set(rows.map(r=>r.status)),new Set(['draft','cancelled','on progress','done']));
  assert.deepEqual(rows.find(r=>r.wo_number==='WO-1').technicians,['A','B']);
 });
+test('actual WO data with null technicians never crashes monitoring',()=>{
+ const rows=build({tickets:[{id:'n-1',wo_number:'WO-NULL',technician:null,technicians:[null,{name:'Teknisi A'}]}],workOrders:[{id:'n-2',technician:null}]});
+ assert.equal(rows.length,2);
+ assert.deepEqual(rows.find(x=>x.wo_number==='WO-NULL').technicians,['Teknisi A']);
+});
 test('related SO and WO share one record and MR supplies materials',()=>{
  const rows=build({salesOrders:[{id:'so1',so_number:'SO-1',status:'approved',items:[{inventory_item_id:'inv1',name:'Camera',qty:2}]}],tickets:[{id:'w1',wo_number:'WO-1',sales_order_id:'so1'}],workOrders:[{id:'cw1',ticket_id:'w1',sales_order_id:'so1',wo_number:'WO-1'}],crmRequests:[{id:'mr1',mr_number:'MR-1',work_order_id:'cw1',items:[{inventory_item_id:'inv1',name:'Camera',qty_out:3}]}]});
  assert.equal(rows.length,1);assert.deepEqual(rows[0].mr_numbers,['MR-1']);
