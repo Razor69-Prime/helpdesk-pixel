@@ -16,5 +16,5 @@ test('daily draft list shows customer and technician from existing linked SO-WO 
  assert.match(ui,/colspan="8">Belum ada draft/);
 });
 test('frontend cache revision updated without changing Warehouse API',()=>{
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001H/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001I/);
 });

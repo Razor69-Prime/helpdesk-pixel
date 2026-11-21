@@ -70,13 +70,54 @@ function initCatalogPicker(host,inputId,resultId,onSelect){
 function render(){
  style();const el=root();if(!el)return;
  el.innerHTML='<div class="wh-box"><strong>📦 Warehouse Monitoring</strong><div class="wh-muted">Monitoring independen · SO / WO semua status · tanpa mutasi stok atau perubahan Close WO</div><div class="wh-tabs">'+
- [['materials','Material per SO / WO'],['usage','Daily Material Usage'],['daily','Daily Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+'</div></div><div id="wh-content"></div>';
+ [['materials','Material per SO / WO'],['usage','Daily Material Usage'],['daily','Daily Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+
+ '<button type="button" class="wh-btn wh-export" id="wh-export-excel" title="Unduh laporan tab ini sebagai Excel">⬇ Export Excel</button></div><p id="wh-export-message" class="wh-muted" role="status"></p></div><div id="wh-content"></div>';
  el.querySelectorAll('[data-section]').forEach(btn=>btn.onclick=()=>{section=btn.dataset.section;selected=null;render();});
+ el.querySelector('#wh-export-excel').onclick=exportWarehouseExcel;
  if(section==='materials')renderMaterials();
  else if(section==='usage')renderUsage();
  else if(section==='daily')renderDaily();
  else if(section==='monthly')renderMonthly();
  else renderVerify();
+}
+// Excel reports are read-only snapshots. Export respects the active tab and selected date/filter.
+async function exportWarehouseExcel(){
+ const button=root()?.querySelector('#wh-export-excel');
+ const message=root()?.querySelector('#wh-export-message');
+ if(!button||!message)return;
+ button.disabled=true;message.textContent='Menyiapkan file Excel...';
+ try{
+  const helper=window.PXL_WH_EXPORT;
+  if(!helper)throw Error('Komponen export Warehouse belum dimuat. Muat ulang halaman.');
+  let sheets=[],suffix=localDate(),prefix='Warehouse';
+  const host=root().querySelector('#wh-content');
+  if(section==='materials'){
+   const matches=rows.filter(r=>(!status||[r.status,r.so_status,r.wo_status].includes(status))&&
+    [r.wh_number,r.so_number,r.wo_number,r.customer,r.job,r.so_status,r.wo_status,(r.technicians||[]).join(' ')].join(' ').toLowerCase().includes(filter.toLowerCase()));
+   sheets=helper.materials(matches);prefix='Warehouse_Material_SO_WO';
+  }else if(section==='usage'){
+   const selectedDate=host.querySelector('#wh-used-date')?.value||date;
+   const [drafts,used]=await Promise.all([
+    req('GET','daily-usage/drafts?date='+encodeURIComponent(selectedDate)),
+    req('GET','daily-usage?date='+encodeURIComponent(selectedDate))
+   ]);
+   sheets=helper.usage(drafts.documents||[],used.rows||[],rows);prefix='Warehouse_Daily_Usage';suffix=selectedDate;
+  }else if(section==='daily'){
+   const selectedDate=host.querySelector('#wh-date')?.value||date;
+   const report=await req('GET','stock-ledger?date='+encodeURIComponent(selectedDate));
+   sheets=helper.daily(report);prefix='Warehouse_Daily_Stock';suffix=selectedDate;
+  }else if(section==='monthly'){
+   const selectedMonth=host.querySelector('#wh-month')?.value||month;
+   const report=await req('GET','monthly-out?month='+encodeURIComponent(selectedMonth));
+   sheets=helper.monthly(report);prefix='Warehouse_Monthly_OUT';suffix=selectedMonth;
+  }else if(section==='verify'){
+   const report=await req('GET','stock-checks');
+   sheets=helper.verification(report);prefix='Warehouse_Stock_Verification';
+  }else throw Error('Jenis laporan belum tersedia');
+  helper.workbook(window.XLSX,sheets,prefix+'_'+suffix+'.xlsx');
+  message.textContent='Export Excel berhasil dibuat ('+sheets.reduce((n,s)=>n+(s.rows?.length||0),0)+' baris, '+sheets.length+' sheet).';
+ }catch(e){message.textContent='Export gagal: '+e.message;}
+ finally{button.disabled=false;}
 }
 function renderMaterials(){
  const host=root().querySelector('#wh-content');
