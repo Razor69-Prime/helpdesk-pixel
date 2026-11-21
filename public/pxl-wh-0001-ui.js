@@ -114,7 +114,7 @@ async function renderUsage(){
  const work=rows.filter(r=>(r.wo_number||r.so_number)&&r.wh_id);
  host.innerHTML='<div class="wh-box"><strong>Input Pemakaian Material Harian (USED)</strong><p class="wh-muted">Pilih SO / WO dan material PROBUS. Item pekerjaan ditawarkan otomatis, tetapi USED baru tersimpan setelah Anda mengisi Qty dan mengklik Simpan.</p>'+
  '<div class="wh-tools"><input class="wh-input" type="date" id="wh-used-date" value="'+esc(date)+'" aria-label="Tanggal pemakaian">'+
- '<select id="wh-used-wo" class="wh-input" aria-label="Pilih SO atau Work Order" style="max-width:100%"><option value="">Pilih SO / WO...</option>'+work.map(r=>'<option value="'+esc(r.source_key)+'">'+esc(r.wh_number)+' · '+esc([r.so_number,r.wo_number].filter(Boolean).join(' / '))+' · '+esc(r.customer||r.job||'')+'</option>').join('')+'</select></div>'+
+ '<div class="wh-catalog wh-job-search"><input id="wh-used-wo" type="search" class="wh-input wh-catalog-input" autocomplete="off" placeholder="Cari nomor SO / WO, customer atau nama pekerjaan..." aria-label="Fast searching SO atau WO" aria-autocomplete="list" aria-expanded="false" aria-controls="wh-used-wo-results"><div id="wh-used-wo-results" class="wh-catalog-results" role="listbox" hidden></div></div></div>'+
  '<div id="wh-used-autofill" class="wh-muted" aria-live="polite">Pilih SO atau WO untuk melihat material terkait.</div>'+
  '<div class="wh-tools"><div class="wh-catalog"><input id="wh-used-item" class="wh-input wh-catalog-input" autocomplete="off" placeholder="Cari nama material atau SKU PX" aria-label="Pilih material PROBUS" aria-controls="wh-used-results"><div id="wh-used-results" class="wh-catalog-results" hidden></div></div>'+
  '<input id="wh-used-qty" class="wh-input" type="number" min=".001" step=".001" placeholder="Qty USED" style="width:130px">'+
@@ -126,8 +126,53 @@ async function renderUsage(){
  const picker=initCatalogPicker(host,'wh-used-item','wh-used-results',item=>{selectedInfo.innerHTML=item?'Dipilih: '+materialLabel(item):'';});
  const auto=host.querySelector('#wh-used-autofill');
  const sourcePicker=host.querySelector('#wh-used-wo');
- sourcePicker.onchange=()=>{
-  const record=work.find(r=>r.source_key===sourcePicker.value);
+ const jobResults=host.querySelector('#wh-used-wo-results');
+ let selectedJob=null,activeOption=0;
+ const jobLabel=r=>[r.so_number,r.wo_number].filter(Boolean).join(' / ')||r.wh_number;
+ const jobSearchText=r=>[r.so_number,r.wo_number,r.wh_number,r.customer,r.job,r.status,r.so_status,r.wo_status].join(' ').toLocaleLowerCase('id-ID');
+ const closeJobResults=()=>{jobResults.hidden=true;sourcePicker.setAttribute('aria-expanded','false');};
+ const selectJob=r=>{
+  selectedJob=r;
+  sourcePicker.value=jobLabel(r)+' · '+(r.customer||r.job||'');
+  closeJobResults();
+  onJobSelected();
+ };
+ const showJobs=()=>{
+  const search=sourcePicker.value.trim().toLocaleLowerCase('id-ID');
+  const ranked=work.filter(r=>!search||jobSearchText(r).includes(search))
+   .sort((a,b)=>{
+    const ac=[a.so_number,a.wo_number,a.wh_number].some(v=>String(v||'').toLocaleLowerCase('id-ID').startsWith(search));
+    const bc=[b.so_number,b.wo_number,b.wh_number].some(v=>String(v||'').toLocaleLowerCase('id-ID').startsWith(search));
+    return Number(bc)-Number(ac);
+   }).slice(0,35);
+  activeOption=0;
+  jobResults.innerHTML=ranked.map((r,i)=>'<button type="button" role="option" class="wh-catalog-option'+(i===activeOption?' wh-job-active':'')+'" data-wh-job-index="'+i+'" aria-selected="'+(i===activeOption)+'"><span class="wh-catalog-name">'+esc(jobLabel(r))+'</span><span class="wh-catalog-meta">'+esc(r.customer||r.job||'-')+' · '+esc(r.wh_number)+' · '+esc(r.status||'-')+'</span></button>').join('')||'<div class="wh-muted" style="padding:12px">SO / WO tidak ditemukan.</div>';
+  jobResults.hidden=false;
+  sourcePicker.setAttribute('aria-expanded','true');
+  const options=[...jobResults.querySelectorAll('[data-wh-job-index]')];
+  const choose=i=>{const selected=ranked[i];if(selected)selectJob(selected);};
+  options.forEach((button,i)=>button.onclick=()=>choose(i));
+  sourcePicker.onkeydown=event=>{
+   if(event.key==='Escape'){closeJobResults();return;}
+   if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+    event.preventDefault();
+    if(!options.length)return;
+    activeOption=(activeOption+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;
+    options.forEach((opt,i)=>{opt.classList.toggle('wh-job-active',i===activeOption);opt.setAttribute('aria-selected',String(i===activeOption));});
+    options[activeOption].scrollIntoView({block:'nearest'});
+   }
+   if(event.key==='Enter'&&options.length){event.preventDefault();choose(activeOption);}
+  };
+ };
+ sourcePicker.oninput=()=>{selectedJob=null;auto.textContent='Pilih pekerjaan dari hasil pencarian untuk autofill material.';picker.clear();msg.textContent='';showJobs();};
+ sourcePicker.onfocus=showJobs;
+ const hideJobOutside=event=>{
+  if(!sourcePicker.isConnected){document.removeEventListener('pointerdown',hideJobOutside);return;}
+  if(event.target!==sourcePicker&&!jobResults.contains(event.target))closeJobResults();
+ };
+ document.addEventListener('pointerdown',hideJobOutside);
+ const onJobSelected=()=>{
+  const record=selectedJob;
   picker.clear();msg.textContent='';
   if(!record){auto.textContent='Pilih SO atau WO untuk melihat material terkait.';return;}
   const matcher=window.PXL_WH_MATERIAL_MATCH;
@@ -155,9 +200,9 @@ async function renderUsage(){
  };
  host.querySelector('#wh-used-refresh').onclick=load;
  host.querySelector('#wh-used-save').onclick=async()=>{
-  const key=sourcePicker.value,rec=work.find(r=>r.source_key===key);
+  const rec=selectedJob,key=rec?.source_key;
   const item=picker.getSelected(),raw=host.querySelector('#wh-used-qty').value,qty=Number(raw),usage_date=host.querySelector('#wh-used-date').value;
-  if(!rec||!item||!raw||!Number.isFinite(qty)||qty<=0){msg.textContent='Pilih SO/WO, pilih material PROBUS dari hasil pencarian, lalu isi Qty USED.';return;}
+  if(!rec||!item||!raw||!Number.isFinite(qty)||qty<=0){msg.textContent='Pilih SO/WO dari hasil fast searching, pilih material PROBUS, lalu isi Qty USED.';return;}
   const btn=host.querySelector('#wh-used-save');btn.disabled=true;msg.textContent='Menyimpan...';
   try{await req('POST','daily-usage',{usage_date,warehouse_id:rec.wh_id,source_key:key,sku:item.sku,qty_used:qty,note:host.querySelector('#wh-used-note').value});msg.textContent='Pemakaian tersimpan, stok tidak berubah. Silakan pilih material berikutnya.';host.querySelector('#wh-used-qty').value='';await load();}
   catch(e){msg.textContent=e.message;}finally{btn.disabled=false;}

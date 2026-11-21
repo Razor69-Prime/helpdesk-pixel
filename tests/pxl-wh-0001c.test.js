@@ -42,4 +42,4 @@ test('UI includes daily usage input and monthly used distinctly from OUT',()=>{
  assert.match(ui,/i\.opening==null\?'-'/);
 });
 
-test('Warehouse frontend asset cache revision is bumped',()=>{const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001D/);});
+test('Warehouse frontend asset cache revision is bumped',()=>{const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001E/);});
