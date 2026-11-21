@@ -26,9 +26,9 @@ test('autofill remains connected to confirmed SO or WO',()=>{
  assert.match(usage,/const selectJob=r=>\{/);
  assert.match(usage,/onJobSelected\(\)/);
  assert.match(usage,/const record=selectedJob/);
- assert.match(usage,/matcher\?\.proposals\(record,inventory\)/);
+ assert.match(usage,/matcher\.proposals\(record,inventory\)/);
  assert.match(usage,/data-wh-proposal/);
 });
 test('Warehouse UI version bumped to avoid stale browser cache',()=>{
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001E/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001F/);
 });

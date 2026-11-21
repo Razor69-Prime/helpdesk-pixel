@@ -176,7 +176,11 @@ async function renderUsage(){
   picker.clear();msg.textContent='';
   if(!record){auto.textContent='Pilih SO atau WO untuk melihat material terkait.';return;}
   const matcher=window.PXL_WH_MATERIAL_MATCH;
-  const proposals=matcher?.proposals(record,inventory)||[];
+  if(!matcher||typeof matcher.proposals!=='function'){
+   auto.innerHTML='<p role="alert">Pencocokan material belum termuat. Muat ulang halaman untuk mengaktifkan autofill; material SO/WO tidak hilang.</p>';
+   return;
+  }
+  const proposals=matcher.proposals(record,inventory);
   if(!proposals.length){auto.innerHTML='<p>Belum ada material pada SO/WO tersebut. Gunakan pencarian katalog PROBUS untuk input manual.</p>';return;}
   auto.innerHTML='<p><b>Material otomatis dari SO / WO / MR</b> — klik Gunakan untuk memilih SKU. Qty rencana bukan otomatis Qty USED.</p>'+
   proposals.map((p,i)=>'<div class="wh-autofill-line">'+

@@ -2,7 +2,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const {proposals,matchOfficial}=require('../pxl-wh-0001d-matching');
+const {proposals,matchOfficial}=require('../public/pxl-wh-0001d-matching');
 const html=fs.readFileSync(require('node:path').join(__dirname,'../public/index.html'),'utf8');
 const ui=fs.readFileSync(require('node:path').join(__dirname,'../public/pxl-wh-0001-ui.js'),'utf8');
 const server=fs.readFileSync(require('node:path').join(__dirname,'../server.js'),'utf8');
@@ -35,6 +35,6 @@ test('SO and WO both accepted and daily usage does not auto-submit from suggesti
  assert.match(ui,/\['materials','Material per SO \/ WO'\]/) // ensure old tab is retained
 });
 test('matching helper loads before Warehouse UI and UI cache version changes',()=>{
- assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001D')>=0);
- assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001D')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001E'));
+ assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')>=0);
+ assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001F'));
 });
