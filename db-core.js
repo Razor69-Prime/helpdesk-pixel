@@ -1689,6 +1689,42 @@ async function getWarehouseSourceData(){
  }
  return out;
 }
+// PXL-WH-0001C — authoritative PROBUS PX SKU mapping; no Inventory updates.
+async function getWarehouseOfficialCatalog(){
+ if(!USE_POSTGREST)throw Error('Official PROBUS catalog requires PostgREST');
+ const [inventory,prices,maps]=await Promise.all([
+  getWarehouseInventoryHistoryItems(),
+  restFetch('GET','/master_pricelist_items?is_active=eq.true&select=source_key,item_name,brand'),
+  restFetch('GET','/master_pricelist_inventory_map?select=inventory_item_id,source_key')
+ ]);
+ const byInv=new Map(inventory.map(x=>[String(x.id),x]));
+ const byKey=new Map((prices||[]).filter(x=>String(x.source_key||'').startsWith('MANUAL:PROBUS:PX-')).map(x=>[x.source_key,x]));
+ const linked=new Map();
+ for(const m of maps||[]){if(byKey.has(m.source_key)&&byInv.has(String(m.inventory_item_id)))linked.set(m.source_key,byInv.get(String(m.inventory_item_id)));}
+ const items=[...byKey].map(([source_key,p])=>{
+  const inv=linked.get(source_key);
+  return {id:inv?.id||null,sku:source_key.slice('MANUAL:PROBUS:'.length),name:inv?.name||p.item_name||'',unit:inv?.unit||'pcs',stock:inv?.stock??null,is_active:inv?.is_active===true,inventory_available:!!inv,source_key};
+ });
+ return items.sort((a,b)=>a.sku.localeCompare(b.sku));
+}
+async function getWarehouseDailyUsage({month,date}={}){
+ if(!USE_POSTGREST)throw Error('Warehouse usage requires database migration');
+ let filter='';
+ if(date)filter='&usage_date=eq.'+encodeURIComponent(date);
+ else if(month)filter='&usage_date=gte.'+encodeURIComponent(month+'-01')+'&usage_date=lt.'+encodeURIComponent(new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),1)).toISOString().slice(0,10));
+ const all=[];
+ for(let offset=0;;offset+=1000){
+  if(offset>=100000)throw Error('Warehouse daily usage exceeded safe report size');
+  const page=await restFetch('GET','/warehouse_daily_usage?order=id.desc&limit=1000&offset='+offset+filter)||[];
+  all.push(...page);if(page.length<1000)break;
+ }
+ return all;
+}
+async function insertWarehouseDailyUsage(data){
+ if(!USE_POSTGREST)throw Error('Warehouse usage requires database migration');
+ const rows=await restFetch('POST','/warehouse_daily_usage',data,{Prefer:'return=representation'});
+ return rows?.[0]||null;
+}
 // PXL-WH-0001 — isolated Warehouse metadata. No stock mutations.
 async function getWarehouseMonitorRecords(){
  if(!USE_POSTGREST)throw Error('Warehouse monitoring needs database migration');
@@ -1744,7 +1780,7 @@ async function insertWarehouseMrAudit(data){
 }
 
 module.exports = {
-  getWarehouseInventoryHistoryItems, getWarehouseSourceData, getWarehouseMonitorRecords, createWarehouseMonitorRecords, updateWarehouseMonitorRecord, getWarehouseStockChecks, insertWarehouseStockCheck,
+  getWarehouseOfficialCatalog, getWarehouseDailyUsage, insertWarehouseDailyUsage, getWarehouseInventoryHistoryItems, getWarehouseSourceData, getWarehouseMonitorRecords, createWarehouseMonitorRecords, updateWarehouseMonitorRecord, getWarehouseStockChecks, insertWarehouseStockCheck,
   getWarehouseMrAudit, insertWarehouseMrAudit,
   USE_POSTGREST,
   USE_SUPABASE: USE_POSTGREST,

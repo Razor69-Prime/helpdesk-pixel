@@ -37,7 +37,7 @@ test('warehouse endpoint is read only, permissioned and separate from WO closing
  const server=read('server.js'),db=read('db-core.js'),ui=read('public/pxl-urg-0116b-warehouse-ui.js');
  const block=server.slice(server.indexOf("app.get('/api/warehouse/stock-ledger'"),server.indexOf('// PXL-URG-0116B'));
  assert.match(block,/if\(!reminder.canView\(req.session\?\.user\)\)return res.status\(403\)/);
- assert.match(block,/db\.getInventoryLedgerHistory\(\)/);assert.match(block,/db\.getInventoryItems\(\)/);
+ assert.match(block,/db\.getInventoryLedgerHistory\(\)/);assert.match(block,/db\.getWarehouseOfficialCatalog\(\)/);assert.match(block,/safeDailyLedger/);
  assert.doesNotMatch(block,/updateTicket|updateMRForm|insertInventoryTransaction|updateInventoryItem/);
  assert.match(db,/async function getInventoryLedgerHistory/);assert.match(db,/offset=\$\{offset\}/);
  assert.match(db,/Riwayat Inventory melebihi batas aman laporan/);

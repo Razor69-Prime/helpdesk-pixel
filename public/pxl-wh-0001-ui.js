@@ -28,9 +28,10 @@ const num=v=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(Num
 function render(){
  style();const el=root();if(!el)return;
  el.innerHTML='<div class="wh-box"><strong>📦 Warehouse Monitoring</strong><div class="wh-muted">Monitoring independen · SO / WO semua status · tanpa mutasi stok atau perubahan Close WO</div><div class="wh-tabs">'+
- [['materials','Material per SO / WO'],['daily','Daily Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+'</div></div><div id="wh-content"></div>';
+ [['materials','Material per SO / WO'],['usage','Daily Material Usage'],['daily','Daily Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+'</div></div><div id="wh-content"></div>';
  el.querySelectorAll('[data-section]').forEach(btn=>btn.onclick=()=>{section=btn.dataset.section;selected=null;render();});
  if(section==='materials')renderMaterials();
+ else if(section==='usage')renderUsage();
  else if(section==='daily')renderDaily();
  else if(section==='monthly')renderMonthly();
  else renderVerify();
@@ -55,12 +56,12 @@ function detail(key){
  const el=root().querySelector('#wh-detail');if(!el)return;
  const combined=[...(r.items||[]),...(r.manual_items||[])];
  el.innerHTML='<div class="wh-box"><div class="wh-tools"><strong>'+esc(r.wh_number)+' — '+esc(r.job||r.customer||'Pekerjaan')+'</strong><button class="wh-btn" id="wh-close">Tutup</button></div><div class="wh-muted">SO: '+esc(r.so_number||'-')+' · WO: '+esc(r.wo_number||'-')+' · Teknisi: '+esc(r.technicians.join(', ')||'-')+'</div>'+
- table(['SKU / Barang','Qty Rencana','Satuan','Sumber','Qty Used','Qty Return'],combined.map(i=>'<tr><td>'+esc(i.sku||'')+' — '+esc(i.name)+'</td><td>'+num(i.qty)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.source)+'</td><td>'+num(i.qty_used)+'</td><td>'+num(i.qty_returned)+'</td></tr>').join('')||'<tr><td colspan="6">Belum ada item. Tambahkan dari master Inventory.</td></tr>')+
- '<h4>Tambah Material Manual</h4><div class="wh-muted">Hanya menyimpan tambahan daftar monitoring, tidak mengubah SO, WO, MR maupun stok.</div><div class="wh-tools"><input class="wh-input" list="wh-items" id="wh-item" placeholder="Cari nama / SKU"><datalist id="wh-items">'+inventory.map(i=>'<option value="'+esc(i.sku||i.name)+'">'+esc(i.name)+'</option>').join('')+'</datalist><input class="wh-input" type="number" min=".001" step=".001" id="wh-qty" value="1" style="width:110px"><button class="wh-btn" id="wh-add">+ Tambah Item</button></div><div class="wh-tools"><button class="wh-btn" id="wh-save">Simpan Material Manual</button></div><p id="wh-msg" class="wh-muted"></p></div>';
+ table(['SKU / Barang','Qty Rencana','Satuan','Sumber','Qty Used','Qty Return'],combined.map(i=>'<tr><td>'+esc(i.sku||'')+' — '+esc(i.name)+'</td><td>'+num(i.qty)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.source)+'</td><td>'+num(i.qty_used)+'</td><td>'+num(i.qty_returned)+'</td></tr>').join('')||'<tr><td colspan="6">Belum ada item. Tambahkan dari katalog PROBUS PX.</td></tr>')+
+ '<h4>Tambah Material Manual</h4><div class="wh-muted">Hanya menyimpan tambahan daftar monitoring, tidak mengubah SO, WO, MR maupun stok.</div><div class="wh-tools"><input class="wh-input" list="wh-items" id="wh-item" placeholder="Cari SKU PX / nama material"><datalist id="wh-items">'+inventory.map(i=>'<option value="'+esc(i.sku||i.name)+'">'+esc(i.name)+'</option>').join('')+'</datalist><input class="wh-input" type="number" min=".001" step=".001" id="wh-qty" value="1" style="width:110px"><button class="wh-btn" id="wh-add">+ Tambah Item</button></div><div class="wh-tools"><button class="wh-btn" id="wh-save">Simpan Material Manual</button></div><p id="wh-msg" class="wh-muted"></p></div>';
  el.querySelector('#wh-close').onclick=()=>{selected=null;el.innerHTML='';};
  el.querySelector('#wh-add').onclick=()=>{
   const v=el.querySelector('#wh-item').value.trim().toLowerCase(),master=inventory.find(i=>String(i.sku||'').toLowerCase()===v||String(i.name||'').toLowerCase()===v),qty=Number(el.querySelector('#wh-qty').value);
-  if(!master||!Number.isFinite(qty)||qty<=0){el.querySelector('#wh-msg').textContent='Pilih SKU dari master Inventory dan masukkan Qty valid.';return;}
+  if(!master||!Number.isFinite(qty)||qty<=0){el.querySelector('#wh-msg').textContent='Pilih SKU PX resmi dan masukkan Qty valid.';return;}
   r.manual_items.push({inventory_item_id:master.id,name:master.name,sku:master.sku,unit:master.unit,qty,source:'MANUAL'});detail(key);
  };
  el.querySelector('#wh-save').onclick=async()=>{
@@ -69,16 +70,51 @@ function detail(key){
   catch(e){msg.textContent=e.message;}
  };
 }
+async function renderUsage(){
+ const host=root().querySelector('#wh-content');
+ const work=rows.filter(r=>r.wo_number&&r.wh_id);
+ host.innerHTML='<div class="wh-box"><strong>Input Pemakaian Material Harian (USED)</strong><p class="wh-muted">Pilih WO dan SKU resmi PX. Pemakaian dicatat terpisah dan TIDAK mengurangi stok Inventory.</p>'+
+ '<div class="wh-tools"><input class="wh-input" type="date" id="wh-used-date" value="'+esc(date)+'" aria-label="Tanggal pemakaian">'+
+ '<select id="wh-used-wo" class="wh-input" aria-label="Pilih Work Order" style="max-width:100%"><option value="">Pilih WO...</option>'+work.map(r=>'<option value="'+esc(r.source_key)+'">'+esc(r.wh_number)+' · '+esc(r.wo_number)+' · '+esc(r.customer||r.job||'')+'</option>').join('')+'</select>'+
+ '<input id="wh-used-item" class="wh-input" list="wh-used-options" placeholder="SKU PX resmi" aria-label="Pilih SKU">'+
+ '<datalist id="wh-used-options">'+inventory.map(i=>'<option value="'+esc(i.sku)+'">'+esc(i.name)+'</option>').join('')+'</datalist>'+
+ '<input id="wh-used-qty" class="wh-input" type="number" min=".001" step=".001" placeholder="Qty USED" style="width:130px">'+
+ '<input id="wh-used-note" class="wh-input" placeholder="Keterangan opsional" maxlength="1000">'+
+ '<button class="wh-btn" id="wh-used-save">Simpan Pemakaian</button></div><p class="wh-muted" id="wh-used-msg"></p>'+
+ '<div class="wh-tools"><button class="wh-btn" id="wh-used-refresh">Lihat Pemakaian Harian</button></div><div id="wh-used-history"></div></div>';
+ const msg=host.querySelector('#wh-used-msg');
+ const load=async()=>{
+  const dest=host.querySelector('#wh-used-history');dest.textContent='Memuat pemakaian...';
+  try{const d=await req('GET','daily-usage?date='+encodeURIComponent(host.querySelector('#wh-used-date').value));dest.innerHTML=table(['Tanggal','No. WH','SKU PX / Material','USED','Satuan','Petugas','Keterangan'],(d.rows||[]).map(i=>'<tr><td>'+esc(i.usage_date)+'</td><td>'+esc((rows.find(r=>r.wh_id===i.warehouse_id)||{}).wh_number||i.warehouse_id)+'</td><td>'+esc(i.sku)+' — '+esc(i.item_name)+'</td><td>'+num(i.qty_used)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.actor_name)+'</td><td>'+esc(i.note)+'</td></tr>').join('')||'<tr><td colspan="7">Belum ada pemakaian pada tanggal ini.</td></tr>');}
+  catch(e){dest.textContent=e.message;}
+ };
+ host.querySelector('#wh-used-refresh').onclick=load;
+ host.querySelector('#wh-used-save').onclick=async()=>{
+  const key=host.querySelector('#wh-used-wo').value,rec=work.find(r=>r.source_key===key);
+  const sku=host.querySelector('#wh-used-item').value.trim().toUpperCase(),item=inventory.find(i=>i.sku===sku),raw=host.querySelector('#wh-used-qty').value,qty=Number(raw),usage_date=host.querySelector('#wh-used-date').value;
+  if(!rec||!item||!raw||!Number.isFinite(qty)||qty<=0){msg.textContent='Pilih WO, SKU PX resmi dan qty yang valid.';return;}
+  const btn=host.querySelector('#wh-used-save');btn.disabled=true;msg.textContent='Menyimpan...';
+  try{await req('POST','daily-usage',{usage_date,warehouse_id:rec.wh_id,source_key:key,sku,qty_used:qty,note:host.querySelector('#wh-used-note').value});msg.textContent='Pemakaian berhasil dicatat, stok tidak berubah. Tambahkan material berikutnya bila diperlukan.';host.querySelector('#wh-used-qty').value='';await load();}
+  catch(e){msg.textContent=e.message;}finally{btn.disabled=false;}
+ };
+ load();
+}
 async function renderDaily(){
  const host=root().querySelector('#wh-content');
- host.innerHTML='<div class="wh-box"><strong>Daily Stock IN / OUT</strong><div class="wh-tools"><input type="date" class="wh-input" id="wh-date" value="'+esc(date)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';
- host.querySelector('#wh-load').onclick=async()=>{date=host.querySelector('#wh-date').value;const dest=host.querySelector('#wh-result');dest.textContent='Memuat...';try{const d=await req('GET','stock-ledger?date='+encodeURIComponent(date));dest.innerHTML=(d.quality_warning?'<p class="wh-muted">Perhatian: sebagian saldo memerlukan rekonsiliasi.</p>':'')+table(['SKU / Barang','Beginning','IN','OUT','Ending','Status'],d.items.map(i=>'<tr><td>'+esc(i.sku)+' — '+esc(i.name)+'</td><td>'+num(i.opening)+'</td><td>'+num(i.incoming)+'</td><td>'+num(i.outgoing)+'</td><td>'+num(i.closing)+'</td><td>'+esc(i.quality)+'</td></tr>').join(''));}catch(e){dest.textContent=e.message;}};
+ host.innerHTML='<div class="wh-box"><strong>Daily Stock IN / OUT</strong><p class="wh-muted">SKU resmi PX; saldo bermasalah akan ditandai untuk rekonsiliasi, tanpa mengubah stok.</p><div class="wh-tools"><input type="date" class="wh-input" id="wh-date" value="'+esc(date)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';
+ host.querySelector('#wh-load').onclick=async()=>{
+  date=host.querySelector('#wh-date').value;const dest=host.querySelector('#wh-result');dest.textContent='Memuat...';
+  try{const d=await req('GET','stock-ledger?date='+encodeURIComponent(date));dest.innerHTML=(d.quality_warning?'<p class="wh-muted">Perhatian: '+num(d.invalid_count||0)+' item dengan saldo tidak valid. Perlu rekonsiliasi; data saldo tidak diubah.</p>':'')+
+   table(['SKU PX / Barang','Beginning','IN','OUT','Ending','Status'],(d.items||[]).map(i=>'<tr><td>'+esc(i.sku)+' — '+esc(i.name)+'</td><td>'+(i.opening==null?'-':num(i.opening))+'</td><td>'+(i.incoming==null?'-':num(i.incoming))+'</td><td>'+(i.outgoing==null?'-':num(i.outgoing))+'</td><td>'+(i.closing==null?'-':num(i.closing))+'</td><td>'+esc(i.quality==='invalid_balance'?'Perlu rekonsiliasi':i.quality==='verified'?'Sesuai':i.quality==='no_transaction_history'?'Tanpa riwayat':i.quality)+'</td></tr>').join('')||'<tr><td colspan="6">Belum ada material resmi yang terhubung ke Inventory.</td></tr>');}
+  catch(e){dest.textContent=e.message;}
+ };
 }
 async function renderMonthly(){
  const host=root().querySelector('#wh-content');
- host.innerHTML='<div class="wh-box"><strong>Rekap Mutasi Inventory Bulanan</strong><div class="wh-muted">OUT bukan otomatis penggunaan aktual teknisi.</div><div class="wh-tools"><input type="month" class="wh-input" id="wh-month" value="'+esc(month)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';
- host.querySelector('#wh-load').onclick=async()=>{month=host.querySelector('#wh-month').value;const dest=host.querySelector('#wh-result');dest.textContent='Memuat...';try{const d=await req('GET','monthly-out?month='+encodeURIComponent(month));dest.innerHTML=table(['SKU / Material','Satuan','IN','OUT'],d.items.map(i=>'<tr><td>'+esc(i.sku||'')+' — '+esc(i.name)+'</td><td>'+esc(i.unit)+'</td><td>'+num(i.incoming)+'</td><td>'+num(i.outgoing)+'</td></tr>').join(''));}catch(e){dest.textContent=e.message;}};
+ host.innerHTML='<div class="wh-box"><strong>Rekap Inventory dan Pemakaian Bulanan</strong><div class="wh-muted">SKU resmi PX · OUT mutasi Inventory, USED dicatat dari pekerjaan harian.</div><div class="wh-tools"><input type="month" class="wh-input" id="wh-month" value="'+esc(month)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';
+ host.querySelector('#wh-load').onclick=async()=>{month=host.querySelector('#wh-month').value;const dest=host.querySelector('#wh-result');dest.textContent='Memuat...';try{const d=await req('GET','monthly-out?month='+encodeURIComponent(month));dest.innerHTML=table(['SKU PX / Material','Satuan','IN','OUT','USED'],(d.items||[]).map(i=>'<tr><td>'+esc(i.sku)+' — '+esc(i.name)+'</td><td>'+esc(i.unit)+'</td><td>'+num(i.incoming)+'</td><td>'+num(i.outgoing)+'</td><td>'+num(i.used)+'</td></tr>').join('')||'<tr><td colspan="5">Belum ada SKU PX resmi.</td></tr>');}catch(e){dest.textContent=e.message;}};
 }
+
 function renderVerify(){
  const host=root().querySelector('#wh-content');
  host.innerHTML='<div class="wh-box"><strong>Stock Verification — Pemeriksaan Fisik</strong><p class="wh-muted">Snapshot saldo Inventory pada saat pemeriksaan. Selisih tidak otomatis melakukan adjustment.</p><div class="wh-tools"><input class="wh-input" id="wh-physical-sku" list="wh-physical-items" placeholder="Cari SKU / barang"><datalist id="wh-physical-items">'+inventory.map(i=>'<option value="'+esc(i.sku||i.name)+'">'+esc(i.name)+'</option>').join('')+'</datalist><input class="wh-input" type="number" min="0" step=".001" id="wh-physical-qty" placeholder="Jumlah fisik"><input class="wh-input" id="wh-physical-note" placeholder="Catatan opsional"><button class="wh-btn" id="wh-physical-save">Simpan Audit</button><button class="wh-btn" id="wh-physical-reload">Muat Riwayat</button></div><p class="wh-muted" id="wh-physical-msg"></p><div id="wh-physical-history"></div></div>';
@@ -88,7 +124,7 @@ function renderVerify(){
  host.querySelector('#wh-physical-save').onclick=async()=>{
   const v=host.querySelector('#wh-physical-sku').value.toLowerCase().trim(),master=inventory.find(i=>String(i.sku||'').toLowerCase()===v||String(i.name||'').toLowerCase()===v),qty=Number(host.querySelector('#wh-physical-qty').value),raw=host.querySelector('#wh-physical-qty').value;
   if(!master||!raw||!Number.isFinite(qty)||qty<0){msg.textContent='Pilih SKU aktif dan isi hasil hitung fisik valid.';return;}
-  try{await req('POST','stock-checks',{inventory_item_id:master.id,physical_qty:qty,note:host.querySelector('#wh-physical-note').value});msg.textContent='Audit fisik tersimpan, saldo Inventory tetap.';await load();}catch(e){msg.textContent=e.message;}
+  try{await req('POST','stock-checks',{inventory_item_id:master.id,sku:master.sku,physical_qty:qty,note:host.querySelector('#wh-physical-note').value});msg.textContent='Audit fisik tersimpan, saldo Inventory tetap.';await load();}catch(e){msg.textContent=e.message;}
  };
  load();
 }
