@@ -27,6 +27,8 @@ function style(){
 const table=(headers,body)=>'<div class="wh-scroll"><table class="wh-table"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 const num=v=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(Number(v)||0);
 const badge=()=>'<span class="wh-probus">PROBUS</span>';
+const mrSummary=record=>{const count=(record.mr_numbers||[]).length;return count?count+' MR':'-';};
+const technicianSummary=record=>(record.technicians||[]).join(', ')||'-';
 const materialLabel=item=>'<span class="wh-catalog-name">'+esc(item.name||'-')+'</span><span class="wh-catalog-meta">'+esc(item.sku||'SKU belum dipetakan')+' '+(String(item.sku||'').startsWith('PX-')?badge():'')+'</span>';
 // Custom results instead of native datalist: display material name ABOVE the PX SKU + badge.
 function initCatalogPicker(host,inputId,resultId,onSelect){
@@ -88,7 +90,7 @@ function fillTable(){
  const host=root().querySelector('#wh-content');if(!host)return;
  const matches=rows.filter(r=>(!status||[r.status,r.so_status,r.wo_status].includes(status))&&[r.wh_number,r.so_number,r.wo_number,r.customer,r.job,r.so_status,r.wo_status,r.technicians.join(' ')].join(' ').toLowerCase().includes(filter.toLowerCase()));
  host.querySelector('#wh-count').textContent=matches.length+' pekerjaan • tanpa batas status maupun periode';
- host.querySelector('#wh-table').innerHTML=table(['Nomor WH','SO','WO','MR','Teknisi','Customer / Pekerjaan','Status','Tindakan'],matches.map(r=>'<tr><td><b>'+esc(r.wh_number)+'</b></td><td>'+esc(r.so_number||'-')+'</td><td>'+esc(r.wo_number||'-')+'</td><td>'+esc(r.mr_numbers.join(', ')||'-')+'</td><td>'+esc(r.technicians.join(', ')||'-')+'</td><td>'+esc(r.customer||'-')+'<div class="wh-muted">'+esc(r.job||'')+'</div></td><td>'+esc(r.status||'-')+'</td><td><button class="wh-btn" data-key="'+esc(r.source_key)+'">Detail</button></td></tr>').join('')||'<tr><td colspan="8">Belum ada pekerjaan.</td></tr>');
+ host.querySelector('#wh-table').innerHTML=table(['Nomor WH','SO','WO','Form MR','Teknisi','Customer / Pekerjaan','Status','Tindakan'],matches.map(r=>'<tr><td><b>'+esc(r.wh_number)+'</b></td><td>'+esc(r.so_number||'-')+'</td><td>'+esc(r.wo_number||'-')+'</td><td>'+esc(mrSummary(r))+'</td><td>'+esc(technicianSummary(r))+'</td><td>'+esc(r.customer||'-')+'<div class="wh-muted">'+esc(r.job||'')+'</div></td><td>'+esc(r.status||'-')+'</td><td><button class="wh-btn" data-key="'+esc(r.source_key)+'">Detail</button></td></tr>').join('')||'<tr><td colspan="8">Belum ada pekerjaan.</td></tr>');
  host.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>detail(b.dataset.key));
 }
 function detail(key){
@@ -262,10 +264,12 @@ async function renderUsage(){
    const dateValue=host.querySelector('#wh-used-date').value;
    const [saved,d]=await Promise.all([req('GET','daily-usage/drafts?date='+encodeURIComponent(dateValue)),req('GET','daily-usage?date='+encodeURIComponent(dateValue))]);
    docDest.innerHTML='<strong>Draft & Dokumen Harian</strong>'+
-    table(['Dokumen','SO / WO','Status','Revisi','Item','Aksi'],(saved.documents||[]).map(doc=>
-     '<tr><td>#'+esc(doc.id)+'</td><td>'+esc((work.find(r=>r.source_key===doc.source_key)||{}).so_number||doc.source_key)+'</td>'+
+    table(['Dokumen','SO / WO','Customer','Teknisi','Status','Revisi','Item','Aksi'],(saved.documents||[]).map(doc=>
+     '<tr><td>#'+esc(doc.id)+'</td><td>'+esc([((work.find(r=>r.source_key===doc.source_key)||{}).so_number),((work.find(r=>r.source_key===doc.source_key)||{}).wo_number)].filter(Boolean).join(' / ')||doc.source_key)+'</td>'+
+     '<td>'+esc((work.find(r=>r.source_key===doc.source_key)||{}).customer||'-')+'</td>'+
+     '<td>'+esc(technicianSummary(work.find(r=>r.source_key===doc.source_key)||{}))+'</td>'+
      '<td>'+esc(doc.status)+'</td><td>'+esc(doc.revision)+'</td><td>'+num((doc.lines||[]).length)+'</td>'+
-     '<td><button type="button" class="wh-btn" data-wh-doc="'+esc(doc.id)+'">'+(doc.status==='FINAL'?'Lihat':'Buka / Revisi')+'</button></td></tr>').join('')||'<tr><td colspan="6">Belum ada draft atau dokumen final hari ini.</td></tr>');
+     '<td><button type="button" class="wh-btn" data-wh-doc="'+esc(doc.id)+'">'+(doc.status==='FINAL'?'Lihat':'Buka / Revisi')+'</button></td></tr>').join('')||'<tr><td colspan="8">Belum ada draft atau dokumen final hari ini.</td></tr>');
    docDest.querySelectorAll('[data-wh-doc]').forEach(button=>button.onclick=()=>{
     const doc=(saved.documents||[]).find(d=>String(d.id)===button.dataset.whDoc);
     if(doc&&(!dirty||confirm('Perubahan yang belum disimpan akan hilang. Buka dokumen lain?')))openDocument(doc);
