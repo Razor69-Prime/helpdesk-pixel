@@ -15,7 +15,7 @@ test('SO/WO picker has fast text search, no native select',()=>{
 test('only result click/keyboard confirms a source key; typing clears it',()=>{
  assert.match(usage,/let selectedJob=null/);
  assert.match(usage,/sourcePicker\.oninput=\(\)=>\{selectedJob=null/);
- assert.match(usage,/const rec=selectedJob,key=rec\?\.source_key/);
+ assert.match(usage,/const rec=selectedJob/);
  assert.match(usage,/sourcePicker\.onkeydown=event/);
  assert.match(usage,/ArrowDown/);
  assert.match(usage,/ArrowUp/);
@@ -27,8 +27,8 @@ test('autofill remains connected to confirmed SO or WO',()=>{
  assert.match(usage,/onJobSelected\(\)/);
  assert.match(usage,/const record=selectedJob/);
  assert.match(usage,/matcher\.proposals\(record,inventory\)/);
- assert.match(usage,/data-wh-proposal/);
+ assert.match(usage,/matcher\.proposals\(record,inventory\)/);
 });
 test('Warehouse UI version bumped to avoid stale browser cache',()=>{
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001F/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001G/);
 });

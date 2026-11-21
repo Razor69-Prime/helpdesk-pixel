@@ -23,18 +23,18 @@ test('name appears before SKU and PROBUS badge appears on dynamic search results
  assert.match(ui,/materialLabel=item=>'<span class="wh-catalog-name">'/);
  assert.match(ui,/wh-catalog-meta/);assert.match(ui,/wh-probus/);
  assert.match(ui,/wh-catalog-option/);assert.match(ui,/item.name\+' '\+item.sku/);
- assert.match(ui,/data-wh-proposal/);
+ assert.match(ui,/draftLines.push/);
  assert.match(ui,/proposals\(record,inventory\)/);
 });
 test('SO and WO both accepted and daily usage does not auto-submit from suggestions',()=>{
  assert.match(ui,/r\.wo_number\|\|r\.so_number/);
- assert.match(server,/if\(!wh\?\.wo_number&&!wh\?\.so_number\)/);
- assert.match(ui,/Pilih SO \/ WO/);
- assert.match(ui,/Qty rencana bukan otomatis Qty USED/);
+ assert.match(server,/if\(!wh\?\.so_number&&!wh\?\.wo_number\)/);
+ assert.match(ui,/Pilih SO\/WO/);
+ assert.match(ui,/Qty rencana bukan Qty USED/);
  assert.match(ui,/picker\.getSelected\(\)/);
  assert.match(ui,/\['materials','Material per SO \/ WO'\]/) // ensure old tab is retained
 });
 test('matching helper loads before Warehouse UI and UI cache version changes',()=>{
  assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')>=0);
- assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001F'));
+ assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001G'));
 });

@@ -1718,11 +1718,52 @@ async function getWarehouseDailyUsage({month,date}={}){
   const page=await restFetch('GET','/warehouse_daily_usage?order=id.desc&limit=1000&offset='+offset+filter)||[];
   all.push(...page);if(page.length<1000)break;
  }
- return all;
+ const docs=await getWarehouseUsageDocuments({...({month,date}),status:'FINAL'});
+ return all.concat(require('./pxl-wh-0001g-draft').asUsedRows(docs));
 }
 async function insertWarehouseDailyUsage(data){
  if(!USE_POSTGREST)throw Error('Warehouse usage requires database migration');
  const rows=await restFetch('POST','/warehouse_daily_usage',data,{Prefer:'return=representation'});
+ return rows?.[0]||null;
+}
+// PXL-WH-0001G: one atomic PostgREST insert for all usage lines.
+async function insertWarehouseDailyUsageBatch(items){
+ if(!USE_POSTGREST)throw Error('Warehouse usage requires database migration');
+ if(!Array.isArray(items)||!items.length||items.length>100)throw Error('Jumlah baris material tidak valid');
+ const rows=await restFetch('POST','/warehouse_daily_usage',items,{Prefer:'return=representation'});
+ if(!Array.isArray(rows)||rows.length!==items.length)throw Error('Penyimpanan baris tidak lengkap');
+ return rows;
+}
+// PXL-WH-0001G — draft-first header with editable JSON lines; final is immutable.
+async function getWarehouseUsageDocuments({date,month,status}={}){
+ if(!USE_POSTGREST)throw Error('Warehouse draft requires database migration');
+ let filter='';
+ if(date)filter+='&usage_date=eq.'+encodeURIComponent(date);
+ else if(month)filter+='&usage_date=gte.'+encodeURIComponent(month+'-01')+'&usage_date=lt.'+encodeURIComponent(new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),1)).toISOString().slice(0,10));
+ if(status)filter+='&status=eq.'+encodeURIComponent(status);
+ const all=[];
+ for(let offset=0;;offset+=1000){
+  if(offset>=100000)throw Error('Too many Warehouse usage documents');
+  const page=await restFetch('GET','/warehouse_usage_documents?order=id.desc&limit=1000&offset='+offset+filter)||[];
+  all.push(...page);if(page.length<1000)break;
+ }
+ return all;
+}
+async function createWarehouseUsageDraft(payload){
+ if(!USE_POSTGREST)throw Error('Warehouse draft requires database migration');
+ const rows=await restFetch('POST','/warehouse_usage_documents',payload,{Prefer:'return=representation'});
+ return rows?.[0]||null;
+}
+async function updateWarehouseUsageDraft(id,revision,payload){
+ if(!USE_POSTGREST)throw Error('Warehouse draft requires database migration');
+ const query='/warehouse_usage_documents?id=eq.'+encodeURIComponent(id)+'&status=eq.DRAFT&revision=eq.'+encodeURIComponent(revision);
+ const rows=await restFetch('PATCH',query,{...payload,revision:revision+1,updated_at:new Date().toISOString()},{Prefer:'return=representation'});
+ return rows?.[0]||null;
+}
+async function finalizeWarehouseUsageDraft(id,revision,actor){
+ if(!USE_POSTGREST)throw Error('Warehouse draft requires database migration');
+ const query='/warehouse_usage_documents?id=eq.'+encodeURIComponent(id)+'&status=eq.DRAFT&revision=eq.'+encodeURIComponent(revision);
+ const rows=await restFetch('PATCH',query,{status:'FINAL',revision:revision+1,updated_at:new Date().toISOString(),finalized_at:new Date().toISOString(),finalized_by:actor},{Prefer:'return=representation'});
  return rows?.[0]||null;
 }
 // PXL-WH-0001 — isolated Warehouse metadata. No stock mutations.
@@ -1780,7 +1821,7 @@ async function insertWarehouseMrAudit(data){
 }
 
 module.exports = {
-  getWarehouseOfficialCatalog, getWarehouseDailyUsage, insertWarehouseDailyUsage, getWarehouseInventoryHistoryItems, getWarehouseSourceData, getWarehouseMonitorRecords, createWarehouseMonitorRecords, updateWarehouseMonitorRecord, getWarehouseStockChecks, insertWarehouseStockCheck,
+  getWarehouseUsageDocuments, createWarehouseUsageDraft, updateWarehouseUsageDraft, finalizeWarehouseUsageDraft, getWarehouseOfficialCatalog, getWarehouseDailyUsage, insertWarehouseDailyUsage, insertWarehouseDailyUsageBatch, getWarehouseInventoryHistoryItems, getWarehouseSourceData, getWarehouseMonitorRecords, createWarehouseMonitorRecords, updateWarehouseMonitorRecord, getWarehouseStockChecks, insertWarehouseStockCheck,
   getWarehouseMrAudit, insertWarehouseMrAudit,
   USE_POSTGREST,
   USE_SUPABASE: USE_POSTGREST,

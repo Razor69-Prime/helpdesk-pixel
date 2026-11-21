@@ -5,7 +5,7 @@ const api=read('server.js'),db=read('db-core.js'),ui=read('public/pxl-urg-0116b-
 const reminder=require('../pxl-urg-0116a-warehouse-reminder');
 test('warehouse UI uses one separate internal menu and is hidden from technicians',()=>{
  assert.match(html,/id="tab-warehouse_mr"/);assert.match(html,/id:'warehouse_mr',label:'📦 Warehouse Monitoring'/);
- assert.match(html,/role!=='technician'&&role!=='technisi'/);
+ assert.match(html,/warehouseConfigured/);assert.match(html,/customMenus\.includes\('warehouse_view'\)/);
  assert.match(html,/if\(tab==='warehouse_mr'&&window.pxlWarehouseMr\)/);
  assert.match(ui,/if\(\['technician','technisi'\].includes\(role\)\)return false/);
  assert.ok(!html.includes('warehouse_mr</script>'));

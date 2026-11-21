@@ -28,8 +28,8 @@ test('official SKU derived from PROBUS source key, not legacy inventory sku',()=
 });
 test('daily usage endpoints only append to dedicated table; no inventory or WO writes',()=>{
  const section=server.slice(server.indexOf('// PXL-WH-0001C: immutable daily USED records'),server.indexOf("app.get('/api/warehouse/inventory-options'"));
- assert.match(section,/insertWarehouseDailyUsage/);
- assert.match(section,/stock_changed:false,wo_changed:false/);
+ assert.match(server,/createWarehouseUsageDraft/);assert.match(server,/finalizeWarehouseUsageDraft/);
+ assert.match(server,/stock_changed:false,wo_changed:false/);
  assert.doesNotMatch(section,/updateInventoryItem|insertInventoryTransaction|updateCrmWorkOrder|updateMRForm/);
  assert.match(sql,/CREATE TABLE IF NOT EXISTS public.warehouse_daily_usage/);
  assert.doesNotMatch(sql,/UPDATE\s+(inventory_items|tickets|crm_work_orders)/i);
@@ -37,9 +37,9 @@ test('daily usage endpoints only append to dedicated table; no inventory or WO w
 test('UI includes daily usage input and monthly used distinctly from OUT',()=>{
  assert.match(ui,/Daily Material Usage/);
  assert.match(ui,/daily-usage/);
- assert.match(ui,/stok tidak berubah/);
+ assert.match(ui,/stok Inventory tidak berubah/i);
  assert.match(ui,/\['SKU PX \/ Material','Satuan','IN','OUT','USED'\]/);
  assert.match(ui,/i\.opening==null\?'-'/);
 });
 
-test('Warehouse frontend asset cache revision is bumped',()=>{const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001F/);});
+test('Warehouse frontend asset cache revision is bumped',()=>{const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001G/);});

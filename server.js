@@ -2505,12 +2505,13 @@ app.get('/api/warehouse/monitor',requireAuth,async(req,res)=>{
    row.manual_items=entry.manual_items||[];row.note=entry.note||'';
   }
   res.set('Cache-Control','no-store');
-  res.json({rows});
+  res.json({rows,permissions:require('./pxl-wh-0001g-permissions').flags(req.session?.user)});
  }catch(e){console.error('Warehouse monitor error:',e.message);res.status(503).json({error:'Monitoring Warehouse belum siap: '+e.message});}
 });
 app.patch('/api/warehouse/monitor/:id',requireAuth,async(req,res)=>{
  const auth=require('./pxl-urg-0116a-warehouse-reminder');
  if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ if(!require('./pxl-wh-0001g-permissions').can(req.session?.user,'warehouse_material_manage'))return res.status(403).json({error:'Izin Warehouse belum diberikan.'});
  const items=req.body?.manual_items,note=String(req.body?.note||'');
  if(!Number.isSafeInteger(Number(req.params.id))||Number(req.params.id)<1)return res.status(400).json({error:'Nomor Warehouse tidak valid'});
  if(!Array.isArray(items)||items.length>200||note.length>1000)return res.status(400).json({error:'Daftar item atau catatan tidak valid'});
@@ -2537,6 +2538,7 @@ app.get('/api/warehouse/stock-checks',requireAuth,async(req,res)=>{
 app.post('/api/warehouse/stock-checks',requireAuth,async(req,res)=>{
  const auth=require('./pxl-urg-0116a-warehouse-reminder');
  if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ if(!require('./pxl-wh-0001g-permissions').can(req.session?.user,'warehouse_stock_verify'))return res.status(403).json({error:'Izin Warehouse belum diberikan.'});
  const qty=Number(req.body?.physical_qty),note=String(req.body?.note||'').trim();
  if(!Number.isFinite(qty)||qty<0||qty>100000000||note.length>1000)return res.status(400).json({error:'Jumlah fisik atau catatan tidak valid'});
  try{
@@ -2546,6 +2548,73 @@ app.post('/api/warehouse/stock-checks',requireAuth,async(req,res)=>{
   const row=await db.insertWarehouseStockCheck({inventory_item_id:String(master.id),sku:master.sku,item_name:master.name,system_qty:Number(master.stock)||0,physical_qty:qty,actor_name:String(req.session.user.name||''),note});
   res.status(201).json({row,stock_changed:false});
  }catch(e){res.status(503).json({error:'Pencatatan verifikasi gagal: '+e.message});}
+});
+// PXL-WH-0001G — drafts are editable; only FINAL documents feed USED reports.
+app.get('/api/warehouse/daily-usage/drafts',requireAuth,async(req,res)=>{
+ const permission=require('./pxl-wh-0001g-permissions');
+ if(!permission.can(req.session?.user,'warehouse_view'))return res.status(403).json({error:'Forbidden'});
+ const date=String(req.query.date||''),month=String(req.query.month||'');
+ const ledger=require('./pxl-urg-0116c-stock-ledger');
+ if(date&&!ledger.validDate(date))return res.status(400).json({error:'Tanggal tidak valid'});
+ if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return res.status(400).json({error:'Bulan tidak valid'});
+ if(!date&&!month)return res.status(400).json({error:'Pilih tanggal atau bulan'});
+ try{res.set('Cache-Control','no-store');res.json({documents:await db.getWarehouseUsageDocuments(date?{date}:{month})});}
+ catch(e){res.status(503).json({error:'Dokumen Warehouse belum tersedia: '+e.message});}
+});
+app.post('/api/warehouse/daily-usage/drafts',requireAuth,async(req,res)=>{
+ const permission=require('./pxl-wh-0001g-permissions');
+ if(!permission.can(req.session?.user,'warehouse_usage_write'))return res.status(403).json({error:'Izin Input Daily Material Usage belum diberikan'});
+ const body=req.body||{},date=String(body.usage_date||'');
+ const ledger=require('./pxl-urg-0116c-stock-ledger');
+ if(!ledger.validDate(date)||date>ledger.localDate(new Date().toISOString()))return res.status(400).json({error:'Tanggal tidak valid'});
+ try{
+  const [records,catalog,sources]=await Promise.all([db.getWarehouseMonitorRecords(),db.getWarehouseOfficialCatalog(),db.getWarehouseSourceData()]);
+  const record=records.find(x=>Number(x.id)===Number(body.warehouse_id)&&x.source_key===String(body.source_key||''));
+  if(!record)return res.status(400).json({error:'Pilih nomor SO/WO yang valid'});
+  const wh=require('./pxl-wh-0001-monitor').build(sources).find(x=>x.source_key===record.source_key);
+  if(!wh?.so_number&&!wh?.wo_number)return res.status(400).json({error:'SO/WO sumber tidak ditemukan'});
+  const lines=require('./pxl-wh-0001g-draft').normalizeLines(body.items,catalog);
+  const actor=String(req.session.user.name||req.session.user.username||'Warehouse');
+  const doc=await db.createWarehouseUsageDraft({warehouse_id:record.id,source_key:record.source_key,usage_date:date,lines,status:'DRAFT',created_by:actor,updated_by:actor});
+  if(!doc)throw Error('Draft tidak dapat disimpan');
+  res.status(201).json({ok:true,document:doc,stock_changed:false});
+ }catch(e){res.status(400).json({error:e.message});}
+});
+app.put('/api/warehouse/daily-usage/drafts/:id',requireAuth,async(req,res)=>{
+ const permission=require('./pxl-wh-0001g-permissions');
+ if(!permission.can(req.session?.user,'warehouse_usage_write'))return res.status(403).json({error:'Izin Input Daily Material Usage belum diberikan'});
+ const id=Number(req.params.id),rev=Number(req.body?.revision);
+ if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(rev)||rev<1)return res.status(400).json({error:'ID/revisi draft tidak valid'});
+ try{
+  const [docs,catalog]=await Promise.all([db.getWarehouseUsageDocuments({}),db.getWarehouseOfficialCatalog()]);
+  const doc=docs.find(x=>Number(x.id)===id);
+  if(!doc)return res.status(404).json({error:'Draft tidak ditemukan'});
+  if(doc.status!=='DRAFT')return res.status(409).json({error:'Dokumen final tidak dapat diedit'});
+  const newDate=String(req.body?.usage_date||doc.usage_date);
+  const ledger=require('./pxl-urg-0116c-stock-ledger');
+  if(!ledger.validDate(newDate)||newDate>ledger.localDate(new Date().toISOString()))return res.status(400).json({error:'Tanggal revisi tidak valid'});
+  const lines=require('./pxl-wh-0001g-draft').normalizeLines(req.body?.items,catalog);
+  const result=await db.updateWarehouseUsageDraft(id,rev,{lines,usage_date:newDate,updated_by:String(req.session.user.name||req.session.user.username||'Warehouse')});
+  if(!result)return res.status(409).json({error:'Draft sudah berubah di sesi lain. Muat ulang terlebih dahulu'});
+  res.json({ok:true,document:result,stock_changed:false});
+ }catch(e){res.status(400).json({error:e.message});}
+});
+app.post('/api/warehouse/daily-usage/drafts/:id/finalize',requireAuth,async(req,res)=>{
+ const permission=require('./pxl-wh-0001g-permissions');
+ if(!permission.can(req.session?.user,'warehouse_usage_write'))return res.status(403).json({error:'Izin Input Daily Material Usage belum diberikan'});
+ const id=Number(req.params.id),rev=Number(req.body?.revision);
+ if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(rev)||rev<1)return res.status(400).json({error:'ID/revisi tidak valid'});
+ try{
+  const [docs,catalog]=await Promise.all([db.getWarehouseUsageDocuments({}),db.getWarehouseOfficialCatalog()]);
+  const doc=docs.find(x=>Number(x.id)===id);
+  if(!doc)return res.status(404).json({error:'Draft tidak ditemukan'});
+  if(doc.status!=='DRAFT')return res.status(409).json({error:'Dokumen sudah FINAL'});
+  require('./pxl-wh-0001g-draft').normalizeLines(doc.lines,catalog,{final:true});
+  const actor=String(req.session.user.name||req.session.user.username||'Warehouse');
+  const result=await db.finalizeWarehouseUsageDraft(id,rev,actor);
+  if(!result)return res.status(409).json({error:'Draft sudah berubah. Refresh sebelum finalisasi'});
+  res.json({ok:true,document:result,stock_changed:false,wo_changed:false});
+ }catch(e){res.status(400).json({error:e.message});}
 });
 // PXL-WH-0001C: immutable daily USED records, separate from Inventory OUT/stock.
 app.get('/api/warehouse/daily-usage',requireAuth,async(req,res)=>{
@@ -2559,29 +2628,11 @@ app.get('/api/warehouse/daily-usage',requireAuth,async(req,res)=>{
  catch(e){res.status(503).json({error:'Daily Usage belum tersedia: '+e.message});}
 });
 app.post('/api/warehouse/daily-usage',requireAuth,async(req,res)=>{
- const auth=require('./pxl-urg-0116a-warehouse-reminder');
- if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
- const usageDate=String(req.body?.usage_date||''),sourceKey=String(req.body?.source_key||'');
- const sku=String(req.body?.sku||''),qty=Number(req.body?.qty_used),note=String(req.body?.note||'').trim();
- const ledger=require('./pxl-urg-0116c-stock-ledger');
- if(!ledger.validDate(usageDate)||usageDate>ledger.localDate(new Date().toISOString()))return res.status(400).json({error:'Tanggal harus valid dan tidak boleh di masa depan'});
- if(!/^PX-[A-Z0-9-]{3,80}$/.test(sku)||!Number.isFinite(qty)||qty<=0||qty>1000000||note.length>1000)return res.status(400).json({error:'SKU PX, jumlah atau catatan tidak valid'});
- try{
-  const [records,catalog,sources]=await Promise.all([db.getWarehouseMonitorRecords(),db.getWarehouseOfficialCatalog(),db.getWarehouseSourceData()]);
-  const record=records.find(x=>x.source_key===sourceKey&&Number(x.id)===Number(req.body?.warehouse_id));
-  if(!record)return res.status(404).json({error:'Nomor Warehouse tidak valid'});
-  const wh=require('./pxl-wh-0001-monitor').build(sources).find(x=>x.source_key===sourceKey);
-  if(!wh?.wo_number&&!wh?.so_number)return res.status(400).json({error:'Pilih pekerjaan yang memiliki nomor SO atau WO untuk mencatat USED'});
-  const item=catalog.find(i=>i.sku===sku);
-  if(!item)return res.status(400).json({error:'SKU tidak ditemukan dalam katalog PROBUS resmi'});
-  const row=await db.insertWarehouseDailyUsage({
-   usage_date:usageDate,warehouse_id:record.id,source_key:sourceKey,
-   inventory_item_id:item.id?String(item.id):null,sku:item.sku,item_name:item.name,unit:item.unit,
-   qty_used:qty,note,actor_name:String(req.session.user.name||req.session.user.username||'Petugas Warehouse')
-  });
-  if(!row)throw Error('Pencatatan tidak menghasilkan record');
-  res.status(201).json({row,stock_changed:false,wo_changed:false});
- }catch(e){console.error('Warehouse daily usage failed:',e.message);res.status(503).json({error:'Gagal mencatat pemakaian: '+e.message});}
+ return res.status(410).json({error:'Gunakan Simpan Draft dari tampilan Warehouse terbaru.'});
+});
+// PXL-WH-0001G: validate ALL rows first, then single atomic append-only insert.
+app.post('/api/warehouse/daily-usage/batch',requireAuth,async(req,res)=>{
+ return res.status(410).json({error:'Gunakan Simpan Draft dari tampilan Warehouse terbaru.'});
 });
 app.get('/api/warehouse/inventory-options',requireAuth,async(req,res)=>{
  const auth=require('./pxl-urg-0116a-warehouse-reminder');
@@ -2645,6 +2696,7 @@ app.get('/api/warehouse/mr-review',requireAuth,async(req,res)=>{
 app.post('/api/warehouse/mr-review/:source/:id/inspection',requireAuth,async(req,res)=>{
   const mod=require('./pxl-urg-0116a-warehouse-reminder');
   if(!mod.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ if(!require('./pxl-wh-0001g-permissions').can(req.session?.user,'warehouse_stock_verify'))return res.status(403).json({error:'Izin Warehouse belum diberikan.'});
   const source=String(req.params.source||'');
   if(!['mr_form','crm_mr'].includes(source))return res.status(400).json({error:'Sumber MR tidak valid'});
   const outcome=String(req.body?.outcome||'');

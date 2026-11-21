@@ -1,12 +1,7 @@
 'use strict';
 // PXL-URG-0116A — read-only warehouse follow-up; never blocks technician WO closing.
 const norm=v=>String(v??'').trim().toLowerCase();
-const canView=user=>{
-  const role=norm(user?.role).replace(/[\s_-]/g,'');
-  if(['technician','technisi'].includes(role))return false;
-  return ['superadmin','manager','admin','warehouseadmin','warehouse'].includes(role)
-    || (Array.isArray(user?.custom_menus)&&user.custom_menus.includes('material_return_verify'));
-};
+const canView=user=>require('./pxl-wh-0001g-permissions').can(user,'warehouse_view');
 const resolved=row=>{
   const warehouse=norm(row?.warehouse_status);
   if(warehouse)return warehouse==='verified';
