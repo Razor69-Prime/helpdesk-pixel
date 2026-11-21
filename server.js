@@ -2467,6 +2467,105 @@ app.get('/api/material-requests', requireRole('superadmin','accounting','manager
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// PXL-WH-0001 — Warehouse-only endpoints; no changes to SO/WO/MR/Inventory.
+app.get('/api/warehouse/monitor',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ try{
+  const sources=await db.getWarehouseSourceData();
+  const model=require('./pxl-wh-0001-monitor');
+  const rows=model.build(sources);
+  let saved;
+  try{saved=await db.getWarehouseMonitorRecords();}
+  catch(e){return res.status(503).json({error:'Migration PXL-WH-0001 belum tersedia. Tidak ada data sumber yang diubah.'});}
+  const byKey=new Map(saved.map(x=>[x.source_key,x]));
+  const missing=rows.filter(r=>!byKey.has(r.source_key)).map(r=>r.source_key);
+  if(missing.length){
+   const created=await db.createWarehouseMonitorRecords(missing);
+   for(const entry of created)byKey.set(entry.source_key,entry);
+  }
+  if(rows.some(r=>!byKey.has(r.source_key))){
+   saved=await db.getWarehouseMonitorRecords();
+   for(const entry of saved)byKey.set(entry.source_key,entry);
+  }
+  for(const row of rows){
+   const entry=byKey.get(row.source_key);
+   if(!entry)throw Error('Nomor Warehouse belum dapat dibuat');
+   const year=String(entry.created_at||'').slice(0,4)||String(new Date().getFullYear());
+   row.wh_id=entry.id;row.wh_number='WH-'+year+'-'+String(entry.id).padStart(4,'0');
+   row.manual_items=entry.manual_items||[];row.note=entry.note||'';
+  }
+  res.set('Cache-Control','no-store');
+  res.json({rows});
+ }catch(e){console.error('Warehouse monitor error:',e.message);res.status(503).json({error:'Monitoring Warehouse belum siap: '+e.message});}
+});
+app.patch('/api/warehouse/monitor/:id',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ const items=req.body?.manual_items,note=String(req.body?.note||'');
+ if(!Number.isSafeInteger(Number(req.params.id))||Number(req.params.id)<1)return res.status(400).json({error:'Nomor Warehouse tidak valid'});
+ if(!Array.isArray(items)||items.length>200||note.length>1000)return res.status(400).json({error:'Daftar item atau catatan tidak valid'});
+ try{
+  const inventory=await db.getInventoryItems(),byId=new Map(inventory.map(i=>[String(i.id),i]));
+  const normalized=[];
+  for(const item of items){
+   const master=byId.get(String(item.inventory_item_id||''));
+   const qty=Number(item.qty);
+   if(!master||!Number.isFinite(qty)||qty<=0||qty>1000000)return res.status(400).json({error:'Item manual harus dipilih dari master Inventory aktif dengan quantity valid'});
+   normalized.push({inventory_item_id:master.id,sku:master.sku||'',name:master.name,unit:master.unit||'pcs',qty,source:'MANUAL'});
+  }
+  const entry=await db.updateWarehouseMonitorRecord(Number(req.params.id),{manual_items:normalized,note});
+  if(!entry)return res.status(404).json({error:'Nomor Warehouse tidak ditemukan'});
+  res.json({ok:true,entry,stock_changed:false,source_changed:false});
+ }catch(e){res.status(503).json({error:'Gagal menyimpan metadata Warehouse: '+e.message});}
+});
+app.get('/api/warehouse/stock-checks',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ try{res.set('Cache-Control','no-store');res.json({rows:await db.getWarehouseStockChecks()});}
+ catch(e){res.status(503).json({error:'Audit stok fisik belum tersedia: '+e.message});}
+});
+app.post('/api/warehouse/stock-checks',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ const qty=Number(req.body?.physical_qty),note=String(req.body?.note||'').trim();
+ if(!Number.isFinite(qty)||qty<0||qty>100000000||note.length>1000)return res.status(400).json({error:'Jumlah fisik atau catatan tidak valid'});
+ try{
+  const items=await db.getInventoryItems();
+  const master=items.find(i=>String(i.id)===String(req.body?.inventory_item_id||''));
+  if(!master)return res.status(404).json({error:'SKU tidak ada di Inventory aktif'});
+  const row=await db.insertWarehouseStockCheck({inventory_item_id:String(master.id),sku:String(master.sku||''),item_name:String(master.name||''),system_qty:Number(master.stock)||0,physical_qty:qty,actor_name:String(req.session.user.name||''),note});
+  res.status(201).json({row,stock_changed:false});
+ }catch(e){res.status(503).json({error:'Pencatatan verifikasi gagal: '+e.message});}
+});
+app.get('/api/warehouse/inventory-options',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ try{const items=await db.getInventoryItems();res.json({items:items.map(i=>({id:i.id,sku:i.sku||'',name:i.name,unit:i.unit||'pcs'}))});}
+ catch(e){res.status(503).json({error:'Master Inventory tidak tersedia'});}
+});
+app.get('/api/warehouse/monthly-out',requireAuth,async(req,res)=>{
+ const auth=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!auth.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ const month=String(req.query.month||'');
+ if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return res.status(400).json({error:'Periode harus YYYY-MM'});
+ try{
+  const ledger=require('./pxl-urg-0116c-stock-ledger');
+  const [items,history]=await Promise.all([db.getWarehouseInventoryHistoryItems(),db.getInventoryLedgerHistory()]);
+  const sums=new Map();
+  for(const tx of history){
+   if(!tx.created_at||ledger.localDate(tx.created_at).slice(0,7)!==month)continue;
+   const key=String(tx.item_id),s=sums.get(key)||{incoming:0,outgoing:0};
+   const q=Number(tx.qty);
+   if(!Number.isFinite(q))throw Error('Transaksi Inventory invalid');
+   if(q<0)s.outgoing+=-q;else s.incoming+=q;
+   sums.set(key,s);
+  }
+  res.set('Cache-Control','no-store');
+  res.json({month,items:items.map(i=>({sku:i.sku,name:i.name,unit:i.unit,stock:i.stock,...(sums.get(String(i.id))||{incoming:0,outgoing:0})})),note:'OUT bulanan merupakan mutasi keluar, bukan otomatis pemakaian aktual.'});
+ }catch(e){res.status(503).json({error:'Rekap Inventory belum tersedia: '+e.message});}
+});
+
 // PXL-URG-0116C — read-only historical stock IN/OUT and opening/closing by WITA date.
 app.get('/api/warehouse/stock-ledger',requireAuth,async(req,res)=>{
   const reminder=require('./pxl-urg-0116a-warehouse-reminder');

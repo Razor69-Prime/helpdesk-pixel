@@ -1659,6 +1659,72 @@ async function getAttendanceHistory(recordId){if(USE_POSTGREST)return await rest
 
 
 // PXL-URG-0116B — separate warehouse inspection audit; does not mutate Inventory or MR status.
+// Warehouse fetches all history via bounded pages; no status/date filters.
+async function getWarehouseInventoryHistoryItems(){
+ if(!USE_POSTGREST)return await getInventoryItems();
+ const rows=[];
+ for(let offset=0;;offset+=1000){
+  if(offset>=100000)throw Error('Warehouse inventory too large');
+  const page=await restFetch('GET','/inventory_items?order=id.asc&limit=1000&offset='+offset)||[];
+  rows.push(...page);if(page.length<1000)break;
+ }
+ return rows;
+}
+async function getWarehouseSourceData(){
+ if(!USE_POSTGREST)return {
+  salesOrders:await getSalesOrders(),tickets:await getTickets(null,true),workOrders:await getCrmWorkOrders(),
+  mrForms:await getMRForms(),crmRequests:await getCrmMaterialRequests()
+ };
+ const names={salesOrders:'sales_orders',tickets:'tickets',workOrders:'crm_work_orders',mrForms:'material_request_forms',crmRequests:'crm_material_requests'};
+ const out={};
+ for(const [key,table] of Object.entries(names)){
+  const result=[];
+  for(let offset=0;;offset+=1000){
+   if(offset>=100000)throw Error('Warehouse dataset too large: '+table);
+   const page=await restFetch('GET','/'+table+'?order=id.asc&limit=1000&offset='+offset)||[];
+   result.push(...page);
+   if(page.length<1000)break;
+  }
+  out[key]=result;
+ }
+ return out;
+}
+// PXL-WH-0001 — isolated Warehouse metadata. No stock mutations.
+async function getWarehouseMonitorRecords(){
+ if(!USE_POSTGREST)throw Error('Warehouse monitoring needs database migration');
+ const rows=[];
+ for(let offset=0;;offset+=1000){
+  if(offset>=100000)throw Error('Warehouse monitoring metadata too large');
+  const page=await restFetch('GET','/warehouse_monitor_records?order=id.asc&limit=1000&offset='+offset)||[];
+  rows.push(...page);if(page.length<1000)break;
+ }
+ return rows;
+}
+async function createWarehouseMonitorRecords(sourceKeys){
+ if(!USE_POSTGREST)throw Error('Warehouse monitoring needs database migration');
+ if(!Array.isArray(sourceKeys)||!sourceKeys.length)return [];
+ const all=[];
+ for(let i=0;i<sourceKeys.length;i+=200){
+  const batch=sourceKeys.slice(i,i+200).map(source_key=>({source_key}));
+  const rows=await restFetch('POST','/warehouse_monitor_records?on_conflict=source_key',batch,{Prefer:'resolution=ignore-duplicates,return=representation'});
+  all.push(...(rows||[]));
+ }
+ return all;
+}
+async function updateWarehouseMonitorRecord(id,fields){
+ if(!USE_POSTGREST)throw Error('Warehouse monitoring needs database migration');
+ const rows=await restFetch('PATCH','/warehouse_monitor_records?id=eq.'+encodeURIComponent(id),{...fields,updated_at:new Date().toISOString()},{Prefer:'return=representation'});
+ return rows?.[0]||null;
+}
+async function getWarehouseStockChecks(){
+ if(!USE_POSTGREST)throw Error('Warehouse migration required');
+ return await restFetch('GET','/warehouse_stock_checks?order=created_at.desc&limit=300')||[];
+}
+async function insertWarehouseStockCheck(data){
+ if(!USE_POSTGREST)throw Error('Warehouse migration required');
+ const rows=await restFetch('POST','/warehouse_stock_checks',data,{Prefer:'return=representation'});
+ return rows?.[0]||data;
+}
 async function getWarehouseMrAudit(){
   if(!USE_POSTGREST)return Object.assign([],{unavailable:true});
   try{return await restFetch('GET','/warehouse_mr_inspection_audit?order=created_at.desc&limit=500')||[];}
@@ -1678,6 +1744,7 @@ async function insertWarehouseMrAudit(data){
 }
 
 module.exports = {
+  getWarehouseInventoryHistoryItems, getWarehouseSourceData, getWarehouseMonitorRecords, createWarehouseMonitorRecords, updateWarehouseMonitorRecord, getWarehouseStockChecks, insertWarehouseStockCheck,
   getWarehouseMrAudit, insertWarehouseMrAudit,
   USE_POSTGREST,
   USE_SUPABASE: USE_POSTGREST,

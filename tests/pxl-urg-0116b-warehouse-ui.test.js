@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..');const read=p=>fs.readFileSync(path.join(
 const api=read('server.js'),db=read('db-core.js'),ui=read('public/pxl-urg-0116b-warehouse-ui.js'),html=read('public/index.html'),sql=read('PXL-URG-0116B-MIGRATION.sql');
 const reminder=require('../pxl-urg-0116a-warehouse-reminder');
 test('warehouse UI uses one separate internal menu and is hidden from technicians',()=>{
- assert.match(html,/id="tab-warehouse_mr"/);assert.match(html,/id:'warehouse_mr',label:'📋 Verifikasi MR Gudang'/);
+ assert.match(html,/id="tab-warehouse_mr"/);assert.match(html,/id:'warehouse_mr',label:'📦 Warehouse Monitoring'/);
  assert.match(html,/role!=='technician'&&role!=='technisi'/);
  assert.match(html,/if\(tab==='warehouse_mr'&&window.pxlWarehouseMr\)/);
  assert.match(ui,/if\(\['technician','technisi'\].includes\(role\)\)return false/);
