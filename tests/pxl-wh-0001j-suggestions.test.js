@@ -57,6 +57,6 @@ test('Warehouse UI requires explicit candidate button click before adding to uns
 });
 test('static candidate script and updated Warehouse UI version are deployed together',()=>{
  assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001J')>0);
- assert.ok(html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001J')>0);
+ assert.ok(html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001K')>0);
  assert.ok(html.indexOf('pxl-wh-0001d-matching.js')<html.indexOf('pxl-wh-0001-ui.js'));
 });

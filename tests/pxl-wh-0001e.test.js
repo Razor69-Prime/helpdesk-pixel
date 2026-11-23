@@ -30,5 +30,5 @@ test('autofill remains connected to confirmed SO or WO',()=>{
  assert.match(usage,/matcher\.proposals\(record,inventory\)/);
 });
 test('Warehouse UI version bumped to avoid stale browser cache',()=>{
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001J/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001K/);
 });

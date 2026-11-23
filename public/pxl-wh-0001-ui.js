@@ -160,7 +160,7 @@ async function renderUsage(){
  const work=rows.filter(r=>(r.wo_number||r.so_number)&&r.wh_id);
  let selectedJob=null,draftLines=[],activeOption=0,editingDoc=null,dirty=false;
  const allowWrite=whCan('warehouse_usage_write');
- host.innerHTML='<div class="wh-box"><strong>Input Pemakaian Material Harian (USED)</strong>'+
+ host.innerHTML='<div class="wh-box" id="wh-used-editor"><strong>Input Pemakaian Material Harian (USED)</strong>'+
  '<p class="wh-muted">Format seperti item Sales Order: pilih SO/WO, tinjau material otomatis, isi Qty USED pada beberapa baris, lalu Simpan Draft sekali untuk seluruh baris. Draft bisa direvisi sebelum Finalisasi. Stok Inventory tidak berubah.</p>'+
  '<div class="wh-tools"><input class="wh-input" type="date" id="wh-used-date" value="'+esc(date)+'" aria-label="Tanggal pemakaian">'+
  '<div class="wh-catalog wh-job-search"><input id="wh-used-wo" type="search" class="wh-input wh-catalog-input" autocomplete="off" placeholder="Cari nomor SO / WO, customer atau pekerjaan..." aria-label="Fast searching SO atau WO" aria-autocomplete="list" aria-expanded="false" aria-controls="wh-used-wo-results"><div id="wh-used-wo-results" class="wh-catalog-results" role="listbox" hidden></div></div></div>'+
@@ -179,7 +179,7 @@ async function renderUsage(){
  const updateDocumentStatus=()=>{
   const dest=host.querySelector('#wh-used-document-status');
   if(!dest)return;
-  dest.textContent=editingDoc ? ('Dokumen #'+editingDoc.id+' · '+editingDoc.status+' · Revisi '+editingDoc.revision+(dirty?' · Belum disimpan':'')) : 'Draft baru · belum disimpan';
+  dest.textContent=editingDoc ? ('Sedang '+(editingDoc.status==='FINAL'?'melihat FINAL':'mengedit DRAFT')+' #'+editingDoc.id+' · Revisi '+editingDoc.revision+(dirty?' · Perubahan belum disimpan':'')) : 'Draft baru · belum disimpan';
   const locked=editingDoc?.status==='FINAL';
   host.querySelector('#wh-used-save').disabled=!allowWrite||locked;
   host.querySelector('#wh-used-finalize').disabled=!allowWrite||locked||!editingDoc||dirty;
@@ -303,7 +303,11 @@ async function renderUsage(){
  const openDocument=doc=>{
   const rec=work.find(r=>r.source_key===doc.source_key&&String(r.wh_id)===String(doc.warehouse_id));
   if(!rec){msg.textContent='SO/WO dokumen tidak lagi tersedia.';return;}
-  selectJob(rec);
+  // Restore from the persisted document directly; do not run new-job autofill or
+  // trigger a second unsaved-changes confirmation while opening an existing draft.
+  selectedJob=rec;
+  sourcePicker.value=jobLabel(rec)+' · '+(rec.customer||rec.job||'');
+  closeJobResults();picker.clear();
   editingDoc=doc;dirty=false;
   host.querySelector('#wh-used-date').value=doc.usage_date;
   draftLines=(doc.lines||[]).map(line=>{
@@ -312,7 +316,15 @@ async function renderUsage(){
    return {item,planned_qty:line.planned_qty||0,source:line.source||'DRAFT',rawQty:line.qty_used==null?'':String(line.qty_used),note:line.note||''};
   });
   drawLines();updateDocumentStatus();
-  msg.textContent=doc.status==='FINAL'?'Dokumen sudah final dan tidak dapat diedit.':'Draft dimuat, silakan revisi lalu Simpan Draft kembali.';
+  auto.innerHTML='<p><b>'+esc(rec.so_number||rec.wo_number||rec.wh_number)+'</b> · '+esc(rec.customer||'-')+' · '+esc(technicianSummary(rec))+'</p>'+
+   '<p>'+draftLines.length+' material dipulihkan dari dokumen #'+esc(doc.id)+'. Tidak ada data yang disimpan otomatis.</p>';
+  msg.textContent=doc.status==='FINAL'?'Dokumen FINAL #'+doc.id+' dibuka untuk dilihat dan tidak dapat diedit.':'Draft #'+doc.id+' berhasil dibuka. Silakan periksa Qty/material, kemudian Simpan Semua sebagai Draft.';
+  const editor=host.querySelector('#wh-used-editor');
+  if(editor){
+   editor.scrollIntoView({behavior:'smooth',block:'start'});
+   host.querySelector('#wh-used-document-status')?.setAttribute('tabindex','-1');
+   host.querySelector('#wh-used-document-status')?.focus({preventScroll:true});
+  }
  };
  const load=async()=>{
   const dest=host.querySelector('#wh-used-history');

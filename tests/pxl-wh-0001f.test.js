@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const ui=fs.readFileSync(path.join(root,'public/pxl-wh-0001-ui.js'),'utf8');
 test('autofill matcher is actually within public static directory',()=>{
- const scripts=[...html.matchAll(/<script src="(\/pxl-wh-[^"]+\.js)\?v=PXL-WH-0001[FGHIJ]"/g)].map(x=>x[1]);
+ const scripts=[...html.matchAll(/<script src="(\/pxl-wh-[^"]+\.js)\?v=PXL-WH-0001[FGHIJK]"/g)].map(x=>x[1]);
  assert.ok(scripts.includes('/pxl-wh-0001d-matching.js'));
  assert.ok(scripts.includes('/pxl-wh-0001-ui.js'));
  for(const script of scripts)assert.ok(fs.existsSync(path.join(root,'public',script.slice(1))),script+' missing in public');

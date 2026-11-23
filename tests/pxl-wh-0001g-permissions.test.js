@@ -48,5 +48,5 @@ test('backend controls Warehouse writes in addition to visibility',()=>{
  assert.match(ui,/whCan\('warehouse_stock_verify'\)/);
 });
 test('Warehouse browser cache refreshed for permission UI',()=>{
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001J/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001K/);
 });
