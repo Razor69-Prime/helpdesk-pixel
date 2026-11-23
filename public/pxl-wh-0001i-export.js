@@ -67,6 +67,17 @@
    'Keterangan':safe(i.warning)
   }))}];
  }
+ function weekly(data){
+  return [{name:'Weekly Stock',rows:(data.items||[]).map(i=>({
+   'Awal Minggu':str(data.week_start),'Akhir Minggu':str(data.week_end),
+   'Data Sampai':str(data.through_date),'Nama Material':safe(i.name),'SKU PX':safe(i.sku),
+   'Satuan':safe(i.unit),'Beginning':qty(i.opening),'IN':qty(i.incoming),
+   'OUT':qty(i.outgoing),'Ending':qty(i.closing),
+   'Pergerakan':i.moved?'Ada pergerakan':'Tidak ada',
+   'Status':i.quality==='invalid_balance'?'Perlu rekonsiliasi':i.quality==='balance_mismatch'?'Saldo tidak cocok':safe(i.quality),
+   'Keterangan':safe(i.warning)
+  }))}];
+ }
  function monthly(data){
   return [{name:'Monthly OUT',rows:(data.items||[]).map(i=>({
    'Bulan':str(data.month),'Nama Material':safe(i.name),'SKU PX':safe(i.sku),
@@ -95,5 +106,5 @@
   }
   xlsx.writeFile(book,filename.endsWith('.xlsx')?filename:filename+'.xlsx');
  }
- return {materials,usage,daily,monthly,verification,workbook};
+ return {materials,usage,daily,weekly,monthly,verification,workbook};
 });

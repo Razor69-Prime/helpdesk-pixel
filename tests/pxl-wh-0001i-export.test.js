@@ -68,6 +68,6 @@ test('UI offers export on all Warehouse tabs, export dependency loaded before UI
  assert.match(ui,/id="wh-export-excel"/);
  assert.match(ui,/exportWarehouseExcel/);
  for(const mode of ['materials','usage','daily','monthly','verify'])assert.match(ui,new RegExp("section==='"+mode+"'"));
- assert.ok(html.indexOf('/pxl-wh-0001i-export.js?v=PXL-WH-0001I')>0);
- assert.ok(html.indexOf('/pxl-wh-0001i-export.js')<html.indexOf('/pxl-wh-0001-ui.js?v=PXL-WH-0001K'));
+ assert.ok(html.indexOf('/pxl-wh-0001i-export.js?v=PXL-WH-0001L')>0);
+ assert.ok(html.indexOf('/pxl-wh-0001i-export.js')<html.indexOf('/pxl-wh-0001-ui.js?v=PXL-WH-0001L'));
 });

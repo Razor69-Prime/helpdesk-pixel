@@ -2681,6 +2681,21 @@ app.get('/api/warehouse/stock-ledger',requireAuth,async(req,res)=>{
   }catch(e){console.error('PXL-URG-0116C ledger read failed:',e.message);return res.status(503).json({error:'Laporan stok belum tersedia: '+e.message});}
 });
 
+// PXL-WH-0001L — read-only weekly stock for selected Monday-Sunday period.
+app.get('/api/warehouse/weekly-stock',requireAuth,async(req,res)=>{
+ const reminder=require('./pxl-urg-0116a-warehouse-reminder');
+ if(!reminder.canView(req.session?.user))return res.status(403).json({error:'Forbidden'});
+ const weekly=require('./pxl-wh-0001l-weekly');
+ const date=String(req.query.week_start||'');
+ if(!require('./pxl-urg-0116c-stock-ledger').validDate(date)||weekly.monday(date)!==date)
+  return res.status(400).json({error:'Awal minggu harus tanggal Senin yang valid (YYYY-MM-DD)'});
+ try{
+  const [catalog,transactions]=await Promise.all([db.getWarehouseOfficialCatalog(),db.getInventoryLedgerHistory()]);
+  const data=weekly.buildWeeklyLedger({items:catalog.filter(i=>i.id),transactions,weekStart:date});
+  res.setHeader('Cache-Control','no-store');return res.json(data);
+ }catch(e){console.error('Warehouse weekly stock read failed:',e.message);res.status(/mendatang|tanggal|minggu/i.test(e.message)?400:503).json({error:'Laporan Weekly Stock: '+e.message});}
+});
+
 // PXL-URG-0116B — warehouse admin queue and append-only inspection history.
 app.get('/api/warehouse/mr-review',requireAuth,async(req,res)=>{
   const mod=require('./pxl-urg-0116a-warehouse-reminder');

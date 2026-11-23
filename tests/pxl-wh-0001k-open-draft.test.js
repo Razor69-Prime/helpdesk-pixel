@@ -26,5 +26,5 @@ test('draft and finalize remain distinct, no inventory stock mutation',()=>{
  assert.match(ui,/Finalisasi Pemakaian/);
  assert.match(ui,/Kosongkan Qty/);
  assert.match(ui,/daily-usage\/drafts\/'.*?\/finalize/);
- assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001K/);
+ assert.match(html,/pxl-wh-0001-ui\.js\?v=PXL-WH-0001L/);
 });

@@ -21,7 +21,7 @@ function style(){
  const node=document.createElement('style');node.id='pxl-wh-0001-style';node.textContent=
  '.wh-box{padding:15px;border:1px solid var(--border,#ddd);border-radius:12px;margin:12px 0;background:var(--surface,#fff)}'+
  '.wh-tabs,.wh-tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.wh-btn{padding:8px 12px;border:1px solid var(--border,#ccc);border-radius:8px;cursor:pointer;background:var(--surface,#fff);color:inherit}.wh-btn.active{background:#24476b;color:white}'+
- '.wh-input{padding:8px;border:1px solid var(--border,#ccc);border-radius:8px;max-width:100%;background:var(--surface,#fff);color:inherit}.wh-catalog{position:relative;min-width:min(100%,350px);flex:1}.wh-catalog-input{width:100%;box-sizing:border-box}.wh-catalog-results{position:absolute;top:100%;left:0;right:0;max-height:300px;overflow-y:auto;z-index:100;background:var(--surface,#fff);border:1px solid var(--border,#ccc);border-radius:8px;box-shadow:0 10px 28px #0002}.wh-catalog-option{display:block;width:100%;padding:10px 12px;text-align:left;border:0;border-bottom:1px solid var(--border,#eee);background:transparent;color:inherit;cursor:pointer}.wh-catalog-option:hover,.wh-catalog-option:focus{background:var(--surface-hover,#edf2f7)}.wh-catalog-name{display:block;font-weight:650}.wh-catalog-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted,#64748b);margin-top:3px}.wh-probus{display:inline-block;border-radius:99px;padding:2px 7px;background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800}.wh-autofill-line{padding:9px 0;border-bottom:1px solid var(--border,#ddd)}.wh-scroll{max-width:100%;overflow-x:auto}.wh-table{width:100%;border-collapse:collapse;font-size:12px}.wh-table td,.wh-table th{padding:9px;text-align:left;border-bottom:1px solid var(--border,#ddd)}.wh-muted{color:var(--muted,#64748b);font-size:12px}.wh-table th{white-space:nowrap}';
+ '.wh-input{padding:8px;border:1px solid var(--border,#ccc);border-radius:8px;max-width:100%;background:var(--surface,#fff);color:inherit}.wh-catalog{position:relative;min-width:min(100%,350px);flex:1}.wh-catalog-input{width:100%;box-sizing:border-box}.wh-catalog-results{position:absolute;top:100%;left:0;right:0;max-height:300px;overflow-y:auto;z-index:100;background:var(--surface,#fff);border:1px solid var(--border,#ccc);border-radius:8px;box-shadow:0 10px 28px #0002}.wh-catalog-option{display:block;width:100%;padding:10px 12px;text-align:left;border:0;border-bottom:1px solid var(--border,#eee);background:transparent;color:inherit;cursor:pointer}.wh-catalog-option:hover,.wh-catalog-option:focus{background:var(--surface-hover,#edf2f7)}.wh-catalog-name{display:block;font-weight:650}.wh-catalog-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted,#64748b);margin-top:3px}.wh-probus{display:inline-block;border-radius:99px;padding:2px 7px;background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800}.wh-stock-moved{background:#e9f7ed;color:#155b37}.wh-stock-warning{background:#fff0d5;color:#92400e}.wh-stock-moved td{background:#e9f7ed;color:#155b37}.wh-stock-warning td{background:#fff0d5;color:#92400e}.wh-stock-tag{padding:5px 9px;border-radius:6px;font-size:12px}.wh-autofill-line{padding:9px 0;border-bottom:1px solid var(--border,#ddd)}.wh-scroll{max-width:100%;overflow-x:auto}.wh-table{width:100%;border-collapse:collapse;font-size:12px}.wh-table td,.wh-table th{padding:9px;text-align:left;border-bottom:1px solid var(--border,#ddd)}.wh-muted{color:var(--muted,#64748b);font-size:12px}.wh-table th{white-space:nowrap}';
  document.head.appendChild(node);
 }
 const table=(headers,body)=>'<div class="wh-scroll"><table class="wh-table"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
@@ -29,6 +29,20 @@ const num=v=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(Num
 const badge=()=>'<span class="wh-probus">PROBUS</span>';
 const mrSummary=record=>{const count=(record.mr_numbers||[]).length;return count?count+' MR':'-';};
 const technicianSummary=record=>(record.technicians||[]).join(', ')||'-';
+const weekShift=(day,days)=>{const d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);};
+const weekStart=day=>{const d=new Date(day+'T00:00:00Z');return weekShift(day,-((d.getUTCDay()+6)%7));};
+const stockMoved=item=>item.moved===true||Number(item.incoming)>0||Number(item.outgoing)>0;
+const stockQuality=item=>item.quality==='invalid_balance'?'Perlu rekonsiliasi':item.quality==='balance_mismatch'?'Saldo tidak cocok':item.quality==='verified'?'Sesuai':item.quality==='no_transaction_history'?'Tanpa riwayat':item.quality||'-';
+const stockColor=item=>item.quality==='invalid_balance'||item.quality==='balance_mismatch'?'wh-stock-warning':stockMoved(item)?'wh-stock-moved':'';
+const stockLegend=()=>'<div class="wh-tools wh-stock-legend"><span class="wh-stock-moved wh-stock-tag">● Ada pergerakan IN / OUT</span><span class="wh-stock-warning wh-stock-tag">● Perlu rekonsiliasi saldo</span><span class="wh-muted">Tanpa warna: tidak ada pergerakan.</span></div>';
+const stockTable=items=>table(['Material / SKU PX','Beginning','IN','OUT','Ending','Status'],(items||[]).map(item=>
+ '<tr class="'+stockColor(item)+'"><td>'+materialLabel(item)+'</td>'+
+ '<td>'+(item.opening==null?'-':num(item.opening))+'</td>'+
+ '<td>'+(item.incoming==null?'-':num(item.incoming))+'</td>'+
+ '<td>'+(item.outgoing==null?'-':num(item.outgoing))+'</td>'+
+ '<td>'+(item.closing==null?'-':num(item.closing))+'</td>'+
+ '<td>'+esc(stockQuality(item))+'</td></tr>').join('')||'<tr><td colspan="6">Belum ada material resmi yang terhubung ke Inventory.</td></tr>');
+
 const materialLabel=item=>'<span class="wh-catalog-name">'+esc(item.name||'-')+'</span><span class="wh-catalog-meta">'+esc(item.sku||'SKU belum dipetakan')+' '+(String(item.sku||'').startsWith('PX-')?badge():'')+'</span>';
 // Custom results instead of native datalist: display material name ABOVE the PX SKU + badge.
 function initCatalogPicker(host,inputId,resultId,onSelect){
@@ -70,13 +84,14 @@ function initCatalogPicker(host,inputId,resultId,onSelect){
 function render(){
  style();const el=root();if(!el)return;
  el.innerHTML='<div class="wh-box"><strong>📦 Warehouse Monitoring</strong><div class="wh-muted">Monitoring independen · SO / WO semua status · tanpa mutasi stok atau perubahan Close WO</div><div class="wh-tabs">'+
- [['materials','Material per SO / WO'],['usage','Daily Material Usage'],['daily','Daily Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+
+ [['materials','Material per SO / WO'],['usage','Daily Material Usage'],['daily','Daily Stock'],['weekly','Weekly Stock'],['monthly','Monthly OUT'],['verify','Stock Verification']].map(v=>'<button class="wh-btn '+(section===v[0]?'active':'')+'" data-section="'+v[0]+'">'+v[1]+'</button>').join('')+
  '<button type="button" class="wh-btn wh-export" id="wh-export-excel" title="Unduh laporan tab ini sebagai Excel">⬇ Export Excel</button></div><p id="wh-export-message" class="wh-muted" role="status"></p></div><div id="wh-content"></div>';
  el.querySelectorAll('[data-section]').forEach(btn=>btn.onclick=()=>{section=btn.dataset.section;selected=null;render();});
  el.querySelector('#wh-export-excel').onclick=exportWarehouseExcel;
  if(section==='materials')renderMaterials();
  else if(section==='usage')renderUsage();
  else if(section==='daily')renderDaily();
+ else if(section==='weekly')renderWeekly();
  else if(section==='monthly')renderMonthly();
  else renderVerify();
 }
@@ -106,6 +121,10 @@ async function exportWarehouseExcel(){
    const selectedDate=host.querySelector('#wh-date')?.value||date;
    const report=await req('GET','stock-ledger?date='+encodeURIComponent(selectedDate));
    sheets=helper.daily(report);prefix='Warehouse_Daily_Stock';suffix=selectedDate;
+  }else if(section==='weekly'){
+   const selectedWeek=weekStart(host.querySelector('#wh-week-start')?.value||weekStart(date));
+   const report=await req('GET','weekly-stock?week_start='+encodeURIComponent(selectedWeek));
+   sheets=helper.weekly(report);prefix='Warehouse_Weekly_Stock';suffix=report.week_start+'_'+report.through_date;
   }else if(section==='monthly'){
    const selectedMonth=host.querySelector('#wh-month')?.value||month;
    const report=await req('GET','monthly-out?month='+encodeURIComponent(selectedMonth));
@@ -402,12 +421,35 @@ async function renderUsage(){
 
 async function renderDaily(){
  const host=root().querySelector('#wh-content');
- host.innerHTML='<div class="wh-box"><strong>Daily Stock IN / OUT</strong><p class="wh-muted">SKU resmi PX; saldo bermasalah akan ditandai untuk rekonsiliasi, tanpa mengubah stok.</p><div class="wh-tools"><input type="date" class="wh-input" id="wh-date" value="'+esc(date)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div><div id="wh-result"></div></div>';
+ host.innerHTML='<div class="wh-box"><strong>Daily Stock IN / OUT</strong><p class="wh-muted">SKU resmi PX · IN/OUT tanggal yang dipilih · saldo bermasalah ditandai tanpa mengubah Inventory.</p>'+
+ '<div class="wh-tools"><input type="date" class="wh-input" id="wh-date" value="'+esc(date)+'"><button class="wh-btn" id="wh-load">Tampilkan</button></div>'+
+ stockLegend()+'<div id="wh-result"></div></div>';
  host.querySelector('#wh-load').onclick=async()=>{
   date=host.querySelector('#wh-date').value;const dest=host.querySelector('#wh-result');dest.textContent='Memuat...';
-  try{const d=await req('GET','stock-ledger?date='+encodeURIComponent(date));dest.innerHTML=(d.quality_warning?'<p class="wh-muted">Perhatian: '+num(d.invalid_count||0)+' item dengan saldo tidak valid. Perlu rekonsiliasi; data saldo tidak diubah.</p>':'')+
-   table(['SKU PX / Barang','Beginning','IN','OUT','Ending','Status'],(d.items||[]).map(i=>'<tr><td>'+esc(i.sku)+' — '+esc(i.name)+'</td><td>'+(i.opening==null?'-':num(i.opening))+'</td><td>'+(i.incoming==null?'-':num(i.incoming))+'</td><td>'+(i.outgoing==null?'-':num(i.outgoing))+'</td><td>'+(i.closing==null?'-':num(i.closing))+'</td><td>'+esc(i.quality==='invalid_balance'?'Perlu rekonsiliasi':i.quality==='verified'?'Sesuai':i.quality==='no_transaction_history'?'Tanpa riwayat':i.quality)+'</td></tr>').join('')||'<tr><td colspan="6">Belum ada material resmi yang terhubung ke Inventory.</td></tr>');}
+  try{const data=await req('GET','stock-ledger?date='+encodeURIComponent(date));
+   dest.innerHTML=(data.invalid_count?'<p class="wh-muted">Perhatian: '+num(data.invalid_count)+' item perlu rekonsiliasi. Data stok tidak diubah.</p>':'')+
+   '<p class="wh-muted">Item dengan pergerakan ditandai hijau.</p>'+stockTable(data.items);}
   catch(e){dest.textContent=e.message;}
+ };
+}
+async function renderWeekly(){
+ const host=root().querySelector('#wh-content');
+ const monday=weekStart(date);
+ host.innerHTML='<div class="wh-box"><strong>Weekly Stock IN / OUT</strong><p class="wh-muted">Pilih tanggal apa pun dalam minggu; periode dihitung Senin–Minggu. Beginning = saldo awal Senin, Ending = saldo akhir Minggu atau hari ini jika minggu berjalan.</p>'+
+ '<div class="wh-tools"><input type="date" class="wh-input" id="wh-week-start" value="'+esc(monday)+'" aria-label="Pilih minggu laporan"><button class="wh-btn" id="wh-week-load">Tampilkan Minggu</button></div>'+
+ stockLegend()+'<div id="wh-week-result"></div></div>';
+ host.querySelector('#wh-week-load').onclick=async()=>{
+  const input=host.querySelector('#wh-week-start'),dest=host.querySelector('#wh-week-result');
+  const selected=weekStart(input.value);input.value=selected;dest.textContent='Memuat...';
+  try{
+   const data=await req('GET','weekly-stock?week_start='+encodeURIComponent(selected));
+   date=selected;
+   dest.innerHTML='<p><b>Periode: '+esc(data.week_start)+' s.d. '+esc(data.week_end)+'</b>'+
+    (data.partial?' <span class="wh-muted">(minggu berjalan; transaksi sampai '+esc(data.through_date)+')</span>':'')+'</p>'+
+    '<p class="wh-muted">'+num(data.movement_count||0)+' item memiliki pergerakan IN/OUT.'+
+    (data.invalid_count?' '+num(data.invalid_count)+' item perlu rekonsiliasi.':'')+'</p>'+
+    stockTable(data.items);
+  }catch(e){dest.textContent=e.message;}
  };
 }
 async function renderMonthly(){
