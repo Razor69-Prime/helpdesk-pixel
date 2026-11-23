@@ -35,6 +35,6 @@ test('SO and WO both accepted and daily usage does not auto-submit from suggesti
  assert.match(ui,/\['materials','Material per SO \/ WO'\]/) // ensure old tab is retained
 });
 test('matching helper loads before Warehouse UI and UI cache version changes',()=>{
- assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')>=0);
- assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001F')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001I'));
+ assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001J')>=0);
+ assert.ok(html.indexOf('pxl-wh-0001d-matching.js?v=PXL-WH-0001J')<html.indexOf('pxl-wh-0001-ui.js?v=PXL-WH-0001J'));
 });

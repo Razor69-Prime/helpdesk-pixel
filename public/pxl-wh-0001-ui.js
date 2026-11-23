@@ -214,12 +214,12 @@ async function renderUsage(){
   refreshSummary();
  };
  const appendLine=(item,planned_qty=0,source='MANUAL')=>{
-  if(!item||!allowWrite||editingDoc?.status==='FINAL')return;
+  if(!item||!allowWrite||editingDoc?.status==='FINAL')return false;
   const existing=draftLines.find(x=>x.item.sku===item.sku);
-  if(existing){msg.textContent='Material sudah ada pada daftar. Isi Qty USED pada baris tersebut.';return;}
-  if(draftLines.length>=100){msg.textContent='Maksimum 100 baris per penyimpanan.';return;}
+  if(existing){msg.textContent='Material sudah ada pada daftar. Isi Qty USED pada baris tersebut.';return false;}
+  if(draftLines.length>=100){msg.textContent='Maksimum 100 baris per penyimpanan.';return false;}
   draftLines.push({item,planned_qty,source,rawQty:'',note:''});
-  setDirty();drawLines();
+  setDirty();drawLines();return true;
  };
  const onJobSelected=()=>{
   const record=selectedJob;
@@ -238,10 +238,27 @@ async function renderUsage(){
    if(existing)existing.planned_qty+=p.planned_qty;
    else draftLines.push({item:p.catalog_item,planned_qty:p.planned_qty,source:p.source,rawQty:'',note:''});
   }
+  const suggestions=missing.map(p=>matcher.suggestOfficial?.({name:p.name},inventory,3)||[]);
   auto.innerHTML='<p><b>Autofill '+mapped.length+' material PROBUS</b> dari SO/WO/MR. Qty rencana bukan Qty USED; isi Qty aktual pada tabel, lalu Simpan Draft.</p>'+
    (!proposals.length?'<p>Belum ada material pada SO/WO tersebut. Tambahkan material dari katalog PROBUS.</p>':'')+
-   (missing.length?'<div class="wh-muted">'+missing.length+' material belum terpetakan otomatis:</div>'+
-   missing.map(p=>'<div class="wh-autofill-line">'+esc(p.name)+' · Qty rencana '+num(p.planned_qty)+' '+esc(p.unit)+' · pilih SKU PX secara manual</div>').join(''):'');
+   (missing.length?'<div class="wh-muted">'+missing.length+' material belum terpetakan otomatis. Kandidat hanya saran dan tidak dipilih otomatis:</div>'+
+   missing.map((p,i)=>'<div class="wh-autofill-line"><strong>'+esc(p.name)+'</strong> · Qty rencana '+num(p.planned_qty)+' '+esc(p.unit)+
+    (suggestions[i].length?'<div class="wh-muted">Periksa tipe, ukuran dan satuan sebelum memilih SKU:</div>'+
+     suggestions[i].map((candidate,j)=>'<div class="wh-tools" style="gap:7px;margin:5px 0">'+
+      '<div>'+materialLabel(candidate.item)+'</div>'+
+      '<button type="button" class="wh-btn" data-wh-suggest="'+i+':'+j+'" '+(!allowWrite?'disabled':'')+'>Pilih Kandidat</button></div>').join(''):
+     '<div class="wh-muted">Belum ada kandidat yang aman. Cari SKU PX resmi secara manual, jangan pilih produk lain hanya karena namanya mirip.</div>')+
+    '</div>').join(''):'');
+  auto.querySelectorAll('[data-wh-suggest]').forEach(button=>button.onclick=()=>{
+   const [i,j]=button.dataset.whSuggest.split(':').map(Number);
+   const candidate=suggestions[i]?.[j]?.item,original=missing[i];
+   if(!candidate||!original)return;
+   if(appendLine(candidate,original.planned_qty,'KONFIRMASI SO/WO')){
+    button.textContent='Sudah dipilih';
+    button.disabled=true;
+    msg.textContent='Kandidat '+candidate.sku+' ditambahkan ke Draft setelah konfirmasi. Periksa Qty USED sebelum Simpan Draft.';
+   }
+  });
   drawLines();updateDocumentStatus();
  };
  const selectJob=r=>{
