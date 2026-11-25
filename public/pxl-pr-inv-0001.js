@@ -200,8 +200,12 @@
       const native=window.showPRForm;
       window.showPRForm=function(){
         const out=native.apply(this,arguments);
-        loadCatalog().then(()=>decorateAll());
-        decorateAll();
+        // PXL-URG-0144: 0031H may preload suppliers asynchronously before it
+        // creates PR rows. Propagate the promise instead of decorating the
+        // previous form's rows (which silently corrupts edit hydration).
+        const decorate=()=>{decorateAll();loadCatalog().then(()=>decorateAll());};
+        if(out&&typeof out.then==='function')return out.then(value=>{decorate();return value;});
+        decorate();
         return out;
       };
       window.showPRForm.__pxlPrInv=true;
