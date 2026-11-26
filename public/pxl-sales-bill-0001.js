@@ -30,13 +30,22 @@
  const root=()=>$('pxl-sales-wo-billing-root');
  function init(){style();if(!root())return;root().innerHTML=`<div class="swb-head"><div><h2 style="margin:0">🔔 Reminder Nota Work Order</h2><div class="swb-hint">Monitoring WO selesai · nota manual dibuat di luar PixelApps · tidak memengaruhi closing WO</div></div><button class="swb-btn" id="swb-refresh">↻ Refresh</button></div><div id="swb-content">Memuat...</div>`;$('swb-refresh').onclick=load}
  function summary(){const pending=rows.filter(r=>r.status==='pending_note'),review=rows.filter(r=>r.status==='needs_review'),noted=rows.filter(r=>r.status==='noted');return {pending,review,noted,amount:pending.reduce((n,r)=>n+Number(r.revenue_amount||0),0)}}
- function draw(){const host=$('swb-content');if(!host)return;const sum=summary();const q=search.trim().toLowerCase();const visible=rows.filter(r=>{
-  const match=!q||[r.wo_number,r.so_number,r.customer_name,r.project_name,r.sales_pic].join(' ').toLowerCase().includes(q);
-  const status=statusFilter==='open'?['needs_review','pending_note'].includes(r.status):statusFilter==='all'||r.status===statusFilter;
-  return match&&status;
- });
+ function filterRows(data,statusFilter,query){
+  const q=String(query||'').trim().toLowerCase();
+  const filtered=data.filter(r=>{
+    const match=!q||[r.wo_number,r.so_number,r.customer_name,r.project_name,r.sales_pic].join(' ').toLowerCase().includes(q);
+    const status=statusFilter==='open'?['needs_review','pending_note'].includes(r.status)
+      :statusFilter==='has_revenue'?Number(r.revenue_amount)>0
+      :statusFilter==='all'||r.status===statusFilter;
+    return match&&status;
+  });
+  // The additional omzet filter is ordered by largest recognized omzet first.
+  if(statusFilter==='has_revenue')filtered.sort((a,b)=>Number(b.revenue_amount)-Number(a.revenue_amount)||String(a.wo_number).localeCompare(String(b.wo_number)));
+  return filtered;
+ }
+ function draw(){const host=$('swb-content');if(!host)return;const sum=summary();const visible=filterRows(rows,statusFilter,search);
  host.innerHTML=`<div class="swb-grid"><div class="swb-card"><small>WO Selesai Termonitor</small><b>${rows.length}</b></div><div class="swb-card"><small>Belum Konfirmasi Nota</small><b>${sum.pending.length}</b></div><div class="swb-card"><small>Perlu Verifikasi Omzet</small><b>${sum.review.length}</b></div><div class="swb-card"><small>Nilai WO Belum Konfirmasi</small><b style="font-size:20px">${format(sum.amount)}</b></div></div>
- <div class="swb-toolbar"><input id="swb-search" placeholder="Cari nomor WO, customer, SO, Sales PIC" value="${esc(search)}" style="flex:1;min-width:200px"><select id="swb-filter"><option value="open">Belum Selesai (semua)</option><option value="pending_note">Belum Nota</option><option value="needs_review">Perlu Verifikasi</option><option value="noted">Sudah Nota</option><option value="no_revenue">Tidak Beromzet</option><option value="all">Semua Status</option></select></div>
+ <div class="swb-toolbar"><input id="swb-search" placeholder="Cari nomor WO, customer, SO, Sales PIC" value="${esc(search)}" style="flex:1;min-width:200px"><select id="swb-filter"><option value="open">Belum Selesai (semua)</option><option value="pending_note">Belum Nota</option><option value="needs_review">Perlu Verifikasi</option><option value="noted">Sudah Nota</option><option value="no_revenue">Tidak Beromzet</option><option value="has_revenue">Sudah Ada Omzet</option><option value="all">Semua Status</option></select></div>
  <div class="swb-hint" style="margin-bottom:7px">${visible.length} WO sesuai filter. Nominal bersifat indikasi omzet, bukan piutang resmi. Nota manual lama tidak terdeteksi otomatis; konfirmasikan statusnya.</div>
  <div class="swb-scroll"><table class="swb-table"><thead><tr><th>WO / Tanggal WO</th><th>Customer / Pekerjaan</th><th>Sales PIC</th><th>Omzet</th><th>Status Nota</th><th>Aksi</th></tr></thead><tbody>${visible.slice(0,120).map(r=>`<tr><td><b>${esc(r.wo_number)}</b><div class="swb-muted">${esc(asDate(r.work_date))}</div><div class="swb-muted">${esc(r.so_number||'Tanpa SO')}</div></td><td>${esc(r.customer_name)}<div class="swb-muted">${esc(r.project_name)}</div></td><td>${esc(r.sales_pic||'Belum ada PIC')}</td><td>${format(r.revenue_amount)}</td><td><span class="swb-pill">${esc(labels[r.status]||r.status)}</span>${r.note_number?'<div class="swb-muted">Nota '+esc(r.note_number)+'</div>':''}${r.updated_at?'<div class="swb-muted">'+esc(r.updated_by||'')+' · '+esc(asDate(r.updated_at))+'</div>':''}</td><td><button class="swb-btn" data-edit="${esc(r.wo_id)}" ${readOnly?'disabled':''}>Tindak Lanjut</button><button class="swb-btn" data-history="${esc(r.wo_id)}">Riwayat</button></td></tr>`).join('')||'<tr><td colspan="6">Tidak ada WO yang sesuai filter.</td></tr>'}</tbody></table></div>${visible.length>120?'<div class="swb-hint">Menampilkan 120 pertama; gunakan pencarian untuk WO lainnya.</div>':''}<div id="swb-edit-host"></div>`;
  $('swb-filter').value=statusFilter;$('swb-filter').onchange=e=>{statusFilter=e.target.value;draw()};$('swb-search').oninput=e=>{search=e.target.value;const start=e.target.selectionStart;draw();$('swb-search')?.focus();$('swb-search')?.setSelectionRange(start,start)};
@@ -52,7 +61,7 @@
  }catch(e){const target=$('swb-error');if(target)target.textContent=e.message||'Gagal menyimpan';}finally{if(btn.isConnected)btn.disabled=false}}
  async function history(id){const r=rows.find(x=>x.wo_id===id);if(!r)return;const box=$('swb-edit-host');box.innerHTML='<div class="swb-edit">Memuat riwayat...</div>';try{const data=await window.api('GET','/sales-wo-reminder/'+encodeURIComponent(id)+'/history');box.innerHTML='<div class="swb-edit"><b>Riwayat '+esc(r.wo_number)+'</b><button class="swb-btn" id="swb-close">Tutup</button>'+(data.length?data.map(x=>'<p class="swb-hint">'+esc(asDateTime(x.created_at))+' · '+esc(x.actor)+' · '+esc(labels[x.status]||x.status)+' · '+format(x.revenue_amount)+' · '+esc(x.note_number||x.reason||'')+'</p>').join(''):'<p>Belum ada konfirmasi manual.</p>')+'</div>';$('swb-close').onclick=()=>box.replaceChildren();}catch(e){box.textContent='Gagal memuat riwayat: '+e.message}box.scrollIntoView({behavior:'smooth',block:'nearest'})}
  async function load(){if(loading||!root())return;loading=true; if(!$('swb-content'))init();const host=$('swb-content');if(host)host.textContent='Memuat WO selesai...';try{const data=await window.api('GET','/sales-wo-reminder');rows=Array.isArray(data.rows)?data.rows:[];readOnly=!!data.read_only;badge();draw()}catch(e){if(host)host.textContent='Gagal memuat reminder: '+e.message}finally{loading=false}}
- window.PXL_SALES_BILL_0001={load,init};
+ window.PXL_SALES_BILL_0001={load,init,filterRows};
  document.addEventListener('DOMContentLoaded',init);
  setTimeout(init,0);
 })();
