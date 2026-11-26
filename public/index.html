@@ -1517,6 +1517,9 @@ body,.topbar,.sidebar,.app-content,button,input,select,textarea{font-family:'Int
       <iframe id="crm-frame" title="CRM Pixel Solusindo" style="width:100%;height:calc(100vh - 70px);border:0;background:var(--bg)" loading="lazy"></iframe>
     </div>
 
+    <!-- PXL-SALES-BILL-0001 — sales manual note tracking, independent from invoice -->
+    <div id="tab-sales_wo_reminder" class="tab-content"><div id="pxl-sales-wo-billing-root"></div></div>
+
     <!-- TAB: SALES ORDER -->
     <div id="tab-sales_order" class="tab-content" style="padding:0">
       <iframe id="sales-order-frame" title="Sales Order Pixel Solusindo" style="width:100%;height:calc(100vh - 70px);border:0;background:var(--bg)" loading="lazy"></iframe>
@@ -4256,6 +4259,7 @@ function buildNav(){
     {id:'project_documentation',label:'📷 Dokumentasi Project',show:isSuperAdmin},
     {id:'crm',       label:'🤝 CRM', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'sales_order',label:'🧾 Sales Order', show: role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
+    {id:'sales_wo_reminder',label:'🔔 Reminder Nota WO',show:role==='sales'||role==='admin'||isManager||isSuperAdmin||role==='accounting'},
     {id:'supplier',  label:'🏪 Master Supplier',  show: isSuperAdmin||role==='accounting'||isManager||myPrRoles.includes('supplier_admin')},
   ];
 
@@ -4275,6 +4279,11 @@ function buildNav(){
     tabs=ALL_TAB_DEFS.filter(t=>effective.includes(t.id) && t.id!=='users' && t.id!=='banner_promo');
   }
 
+  // PXL-SALES-BILL-0001 — core Sales reminder available to Sales, Manager and Admin.
+  if(['sales','manager','admin','accounting','superadmin'].includes(role)&&!tabs.some(t=>t.id==='sales_wo_reminder')){
+    const def=ALL_TAB_DEFS.find(t=>t.id==='sales_wo_reminder');if(def)tabs.push({...def,show:true});
+  }
+  if(!['sales','manager','admin','accounting','superadmin'].includes(role))tabs=tabs.filter(t=>t.id!=='sales_wo_reminder');
   // Warehouse screen strictly restricted to internal staff; no technician exposure.
   const warehouseConfigured=customMenus.includes('warehouse_access_configured');
   const canWarehouse=isSuperAdmin||(
@@ -4307,7 +4316,7 @@ function buildNav(){
   const NAV_GROUPS=[
     {label:'Ringkasan & Kinerja', ids:['dashboard','kpi']},
     {label:'Operasional Teknisi', ids:['report','tickets','survey_results','service_center','materials']},
-    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','project_documentation','crm','sales_order']},
+    {label:'Sales & Proyek', ids:['sales','kunjungan','projects','project_documentation','crm','sales_order','sales_wo_reminder']},
     {label:'Accounting & Piutang', ids:['invoice','piutang']},
     {label:'Keuangan & Pengadaan', ids:['pr','supplier']},
     {label:'Gudang', ids:['inventory','warehouse_mr']},
@@ -4459,6 +4468,7 @@ function switchTab(tab,btn){
   syncActiveNavGroup();
   if(tab==='crm'){ const frame=document.getElementById('crm-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/crm.html?v=PXL-CRM-0001-FILTER';frame.dataset.loaded='1';}else sendModuleToken(frame); }
   if(tab==='sales_order'){ const frame=document.getElementById('sales-order-frame'); if(frame&&!frame.dataset.loaded){frame.addEventListener('load',()=>sendModuleToken(frame));frame.src='/sales-order.html?v=PXL-REV-0046';frame.dataset.loaded='1';}else sendModuleToken(frame); }
+  if(tab==='sales_wo_reminder')window.PXL_SALES_BILL_0001?.load();
   if(tab==='dashboard') loadDashboard();
   if(tab==='tickets'){
     if(!allTickets.length) loadTickets(true);
@@ -13295,6 +13305,7 @@ setInterval(()=>{
 <script src="/pxl-attendance-v1.js?v=PXL-ATT-0008"></script>
 <script src="/pxl-sys-0001b-cloudinary-reminder.js?v=PXL-SYS-0001B"></script><script src="/pxl-doc-0001.js?v=PXL-DOC-0001"></script><script src="/pxl-vnext-3d-project-photos.js?v=PXL-URG-0116G"></script><script src="/pxl-stg-0016-project-report.js?v=PXL-VNEXT-3D"></script><script src="/pxl-vnext-3a-project-detail.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-internal-po.js?v=PXL-VNEXT-IPO1"></script><script src="/pxl-vnext-3b-project-mr.js?v=PXL-VNEXT-3D4"></script><script src="/pxl-stg-0017-kpi-teknisi.js?v=PXL-STG-0017"></script><script src="/pxl-stg-0018-kpi-dashboard.js?v=PXL-STG-0018"></script><script src="/pxl-stg-0019-branding.js?v=PXL-STG-0019"></script><script src="/pxl-stg-0020-optimization.js?v=PXL-STG-0020"></script><script src="/pxl-stg-0020b-uat-fix.js?v=PXL-STG-0020C"></script><script src="/pxl-urg-0076-system-tools.js?v=PXL-SYS-0002A"></script><script src="/pxl-urg-0077-service-center.js?v=PXL-SVC-HDR-0001"></script><script src="/pxl-urg-0086-package-recipes.js?v=PXL-URG-0098C"></script>
 <script src="/pxl-pr-inv-0001.js?v=PXL-URG-0144"></script>
+<script src="/pxl-sales-bill-0001.js?v=PXL-SALES-BILL-0001"></script>
 <script src="/pxl-urg-0144-pr-edit-integrity.js?v=PXL-URG-0144"></script>
 <script src="/pxl-vnext-2c-survey-flow.js?v=PXL-URG-0111"></script>
 <script src="/pxl-urg-0018-account-permission-explicit-override.js?v=PXL-VNEXT-3B2A"></script>

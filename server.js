@@ -1151,6 +1151,9 @@ app.delete('/api/suppliers/:id', requireRole(...SUPPLIER_ROLES), async (req,res)
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
+// PXL-SALES-BILL-0001 — separate manual-note reminder (no WO/Invoice mutation).
+require('./pxl-sales-bill-0001-api')(app,{db,requireAuth});
+
 // ══════════════════════════════════════════
 //  PURCHASE REQUEST
 // ══════════════════════════════════════════
